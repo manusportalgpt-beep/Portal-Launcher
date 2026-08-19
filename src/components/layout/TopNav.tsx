@@ -36,7 +36,9 @@ function DockButton({ item, vertical, scale = 100 }: { item: NavItem; vertical: 
   const activeIndicator = useUiStore(s => s.navActiveIndicator);
   const labels = useUiStore(s => s.navLabels);
   const hoverIndicator = useUiStore(s => s.navHoverIndicator);
+  const interactionShape = useUiStore(s => s.navInteractionShape);
   const uiMode = useUiStore(s => s.uiMode);
+  const interactionRadius = interactionShape === 'circle' ? '999px' : 'var(--radius-sm)';
   const label = t(`nav.${item.labelKey}`);
   const showLabel = labels === 'always';
   return (
@@ -46,14 +48,16 @@ function DockButton({ item, vertical, scale = 100 }: { item: NavItem; vertical: 
       title={label}
       data-testid={`nav-${item.labelKey}`}
       className="group relative flex items-center justify-center gap-1.5 px-1.5"
-      style={{ width: showLabel ? 'auto' : 36 * scale / 100, minWidth: 36 * scale / 100, height: 32 * scale / 100, borderRadius: uiMode === 'old' ? 'var(--radius-sm)' : 'var(--radius-button)' }}
+      style={{ width: showLabel ? 'auto' : 36 * scale / 100, minWidth: 36 * scale / 100, height: 32 * scale / 100, borderRadius: interactionRadius }}
     >
       {({ isActive }) => (
         <>
           <span className="absolute inset-0 transition-colors"
-            style={{ borderRadius: uiMode === 'old' ? 'var(--radius-sm)' : 'var(--radius-button)', background: isActive ? activeIndicator === 'pill' ? 'var(--color-primary)' : uiMode === 'old' ? 'var(--color-surface-2)' : 'var(--color-primary-dim)' : 'transparent' }} />
+            style={{ borderRadius: interactionRadius, background: isActive ? activeIndicator === 'pill' ? 'var(--color-primary)' : uiMode === 'old' ? 'var(--color-surface-2)' : 'var(--color-primary-dim)' : 'transparent' }} />
           <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100"
             style={{ border: hoverIndicator === 'none' ? '0 solid transparent' : '1px solid color-mix(in srgb, var(--color-primary) 72%, transparent)', borderRadius: hoverIndicator === 'circle' ? '999px' : 'var(--radius-sm)', background: hoverIndicator === 'none' ? 'transparent' : 'color-mix(in srgb, var(--color-primary) 7%, transparent)' }} />
+          <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-100 group-active:opacity-100"
+            style={{ borderRadius: interactionRadius, background: 'color-mix(in srgb, var(--color-primary) 18%, transparent)' }} />
           <Icon size={16} strokeWidth={2} shapeRendering="geometricPrecision" vectorEffect="non-scaling-stroke" className="relative shrink-0" style={{
             position: 'relative',
             color: isActive ? activeIndicator === 'pill' ? 'var(--color-primary-text)' : 'var(--color-primary)' : 'var(--color-text-secondary)',

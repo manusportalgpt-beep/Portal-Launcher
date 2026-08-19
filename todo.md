@@ -676,3 +676,10 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the attached full request implementation to GitHub main.
 
 ---
+
+# Navigation interaction shape
+
+- [x] Verify the existing Appearance hover shape setting and add an independent square/round selection for active and pressed navigation states in both Notch Panel and Sidebar.
+- [x] Run TypeScript only and commit/push the navigation interaction shape update to GitHub main.
+
+---

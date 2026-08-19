@@ -488,6 +488,10 @@ function AppearanceSection() {
       <SegRow label={t('settings.appearanceUi.hoverIndicator')} desc={t('settings.appearanceUi.hoverIndicatorDescription')} value={ui.navHoverIndicator}
         options={[{ id:'square', label:t('settings.appearanceUi.square') }, { id:'circle', label:t('settings.appearanceUi.circle') }, { id:'none', label:t('settings.appearanceUi.none') }]}
         onChange={v => ui.set('navHoverIndicator', v as any)} />
+      <SegRow label="Форма нажатия" desc="Форма активного элемента и короткого эффекта при нажатии в Notch Panel и Sidebar"
+        value={ui.navInteractionShape}
+        options={[{ id:'square', label:t('settings.appearanceUi.square') }, { id:'circle', label:t('settings.appearanceUi.circle') }]}
+        onChange={v => ui.set('navInteractionShape', v as any)} />
       <SegRow label={t('settings.appearanceUi.navigationLabels')} desc={t('settings.appearanceUi.navigationLabelsDescription')} value={ui.navLabels}
         options={[{ id:'icons', label:t('settings.appearanceUi.icons') }, { id:'hover', label:t('settings.appearanceUi.hover') }, { id:'always', label:t('settings.appearanceUi.always') }]}
         onChange={v => ui.set('navLabels', v as any)} />

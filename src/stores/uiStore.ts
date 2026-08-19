@@ -15,6 +15,7 @@ export type NavBorder = 'none' | 'subtle' | 'strong';
 export type NavActiveIndicator = 'line' | 'dot' | 'pill';
 export type NavLabels = 'icons' | 'hover' | 'always';
 export type NavHoverIndicator = 'square' | 'circle' | 'none';
+export type NavInteractionShape = 'square' | 'circle';
 export type SearchDetailReturnPosition = 'remember' | 'top' | 'bottom';
 
 export interface UiState {
@@ -106,6 +107,8 @@ export interface UiState {
   navLabels: NavLabels;
   /** Форма hover-обводки навигационного элемента */
   navHoverIndicator: NavHoverIndicator;
+  /** Форма активного и нажатого элемента навигации */
+  navInteractionShape: NavInteractionShape;
   /** Ширина рабочей области между навигацией и краями окна, % */
   contentWidth: number;
   /** Внутренний отступ рабочей области, px */
@@ -175,6 +178,7 @@ const defaults = {
   navActiveIndicator: 'line' as NavActiveIndicator,
   navLabels: 'icons' as NavLabels,
   navHoverIndicator: 'square' as NavHoverIndicator,
+  navInteractionShape: 'circle' as NavInteractionShape,
   contentWidth: 100,
   contentInset: 0,
   titlebarHeight: 32,

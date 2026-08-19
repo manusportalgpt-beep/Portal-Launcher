@@ -555,6 +555,6 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Redesign Discover and Find Projects with compact themed filters, clear content hierarchy, source-neutral icons and no hard-coded accent colours.
 - [x] Redesign Settings and utility pages with clearer sections, theme-aware controls and preserved existing settings behavior.
 - [x] Keep the Instances/library page layout unchanged except for necessary navigation cleanup.
-- [ ] Run TypeScript and production build, then commit and push the completed simplification/redesign to GitHub main.
+- [x] Run TypeScript and production build, then commit and push the completed simplification/redesign to GitHub main.
 
 ---

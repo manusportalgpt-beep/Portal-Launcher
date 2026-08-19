@@ -195,6 +195,7 @@ fn main() {
             commands::curseforge::get_curseforge_mod,
             // Skins
             commands::skins::get_current_skin,
+            commands::skins::lookup_public_skin,
             commands::skins::upload_skin,
             commands::skins::upload_skin_bytes,
             commands::skins::get_profile_textures,

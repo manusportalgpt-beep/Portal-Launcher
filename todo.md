@@ -568,3 +568,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only, then commit and push the repair to GitHub main.
 
 ---
+
+# Skin Studio import and animation polish
+
+- [x] Add Minecraft skin import by nickname using a public texture lookup with clear loading and unavailable states.
+- [x] Highlight the selected skin preset with a fixed green selection state independent from launcher themes.
+- [x] Add a short skin application sequence: turn, white transition, particles, then applied texture.
+- [x] Add smooth cursor-follow head rotation to the 3D skin preview with reduced-motion safe behavior.
+- [x] Run TypeScript only and commit/push the Skin Studio polish to GitHub main.
+
+---

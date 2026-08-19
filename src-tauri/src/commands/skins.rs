@@ -1,10 +1,82 @@
 use serde::{Deserialize, Serialize};
 
+use base64::Engine as _;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct SkinInfo {
     pub url: String,
     pub variant: String, // "classic" or "slim"
     pub texture_id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PublicSkinTexture {
+    pub uuid: String,
+    pub name: String,
+    pub skin_url: String,
+    pub skin_variant: String,
+    pub skin_bytes: Vec<u8>,
+}
+
+/// Resolve a publicly visible Minecraft skin by player nickname. This is
+/// read-only: it requests Mojang's public profile and texture payload, then
+/// returns the signed texture URL and declared model for a local preset preview.
+#[tauri::command]
+pub async fn lookup_public_skin(username: String) -> Result<PublicSkinTexture, String> {
+    let name = username.trim();
+    if name.is_empty() || name.len() > 16 || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        return Err("Введите корректный Minecraft ник: 1–16 символов, буквы, цифры и _.".to_string());
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .user_agent("PortalLauncher/1.3")
+        .build()
+        .map_err(|e| format!("Не удалось создать HTTP client: {e}"))?;
+    let profile = client
+        .get(format!("https://api.mojang.com/users/profiles/minecraft/{name}"))
+        .send().await
+        .map_err(|e| format!("Не удалось найти игрока: {e}"))?;
+    if profile.status() == reqwest::StatusCode::NO_CONTENT || profile.status() == reqwest::StatusCode::NOT_FOUND {
+        return Err("Игрок с таким ником не найден или не имеет публичного профиля.".to_string());
+    }
+    if !profile.status().is_success() {
+        return Err(format!("Minecraft profile API вернул HTTP {}", profile.status()));
+    }
+    let profile: serde_json::Value = profile.json().await
+        .map_err(|e| format!("Не удалось прочитать профиль игрока: {e}"))?;
+    let uuid = profile["id"].as_str().unwrap_or("").to_string();
+    let resolved_name = profile["name"].as_str().unwrap_or(name).to_string();
+    if uuid.is_empty() { return Err("Minecraft profile не вернул UUID игрока.".to_string()); }
+
+    let session = client
+        .get(format!("https://sessionserver.mojang.com/session/minecraft/profile/{uuid}"))
+        .send().await
+        .map_err(|e| format!("Не удалось получить texture profile: {e}"))?;
+    if !session.status().is_success() {
+        return Err(format!("Minecraft texture API вернул HTTP {}", session.status()));
+    }
+    let session: serde_json::Value = session.json().await
+        .map_err(|e| format!("Не удалось прочитать texture profile: {e}"))?;
+    let value = session["properties"].as_array()
+        .and_then(|items| items.iter().find(|item| item["name"].as_str() == Some("textures")))
+        .and_then(|item| item["value"].as_str())
+        .ok_or("У игрока нет доступной public skin texture.")?;
+    let decoded = base64::engine::general_purpose::STANDARD.decode(value)
+        .map_err(|e| format!("Не удалось decode texture payload: {e}"))?;
+    let textures: serde_json::Value = serde_json::from_slice(&decoded)
+        .map_err(|e| format!("Не удалось прочитать texture payload: {e}"))?;
+    let skin = &textures["textures"]["SKIN"];
+    let skin_url = skin["url"].as_str().unwrap_or("").to_string();
+    if skin_url.is_empty() { return Err("У игрока нет public skin texture.".to_string()); }
+    let skin_variant = if skin["metadata"]["model"].as_str() == Some("slim") { "slim" } else { "classic" };
+    let skin_bytes = client.get(&skin_url).send().await
+        .map_err(|e| format!("Не удалось скачать skin texture: {e}"))?
+        .bytes().await
+        .map_err(|e| format!("Не удалось прочитать skin texture: {e}"))?
+        .to_vec();
+    validate_minecraft_skin_png(&skin_bytes)?;
+    Ok(PublicSkinTexture { uuid, name: resolved_name, skin_url, skin_variant: skin_variant.to_string(), skin_bytes })
 }
 
 /// Get the active skin for the current authenticated user.

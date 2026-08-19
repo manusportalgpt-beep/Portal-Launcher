@@ -33,6 +33,10 @@ interface Props {
   autoRotate?: boolean;
   /** Базовая дистанция камеры для больших стендов. */
   cameraDistance?: number;
+  /** Изменение этого значения запускает короткую анимацию применения скина. */
+  applySequence?: number;
+  /** Голова модели плавно следует за курсором внутри стенда. */
+  trackCursor?: boolean;
 }
 
 const TEX_W = 64;
@@ -102,6 +106,8 @@ export function SkinStand3D({
   interactive = true,
   autoRotate = false,
   cameraDistance = 60,
+  applySequence = 0,
+  trackCursor = false,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<any>(null);
@@ -121,7 +127,7 @@ export function SkinStand3D({
     renderer.domElement.style.width = '100%';
     renderer.domElement.style.height = '100%';
     renderer.domElement.style.cursor = interactive ? 'grab' : 'default';
-    renderer.domElement.style.pointerEvents = interactive ? 'auto' : 'none';
+    renderer.domElement.style.pointerEvents = interactive || trackCursor ? 'auto' : 'none';
     renderer.domElement.style.display = 'block';
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.92));
@@ -135,7 +141,7 @@ export function SkinStand3D({
     const player = new THREE.Group();
     scene.add(player);
 
-    const st: any = { scene, camera, renderer, player, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [] };
+    const st: any = { scene, camera, renderer, player, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [], applyStartedAt: 0, particle: null, headTargetYaw: 0, headTargetPitch: 0 };
     stateRef.current = st;
 
     const resize = () => {
@@ -154,6 +160,13 @@ export function SkinStand3D({
       renderer.domElement.style.cursor = 'grabbing';
     };
     const onMove = (e: PointerEvent) => {
+      if (trackCursor) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        const nx = Math.max(-1, Math.min(1, ((e.clientX - rect.left) / Math.max(rect.width, 1) - 0.5) * 2));
+        const ny = Math.max(-1, Math.min(1, ((e.clientY - rect.top) / Math.max(rect.height, 1) - 0.5) * 2));
+        st.headTargetYaw = nx * 0.34;
+        st.headTargetPitch = -ny * 0.18;
+      }
       if (!st.drag) return;
       st.yaw += (e.clientX - st.drag.x) * 0.01;
       st.pitch = Math.max(-0.6, Math.min(0.6, st.pitch + (e.clientY - st.drag.y) * 0.006));
@@ -168,9 +181,11 @@ export function SkinStand3D({
       st.zoom = Math.max(38, Math.min(96, st.zoom + e.deltaY * 0.045));
       camera.position.z = st.zoom;
     };
+    if (interactive || trackCursor) {
+      renderer.domElement.addEventListener('pointermove', onMove);
+    }
     if (interactive) {
       renderer.domElement.addEventListener('pointerdown', onDown);
-      window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
       renderer.domElement.addEventListener('wheel', onWheel, { passive:false });
     }
@@ -182,6 +197,40 @@ export function SkinStand3D({
       if (autoRotate && !st.drag) st.yaw += 0.0035;
       player.rotation.y = st.yaw;
       player.rotation.x = st.pitch;
+      if (st.head) {
+        const follow = trackCursor ? 0.16 : 0.11;
+        st.head.rotation.y += ((trackCursor ? st.headTargetYaw : 0) - st.head.rotation.y) * follow;
+        st.head.rotation.x += ((trackCursor ? st.headTargetPitch : 0) - st.head.rotation.x) * follow;
+      }
+      if (st.applyStartedAt) {
+        const progress = Math.min(1, (performance.now() - st.applyStartedAt) / 560);
+        if (progress < 0.26) {
+          scene.overrideMaterial = st.whiteMaterial;
+        } else {
+          scene.overrideMaterial = null;
+        }
+        const turn = Math.sin(Math.min(1, progress / 0.74) * Math.PI) * Math.PI * 1.25;
+        player.rotation.y = st.yaw + turn;
+        const pulse = 1 + Math.sin(Math.min(1, progress / 0.5) * Math.PI) * 0.045;
+        player.scale.setScalar(pulse);
+        if (st.particle) {
+          st.particle.visible = progress > 0.16 && progress < 0.92;
+          st.particle.rotation.y += 0.085;
+          st.particle.position.y = 1.5 + progress * 4;
+          st.particle.material.opacity = Math.max(0, 1 - Math.max(0, progress - 0.18) / 0.74);
+        }
+        if (progress >= 1) {
+          scene.overrideMaterial = null;
+          player.scale.setScalar(1);
+          st.applyStartedAt = 0;
+          if (st.particle) {
+            player.remove(st.particle);
+            st.particle.geometry.dispose();
+            st.particle.material.dispose();
+            st.particle = null;
+          }
+        }
+      }
       player.position.y = Math.sin(t * 1.4) * 0.35;
       if (st.arms) {
         st.arms.left.rotation.x = Math.sin(t * 1.2) * 0.08;
@@ -195,9 +244,11 @@ export function SkinStand3D({
     return () => {
       cancelAnimationFrame(st.raf);
       ro.disconnect();
+      if (interactive || trackCursor) {
+        renderer.domElement.removeEventListener('pointermove', onMove);
+      }
       if (interactive) {
         renderer.domElement.removeEventListener('pointerdown', onDown);
-        window.removeEventListener('pointermove', onMove);
         window.removeEventListener('pointerup', onUp);
         renderer.domElement.removeEventListener('wheel', onWheel);
       }
@@ -207,11 +258,39 @@ export function SkinStand3D({
       });
       st.tex?.dispose?.();
       st.capeTex?.dispose?.();
+      st.whiteMaterial?.dispose?.();
+      st.particle?.geometry?.dispose?.();
+      st.particle?.material?.dispose?.();
       renderer.dispose();
       host.removeChild(renderer.domElement);
       stateRef.current = null;
     };
-  }, [height, initialYaw, interactive, autoRotate, cameraDistance]);
+  }, [height, initialYaw, interactive, autoRotate, cameraDistance, trackCursor]);
+
+  useEffect(() => {
+    const st = stateRef.current;
+    if (!st || !applySequence || !st.player) return;
+    st.applyStartedAt = performance.now();
+    st.whiteMaterial?.dispose?.();
+    st.whiteMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    if (st.particle) {
+      st.player.remove(st.particle);
+      st.particle.geometry.dispose();
+      st.particle.material.dispose();
+    }
+    const points = new Float32Array(72 * 3);
+    for (let index = 0; index < 72; index += 1) {
+      points[index * 3] = (Math.random() - 0.5) * 15;
+      points[index * 3 + 1] = (Math.random() - 0.5) * 24;
+      points[index * 3 + 2] = (Math.random() - 0.5) * 10;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(points, 3));
+    const material = new THREE.PointsMaterial({ color: 0xffffff, size: 0.42, transparent: true, opacity: 0.92, depthWrite: false });
+    st.particle = new THREE.Points(geometry, material);
+    st.particle.visible = false;
+    st.player.add(st.particle);
+  }, [applySequence]);
 
   // Перестройка модели: смена скина, типа тела или плаща.
   useEffect(() => {
@@ -265,6 +344,7 @@ export function SkinStand3D({
       const head = new THREE.Group();
       head.position.set(0, 12, 0);
       st.player.add(head);
+      st.head = head;
       add(boxPart([8, 8, 8], [0, 0]), solid(), [0, 0, 0], head);
       if (overlay) add(boxPart([8, 8, 8], [32, 0], 0.6), layer(), [0, 0, 0], head);
 

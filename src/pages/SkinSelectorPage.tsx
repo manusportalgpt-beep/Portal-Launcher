@@ -3,7 +3,7 @@ import { invoke } from '@/lib/invoke-shim';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Check, User, AlertCircle, RotateCcw, Shirt, Sparkles,
-  X, Loader2, ImageIcon, Layers, Trash2, Pencil,
+  X, Loader2, ImageIcon, Layers, Trash2, Pencil, Search,
 } from 'lucide-react';
 import { useAuthStore, useCurrentUser } from '@/stores/authStore';
 import { SkinStand3D, type SkinModel } from '@/components/skin/SkinStand3D';
@@ -12,6 +12,9 @@ import { useUiStore } from '@/stores/uiStore';
 interface CapeInfo { id: string; url: string; alias: string; active: boolean }
 interface ProfileTextures {
   uuid: string; name: string; skin_url: string; skin_variant: string; capes: CapeInfo[];
+}
+interface PublicSkinTexture {
+  uuid: string; name: string; skin_url: string; skin_variant: string; skin_bytes: number[];
 }
 
 const STEVE_UUID = '8667ba71-b85a-4004-af54-457a9734eed7';
@@ -231,6 +234,10 @@ export function SkinSelectorPage() {
   const [applying, setApplying] = useState(false);
   const [previewError, setPreviewError] = useState('');
   const [skinHistory, setSkinHistory] = useState<SavedSkin[]>(loadSkinHistory);
+  const [nickname, setNickname] = useState('');
+  const [nicknameLoading, setNicknameLoading] = useState(false);
+  const [selectedSkinId, setSelectedSkinId] = useState<string | null>(null);
+  const [applySequence, setApplySequence] = useState(0);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -307,6 +314,34 @@ export function SkinSelectorPage() {
     setPending({ dataUrl, bytes, textureHash });
   };
 
+  const importSkinByNickname = async () => {
+    const requestedName = nickname.trim();
+    if (!requestedName) { setError('Введите ник игрока.'); return; }
+    setNicknameLoading(true); setError('');
+    try {
+      const found = await invoke<PublicSkinTexture>('lookup_public_skin', { username: requestedName });
+      const validation = validateMinecraftSkinPng(found.skin_bytes);
+      if (validation) throw new Error(validation);
+      const blob = new Blob([new Uint8Array(found.skin_bytes)], { type: 'image/png' });
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      setPendingModel(found.skin_variant === 'slim' ? 'slim' : 'classic');
+      setPendingName(`${found.name} — skin`);
+      setPendingCapeId(activeCape?.id ?? null);
+      setPreviewError('');
+      setSelectedSkinId(null);
+      setPending({ dataUrl, bytes: found.skin_bytes, textureHash: await hashTexture(found.skin_bytes) });
+    } catch (e: any) {
+      setError(String(e?.message ?? 'Не удалось загрузить скин игрока.'));
+    } finally {
+      setNicknameLoading(false);
+    }
+  };
+
   const applyPending = async () => {
     if (!pending || !canEdit) return;
     setApplying(true); setPreviewError('');
@@ -324,8 +359,11 @@ export function SkinSelectorPage() {
       setProfile({ ...updated, capes });
       updateAccount(user!.uuid, { accessToken: requestToken, skinUrl: updated.skin_url });
       const selectedCape = capes.find(cape => cape.id === validCapeId) ?? null;
-      rememberAppliedSkin({ id: makeSkinId(), name: pendingName.trim() || 'New skin', dataUrl: pending.dataUrl, textureHash: pending.textureHash, model: pendingModel, capeId: selectedCape?.id ?? null, capeUrl: selectedCape?.url ?? null, savedAt: Date.now() });
+      const appliedSkinId = makeSkinId();
+      rememberAppliedSkin({ id: appliedSkinId, name: pendingName.trim() || 'New skin', dataUrl: pending.dataUrl, textureHash: pending.textureHash, model: pendingModel, capeId: selectedCape?.id ?? null, capeUrl: selectedCape?.url ?? null, savedAt: Date.now() });
+      setSelectedSkinId(appliedSkinId);
       setModel(pendingModel);
+      setApplySequence(sequence => sequence + 1);
       setPending(null);
       setRefreshKey(k => k + 1);
       flash('Скин применён. Перезапустите Minecraft, чтобы он сразу получил новую текстуру.');
@@ -341,6 +379,7 @@ export function SkinSelectorPage() {
       const response = await fetch(skin.dataUrl);
       const bytes = Array.from(new Uint8Array(await response.arrayBuffer()));
       const textureHash = skin.textureHash ?? await hashTexture(bytes);
+      setSelectedSkinId(skin.id);
       setPendingModel(skin.model);
       setPendingName(skin.name);
       setPendingCapeId(skin.capeId ?? null);
@@ -390,7 +429,7 @@ export function SkinSelectorPage() {
             <div className="overflow-hidden" style={{ ...card, borderRadius: 'var(--radius-modal)' }}>
               <div className="relative" style={{ background: 'radial-gradient(ellipse at 50% 15%, color-mix(in srgb, var(--color-primary) 18%, var(--color-surface-2)) 0%, var(--color-bg) 78%)' }}>
                 {ui.showSkinStandName && <div className="pointer-events-none absolute inset-x-0 top-5 z-10 text-center"><span className="inline-flex px-3 py-1.5 text-xs font-bold" style={{ borderRadius: 999, color: 'var(--color-text)', background: 'color-mix(in srgb, var(--color-surface) 84%, transparent)', border: '1px solid var(--color-border)', backdropFilter: 'blur(12px)' }}>{profile?.name || user?.username || 'Steve'}</span></div>}
-                <SkinStand3D skinUrl={liveSkinUrl} capeUrl={activeCape?.url ?? null} model={model} height={440} cameraDistance={70} autoRotate={false} />
+                <SkinStand3D skinUrl={liveSkinUrl} capeUrl={activeCape?.url ?? null} model={model} height={440} cameraDistance={70} autoRotate={false} applySequence={applySequence} trackCursor />
               </div>
               <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid var(--color-border)' }}>
                 <div className="min-w-0">
@@ -458,6 +497,22 @@ export function SkinSelectorPage() {
             </div>
 
             <div className="p-4" style={card}>
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ background:'var(--color-primary-dim)', color:'var(--color-primary)' }}><Search className="h-4 w-4" /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>Скин по нику</p>
+                  <p className="mt-0.5 text-[11px] leading-4" style={{ color:'var(--color-text-secondary)' }}>Введите ник Minecraft: загрузится публичная текстура игрока, затем её можно назвать, проверить и применить как пресет.</p>
+                  <div className="mt-3 flex gap-2">
+                    <input value={nickname} maxLength={16} onChange={event => setNickname(event.target.value.replace(/[^A-Za-z0-9_]/g, ''))} onKeyDown={event => { if (event.key === 'Enter') void importSkinByNickname(); }} placeholder="Ник Minecraft" className="min-w-0 flex-1 px-3 py-2.5 text-sm outline-none" style={{ borderRadius:'var(--radius-button)', background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }} />
+                    <button onClick={() => void importSkinByNickname()} disabled={!canEdit || nicknameLoading} className="flex shrink-0 items-center gap-1.5 px-3 py-2 text-xs font-bold" style={{ borderRadius:'var(--radius-button)', background:'var(--color-primary)', color:'var(--color-primary-text)', opacity: !canEdit || nicknameLoading ? 0.55 : 1 }}>
+                      {nicknameLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}{nicknameLoading ? 'Ищем…' : 'Загрузить'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4" style={card}>
               <div className="flex items-center justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Мои пресеты</p><p className="mt-0.5 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>После применения скин автоматически сохраняется как ваш пресет.</p></div><span className="shrink-0 px-2 py-1 text-[10px] font-bold" style={{ borderRadius: 999, background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>{skinHistory.length}/{MAX_AUTO_SKINS}</span></div>
               <div className="mt-2 flex items-center gap-3 rounded-xl p-2.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg" style={{ background: 'var(--color-surface)' }}>
@@ -465,7 +520,30 @@ export function SkinSelectorPage() {
                 </div>
                 <div><p className="text-xs font-bold" style={{ color: 'var(--color-text)' }}>Никаких предустановленных Steve, Alex или чужих текстур.</p><p className="mt-0.5 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>Ваша текстура не дублируется, если она уже была сохранена.</p></div>
               </div>
-              {skinHistory.length > 0 && <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">{skinHistory.map(skin => <div key={skin.id} className="group overflow-hidden p-1.5" style={{ borderRadius: 'var(--radius-card)', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}><button onClick={() => void selectHistorySkin(skin)} disabled={!canEdit} title="Открыть и применить пресет" className="w-full text-left"><div className="relative h-28 overflow-hidden rounded-lg" style={{ background: 'radial-gradient(ellipse at 50% 15%, var(--color-surface) 0%, var(--color-bg) 100%)' }}><SkinStand3D skinUrl={skin.dataUrl} capeUrl={skin.capeUrl ?? null} model={skin.model} height={112} cameraDistance={78} initialYaw={0.45} interactive={false} autoRotate /></div><div className="px-1 pt-2"><span className="block truncate text-[11px] font-bold" style={{ color: 'var(--color-text)' }}>{skin.name}</span><span className="block truncate pt-0.5 text-[9px]" style={{ color: 'var(--color-text-secondary)' }}>{skin.model === 'slim' ? 'Slim' : 'Classic'}{skin.capeUrl ? ' · Cape' : ''}</span></div></button><div className="flex gap-1 px-1 pb-1 pt-1"><button onClick={() => void selectHistorySkin(skin)} disabled={!canEdit} title="Редактировать пресет" className="flex h-6 flex-1 items-center justify-center" style={{ borderRadius: 7, color: 'var(--color-primary)', background: 'var(--color-primary-dim)' }}><Pencil className="h-3 w-3" /></button><button onClick={() => deleteHistorySkin(skin)} title="Удалить пресет" className="flex h-6 w-7 items-center justify-center" style={{ borderRadius: 7, color: 'var(--color-error)', background: 'color-mix(in srgb, var(--color-error) 12%, transparent)' }}><Trash2 className="h-3 w-3" /></button></div></div>)}</div>}
+              {skinHistory.length > 0 && (
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+                  {skinHistory.map(skin => {
+                    const selected = skin.id === selectedSkinId;
+                    return (
+                      <div key={skin.id} className="group overflow-hidden p-1.5" style={{ borderRadius: 'var(--radius-card)', background: 'var(--color-surface-2)', border: `2px solid ${selected ? '#37D67A' : 'var(--color-border)'}`, boxShadow: selected ? '0 0 0 1px rgba(55,214,122,.22), 0 8px 22px rgba(55,214,122,.16)' : 'none' }}>
+                        <button onClick={() => void selectHistorySkin(skin)} disabled={!canEdit} title="Открыть и применить пресет" className="w-full text-left">
+                          <div className="relative h-28 overflow-hidden rounded-lg" style={{ background: 'radial-gradient(ellipse at 50% 15%, var(--color-surface) 0%, var(--color-bg) 100%)' }}>
+                            <SkinStand3D skinUrl={skin.dataUrl} capeUrl={skin.capeUrl ?? null} model={skin.model} height={112} cameraDistance={78} initialYaw={0.45} interactive={false} autoRotate />
+                          </div>
+                          <div className="px-1 pt-2">
+                            <span className="block truncate text-[11px] font-bold" style={{ color: 'var(--color-text)' }}>{skin.name}</span>
+                            <span className="block truncate pt-0.5 text-[9px]" style={{ color: selected ? '#37D67A' : 'var(--color-text-secondary)' }}>{selected ? 'Выбран' : skin.model === 'slim' ? 'Slim' : 'Classic'}{skin.capeUrl ? ' · Cape' : ''}</span>
+                          </div>
+                        </button>
+                        <div className="flex gap-1 px-1 pb-1 pt-1">
+                          <button onClick={() => void selectHistorySkin(skin)} disabled={!canEdit} title="Редактировать пресет" className="flex h-6 flex-1 items-center justify-center" style={{ borderRadius: 7, color: 'var(--color-primary)', background: 'var(--color-primary-dim)' }}><Pencil className="h-3 w-3" /></button>
+                          <button onClick={() => deleteHistorySkin(skin)} title="Удалить пресет" className="flex h-6 w-7 items-center justify-center" style={{ borderRadius: 7, color: 'var(--color-error)', background: 'color-mix(in srgb, var(--color-error) 12%, transparent)' }}><Trash2 className="h-3 w-3" /></button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

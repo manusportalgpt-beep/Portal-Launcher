@@ -1061,11 +1061,12 @@ pub async fn list_update_snapshots(instance_id: String) -> Result<Vec<UpdateSnap
 pub async fn restore_update_snapshot(instance_id: String, snapshot_id: String, mod_id: Option<String>) -> Result<u32, String> {
     let manifest = snapshot_manifest_path(&instance_id, &snapshot_id)?;
     let raw = std::fs::read_to_string(&manifest).map_err(|e| format!("Read update snapshot: {e}"))?;
-    let snapshot: UpdateSnapshot = serde_json::from_str(&raw).map_err(|e| format!("Read update snapshot data: {e}"))?;
+    let mut snapshot: UpdateSnapshot = serde_json::from_str(&raw).map_err(|e| format!("Read update snapshot data: {e}"))?;
     let selected: Vec<&UpdateSnapshotEntry> = snapshot.entries.iter().filter(|entry| {
         mod_id.as_deref().map(|id| id == entry.mod_id || id == entry.mod_name).unwrap_or(true)
     }).collect();
     if selected.is_empty() { return Err("No matching mod was found in this update snapshot".to_string()); }
+    let restored_ids: Vec<String> = selected.iter().map(|entry| entry.mod_id.clone()).collect();
 
     // Verify every old artifact before changing any current file.
     for entry in &selected {
@@ -1091,6 +1092,18 @@ pub async fn restore_update_snapshot(instance_id: String, snapshot_id: String, m
         std::fs::rename(&temp, &target).map_err(|e| format!("Activate restored file: {e}"))?;
         replace_instance_mod_entry(&instance_id, &entry.updated.file_name, &entry.previous);
         restored += 1;
+    }
+    let snapshot_dir = update_snapshot_root(&instance_id).join(&snapshot.id);
+    if mod_id.is_none() {
+        std::fs::remove_dir_all(snapshot_dir).map_err(|e| format!("Remove restored update snapshot: {e}"))?;
+    } else {
+        snapshot.entries.retain(|entry| !restored_ids.iter().any(|id| id == &entry.mod_id));
+        if snapshot.entries.is_empty() {
+            std::fs::remove_dir_all(snapshot_dir).map_err(|e| format!("Remove restored update snapshot: {e}"))?;
+        } else {
+            let remaining = serde_json::to_string_pretty(&snapshot).map_err(|e| format!("Write remaining update snapshot: {e}"))?;
+            std::fs::write(manifest, remaining).map_err(|e| format!("Write remaining update snapshot: {e}"))?;
+        }
     }
     Ok(restored)
 }

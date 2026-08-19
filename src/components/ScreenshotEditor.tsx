@@ -51,20 +51,35 @@ export function ScreenshotEditor({ instanceId, fileName, imageUrl, onClose, onSa
   const [size, setSize] = useState(14);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [, setHistoryRevision] = useState(0);
+
+  useEffect(() => {
+    document.body.dataset.portalOverlay = 'screenshot-editor';
+    window.dispatchEvent(new Event('portal-overlay-change'));
+    return () => { delete document.body.dataset.portalOverlay; window.dispatchEvent(new Event('portal-overlay-change')); };
+  }, []);
 
   const pushHistory = () => {
     const canvas = canvasRef.current; if (!canvas) return;
     const next = canvas.toDataURL('image/png');
     const trimmed = historyRef.current.slice(0, historyIndexRef.current + 1);
     trimmed.push(next); if (trimmed.length > 30) trimmed.shift();
-    historyRef.current = trimmed; historyIndexRef.current = trimmed.length - 1; setDirty(true);
+    historyRef.current = trimmed; historyIndexRef.current = trimmed.length - 1; setDirty(true); setHistoryRevision(value => value + 1);
   };
   const restore = (data: string) => {
     const canvas = canvasRef.current; if (!canvas) return;
-    const image = new Image(); image.onload = () => { canvas.getContext('2d')?.drawImage(image, 0, 0); }; image.src = data;
+    const image = new Image(); image.onload = () => {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }; image.src = data;
   };
-  const undo = () => { if (historyIndexRef.current <= 0) return; historyIndexRef.current -= 1; restore(historyRef.current[historyIndexRef.current]); setDirty(true); };
-  const redo = () => { if (historyIndexRef.current >= historyRef.current.length - 1) return; historyIndexRef.current += 1; restore(historyRef.current[historyIndexRef.current]); setDirty(true); };
+  const undo = () => { if (historyIndexRef.current <= 0) return; historyIndexRef.current -= 1; restore(historyRef.current[historyIndexRef.current]); setDirty(historyIndexRef.current > 0); setHistoryRevision(value => value + 1); };
+  const redo = () => { if (historyIndexRef.current >= historyRef.current.length - 1) return; historyIndexRef.current += 1; restore(historyRef.current[historyIndexRef.current]); setDirty(historyIndexRef.current > 0); setHistoryRevision(value => value + 1); };
 
   useEffect(() => {
     const canvas = canvasRef.current; if (!canvas) return;
@@ -80,12 +95,13 @@ export function ScreenshotEditor({ instanceId, fileName, imageUrl, onClose, onSa
     return { x: Math.max(0, Math.min(canvas.width - 1, Math.floor((event.clientX - rect.left) * canvas.width / rect.width))), y: Math.max(0, Math.min(canvas.height - 1, Math.floor((event.clientY - rect.top) * canvas.height / rect.height))) };
   };
   const start = (event: PointerEvent<HTMLCanvasElement>) => {
+    event.preventDefault(); event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId); drawingRef.current = true;
     const canvas = canvasRef.current!; const ctx = canvas.getContext('2d')!; const p = point(event);
     if (tool === 'fill') { floodFill(ctx, p.x, p.y, color); pushHistory(); drawingRef.current = false; return; }
     ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = size; ctx.strokeStyle = tool === 'eraser' ? 'rgba(0,0,0,1)' : color; ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over'; ctx.lineTo(p.x + 0.1, p.y + 0.1); ctx.stroke();
   };
-  const move = (event: PointerEvent<HTMLCanvasElement>) => { if (!drawingRef.current || tool === 'fill') return; const ctx = canvasRef.current?.getContext('2d'); if (!ctx) return; const p = point(event); ctx.lineTo(p.x, p.y); ctx.stroke(); };
+  const move = (event: PointerEvent<HTMLCanvasElement>) => { event.stopPropagation(); if (!drawingRef.current || tool === 'fill') return; const ctx = canvasRef.current?.getContext('2d'); if (!ctx) return; const p = point(event); ctx.lineTo(p.x, p.y); ctx.stroke(); };
   const end = () => { if (!drawingRef.current) return; drawingRef.current = false; canvasRef.current?.getContext('2d')?.closePath(); pushHistory(); };
 
   const save = async () => {

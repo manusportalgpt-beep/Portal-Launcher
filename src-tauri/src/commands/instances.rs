@@ -621,6 +621,53 @@ fn modrinth_ids_from_download(url: &str) -> Option<(String, String)> {
     Some((parts.get(data + 1)?.to_string(), parts.get(versions + 1)?.to_string()))
 }
 
+async fn hydrate_modrinth_instance_mods(client: &reqwest::Client, mods: &mut [InstanceMod]) {
+    let lookup: Vec<(usize, String, String)> = mods.iter().enumerate()
+        .filter(|(_, item)| item.source.eq_ignore_ascii_case("modrinth") && !item.version_id.trim().is_empty())
+        .map(|(index, item)| (index, item.id.clone(), item.version_id.clone()))
+        .collect();
+
+    for chunk in lookup.chunks(6) {
+        let results = futures::future::join_all(chunk.iter().map(|(index, project_id, version_id)| {
+            let client = client.clone();
+            let project_id = project_id.clone();
+            let version_id = version_id.clone();
+            let index = *index;
+            async move {
+                let project = match client.get(format!("https://api.modrinth.com/v2/project/{project_id}")).send().await {
+                    Ok(response) => match response.error_for_status() { Ok(response) => response.json::<serde_json::Value>().await.ok(), Err(_) => None },
+                    Err(_) => None,
+                };
+                let version = match client.get(format!("https://api.modrinth.com/v2/version/{version_id}")).send().await {
+                    Ok(response) => match response.error_for_status() { Ok(response) => response.json::<serde_json::Value>().await.ok(), Err(_) => None },
+                    Err(_) => None,
+                };
+                let author = if let Some(team_id) = project.as_ref().and_then(|value| value["team"].as_str()) {
+                    match client.get(format!("https://api.modrinth.com/v2/team/{team_id}/members")).send().await {
+                        Ok(response) => match response.error_for_status() {
+                            Ok(response) => response.json::<serde_json::Value>().await.ok().and_then(|members| members.as_array().and_then(|people| people.iter().find(|person| person["role"].as_str() == Some("Owner")).or_else(|| people.first())).and_then(|member| member["user"]["username"].as_str().map(String::from))),
+                            Err(_) => None,
+                        },
+                        Err(_) => None,
+                    }
+                } else { None };
+                (index, project, version, author)
+            }
+        })).await;
+        for (index, project, version, author) in results {
+            let Some(item) = mods.get_mut(index) else { continue; };
+            if let Some(project) = project {
+                if let Some(title) = project["title"].as_str().filter(|value| !value.trim().is_empty()) { item.name = title.to_string(); }
+                if let Some(icon) = project["icon_url"].as_str().filter(|value| !value.trim().is_empty()) { item.icon_url = Some(icon.to_string()); }
+            }
+            if let Some(author) = author { item.author = Some(author); }
+            if let Some(version) = version {
+                if let Some(number) = version["version_number"].as_str().filter(|value| !value.trim().is_empty()) { item.version = number.to_string(); }
+            }
+        }
+    }
+}
+
 /// Reads a Modrinth pack before installation. The archive is downloaded only once;
 /// nothing is created in the instances directory until the user confirms installation.
 #[tauri::command]
@@ -923,7 +970,7 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String) ->
             mods.push(InstanceMod {
                 id: project_id.clone(),
                 name: fname.trim_end_matches(".jar").trim_end_matches(".zip").to_string(),
-                version: "imported".to_string(),
+                version: "—".to_string(),
                 version_id,
                 source: "modrinth".to_string(),
                 enabled: true,
@@ -936,6 +983,8 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String) ->
         let pct = 30 + (i as u64 * 65) / total_files.max(1) as u64;
         app.emit("instance-progress", serde_json::json!({"stage":"downloading","instance_id":new_id,"name":pack_name,"icon":icon_b64.as_deref(),"percent":pct,"message":format!("Downloaded {}/{}", i+1, total_files)})).ok();
     }
+
+    hydrate_modrinth_instance_mods(&client, &mut mods).await;
 
     // Пакет может состоять только из resourcepacks, shaders или datapacks.
     // Отсутствие JAR-модов не означает неудачный импорт, если файлы скачались.
@@ -1123,7 +1172,7 @@ async fn import_curseforge_modpack_from_archive(
                             mods.push(InstanceMod {
                                 id: project_id.to_string(),
                                 name: fname.trim_end_matches(".jar").to_string(),
-                                version: "imported".to_string(),
+                                version: file_id.to_string(),
                                 version_id: file_id.to_string(),
                                 source: "curseforge".to_string(),
                                 enabled: true,
@@ -1139,6 +1188,15 @@ async fn import_curseforge_modpack_from_archive(
             }
             Ok(_) => { failed += 1; }
             Err(e) => { log::warn!("CF modpack: не удалось получить ссылку для {project_id}/{file_id}: {e}"); failed += 1; }
+        }
+    }
+
+    for item in &mut mods {
+        let Ok(project_id) = item.id.parse::<u64>() else { continue; };
+        if let Ok(project) = crate::commands::curseforge::get_curseforge_mod(project_id, String::new()).await {
+            if !project.name.trim().is_empty() { item.name = project.name; }
+            item.author = project.authors.first().map(|author| author.name.clone());
+            item.icon_url = project.logo.map(|logo| logo.thumbnail_url);
         }
     }
 

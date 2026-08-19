@@ -1067,10 +1067,11 @@ function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported }: 
   return (
     <div
       className="relative h-full overflow-y-auto p-6"
+      onDragEnter={event => { if (Array.from(event.dataTransfer.types).includes('Files')) { event.preventDefault(); setDragOver(true); } }}
       onDragOver={event => { if (Array.from(event.dataTransfer.types).includes('Files')) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; setDragOver(true); } }}
       onDragLeave={event => { if (event.currentTarget === event.target) setDragOver(false); }}
       onDrop={event => { event.preventDefault(); void importDroppedArchives(event.dataTransfer.files); }}>
-      {dragOver && <div className="pointer-events-none fixed inset-4 z-[140] flex items-center justify-center rounded-3xl border-2 border-dashed" style={{ background:'color-mix(in srgb, var(--color-primary) 12%, transparent)', borderColor:'var(--color-primary)', color:'var(--color-primary)' }}><div className="rounded-2xl px-5 py-4 text-center" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}><Upload className="mx-auto mb-2 h-7 w-7" /><p className="text-sm font-black">{importing ? 'Импортируется…' : 'Перетащите сборку сюда'}</p><p className="mt-1 text-xs opacity-70">.mrpack или .zip</p></div></div>}
+      {dragOver && <motion.div initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.985 }} transition={{ duration: 0.16 }} className="pointer-events-none absolute inset-4 z-[140] flex items-center justify-center rounded-3xl border-2 border-dashed" style={{ background:'color-mix(in srgb, var(--color-primary) 14%, transparent)', borderColor:'var(--color-primary)', color:'var(--color-primary)', boxShadow:'0 0 0 6px color-mix(in srgb, var(--color-primary) 8%, transparent)' }}><div className="rounded-2xl px-6 py-5 text-center" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-lg)' }}><Upload className="mx-auto mb-2 h-8 w-8" /><p className="text-sm font-black">{importing ? 'Импортируется…' : 'Перетащите сборку сюда'}</p><p className="mt-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>.mrpack или .zip</p></div></motion.div>}
       {/* Toolbar */}
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         <button onClick={onNew}

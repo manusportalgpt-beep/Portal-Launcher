@@ -149,7 +149,7 @@ export function SkinStand3D({
     shadow.scale.set(1.36, 0.58, 1);
     shadow.position.set(0, -16.2, -0.5);
     scene.add(shadow);
-    const st: any = { scene, camera, renderer, player, shadow, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [], applyStartedAt: 0, particle: null, particleBase: null, headTargetYaw: 0, headTargetPitch: 0, bodyTargetYaw: 0, bodyTargetPitch: 0, bodyFollowYaw: 0, bodyFollowPitch: 0 };
+    const st: any = { scene, camera, renderer, player, shadow, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [], applyStartedAt: 0, particle: null, particleBase: null, headTargetYaw: 0, headTargetPitch: 0, bodyTargetYaw: 0, bodyTargetPitch: 0, bodyFollowYaw: 0, bodyFollowPitch: 0, legs: null };
     stateRef.current = st;
 
     const resize = () => {
@@ -262,7 +262,15 @@ export function SkinStand3D({
         st.arms.left.rotation.x = Math.sin(t * 1.12) * 0.075 + 0.018;
         st.arms.right.rotation.x = -Math.sin(t * 1.12) * 0.075 - 0.018;
       }
-      if (st.cape) st.cape.rotation.x = 0.18 + Math.sin(t * 1.1) * 0.05;
+      if (st.legs) {
+        const step = Math.sin(t * 1.12) * 0.035;
+        st.legs.left.rotation.x = step;
+        st.legs.right.rotation.x = -step;
+      }
+      if (st.cape) {
+        st.cape.rotation.x = 0.18 + Math.sin(t * 1.1) * 0.05;
+        st.cape.rotation.z = Math.sin(t * 0.72) * 0.016;
+      }
       renderer.render(scene, camera);
     };
     loop();
@@ -395,13 +403,19 @@ export function SkinStand3D({
       };
       st.arms = { right: mkArm('right'), left: mkArm('left') };
 
-      // Ноги
-      add(boxPart([4, 12, 4], [0, 16]), solid(), [-2, -10, 0], st.player);
-      add(boxPart([4, 12, 4], [16, 48]), solid(), [2, -10, 0], st.player);
-      if (overlay) {
-        add(boxPart([4, 12, 4], [0, 32], 0.5), layer(), [-2, -10, 0], st.player);
-        add(boxPart([4, 12, 4], [0, 48], 0.5), layer(), [2, -10, 0], st.player);
-      }
+      // Ноги: отдельные hip pivots дают лёгкий естественный перенос веса в idle.
+      const mkLeg = (side: 'left' | 'right') => {
+        const pivot = new THREE.Group();
+        const x = side === 'right' ? -2 : 2;
+        pivot.position.set(x, -4, 0);
+        st.player.add(pivot);
+        const uv: [number, number] = side === 'right' ? [0, 16] : [16, 48];
+        const overlayUv: [number, number] = side === 'right' ? [0, 32] : [0, 48];
+        add(boxPart([4, 12, 4], uv), solid(), [0, -6, 0], pivot);
+        if (overlay) add(boxPart([4, 12, 4], overlayUv, 0.5), layer(), [0, -6, 0], pivot);
+        return pivot;
+      };
+      st.legs = { right: mkLeg('right'), left: mkLeg('left') };
 
       // Плащ Minecraft: 10×16×1, UV лежат в левом верхнем участке 64×32.
       // Внешняя панель — x=12..21, внутренняя — x=1..10. Позиция и поворот

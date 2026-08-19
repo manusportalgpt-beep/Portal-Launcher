@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@/lib/invoke-shim';
 import { fetchMcVersionIds, MC_VERSIONS_FALLBACK } from '@/lib/mc-versions';
 import { toIconSrc } from '@/lib/icon-src';
+import { dialog } from '@/stores/dialogStore';
 
 const LOADERS = ['vanilla','fabric','forge','quilt','neoforge'] as const;
 const VERSIONS = ['1.21.1','1.21','1.20.6','1.20.4','1.20.1','1.19.4','1.18.2','1.16.5','1.12.2'];
@@ -58,13 +59,19 @@ function UpdateRollbackPanel({ instanceId }: { instanceId: string }) {
   useEffect(() => { void loadSnapshots(); }, [instanceId]);
 
   const restore = async (snapshot: UpdateSnapshot, modId?: string) => {
-    const subject = modId ? snapshot.entries.find(entry => entry.mod_id === modId)?.mod_name ?? 'this mod' : 'all mods from this update';
-    if (!window.confirm(`Restore ${subject} to the state before ${new Date(snapshot.timestamp).toLocaleString()}? Current updated files will be replaced.`)) return;
+    const subject = modId ? snapshot.entries.find(entry => entry.mod_id === modId)?.mod_name ?? 'этот мод' : 'все моды из этого обновления';
+    const approved = await dialog.confirm(`Восстановить ${subject} к состоянию до ${new Date(snapshot.timestamp).toLocaleString('ru-RU')}? Текущие обновлённые файлы будут заменены.`, { title:'Откат обновления', confirmLabel:'Восстановить', cancelLabel:'Отмена', danger:true });
+    if (!approved) return;
     const key = `${snapshot.id}:${modId ?? 'all'}`;
     setBusy(key);
     try {
       await invoke<number>('restore_update_snapshot', { instanceId, snapshotId: snapshot.id, modId: modId ?? null });
-      await loadSnapshots();
+      setSnapshots(previous => previous.flatMap(item => {
+        if (item.id !== snapshot.id) return [item];
+        if (!modId) return [];
+        const entries = item.entries.filter(entry => entry.mod_id !== modId);
+        return entries.length ? [{ ...item, entries }] : [];
+      }));
     } catch (reason) {
       setError(String(reason));
     } finally {

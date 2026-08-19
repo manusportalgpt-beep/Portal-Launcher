@@ -616,3 +616,16 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the ordered repair sequence to GitHub main.
 
 ---
+
+# Imported pack, screenshot editor and rollback regressions
+
+- [x] Hydrate imported pack content immediately with real Modrinth/CurseForge/local metadata: title, author, installed version and icon; never display the artificial Imported version label.
+- [x] Resolve and persist the imported pack cover before the Library/header/settings screens render, with Modrinth cover or the user-selected image as an honest fallback.
+- [x] Ensure the import drop zone becomes visibly active with a themed dashed target while a .mrpack or .zip is dragged over the Library.
+- [x] Make Screenshot Editor undo/redo restore the complete image state instead of clearing the canvas, and do not open Notch Panel from editor pointer interactions.
+- [x] Remove obsolete rollback confirmation UI, refresh the history after restore and remove fully restored update entries from the visible list.
+- [x] Make imported or reset instances hydrate their cover, settings and installed content reliably after reload without fabricated placeholders.
+- [x] Strengthen the 3D Skin Studio idle animation while preserving cursor tracking, reduced-motion behavior and quick apply feedback.
+- [x] Run TypeScript only and commit/push the regression repair to GitHub main.
+
+---

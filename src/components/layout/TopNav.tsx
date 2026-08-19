@@ -175,11 +175,16 @@ function NotchNav() {
   const visualPanelVersion = uiMode === 'old' ? 'old' : panelVersion;
   const items = orderedNav(navItemOrder);
   const [hover, setHover] = useState(false);
+  const [overlayOpen, setOverlayOpen] = useState(() => Boolean(document.body.dataset.portalOverlay));
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const openNotch = () => { if (closeTimer.current) clearTimeout(closeTimer.current); setHover(true); };
+  const openNotch = () => { if (overlayOpen) return; if (closeTimer.current) clearTimeout(closeTimer.current); setHover(true); };
   const scheduleClose = () => { if (closeTimer.current) clearTimeout(closeTimer.current); closeTimer.current = setTimeout(() => setHover(false), notchCloseDelay); };
-  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
-  const open = hover || notchPinned;
+  useEffect(() => {
+    const syncOverlay = () => setOverlayOpen(Boolean(document.body.dataset.portalOverlay));
+    window.addEventListener('portal-overlay-change', syncOverlay);
+    return () => { window.removeEventListener('portal-overlay-change', syncOverlay); if (closeTimer.current) clearTimeout(closeTimer.current); };
+  }, []);
+  const open = !overlayOpen && (hover || notchPinned);
   const vertical = notchSide === 'left' || notchSide === 'right';
   const isStart = notchSide === 'top' || notchSide === 'left';
   const align = navAlignment === 'start' ? 'flex-start' : navAlignment === 'end' ? 'flex-end' : 'center';

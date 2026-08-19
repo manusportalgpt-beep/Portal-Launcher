@@ -250,10 +250,17 @@ export function SkinStand3D({
           }
         }
       }
-      player.position.y = Math.sin(t * 1.4) * 0.35;
+      const idleLift = Math.sin(t * 1.35) * 0.28;
+      player.position.y = idleLift;
+      player.rotation.z = Math.sin(t * 0.68) * 0.012;
+      if (st.shadow) {
+        const shadowScale = 1 - idleLift * 0.075;
+        st.shadow.scale.set(1.36 * shadowScale, 0.58 * shadowScale, 1);
+        st.shadow.material.opacity = 0.25 - Math.max(0, idleLift) * 0.045;
+      }
       if (st.arms) {
-        st.arms.left.rotation.x = Math.sin(t * 1.2) * 0.08;
-        st.arms.right.rotation.x = -Math.sin(t * 1.2) * 0.08;
+        st.arms.left.rotation.x = Math.sin(t * 1.12) * 0.075 + 0.018;
+        st.arms.right.rotation.x = -Math.sin(t * 1.12) * 0.075 - 0.018;
       }
       if (st.cape) st.cape.rotation.x = 0.18 + Math.sin(t * 1.1) * 0.05;
       renderer.render(scene, camera);

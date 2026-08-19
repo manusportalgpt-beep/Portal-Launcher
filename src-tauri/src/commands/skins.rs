@@ -213,6 +213,7 @@ pub struct ProfileTextures {
     pub uuid: String,
     pub name: String,
     pub skin_url: String,
+    pub skin_bytes: Option<Vec<u8>>,
     pub skin_variant: String,
     pub capes: Vec<CapeInfo>,
 }
@@ -227,6 +228,7 @@ fn profile_textures_from_value(v: &serde_json::Value) -> ProfileTextures {
         uuid: v["id"].as_str().unwrap_or("").to_string(),
         name: v["name"].as_str().unwrap_or("").to_string(),
         skin_url: skin["url"].as_str().unwrap_or("").to_string(),
+        skin_bytes: None,
         skin_variant: skin["variant"].as_str().unwrap_or("CLASSIC").to_lowercase(),
         capes: parse_capes(v),
     }
@@ -304,7 +306,7 @@ pub async fn get_elyby_textures(username: String) -> Result<ProfileTextures, Str
     if resp.status() == reqwest::StatusCode::NO_CONTENT {
         return Ok(ProfileTextures {
             uuid: String::new(), name: username, skin_url: String::new(),
-            skin_variant: "classic".to_string(), capes: vec![],
+            skin_bytes: None, skin_variant: "classic".to_string(), capes: vec![],
         });
     }
     if !resp.status().is_success() {
@@ -314,6 +316,23 @@ pub async fn get_elyby_textures(username: String) -> Result<ProfileTextures, Str
     let v: serde_json::Value = resp.json().await.map_err(|e| format!("Ely.by parse error: {e}"))?;
 
     let skin_url = v["SKIN"]["url"].as_str().unwrap_or("").to_string();
+    let skin_bytes = if skin_url.is_empty() {
+        None
+    } else {
+        match client.get(&skin_url).send().await {
+            Ok(response) => match response.error_for_status() {
+                Ok(response) => match response.bytes().await {
+                    Ok(bytes) => {
+                        let bytes = bytes.to_vec();
+                        validate_minecraft_skin_png(&bytes).ok().map(|_| bytes)
+                    }
+                    Err(_) => None,
+                },
+                Err(_) => None,
+            },
+            Err(_) => None,
+        }
+    };
     let is_slim = v["SKIN"]["metadata"]["model"].as_str() == Some("slim");
     let cape_url = v["CAPE"]["url"].as_str().unwrap_or("").to_string();
     let capes = if cape_url.is_empty() { vec![] } else {
@@ -324,6 +343,7 @@ pub async fn get_elyby_textures(username: String) -> Result<ProfileTextures, Str
         uuid: String::new(),
         name: username,
         skin_url,
+        skin_bytes,
         skin_variant: if is_slim { "slim".to_string() } else { "classic".to_string() },
         capes,
     })

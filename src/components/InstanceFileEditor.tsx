@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Archive, CheckCircle2, ChevronRight, ExternalLink, FileCode2, FilePlus2, Folder, FolderCog, FolderOpen, FolderPlus, Home, ImagePlus, LoaderCircle, Map, PackagePlus, Pencil, Save, Search, Settings2, Share2, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Archive, CheckCircle2, ChevronRight, ExternalLink, FileCode2, FilePlus2, Folder, FolderCog, FolderOpen, FolderPlus, Home, ImagePlus, LoaderCircle, Map, PackagePlus, Pencil, Save, Search, Settings2, Share2, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
 import { invoke } from '@/lib/invoke-shim';
 import { dialog } from '@/stores/dialogStore';
 
@@ -50,6 +50,7 @@ function formatBytes(bytes?: number) {
 }
 
 type IntegrityReport = { gameReady: boolean; missingGameFiles: string[]; missingFolders: string[] };
+type MclogsDiagnosis = { url: string; errors: number; lines: number; title: string; summary: string; evidence: string[]; suggestions: string[] };
 
 export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChanged }: { instanceId: string; minecraftVersion?: string; onContentChanged?: () => void | Promise<void> }) {
   const [cwd, setCwd] = useState('');
@@ -63,6 +64,7 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
   const [integrity, setIntegrity] = useState<IntegrityReport | null>(null);
   const [checkingIntegrity, setCheckingIntegrity] = useState(false);
   const [publishingLog, setPublishingLog] = useState(false);
+  const [mclogsDiagnosis, setMclogsDiagnosis] = useState<MclogsDiagnosis | null>(null);
 
   const dirty = !!selected && content !== savedContent;
   const visible = useMemo(() => {
@@ -172,6 +174,15 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
       const diagnosisSummary = local ? `\n\nПричина: ${local.title || 'Причина обнаружена'}\n${local.summary || ''}${local.evidence?.length ? `\n\nСтроки лога:\n${local.evidence.map(line => `• ${line}`).join('\n')}` : ''}${local.suggestions?.length ? `\n\nЧто сделать:\n${local.suggestions.map(item => `• ${item}`).join('\n')}` : ''}` : '';
       const remoteText = remoteSummary ? `\n\nДополнительный анализ mclo.gs:\n${remoteSummary}` : '';
       const fallback = !local && !remoteSummary ? '\n\nПричина сбоя не определена по текущему логу. Это не означает, что ошибки нет: в отправленном тексте не найдено достаточных признаков.' : '';
+      setMclogsDiagnosis({
+        url: result.url,
+        errors: result.errors,
+        lines: result.lines,
+        title: local?.title || problems[0]?.message || 'Причина сбоя не определена',
+        summary: local?.summary || problems[0]?.solutions?.[0]?.message || 'В текущем логе недостаточно данных для точного вывода.',
+        evidence: local?.evidence || problems.map(problem => problem.message || '').filter(Boolean),
+        suggestions: local?.suggestions || problems.flatMap(problem => problem.solutions?.map(solution => solution.message || '').filter(Boolean) || []),
+      });
       await dialog.alert(`Ссылка: ${result.url}\n\nОшибок: ${result.errors}\nСтрок: ${result.lines}${diagnosisSummary || remoteText || fallback}`, { title: 'Лог отправлен в mclo.gs' });
     } catch (e) { setError(`Не удалось отправить лог в mclo.gs: ${String(e)}`); }
     finally { setPublishingLog(false); }
@@ -240,6 +251,18 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
         <div className="flex items-center gap-2 border-b px-3 py-2" style={{ borderColor: 'var(--color-border)' }}><FileCode2 className="h-3.5 w-3.5" style={{ color: 'var(--color-primary)' }} /><span className="min-w-0 flex-1 truncate text-xs font-bold" style={{ color: 'var(--color-text)' }}>{selected.path}</span>{dirty && <span className="text-[10px]" style={{ color: 'var(--color-warning)' }}>Изменено</span>}{/\.log$/i.test(selected.name) && <button onClick={() => void publishLog()} disabled={publishingLog} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-bold disabled:opacity-40" style={{ color: 'var(--color-warning)', background: 'color-mix(in srgb, var(--color-warning) 12%, transparent)' }}>{publishingLog ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}mclo.gs</button>}<button onClick={() => void save()} disabled={busy || !dirty} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-bold disabled:opacity-40" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}><Save className="h-3 w-3" />Сохранить</button></div>
         <div className="relative min-h-0 flex-1 overflow-hidden bg-[#10131a] p-3"><pre aria-hidden dangerouslySetInnerHTML={{ __html: highlightCode(content, selected.name) }} className="pointer-events-none absolute inset-3 overflow-hidden whitespace-pre-wrap break-words font-mono text-[12px] leading-5" style={{ color:'#D6E2FF', tabSize: 2 }} /><textarea value={content} onChange={event => setContent(event.target.value)} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); void save(); } }} spellCheck={false} className="relative block h-full min-h-[360px] w-full resize-none overflow-auto bg-transparent font-mono text-[12px] leading-5 outline-none" style={{ color:'transparent', caretColor:'#FFFFFF', tabSize: 2 }} /></div>
       </>}
+      {mclogsDiagnosis && <aside className="border-t px-3 py-2.5" style={{ borderColor: 'var(--color-border)', background: 'rgba(255, 90, 95, 0.045)' }}>
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: '#FF5A5F' }} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2"><p className="min-w-0 flex-1 text-xs font-bold" style={{ color: '#FF5A5F' }}>{mclogsDiagnosis.title}</p><button onClick={() => setMclogsDiagnosis(null)} className="rounded p-0.5" title="Закрыть диагностику"><X className="h-3.5 w-3.5" /></button></div>
+            <p className="mt-0.5 text-[11px] leading-4" style={{ color: '#FF5A5F' }}>{mclogsDiagnosis.summary}</p>
+            {mclogsDiagnosis.evidence.length > 0 && <div className="mt-2 space-y-1"><p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#F6C64A' }}>Ключевые моды и строки конфликта</p>{mclogsDiagnosis.evidence.slice(0, 3).map((line, index) => <p key={`${line}-${index}`} className="font-mono text-[10px] leading-4" style={{ color: '#F6C64A' }}>{line}</p>)}</div>}
+            {mclogsDiagnosis.suggestions.length > 0 && <p className="mt-2 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>Что сделать: {mclogsDiagnosis.suggestions.slice(0, 2).join(' · ')}</p>}
+            <a href={mclogsDiagnosis.url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold" style={{ color: 'var(--color-primary)' }}><ExternalLink className="h-3 w-3" />Открыть mclo.gs · {mclogsDiagnosis.errors} ошибок, {mclogsDiagnosis.lines} строк</a>
+          </div>
+        </div>
+      </aside>}
       {error && <div className="flex items-center gap-2 border-t px-3 py-2 text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-error)' }}><X className="h-3.5 w-3.5" />{error}</div>}
     </section>
   </div>;

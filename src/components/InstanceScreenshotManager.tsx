@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Camera, Copy, Edit3, Folder, RefreshCw, Trash2, X } from 'lucide-react';
 import { invoke } from '@/lib/invoke-shim';
-import { toIconSrc } from '@/lib/icon-src';
+import { screenshotBytesToDataUrl } from '@/lib/screenshot-url';
 import { ScreenshotEditor } from '@/components/ScreenshotEditor';
 
 type Screenshot = { path: string; name: string; url: string };
@@ -17,11 +17,16 @@ export function InstanceScreenshotManager({ instanceId }: { instanceId: string }
     setLoading(true); setError('');
     try {
       const paths = await invoke<string[]>('list_screenshots', { id: instanceId });
-      const mapped = (paths || []).map(path => ({
-        path,
-        name: path.split(/[\\/]/).pop() || path,
-        url: toIconSrc(path) || '',
-      })).sort((a, b) => b.name.localeCompare(a.name));
+      const mapped = await Promise.all((paths || []).map(async path => {
+        const name = path.split(/[\\/]/).pop() || path;
+        try {
+          const bytes = await invoke<number[]>('read_instance_screenshot', { id: instanceId, fileName: name });
+          return { path, name, url: screenshotBytesToDataUrl(bytes, name) };
+        } catch {
+          return { path, name, url: '' };
+        }
+      }));
+      mapped.sort((a, b) => b.name.localeCompare(a.name));
       setScreenshots(mapped);
     } catch (e: any) { setScreenshots([]); setError(String(e?.message ?? e)); }
     finally { setLoading(false); }

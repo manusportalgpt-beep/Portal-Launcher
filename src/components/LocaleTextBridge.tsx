@@ -454,9 +454,28 @@ export function LocaleTextBridge() {
     };
 
     apply();
-    const observer = new MutationObserver(() => apply());
+    let frame = 0;
+    const pendingRoots = new Set<ParentNode>();
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (node.nodeType === Node.TEXT_NODE) {
+            if (node.parentNode) pendingRoots.add(node.parentNode);
+          } else if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+            pendingRoots.add(node as ParentNode);
+          }
+        }
+      }
+      if (frame || pendingRoots.size === 0) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const roots = Array.from(pendingRoots);
+        pendingRoots.clear();
+        roots.forEach(root => apply(root));
+      });
+    });
     observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
+    return () => { observer.disconnect(); if (frame) cancelAnimationFrame(frame); };
   }, [language]);
 
   return null;

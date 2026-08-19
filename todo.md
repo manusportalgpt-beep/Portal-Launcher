@@ -589,3 +589,30 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the repair to GitHub main.
 
 ---
+
+# Screenshot, skin account, panel and diagnostics regressions
+
+- [x] Replace failing screenshot asset preview path with a Tauri-safe byte/data URL flow and preserve original screenshot files.
+- [x] Match the active skin against saved preset texture hashes, keep the selected state across pages and remove automatic "active" suffixes from preset names.
+- [x] Repair Ely.by texture/profile loading, fallback and cache behavior without changing the selected account type.
+- [x] Make the 3D skin idle motion more natural while preserving smooth head/body tracking.
+- [x] Remove icon/text flicker and blur in navigation/panel controls and ensure selected controls use theme tokens instead of white blocks.
+- [x] Add Russian instance mod conflict analysis with actionable conflicting mod/version details.
+- [x] Render mclo.gs crash diagnostics with theme-aware red cause emphasis and yellow key conflict/mod highlights.
+- [x] Run TypeScript only and commit/push the regression repair to GitHub main.
+
+---
+
+# Ordered repair sequence
+
+- [x] 1. Screenshot loading and saving.
+- [x] 2. Notch panel icons.
+- [x] 3. Text flicker.
+- [x] 4. Ely.by.
+- [x] 5. Skins.
+- [x] 6. mclo.gs.
+- [x] 7. Interface theme polish.
+- [x] 8. Russian localization.
+- [x] Run TypeScript only and commit/push the ordered repair sequence to GitHub main.
+
+---

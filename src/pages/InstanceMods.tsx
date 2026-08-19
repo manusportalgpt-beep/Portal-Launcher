@@ -650,7 +650,10 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
           <div className="flex items-center gap-2 px-3 py-2 text-xs font-bold" style={{ color:conflicts.length ? 'var(--color-warning)' : 'var(--color-success)' }}>
             {conflicts.length ? <ShieldAlert className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}{conflicts.length ? `Найдено конфликтов: ${conflicts.length}` : 'Проверка завершена: конфликтов не найдено'}
           </div>
-          {conflicts.slice(0, 3).map((conflict, index) => <p key={index} className="px-3 pb-2 text-[11px]" style={{ color:'var(--color-text-secondary)' }}><b>{conflict.mod_a}</b> × <b>{conflict.mod_b}</b> — {conflict.reason}</p>)}
+          {conflicts.slice(0, 3).map((conflict, index) => <div key={index} className="border-t px-3 py-2 text-[11px]" style={{ borderColor:'var(--color-border)' }}>
+            <p style={{ color:'var(--color-text-secondary)' }}><b style={{ color:'var(--color-warning)' }}>{conflict.mod_a}</b> <span aria-hidden>×</span> <b style={{ color:'var(--color-warning)' }}>{conflict.mod_b}</b> — {conflict.reason}</p>
+            <p className="mt-1" style={{ color:'var(--color-text-tertiary)' }}>Действие: обновите один из этих модов до совместимой версии или временно отключите один из них. Перед запуском проверьте версию Minecraft и загрузчик сборки.</p>
+          </div>)}
         </div>
       )}
 

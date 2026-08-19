@@ -59,8 +59,11 @@ function DockButton({ item, vertical, scale = 100 }: { item: NavItem; vertical: 
             color: isActive ? activeIndicator === 'pill' ? 'var(--color-primary-text)' : 'var(--color-primary)' : 'var(--color-text-secondary)',
             filter: 'none',
             opacity: 1,
+            transform: 'translateZ(0)',
+            backfaceVisibility: 'hidden',
+            WebkitFontSmoothing: 'antialiased',
           }} />
-          {showLabel && <span className="relative whitespace-nowrap text-[10px] font-bold" style={{ color: isActive && activeIndicator === 'pill' ? 'var(--color-primary-text)' : 'var(--color-text-secondary)' }}>{label}</span>}
+          {showLabel && <span className="relative whitespace-nowrap text-[10px] font-bold" style={{ color: isActive && activeIndicator === 'pill' ? 'var(--color-primary-text)' : 'var(--color-text-secondary)', transform: 'translateZ(0)', backfaceVisibility: 'hidden', WebkitFontSmoothing: 'antialiased' }}>{label}</span>}
           {isActive && activeIndicator !== 'pill' && (
             <span className="absolute rounded-full" style={{
               ...(activeIndicator === 'dot'
@@ -250,11 +253,12 @@ function NotchNav() {
               <div className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1`}>
                 <AccountButton />
                 <DockButton item={{ to: '/settings', icon: Settings, labelKey: 'settings' }} vertical={vertical} scale={navItemScale} />
-                <button title="Назад" onClick={() => window.history.back()} className="rounded-md p-1 hover:bg-white/10" style={{ color:'var(--color-text-secondary)' }}><ChevronLeft size={13} /></button>
-                <button title="Вперёд" onClick={() => window.history.forward()} className="rounded-md p-1 hover:bg-white/10" style={{ color:'var(--color-text-secondary)' }}><ChevronRight size={13} /></button>
+                <button title="Назад" onClick={() => window.history.back()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronLeft size={13} /></button>
+                <button title="Вперёд" onClick={() => window.history.forward()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronRight size={13} /></button>
                 <button title="Pin panel" onClick={() => set('notchPinned', !notchPinned)}
-                  className="flex items-center justify-center rounded-md hover:bg-white/10"
-                  style={{ width: 18, height: 18, color: notchPinned ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
+                  className="flex items-center justify-center rounded-md"
+                  style={{ width: 18, height: 18, color: notchPinned ? 'var(--color-primary)' : 'var(--color-text-tertiary)', background:'transparent' }}
+                  onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}>
                   <Pin size={12} />
                 </button>
               </div>

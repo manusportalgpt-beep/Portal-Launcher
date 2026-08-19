@@ -11,7 +11,7 @@ import { useUiStore } from '@/stores/uiStore';
 
 interface CapeInfo { id: string; url: string; alias: string; active: boolean }
 interface ProfileTextures {
-  uuid: string; name: string; skin_url: string; skin_variant: string; capes: CapeInfo[];
+  uuid: string; name: string; skin_url: string; skin_bytes?: number[] | null; skin_variant: string; capes: CapeInfo[];
 }
 interface PublicSkinTexture {
   uuid: string; name: string; skin_url: string; skin_variant: string; skin_bytes: number[];
@@ -241,17 +241,24 @@ export function SkinSelectorPage() {
   const [nicknameLoading, setNicknameLoading] = useState(false);
   const [selectedSkinId, setSelectedSkinId] = useState<string | null>(loadSelectedSkinId);
   const [applySequence, setApplySequence] = useState(0);
+  const [activeTextureHash, setActiveTextureHash] = useState<string | null>(null);
 
   useEffect(() => { persistSelectedSkinId(selectedSkinId); }, [selectedSkinId]);
   useEffect(() => {
     if (selectedSkinId && !skinHistory.some(skin => skin.id === selectedSkinId)) setSelectedSkinId(null);
   }, [selectedSkinId, skinHistory]);
+  useEffect(() => {
+    if (!activeTextureHash) return;
+    const matchingPreset = skinHistory.find(skin => skin.textureHash === activeTextureHash);
+    if (matchingPreset) setSelectedSkinId(matchingPreset.id);
+  }, [activeTextureHash, skinHistory]);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
   const uuid = profile?.uuid || user?.uuid || STEVE_UUID;
   const activeCape = profile?.capes.find(c => c.active) ?? null;
   const liveSkinUrl = useMemo(() => {
+    if (profile?.skin_bytes?.length) return `data:image/png;base64,${btoa(String.fromCharCode(...new Uint8Array(profile.skin_bytes)))}`;
     if (!profile?.skin_url) return `https://crafatar.com/skins/${uuid}?_=${refreshKey}`;
     const separator = profile.skin_url.includes('?') ? '&' : '?';
     return `${profile.skin_url}${separator}_=${refreshKey}`;
@@ -264,16 +271,18 @@ export function SkinSelectorPage() {
   });
 
   const captureActiveSkin = async (): Promise<SavedSkin | null> => {
-    if (!profile?.skin_url) return null;
+    if (!profile?.skin_url && !profile?.skin_bytes?.length) return null;
     try {
-      const response = await fetch(profile.skin_url, { cache: 'no-store' });
-      if (!response.ok) return null;
-      const blob = await response.blob();
-      if (!blob.type.includes('png')) return null;
-      const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
-      const dataUrl = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(blob); });
+      const bytes = profile.skin_bytes?.length
+        ? Array.from(profile.skin_bytes)
+        : Array.from(new Uint8Array(await (await fetch(profile.skin_url, { cache: 'no-store' })).arrayBuffer()));
+      const validation = validateMinecraftSkinPng(bytes);
+      if (validation) return null;
+      const dataUrl = `data:image/png;base64,${btoa(String.fromCharCode(...new Uint8Array(bytes)))}`;
       const active = profile.capes.find(cape => cape.active) ?? null;
-      return { id: makeSkinId(), name: profile.name ? `${profile.name} — active` : 'Active skin', dataUrl, textureHash: await hashTexture(bytes), model: profile.skin_variant === 'slim' ? 'slim' : 'classic', capeId: active?.id ?? null, capeUrl: active?.url ?? null, savedAt: Date.now() };
+      const textureHash = await hashTexture(bytes);
+      setActiveTextureHash(textureHash);
+      return { id: makeSkinId(), name: profile.name || 'Skin', dataUrl, textureHash, model: profile.skin_variant === 'slim' ? 'slim' : 'classic', capeId: active?.id ?? null, capeUrl: active?.url ?? null, savedAt: Date.now() };
     } catch { return null; }
   };
 

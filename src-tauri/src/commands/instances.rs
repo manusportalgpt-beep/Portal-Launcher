@@ -1499,6 +1499,27 @@ pub fn list_screenshots(id: String) -> Result<Vec<String>, String> {
     Ok(result)
 }
 
+/// Reads one screenshot from the selected instance as bytes for the WebView.
+/// Keeping the file-name-only contract prevents directory traversal while
+/// avoiding the platform-specific asset protocol scope that broke previews.
+#[tauri::command]
+pub fn read_instance_screenshot(id: String, file_name: String) -> Result<Vec<u8>, String> {
+    let _inst = load_instance(&id).ok_or("Instance not found")?;
+    if file_name.is_empty() || file_name.contains('/') || file_name.contains('\\') || file_name.contains("..") {
+        return Err("Invalid screenshot name".to_string());
+    }
+    let lower = file_name.to_ascii_lowercase();
+    if !matches!(lower.as_str(), value if value.ends_with(".png") || value.ends_with(".jpg") || value.ends_with(".jpeg")) {
+        return Err("Only PNG and JPEG screenshots can be opened".to_string());
+    }
+    let path = instances_dir().join(&id).join(".minecraft").join("screenshots").join(&file_name);
+    let metadata = std::fs::metadata(&path).map_err(|e| format!("Screenshot not found: {e}"))?;
+    if metadata.len() > 24 * 1024 * 1024 {
+        return Err("Screenshot is too large to preview (limit: 24 MB)".to_string());
+    }
+    std::fs::read(path).map_err(|e| format!("Could not read screenshot: {e}"))
+}
+
 /// Save an edited screenshot back into the selected instance's screenshots folder.
 /// The filename is deliberately restricted to a basename so the frontend cannot
 /// escape the instance directory through this command.

@@ -99,6 +99,7 @@ fn main() {
             commands::instances::list_backups,
             commands::instances::delete_instance_screenshot,
             commands::instances::list_screenshots,
+            commands::instances::read_instance_screenshot,
             commands::instances::save_instance_screenshot,
             // Minecraft
             // Реальный запуск Minecraft (mc::launch)

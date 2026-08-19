@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useUiStore } from '@/stores/uiStore';
+import { useUiStore, type PanelAppearance } from '@/stores/uiStore';
 import { useCurrentUser, useIsAuthenticated } from '@/stores/authStore';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { getAvatarUrl, getAvatarFallbackUrl } from '@/lib/avatar';
@@ -30,14 +30,11 @@ function orderedNav(order: string[]) {
   });
 }
 
-function DockButton({ item, vertical, scale = 100 }: { item: NavItem; vertical: boolean; scale?: number }) {
+function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem; vertical: boolean; scale?: number; appearance: PanelAppearance }) {
   const Icon = item.icon;
   const { t } = useTranslation();
-  const activeIndicator = useUiStore(s => s.navActiveIndicator);
-  const labels = useUiStore(s => s.navLabels);
-  const hoverIndicator = useUiStore(s => s.navHoverIndicator);
-  const interactionShape = useUiStore(s => s.navInteractionShape);
   const uiMode = useUiStore(s => s.uiMode);
+  const { activeIndicator, labels, hoverIndicator, interactionShape } = appearance;
   const interactionRadius = interactionShape === 'circle' ? '999px' : 'var(--radius-sm)';
   const label = t(`nav.${item.labelKey}`);
   const showLabel = labels === 'always';
@@ -47,8 +44,8 @@ function DockButton({ item, vertical, scale = 100 }: { item: NavItem; vertical: 
       end={item.end}
       title={label}
       data-testid={`nav-${item.labelKey}`}
-      className="group relative flex items-center justify-center gap-1.5 px-1.5"
-      style={{ width: showLabel ? 'auto' : 36 * scale / 100, minWidth: 36 * scale / 100, height: 32 * scale / 100, borderRadius: interactionRadius }}
+      className="group relative flex items-center justify-center gap-2 px-2.5 text-left"
+      style={{ width: showLabel ? '100%' : 36 * scale / 100, minWidth: 36 * scale / 100, height: showLabel ? 42 * scale / 100 : 32 * scale / 100, borderRadius: interactionRadius }}
     >
       {({ isActive }) => (
         <>
@@ -67,7 +64,7 @@ function DockButton({ item, vertical, scale = 100 }: { item: NavItem; vertical: 
             backfaceVisibility: 'hidden',
             WebkitFontSmoothing: 'antialiased',
           }} />
-          {showLabel && <span className="relative whitespace-nowrap text-[10px] font-bold" style={{ color: isActive && activeIndicator === 'pill' ? 'var(--color-primary-text)' : 'var(--color-text-secondary)', transform: 'translateZ(0)', backfaceVisibility: 'hidden', WebkitFontSmoothing: 'antialiased' }}>{label}</span>}
+          {showLabel && <span className="relative flex-1 whitespace-nowrap text-xs font-bold" style={{ color: isActive && activeIndicator === 'pill' ? 'var(--color-primary-text)' : 'var(--color-text-secondary)', transform: 'translateZ(0)', backfaceVisibility: 'hidden', WebkitFontSmoothing: 'antialiased' }}>{label}</span>}
           {isActive && activeIndicator !== 'pill' && (
             <span className="absolute rounded-full" style={{
               ...(activeIndicator === 'dot'
@@ -148,34 +145,29 @@ function SidebarNav() {
   const order = useUiStore(s => s.navItemOrder);
   const sidebarWidth = useUiStore(s => s.sidebarWidth);
   const scale = useUiStore(s => s.navItemScale);
-  const alignment = useUiStore(s => s.navAlignment);
-  const gap = useUiStore(s => s.navGap);
-  const edgePadding = useUiStore(s => s.navEdgePadding);
-  const opacity = useUiStore(s => s.navOpacity);
-  const blur = useUiStore(s => s.navBlur);
-  const shadow = useUiStore(s => s.navShadow);
-  const border = useUiStore(s => s.navBorder);
+  const appearance = useUiStore(s => s.sidebarPanelAppearance);
   const uiMode = useUiStore(s => s.uiMode);
   const items = orderedNav(order);
-  const justifyContent = alignment === 'start' ? 'flex-start' : alignment === 'end' ? 'flex-end' : 'center';
-  const borderColor = border === 'none' ? 'transparent' : border === 'strong' ? 'var(--color-border-strong)' : 'var(--color-border)';
-  const shadowValue = shadow === 'none' ? 'none' : shadow === 'strong' ? '12px 0 38px rgba(0,0,0,0.28)' : '8px 0 24px rgba(0,0,0,0.14)';
+  const justifyContent = appearance.alignment === 'start' ? 'flex-start' : appearance.alignment === 'end' ? 'flex-end' : 'center';
+  const borderColor = appearance.border === 'none' ? 'transparent' : appearance.border === 'strong' ? 'var(--color-border-strong)' : 'var(--color-border)';
+  const shadowValue = appearance.shadow === 'none' ? 'none' : appearance.shadow === 'strong' ? '12px 0 38px rgba(0,0,0,0.28)' : '8px 0 24px rgba(0,0,0,0.14)';
   return (
-    <aside className="shrink-0 flex flex-col items-center z-40"
-      style={{ width: sidebarWidth, gap, padding: `${edgePadding}px 0`, justifyContent, background: uiMode === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${Math.max(opacity, 99)}%, transparent)`, borderRight: `1px solid ${borderColor}`, boxShadow: uiMode === 'old' ? 'none' : shadowValue, backdropFilter: 'none', WebkitBackdropFilter: 'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease, background calc(180ms * var(--portal-motion-multiplier, 1)) ease, box-shadow calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
-      {items.map(item => <DockButton key={item.to} item={item} vertical scale={scale} />)}
-      <div className="w-6 h-px my-1" style={{ background: 'var(--color-border)' }} />
+    <aside className="shrink-0 flex flex-col z-40"
+      style={{ width: sidebarWidth, gap:appearance.gap, padding: `${appearance.edgePadding}px 10px`, justifyContent, background: uiMode === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${Math.max(appearance.opacity, 99)}%, transparent)`, borderRight: `1px solid ${borderColor}`, boxShadow: uiMode === 'old' ? 'none' : shadowValue, backdropFilter: 'none', WebkitBackdropFilter: 'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease, background calc(180ms * var(--portal-motion-multiplier, 1)) ease, box-shadow calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
+      <div className="px-2 pb-3 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-text-tertiary)' }}>Portal Launcher</div>
+      {items.map(item => <DockButton key={item.to} item={item} vertical scale={scale} appearance={appearance} />)}
+      <div className="h-px my-2" style={{ background: 'var(--color-border)' }} />
       <InstanceQuickAccess vertical />
       <div className="flex-1" />
-      <AccountButton />
-      <DockButton item={{ to: '/settings', icon: Settings, labelKey: 'settings' }} vertical scale={scale} />
+      <div className="px-2"><AccountButton /></div>
+      <DockButton item={{ to: '/settings', icon: Settings, labelKey: 'settings' }} vertical scale={scale} appearance={appearance} />
     </aside>
   );
 }
 
 /** Выезжающая минималистичная Notch-панель. Перетаскивание окна отключено. */
 function NotchNav() {
-  const { notchHotzone, notchPinned, notchCloseDelay, notchWidth, notchSide, navHoverMs, navItemScale, navItemOrder, panelVersion, uiMode, navAlignment, navGap, navEdgePadding, navOpacity, navBlur, navShadow, navBorder, set } = useUiStore();
+  const { notchHotzone, notchPinned, notchCloseDelay, notchWidth, notchSide, navHoverMs, navItemScale, navItemOrder, panelVersion, uiMode, notchPanelAppearance: appearance, set } = useUiStore();
   const visualPanelVersion = uiMode === 'old' ? 'old' : panelVersion;
   const items = orderedNav(navItemOrder);
   const [hover, setHover] = useState(false);
@@ -191,12 +183,12 @@ function NotchNav() {
   const open = !overlayOpen && (hover || notchPinned);
   const vertical = notchSide === 'left' || notchSide === 'right';
   const isStart = notchSide === 'top' || notchSide === 'left';
-  const align = navAlignment === 'start' ? 'flex-start' : navAlignment === 'end' ? 'flex-end' : 'center';
-  const borderColor = navBorder === 'none' ? 'transparent' : navBorder === 'strong' ? 'var(--color-border-strong)' : 'var(--color-border)';
-  const shadowValue = navShadow === 'none' ? 'none' : navShadow === 'strong' ? 'var(--shadow-lg)' : 'var(--shadow-md)';
+  const align = appearance.alignment === 'start' ? 'flex-start' : appearance.alignment === 'end' ? 'flex-end' : 'center';
+  const borderColor = appearance.border === 'none' ? 'transparent' : appearance.border === 'strong' ? 'var(--color-border-strong)' : 'var(--color-border)';
+  const shadowValue = appearance.shadow === 'none' ? 'none' : appearance.shadow === 'strong' ? 'var(--shadow-lg)' : 'var(--shadow-md)';
   const crossAxisPosition: React.CSSProperties = vertical
-    ? navAlignment === 'start' ? { top: navEdgePadding } : navAlignment === 'end' ? { bottom: navEdgePadding } : { top: '50%', transform: 'translateY(-50%)' }
-    : navAlignment === 'start' ? { left: navEdgePadding } : navAlignment === 'end' ? { right: navEdgePadding } : { left: '50%', transform: 'translateX(-50%)' };
+    ? appearance.alignment === 'start' ? { top: appearance.edgePadding } : appearance.alignment === 'end' ? { bottom: appearance.edgePadding } : { top: '50%', transform: 'translateY(-50%)' }
+    : appearance.alignment === 'start' ? { left: appearance.edgePadding } : appearance.alignment === 'end' ? { right: appearance.edgePadding } : { left: '50%', transform: 'translateX(-50%)' };
 
   const wrap: React.CSSProperties = {
     position: 'fixed',
@@ -246,22 +238,22 @@ function NotchNav() {
               transition={{ duration: Math.max(0.12, navHoverMs / 1000), ease: [0.22, 0.78, 0.24, 1] }}
               className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1 rounded-xl`}
               style={{
-                padding: Math.max(visualPanelVersion === 'new' ? 7 : 5, navEdgePadding / 2),
-                gap: navGap,
-                background: visualPanelVersion === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${Math.max(navOpacity, 99)}%, transparent)`,
+                padding: Math.max(visualPanelVersion === 'new' ? 7 : 5, appearance.edgePadding / 2),
+                gap: appearance.gap,
+                background: visualPanelVersion === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${Math.max(appearance.opacity, 99)}%, transparent)`,
                 border: `1px solid ${borderColor}`,
                 borderRadius: visualPanelVersion === 'new' ? 'var(--radius-modal)' : 'var(--radius-xl)',
                 backdropFilter: 'none',
                 WebkitBackdropFilter: 'none',
                 boxShadow: visualPanelVersion === 'old' ? 'none' : shadowValue,
               }}>
-              {items.map(item => <DockButton key={item.to} item={item} vertical={vertical} scale={navItemScale} />)}
+              {items.map(item => <DockButton key={item.to} item={item} vertical={vertical} scale={navItemScale} appearance={appearance} />)}
               <InstanceQuickAccess vertical={vertical} />
               <div className={vertical ? 'w-full h-px my-0.5' : 'h-6 w-px mx-0.5'}
                 style={{ background: 'var(--color-border)' }} />
               <div className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1`}>
                 <AccountButton />
-                <DockButton item={{ to: '/settings', icon: Settings, labelKey: 'settings' }} vertical={vertical} scale={navItemScale} />
+                <DockButton item={{ to: '/settings', icon: Settings, labelKey: 'settings' }} vertical={vertical} scale={navItemScale} appearance={appearance} />
                 <button title="Назад" onClick={() => window.history.back()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronLeft size={13} /></button>
                 <button title="Вперёд" onClick={() => window.history.forward()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronRight size={13} /></button>
                 <button title="Pin panel" onClick={() => set('notchPinned', !notchPinned)}

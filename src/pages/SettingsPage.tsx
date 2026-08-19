@@ -285,6 +285,11 @@ function AppearanceSection() {
   const { t } = useTranslation();
   const { themeId, setTheme } = useThemeStore();
   const ui = useUiStore();
+  const panelAppearance = ui.navMode === 'notch' ? ui.notchPanelAppearance : ui.sidebarPanelAppearance;
+  const setPanelAppearance = (key: keyof typeof panelAppearance, value: unknown) => {
+    const next = { ...panelAppearance, [key]: value };
+    ui.set(ui.navMode === 'notch' ? 'notchPanelAppearance' : 'sidebarPanelAppearance', next);
+  };
   const fileRef = useRef<HTMLInputElement | null>(null);
   const backgroundVideoFileRef = useRef<HTMLInputElement | null>(null);
   const [cssDraft, setCssDraft] = useState(ui.customCss);
@@ -468,33 +473,36 @@ function AppearanceSection() {
         <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>{t('settings.appearanceUi.panelPolish')}</h3>
       </div>
       <p className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>{t('settings.appearanceUi.panelPolishDescription')}</p>
+      <div className="mb-3 rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-primary-dim)', color:'var(--color-primary)' }}>
+        Редактор: {ui.navMode === 'notch' ? 'Notch Panel' : 'Sidebar'} · изменения не влияют на другой режим
+      </div>
       <SegRow label={t('settings.appearanceUi.panelAlignment')} desc={t('settings.appearanceUi.panelAlignmentDescription')}
-        value={ui.navAlignment}
+        value={panelAppearance.alignment}
         options={[{ id:'start', label:t('settings.appearanceUi.start') }, { id:'center', label:t('settings.appearanceUi.center') }, { id:'end', label:t('settings.appearanceUi.end') }]}
-        onChange={v => ui.set('navAlignment', v as any)} />
-      <RangeRow label={t('settings.appearanceUi.panelGap')} desc={t('settings.appearanceUi.panelGapDescription')} value={ui.navGap} min={0} max={16} unit="px" onChange={v => ui.set('navGap', v)} />
-      <RangeRow label={t('settings.appearanceUi.panelEdgePadding')} desc={t('settings.appearanceUi.panelEdgePaddingDescription')} value={ui.navEdgePadding} min={0} max={32} unit="px" onChange={v => ui.set('navEdgePadding', v)} />
-      <RangeRow label={t('settings.appearanceUi.panelOpacity')} desc={t('settings.appearanceUi.panelOpacityDescription')} value={ui.navOpacity} min={45} max={100} unit="%" onChange={v => ui.set('navOpacity', v)} />
-      <RangeRow label={t('settings.appearanceUi.panelBlur')} desc={t('settings.appearanceUi.panelBlurDescription')} value={ui.navBlur} min={0} max={36} unit="px" onChange={v => ui.set('navBlur', v)} />
-      <SegRow label={t('settings.appearanceUi.panelShadow')} desc={t('settings.appearanceUi.panelShadowDescription')} value={ui.navShadow}
+        onChange={v => setPanelAppearance('alignment', v)} />
+      <RangeRow label={t('settings.appearanceUi.panelGap')} desc={t('settings.appearanceUi.panelGapDescription')} value={panelAppearance.gap} min={0} max={16} unit="px" onChange={v => setPanelAppearance('gap', v)} />
+      <RangeRow label={t('settings.appearanceUi.panelEdgePadding')} desc={t('settings.appearanceUi.panelEdgePaddingDescription')} value={panelAppearance.edgePadding} min={0} max={32} unit="px" onChange={v => setPanelAppearance('edgePadding', v)} />
+      <RangeRow label={t('settings.appearanceUi.panelOpacity')} desc={t('settings.appearanceUi.panelOpacityDescription')} value={panelAppearance.opacity} min={45} max={100} unit="%" onChange={v => setPanelAppearance('opacity', v)} />
+      <RangeRow label={t('settings.appearanceUi.panelBlur')} desc={t('settings.appearanceUi.panelBlurDescription')} value={panelAppearance.blur} min={0} max={36} unit="px" onChange={v => setPanelAppearance('blur', v)} />
+      <SegRow label={t('settings.appearanceUi.panelShadow')} desc={t('settings.appearanceUi.panelShadowDescription')} value={panelAppearance.shadow}
         options={[{ id:'none', label:t('settings.appearanceUi.off') }, { id:'soft', label:t('settings.appearanceUi.soft') }, { id:'strong', label:t('settings.appearanceUi.strong') }]}
-        onChange={v => ui.set('navShadow', v as any)} />
-      <SegRow label={t('settings.appearanceUi.panelBorder')} desc={t('settings.appearanceUi.panelBorderDescription')} value={ui.navBorder}
+        onChange={v => setPanelAppearance('shadow', v)} />
+      <SegRow label={t('settings.appearanceUi.panelBorder')} desc={t('settings.appearanceUi.panelBorderDescription')} value={panelAppearance.border}
         options={[{ id:'none', label:t('settings.appearanceUi.none') }, { id:'subtle', label:t('settings.appearanceUi.subtle') }, { id:'strong', label:t('settings.appearanceUi.strong') }]}
-        onChange={v => ui.set('navBorder', v as any)} />
-      <SegRow label={t('settings.appearanceUi.activeItem')} desc={t('settings.appearanceUi.activeItemDescription')} value={ui.navActiveIndicator}
+        onChange={v => setPanelAppearance('border', v)} />
+      <SegRow label={t('settings.appearanceUi.activeItem')} desc={t('settings.appearanceUi.activeItemDescription')} value={panelAppearance.activeIndicator}
         options={[{ id:'line', label:t('settings.appearanceUi.line') }, { id:'dot', label:t('settings.appearanceUi.dot') }, { id:'pill', label:t('settings.appearanceUi.pill') }]}
-        onChange={v => ui.set('navActiveIndicator', v as any)} />
-      <SegRow label={t('settings.appearanceUi.hoverIndicator')} desc={t('settings.appearanceUi.hoverIndicatorDescription')} value={ui.navHoverIndicator}
+        onChange={v => setPanelAppearance('activeIndicator', v)} />
+      <SegRow label={t('settings.appearanceUi.hoverIndicator')} desc={t('settings.appearanceUi.hoverIndicatorDescription')} value={panelAppearance.hoverIndicator}
         options={[{ id:'square', label:t('settings.appearanceUi.square') }, { id:'circle', label:t('settings.appearanceUi.circle') }, { id:'none', label:t('settings.appearanceUi.none') }]}
-        onChange={v => ui.set('navHoverIndicator', v as any)} />
+        onChange={v => setPanelAppearance('hoverIndicator', v)} />
       <SegRow label="Форма нажатия" desc="Форма активного элемента и короткого эффекта при нажатии в Notch Panel и Sidebar"
-        value={ui.navInteractionShape}
+        value={panelAppearance.interactionShape}
         options={[{ id:'square', label:t('settings.appearanceUi.square') }, { id:'circle', label:t('settings.appearanceUi.circle') }]}
-        onChange={v => ui.set('navInteractionShape', v as any)} />
-      <SegRow label={t('settings.appearanceUi.navigationLabels')} desc={t('settings.appearanceUi.navigationLabelsDescription')} value={ui.navLabels}
+        onChange={v => setPanelAppearance('interactionShape', v)} />
+      <SegRow label={t('settings.appearanceUi.navigationLabels')} desc={t('settings.appearanceUi.navigationLabelsDescription')} value={panelAppearance.labels}
         options={[{ id:'icons', label:t('settings.appearanceUi.icons') }, { id:'hover', label:t('settings.appearanceUi.hover') }, { id:'always', label:t('settings.appearanceUi.always') }]}
-        onChange={v => ui.set('navLabels', v as any)} />
+        onChange={v => setPanelAppearance('labels', v)} />
 
       <RangeRow label={t('settings.appearanceUi.interfaceScale')} desc={t('settings.appearanceUi.interfaceScaleDescription')}
         value={ui.uiScale} min={60} max={180} unit="%" onChange={v => ui.set('uiScale', v)} />

@@ -18,6 +18,20 @@ export type NavHoverIndicator = 'square' | 'circle' | 'none';
 export type NavInteractionShape = 'square' | 'circle';
 export type SearchDetailReturnPosition = 'remember' | 'top' | 'bottom';
 
+export interface PanelAppearance {
+  alignment: NavAlignment;
+  gap: number;
+  edgePadding: number;
+  opacity: number;
+  blur: number;
+  shadow: NavShadow;
+  border: NavBorder;
+  activeIndicator: NavActiveIndicator;
+  labels: NavLabels;
+  hoverIndicator: NavHoverIndicator;
+  interactionShape: NavInteractionShape;
+}
+
 export interface UiState {
   /** Тип навигации: выезжающая Notch-панель или боковая панель */
   navMode: NavMode;
@@ -109,6 +123,10 @@ export interface UiState {
   navHoverIndicator: NavHoverIndicator;
   /** Форма активного и нажатого элемента навигации */
   navInteractionShape: NavInteractionShape;
+  /** Независимое оформление выезжающей Notch Panel */
+  notchPanelAppearance: PanelAppearance;
+  /** Независимое оформление постоянной Sidebar */
+  sidebarPanelAppearance: PanelAppearance;
   /** Ширина рабочей области между навигацией и краями окна, % */
   contentWidth: number;
   /** Внутренний отступ рабочей области, px */
@@ -131,7 +149,7 @@ const defaults = {
   navItemOrder: ['home', 'discover', 'skins', 'library'],
   navHoverMs: 180,
   notchWidth: 72,
-  sidebarWidth: 56,
+  sidebarWidth: 184,
   navItemScale: 100,
   uiScale: 100,
   cornerRadius: 12,
@@ -179,6 +197,16 @@ const defaults = {
   navLabels: 'icons' as NavLabels,
   navHoverIndicator: 'square' as NavHoverIndicator,
   navInteractionShape: 'circle' as NavInteractionShape,
+  notchPanelAppearance: {
+    alignment: 'center' as NavAlignment, gap: 4, edgePadding: 12, opacity: 92, blur: 18,
+    shadow: 'soft' as NavShadow, border: 'subtle' as NavBorder, activeIndicator: 'line' as NavActiveIndicator,
+    labels: 'icons' as NavLabels, hoverIndicator: 'square' as NavHoverIndicator, interactionShape: 'circle' as NavInteractionShape,
+  },
+  sidebarPanelAppearance: {
+    alignment: 'start' as NavAlignment, gap: 6, edgePadding: 12, opacity: 92, blur: 18,
+    shadow: 'soft' as NavShadow, border: 'subtle' as NavBorder, activeIndicator: 'pill' as NavActiveIndicator,
+    labels: 'always' as NavLabels, hoverIndicator: 'square' as NavHoverIndicator, interactionShape: 'circle' as NavInteractionShape,
+  },
   contentWidth: 100,
   contentInset: 0,
   titlebarHeight: 32,

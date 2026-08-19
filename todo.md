@@ -683,3 +683,14 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the navigation interaction shape update to GitHub main.
 
 ---
+
+# Independent navigation editors and installer polish
+
+- [x] Split Appearance controls into independent Notch Panel and Sidebar editor state so changes in one mode never alter the other.
+- [x] Redesign Sidebar navigation with larger usable items, clear labels and theme-aware active/hover states while preserving shortcuts and route behaviour.
+- [x] Ensure the installer setup.exe is built with the branded Portal Launcher icon used by the launcher itself.
+- [x] Add relevant icons to first-launch onboarding storage and sign-in information where they improve scanning without obscuring text.
+- [x] Name a nickname-searched skin preset with the exact searched nickname; retain filename naming only for direct file imports.
+- [x] Run TypeScript only and commit/push the navigation, installer and skin naming improvement to GitHub main.
+
+---

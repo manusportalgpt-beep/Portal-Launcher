@@ -641,3 +641,16 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the Library, Skin Studio and top-bar improvements to GitHub main.
 
 ---
+
+# Manifest preparation, package media, controls and experience redesign
+
+- [x] Add a compact honest manifest-preparation dialog before local import and Discover modpack installation, showing icon, author, title, source and install target for every detected item.
+- [x] Let the user safely disable or exclude individual pre-install items in that dialog without inventing missing metadata or deleting source archive files.
+- [x] Persist real pack cover artwork and screenshots from both local imports and Discover manifests into instance settings, Library/header rendering and the instance Screenshots tab.
+- [x] Add global, editable keyboard shortcuts that work from every ordinary launcher page but respect open editors, manifest previews and screenshot/object dialogs.
+- [x] Add a Russian Controls settings section with conflict detection, recording/reset flows and task-specific bindings.
+- [x] Redesign Home and Settings around clear priority, professional empty/loading/error states and safe fast actions without changing the Library layout.
+- [x] Expand Skin Studio stand motion with distinct idle and post-apply self-inspection sequences while preserving cursor tracking, theme rules and reduced-motion support.
+- [x] Run TypeScript only and commit/push the manifest, media, controls and UX improvement work to GitHub main.
+
+---

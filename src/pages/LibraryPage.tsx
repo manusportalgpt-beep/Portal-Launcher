@@ -20,6 +20,7 @@ import { listen } from '@tauri-apps/api/event';
 import { fetchMcVersionIds, MC_VERSIONS_FALLBACK } from '@/lib/mc-versions';
 import { InstanceFileEditor } from '@/components/InstanceFileEditor';
 import { InstanceScreenshotManager } from '@/components/InstanceScreenshotManager';
+import { ModpackManifestPreview, type ModpackPreview } from '@/components/ModpackManifestPreview';
 import { useUiStore } from '@/stores/uiStore';
 import modrinthWrench from '@/assets/modrinth-wrench-clean.png';
 import curseforgeAnvil from '@/assets/curseforge-anvil.png';
@@ -374,6 +375,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const [externalInstances, setExternalInstances] = useState<any[]>([]);
   const [externalLoading, setExternalLoading] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
+  const [localPreview, setLocalPreview] = useState<{ preview: ModpackPreview; dataUrl: string; fileName: string } | null>(null);
   const [loaderVersions, setLoaderVersions] = useState<LoaderVersionOption[]>([]);
   const [loaderVersionsLoading, setLoaderVersionsLoading] = useState(false);
   const mcVersions = useAvailableVersions(showSnapshots);
@@ -589,27 +591,41 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     } finally { setCreating(false); onClose(); }
   };
 
+  const importPreparedArchive = async (dataUrl: string, fileName: string, excludedPaths: string[] = []) => {
+    setCreating(true);
+    try {
+      const raw = await invoke<any>('import_archive_data', { fileName, dataUrl, excludedPaths });
+      onCreated(raw);
+      setLocalPreview(null);
+      onClose();
+    } catch (e) {
+      console.error('import failed:', e);
+      dialog.alert('Не удалось импортировать сборку: ' + String(e), { title: 'Импорт', danger: true });
+    } finally { setCreating(false); }
+  };
+
   const pickFile = () => {
     const inp = document.createElement('input');
     inp.type = 'file'; inp.accept = '.zip,.mrpack';
     inp.onchange = async (e: any) => {
       const f = e.target.files?.[0]; if (!f) return;
-      setCreating(true);
+      let dataUrl = '';
       try {
         // Браузерный File.name не является доступным Tauri путём. Передаём
         // содержимое, а Rust сохраняет временную копию и читает манифест.
-        const dataUrl = await new Promise<string>((resolve, reject) => {
+        dataUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(String(reader.result ?? ''));
           reader.onerror = () => reject(new Error('Не удалось прочитать архив'));
           reader.readAsDataURL(f);
         });
-        const raw = await invoke<any>('import_archive_data', { fileName: f.name, dataUrl });
-        onCreated(raw);
+        const source = f.name.toLowerCase().endsWith('.mrpack') ? 'modrinth' : 'curseforge';
+        const preview = await invoke<ModpackPreview>('preview_remote_modpack', { downloadUrl: dataUrl, fileName: f.name, source, apiKey: null, projectName: null, projectAuthor: null, projectAuthorUrl: null, projectAuthorAvatarUrl: null, projectIconUrl: null });
+        setLocalPreview({ preview, dataUrl, fileName: f.name });
       } catch (e) {
-        console.error('import failed:', e);
-        dialog.alert('Failed to import pack: ' + String(e), { title: 'Error', danger: true });
-      } finally { setCreating(false); onClose(); }
+        dialog.alert('В этом архиве не найден совместимый manifest. Его можно импортировать как обычную сборку.', { title: 'Импорт без manifest', danger: false });
+        void importPreparedArchive(dataUrl, f.name);
+      }
     };
     inp.click();
   };
@@ -872,6 +888,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           )}
         </div>
       </motion.div>
+      {localPreview && <ModpackManifestPreview preview={localPreview.preview} onClose={() => setLocalPreview(null)} onInstall={excludedPaths => { void importPreparedArchive(localPreview.dataUrl, localPreview.fileName, excludedPaths); }} />}
     </motion.div>
   );
 }
@@ -1124,7 +1141,7 @@ function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported }: 
         <div className="flex-1 min-w-[140px] flex items-center gap-1.5 px-3 py-2.5 rounded-xl ml-auto"
           style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', maxWidth: 260 }}>
           <Search className="w-3.5 h-3.5 shrink-0" style={{ color:'var(--color-text-tertiary)' }} />
-          <input className="flex-1 min-w-0 bg-transparent text-sm" placeholder="Умный поиск: сборка, мод, автор, версия…"
+          <input data-library-search="true" className="flex-1 min-w-0 bg-transparent text-sm" placeholder="Умный поиск: сборка, мод, автор, версия…"
             value={filter} onChange={e => setFilter(e.target.value)} style={{ color:'var(--color-text)' }} />
         </div>
       </div>
@@ -2112,6 +2129,12 @@ export function LibraryPage() {
       setSearchParams(searchParams, { replace: true });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const openCreate = () => setShowCreate(true);
+    window.addEventListener('portal:new-instance', openCreate);
+    return () => window.removeEventListener('portal:new-instance', openCreate);
   }, []);
 
   useEffect(() => {

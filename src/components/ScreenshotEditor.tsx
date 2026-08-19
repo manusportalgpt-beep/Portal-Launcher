@@ -115,13 +115,13 @@ export function ScreenshotEditor({ instanceId, fileName, imageUrl, onClose, onSa
     } catch (e) { console.error(e); } finally { setSaving(false); }
   };
 
-  return <div className="fixed inset-0 z-[180] flex flex-col bg-[#09090b]/95 backdrop-blur-md">
+  return <div data-portal-overlay="true" className="fixed inset-0 z-[180] flex flex-col bg-[#09090b]/95 backdrop-blur-md">
     <div className="flex items-center gap-3 border-b px-4 py-3" style={{ borderColor:'var(--color-border)' }}>
       <Paintbrush className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color:'var(--color-text)' }}>{fileName}{dirty ? ' · изменено' : ''}</p>
       <button onClick={undo} disabled={historyIndexRef.current <= 0} className="rounded-lg p-2 disabled:opacity-30" title="Undo"><Undo2 className="h-4 w-4" /></button>
       <button onClick={redo} disabled={historyIndexRef.current >= historyRef.current.length - 1} className="rounded-lg p-2 disabled:opacity-30" title="Redo"><Redo2 className="h-4 w-4" /></button>
       <button onClick={save} disabled={saving || !dirty} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Save className="h-3.5 w-3.5" />{saving ? 'Сохраняю…' : 'Сохранить'}</button>
-      <button onClick={onClose} className="rounded-lg p-2" title="Close"><X className="h-4 w-4" /></button>
+      <button data-portal-close="true" onClick={onClose} className="rounded-lg p-2" title="Close"><X className="h-4 w-4" /></button>
     </div>
     <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-6">
       <div className="rounded-xl p-3 shadow-2xl" style={{ background:'repeating-conic-gradient(#242424 0% 25%, #1b1b1b 0% 50%) 50% / 24px 24px' }}><canvas ref={canvasRef} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} className="max-h-[calc(100vh-180px)] max-w-[calc(100vw-48px)] touch-none object-contain shadow-xl" /></div>

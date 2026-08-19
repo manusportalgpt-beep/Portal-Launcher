@@ -24,15 +24,18 @@ import { NavigationPanelEditor } from '@/components/NavigationPanelEditor';
 import { JavaManager } from '@/components/JavaManager';
 import { playClick, playError, playNav, playSuccess, playManusClick } from '@/lib/soundEngine';
 import { useAchievementStore } from '@/stores/achievementStore';
+import { dialog } from '@/stores/dialogStore';
+import { HOTKEY_DEFAULTS, HOTKEY_LABELS, normaliseHotkey, useHotkeyStore, type HotkeyAction } from '@/stores/hotkeyStore';
 import manusAchievement from '@/assets/manus-achievement.png';
 
-type Section = 'account' | 'minecraft' | 'appearance' | 'audio' | 'language' | 'advanced' | 'about';
+type Section = 'account' | 'minecraft' | 'appearance' | 'controls' | 'audio' | 'language' | 'advanced' | 'about';
 
 interface SectionDef { id: Section; icon: any; label: string; desc: string }
 const SECTIONS: SectionDef[] = [
   { id:'account',    icon:User,    label:'Аккаунты',    desc:'Microsoft, Ely.by и игровые профили' },
   { id:'minecraft',  icon:Cpu,     label:'Minecraft',  desc:'Java, память и параметры запуска' },
   { id:'appearance', icon:Palette, label:'Оформление',  desc:'Тема, панели и визуальные параметры' },
+  { id:'controls',   icon:Gamepad2,label:'Управление',  desc:'Горячие клавиши и быстрые действия' },
   { id:'audio',      icon:Volume2, label:'Аудио',       desc:'Громкость, звуки и фоновая музыка' },
   { id:'language',   icon:Globe,   label:'Язык',        desc:'Язык интерфейса лаунчера' },
   { id:'advanced',   icon:Code,    label:'Дополнительно', desc:'Каталоги, API и расширенные параметры' },
@@ -600,6 +603,45 @@ function AppearanceSection() {
   );
 }
 
+function ControlsSection() {
+  const bindings = useHotkeyStore(state => state.bindings);
+  const setBinding = useHotkeyStore(state => state.setBinding);
+  const reset = useHotkeyStore(state => state.reset);
+  const [capturing, setCapturing] = useState<HotkeyAction | null>(null);
+
+  useEffect(() => {
+    if (!capturing) return;
+    const record = (event: KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === 'Escape') { setCapturing(null); return; }
+      const chord = normaliseHotkey(event);
+      if (!chord) return;
+      const collision = (Object.entries(bindings).find(([action, value]) => action !== capturing && value === chord)?.[0] ?? null) as HotkeyAction | null;
+      if (collision) {
+        dialog.alert(`Сочетание ${chord} уже назначено действию «${HOTKEY_LABELS[collision].label}».`, { title:'Конфликт сочетаний', danger:false });
+        return;
+      }
+      setBinding(capturing, chord);
+      setCapturing(null);
+    };
+    window.addEventListener('keydown', record, true);
+    return () => window.removeEventListener('keydown', record, true);
+  }, [bindings, capturing, setBinding]);
+
+  return <div className="max-w-3xl space-y-4">
+    <section className="rounded-2xl p-5" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
+      <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-primary)' }}>Горячие клавиши</p>
+      <h2 className="mt-1 text-lg font-black" style={{ color:'var(--color-text)' }}>Быстрые действия лаунчера</h2>
+      <p className="mt-1 text-xs leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>Сочетания работают на обычных страницах. В поле ввода они не мешают печатать, а Escape сначала закрывает открытый редактор, preview или диалог.</p>
+    </section>
+    <section className="overflow-hidden rounded-2xl" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
+      {(Object.keys(HOTKEY_LABELS) as HotkeyAction[]).map(action => <div key={action} className="flex items-center gap-4 px-4 py-3" style={{ borderBottom:'1px solid var(--color-border)' }}><div className="min-w-0 flex-1"><p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>{HOTKEY_LABELS[action].label}</p><p className="mt-0.5 text-[11px]" style={{ color:'var(--color-text-secondary)' }}>{HOTKEY_LABELS[action].description}</p></div><button onClick={() => setCapturing(action)} className="min-w-28 rounded-xl px-3 py-2 text-xs font-black" style={{ background:capturing === action ? 'var(--color-primary)' : 'var(--color-surface-2)', color:capturing === action ? 'var(--color-primary-text)' : 'var(--color-text)', border:`1px solid ${capturing === action ? 'var(--color-primary)' : 'var(--color-border)'}` }}>{capturing === action ? 'Нажмите…' : bindings[action]}</button></div>)}
+      <div className="flex items-center justify-between gap-3 px-4 py-3"><span className="text-[11px]" style={{ color:'var(--color-text-tertiary)' }}>Изменения сохраняются автоматически.</span><button onClick={() => reset()} className="rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Сбросить: {HOTKEY_DEFAULTS.home}, …</button></div>
+    </section>
+  </div>;
+}
+
 function AudioSection() {
   const s = useSettingsStore();
   const musicFileRef = useRef<HTMLInputElement | null>(null);
@@ -843,6 +885,7 @@ const SECTION_CONTENT: Record<Section, React.FC> = {
   account: AccountSection,
   minecraft: MinecraftSection,
   appearance: AppearanceSection,
+  controls: ControlsSection,
   audio: AudioSection,
   language: LanguageSection,
   advanced: AdvancedSection,

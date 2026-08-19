@@ -151,7 +151,7 @@ export function SkinStand3D({
     shadow.scale.set(1.36, 0.58, 1);
     shadow.position.set(0, -16.2, -0.5);
     scene.add(shadow);
-    const st: any = { scene, camera, renderer, player, shadow, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [], meshMaterials: [], whiteApplied: false, applyStartedAt: 0, particle: null, particleBase: null, headTargetYaw: 0, headTargetPitch: 0, bodyTargetYaw: 0, bodyTargetPitch: 0, bodyFollowYaw: 0, bodyFollowPitch: 0, legs: null };
+    const st: any = { scene, camera, renderer, player, shadow, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [], meshMaterials: [], whiteApplied: false, applyStartedAt: 0, inspectUntil: 0, particle: null, particleBase: null, headTargetYaw: 0, headTargetPitch: 0, bodyTargetYaw: 0, bodyTargetPitch: 0, bodyFollowYaw: 0, bodyFollowPitch: 0, legs: null };
     stateRef.current = st;
 
     const resize = () => {
@@ -245,6 +245,7 @@ export function SkinStand3D({
           st.whiteApplied = false;
           player.scale.setScalar(1);
           st.applyStartedAt = 0;
+          st.inspectUntil = performance.now() + 1250;
           if (st.particle) {
             player.remove(st.particle);
             st.particle.geometry.dispose();
@@ -262,8 +263,15 @@ export function SkinStand3D({
         st.shadow.material.opacity = 0.25 - Math.max(0, idleLift) * 0.045;
       }
       if (st.arms) {
-        st.arms.left.rotation.x = Math.sin(t * 1.12) * 0.075 + 0.018;
-        st.arms.right.rotation.x = -Math.sin(t * 1.12) * 0.075 - 0.018;
+        const inspecting = st.inspectUntil > performance.now();
+        st.arms.left.rotation.x = inspecting ? -0.74 + Math.sin(t * 3.2) * 0.04 : Math.sin(t * 1.12) * 0.075 + 0.018;
+        st.arms.right.rotation.x = inspecting ? -0.42 + Math.sin(t * 3.2 + 0.7) * 0.035 : -Math.sin(t * 1.12) * 0.075 - 0.018;
+        st.arms.left.rotation.z += ((inspecting ? 0.18 : 0) - st.arms.left.rotation.z) * 0.16;
+        st.arms.right.rotation.z += ((inspecting ? -0.1 : 0) - st.arms.right.rotation.z) * 0.16;
+        if (inspecting && st.head) {
+          st.head.rotation.x += (0.22 - st.head.rotation.x) * 0.09;
+          st.head.rotation.y += (0.22 - st.head.rotation.y) * 0.07;
+        }
       }
       if (st.legs) {
         const step = Math.sin(t * 1.12) * 0.035;

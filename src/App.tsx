@@ -27,6 +27,7 @@ import { InstallEffectOverlay } from '@/components/InstallEffectOverlay';
 import { DialogHost } from '@/components/DialogHost';
 import { BackgroundMusicPlayer } from '@/components/BackgroundMusicPlayer';
 import { BackgroundVideo } from '@/components/BackgroundVideo';
+import { GlobalHotkeys } from '@/components/GlobalHotkeys';
 import { useNotifStore } from '@/stores/notificationStore';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -143,6 +144,7 @@ function App() {
       <div className="relative flex h-screen min-h-0 flex-col overflow-hidden bg-transparent text-[var(--color-text)]">
       <BackgroundVideo />
       <div className="relative z-10 flex h-full min-h-0 flex-col" style={{ opacity: 'var(--portal-interface-opacity, 1)' }}>
+      <GlobalHotkeys />
       <TitleBar />
       <AnimatePresence>
         {loading ? <SplashScreen onComplete={() => setLoading(false)} /> : null}

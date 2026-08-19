@@ -13,6 +13,7 @@ import type { Instance } from '@/stores/instanceStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useInstalledStore, useIsInstalled } from '@/stores/installedStore';
 import { triggerInstallEffect } from '@/components/InstallEffectOverlay';
+import { ModpackManifestPreview as SelectableManifestPreview } from '@/components/ModpackManifestPreview';
 import { useAuthorAvatar } from '@/lib/author-avatar';
 import { saveSearchReturn } from '@/lib/search-navigation';
 import { useLaunchStore } from '@/stores/launchStore';
@@ -477,7 +478,7 @@ export function ModDetail() {
     } finally { setPreviewLoading(false); }
   };
 
-  const doInstallModpack = async () => {
+  const doInstallModpack = async (excludedPaths: string[] = []) => {
     setInstalling(true);
     setInstallError('');
     setInstallProgress(5);
@@ -495,6 +496,9 @@ export function ModDetail() {
         fileName: packFile.filename,
         source: source ?? 'modrinth',
         apiKey: cfApiKey || null,
+        excludedPaths,
+        projectIconUrl: project?.icon_url ?? null,
+        projectScreenshots: (project?.gallery ?? []).map(item => item.url).filter(Boolean),
       });
       const storeInst: Instance = {
         id: raw.id,
@@ -1119,7 +1123,7 @@ export function ModDetail() {
       </div>
 
       <AnimatePresence>
-        {modpackPreview && <ModpackPreviewModal preview={modpackPreview} onClose={() => setModpackPreview(null)} onInstall={() => { setModpackPreview(null); doInstallModpack(); }} />}
+        {modpackPreview && <SelectableManifestPreview preview={modpackPreview} onClose={() => setModpackPreview(null)} onInstall={excludedPaths => { setModpackPreview(null); void doInstallModpack(excludedPaths); }} />}
         {showPicker && (
           <InstancePickerModal modName={project?.title ?? ''} onClose={() => { setShowPicker(false); setPendingVersion(null); }} onSelect={doInstall} />
         )}

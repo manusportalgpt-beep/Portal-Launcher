@@ -526,7 +526,7 @@ fn normalize_imported_game_dir(instance_dir: &Path) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn import_instance_zip(app: tauri::AppHandle, zip_path: String, new_name: Option<String>) -> Result<Instance, String> {
+pub async fn import_instance_zip(app: tauri::AppHandle, zip_path: String, new_name: Option<String>, excluded_paths: Option<Vec<String>>) -> Result<Instance, String> {
     app.emit("instance-progress", serde_json::json!({"stage":"importing","name":new_name.clone().unwrap_or("Instance".into()),"percent":10,"message":"Reading ZIP..."})).ok();
     let zip_file = std::fs::File::open(&zip_path).map_err(|e| format!("Open zip: {e}"))?;
     let mut archive = zip::ZipArchive::new(zip_file).map_err(|e| format!("Read zip: {e}"))?;
@@ -539,7 +539,7 @@ pub async fn import_instance_zip(app: tauri::AppHandle, zip_path: String, new_na
         .filter_map(|i| archive.by_index(i).ok().map(|e| e.name().to_string()))
         .any(|n| n == "manifest.json");
     if has_manifest {
-        return import_curseforge_modpack_from_archive(app, archive, new_name).await;
+        return import_curseforge_modpack_from_archive(app, archive, new_name, excluded_paths.unwrap_or_default()).await;
     }
 
     let new_id = uuid::Uuid::new_v4().to_string();
@@ -686,9 +686,17 @@ pub async fn preview_remote_modpack(
         .timeout(std::time::Duration::from_secs(120))
         .user_agent("PortalLauncher/1.3")
         .build().map_err(|e| e.to_string())?;
-    let bytes = client.get(&download_url).send().await
-        .map_err(|e| format!("Download pack preview: {e}"))?
-        .bytes().await.map_err(|e| format!("Read pack preview: {e}"))?;
+    let bytes = if download_url.starts_with("data:") {
+        let encoded = download_url.split_once(',').map(|(_, value)| value).ok_or("Invalid local archive data URL")?;
+        use base64::Engine as _;
+        base64::engine::general_purpose::STANDARD.decode(encoded)
+            .map_err(|e| format!("Read local pack preview: {e}"))?
+    } else {
+        client.get(&download_url).send().await
+            .map_err(|e| format!("Download pack preview: {e}"))?
+            .bytes().await.map_err(|e| format!("Read pack preview: {e}"))?
+            .to_vec()
+    };
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes))
         .map_err(|e| format!("Open {}: {e}", file_name))?;
 
@@ -845,7 +853,7 @@ pub async fn preview_remote_modpack(
 }
 
 #[tauri::command]
-pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String) -> Result<Instance, String> {
+pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, excluded_paths: Option<Vec<String>>) -> Result<Instance, String> {
     let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(300)).user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
     let file = std::fs::File::open(&mrpack_path).map_err(|e| format!("Open: {e}"))?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Read: {e}"))?;
@@ -926,6 +934,7 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String) ->
 
     // ── Download files (mods, resource-packs, etc.) into .minecraft/ ──────────
     let files = index["files"].as_array().cloned().unwrap_or_default();
+    let excluded_paths: std::collections::HashSet<String> = excluded_paths.unwrap_or_default().into_iter().collect();
     let total_files = files.len();
     app.emit("instance-progress", serde_json::json!({"stage":"downloading","name":pack_name,"percent":30,"message":format!("Downloading {} files...", total_files)})).ok();
     let mut mods = vec![];
@@ -939,6 +948,7 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String) ->
             return Err("Pack installation cancelled".to_string());
         }
         let path = file_entry["path"].as_str().unwrap_or("");
+        if excluded_paths.contains(path) { continue; }
         let urls: Vec<&str> = file_entry["downloads"].as_array()
             .map(|a| a.iter().filter_map(|u| u.as_str()).collect())
             .unwrap_or_default();
@@ -1015,6 +1025,7 @@ pub async fn import_archive_data(
     app: tauri::AppHandle,
     file_name: String,
     data_url: String,
+    excluded_paths: Option<Vec<String>>,
 ) -> Result<Instance, String> {
     let lower = file_name.to_lowercase();
     let ext = if lower.ends_with(".mrpack") { "mrpack" } else if lower.ends_with(".zip") { "zip" } else {
@@ -1030,9 +1041,9 @@ pub async fn import_archive_data(
     std::fs::write(&temp_path, bytes).map_err(|e| format!("Не удалось сохранить временный архив: {e}"))?;
     let path = temp_path.to_string_lossy().to_string();
     let result = if ext == "mrpack" {
-        import_modrinth_pack(app.clone(), path).await
+        import_modrinth_pack(app.clone(), path, excluded_paths).await
     } else {
-        import_instance_zip(app.clone(), path, None).await
+        import_instance_zip(app.clone(), path, None, excluded_paths).await
     };
     let _ = std::fs::remove_file(temp_path);
     result
@@ -1047,6 +1058,9 @@ pub async fn import_remote_modpack(
     download_url: String,
     file_name: String,
     source: String,
+    excluded_paths: Option<Vec<String>>,
+    project_icon_url: Option<String>,
+    project_screenshots: Option<Vec<String>>,
 ) -> Result<Instance, String> {
     app.emit("instance-progress", serde_json::json!({"stage":"downloading","name":file_name,"percent":5,"message":"Downloading modpack archive..."})).ok();
     let client = reqwest::Client::builder()
@@ -1064,12 +1078,50 @@ pub async fn import_remote_modpack(
     std::fs::write(&temp_path, bytes).map_err(|e| format!("Не удалось сохранить модпак: {e}"))?;
     let path = temp_path.to_string_lossy().to_string();
     let result = if is_mrpack {
-        import_modrinth_pack(app.clone(), path).await
+        import_modrinth_pack(app.clone(), path, excluded_paths).await
     } else {
-        import_instance_zip(app.clone(), path, None).await
+        import_instance_zip(app.clone(), path, None, excluded_paths).await
     };
     let _ = std::fs::remove_file(temp_path);
-    result
+    let mut instance = result?;
+
+    // Archive covers are preferred, but Discover metadata is a reliable fallback
+    // for packs that ship without a local icon. Persist it exactly like a user
+    // selected instance image so Library, header and Settings share one source.
+    if instance.icon.is_none() {
+        if let Some(icon_url) = project_icon_url.filter(|url| !url.trim().is_empty()) {
+            if let Ok(response) = client.get(&icon_url).send().await {
+                if let Ok(response) = response.error_for_status() {
+                    if let Ok(bytes) = response.bytes().await {
+                        if !bytes.is_empty() && bytes.len() <= 8 * 1024 * 1024 {
+                            let icon_path = instances_dir().join(&instance.id).join("icon.png");
+                            if std::fs::write(icon_path, &bytes).is_ok() {
+                                use base64::Engine as _;
+                                instance.icon = Some(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let screenshots_dir = instances_dir().join(&instance.id).join(".minecraft").join("screenshots");
+    std::fs::create_dir_all(&screenshots_dir).ok();
+    for (index, url) in project_screenshots.unwrap_or_default().into_iter().filter(|url| !url.trim().is_empty()).take(8).enumerate() {
+        if let Ok(response) = client.get(&url).send().await {
+            if let Ok(response) = response.error_for_status() {
+                if let Ok(bytes) = response.bytes().await {
+                    if !bytes.is_empty() && bytes.len() <= 16 * 1024 * 1024 {
+                        let ext = if bytes.starts_with(&[0x89, b'P', b'N', b'G']) { "png" } else { "jpg" };
+                        let _ = std::fs::write(screenshots_dir.join(format!("pack-{:02}.{ext}", index + 1)), bytes);
+                    }
+                }
+            }
+        }
+    }
+    save_instance(&instance)?;
+    Ok(instance)
 }
 
 /// Импорт модпака CurseForge (manifest.json + overrides/). В отличие от
@@ -1080,6 +1132,7 @@ async fn import_curseforge_modpack_from_archive(
     app: tauri::AppHandle,
     mut archive: zip::ZipArchive<std::fs::File>,
     new_name: Option<String>,
+    excluded_paths: Vec<String>,
 ) -> Result<Instance, String> {
     let manifest_data = {
         let mut f = archive.by_name("manifest.json").map_err(|e| e.to_string())?;
@@ -1148,6 +1201,7 @@ async fn import_curseforge_modpack_from_archive(
     std::fs::create_dir_all(&mods_dir).ok();
     let mut mods = vec![];
     let mut failed = 0usize;
+    let excluded_paths: std::collections::HashSet<String> = excluded_paths.into_iter().collect();
     for (i, f) in files.iter().enumerate() {
         if cancel_requested(&new_id) {
             clear_cancel(&new_id);
@@ -1158,6 +1212,7 @@ async fn import_curseforge_modpack_from_archive(
         let project_id = f["projectID"].as_u64().unwrap_or(0);
         let file_id = f["fileID"].as_u64().unwrap_or(0);
         if project_id == 0 || file_id == 0 { continue; }
+        if excluded_paths.contains(&format!("mods/curseforge-{file_id}.jar")) { continue; }
 
         let pct = 15 + (i as u64 * 80) / total.max(1) as u64;
         app.emit("instance-progress", serde_json::json!({"stage":"downloading","instance_id":new_id,"name":pack_name,"icon":icon_b64.as_deref(),"percent":pct,"message":format!("Downloading {}/{}", i+1, total)})).ok();

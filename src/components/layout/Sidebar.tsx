@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Compass, Library, Users, Settings, Layers } from 'lucide-react';
+import { Compass, Library, Settings, Layers } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
@@ -9,7 +9,6 @@ const items = [
   { to:'/discover', icon:Compass, key:'nav.discover' },
   { to:'/library', icon:Library, key:'nav.library' },
   { to:'/instances', icon:Layers, key:'instances.title' },
-  { to:'/friends', icon:Users, key:'nav.friends' },
   { to:'/settings', icon:Settings, key:'nav.settings' },
 ];
 

@@ -173,66 +173,6 @@ export const tauriFiles = {
   writeBytes: (path: string, data: number[]) => invoke<void>('write_file_bytes', { path, data }),
 };
 
-// ── Chat ──────────────────────────────────────────────────────────────────────
-export interface ChatMessage {
-  id: string; from_uuid: string; to_uuid: string; text?: string;
-  voice_url?: string; image_url?: string; timestamp: string;
-  delivered: boolean; read: boolean;
-  deleted_for_sender: boolean; deleted_for_everyone: boolean;
-}
-export interface SendResult { id: string; timestamp: string }
-export const tauriChat = {
-  send: (fromUuid: string, toUuid: string, text?: string, voiceUrl?: string, imageUrl?: string) =>
-    invoke<SendResult>('send_message', { from_uuid: fromUuid, to_uuid: toUuid, text, voice_url: voiceUrl, image_url: imageUrl }),
-  getMessages: (myUuid: string, friendUuid: string, limit?: number, beforeId?: string) =>
-    invoke<ChatMessage[]>('get_messages', { my_uuid: myUuid, friend_uuid: friendUuid, limit, before_id: beforeId }),
-  deleteMessage: (messageId: string, myUuid: string, forEveryone: boolean) =>
-    invoke<void>('delete_message', { message_id: messageId, my_uuid: myUuid, for_everyone: forEveryone }),
-  markRead: (myUuid: string, friendUuid: string) =>
-    invoke<void>('mark_messages_read', { my_uuid: myUuid, friend_uuid: friendUuid }),
-  flushOfflineQueue: (toUuid: string) => invoke<ChatMessage[]>('flush_offline_queue', { to_uuid: toUuid }),
-};
-
-// ── Voice Messages ────────────────────────────────────────────────────────────
-export interface VoiceUploadResult { url: string; duration_ms: number }
-export const tauriVoice = {
-  upload: (audioData: number[], fromUuid: string) =>
-    invoke<VoiceUploadResult>('start_voice_message_upload', { audio_data: audioData, from_uuid: fromUuid }),
-  list: (fromUuid: string) => invoke<string[]>('list_voice_messages', { from_uuid: fromUuid }),
-  delete: (url: string) => invoke<void>('delete_voice_message', { url }),
-};
-
-// ── WebRTC Signaling ──────────────────────────────────────────────────────────
-export interface SdpPayload { from_uuid: string; to_uuid: string; sdp: string; sdp_type: string; created_at: string }
-export interface IceCandidate { from_uuid: string; to_uuid: string; candidate: string; sdp_mid?: string; sdp_m_line_index?: number }
-export const tauriPortalLan = {
-  getRelayUrl: () => invoke<string>('get_relay_server_url'),
-  sendOffer: (payload: SdpPayload) => invoke<void>('send_offer', { payload }),
-  sendAnswer: (payload: SdpPayload) => invoke<void>('send_answer', { payload }),
-  poll: (myUuid: string, peerUuid: string) => invoke<SdpPayload | null>('poll_signaling', { my_uuid: myUuid, peer_uuid: peerUuid }),
-  sendIce: (candidate: IceCandidate) => invoke<void>('send_ice_candidate', { candidate }),
-  pollIce: (myUuid: string, peerUuid: string) => invoke<IceCandidate[]>('poll_ice_candidates', { my_uuid: myUuid, peer_uuid: peerUuid }),
-  clear: (myUuid: string, peerUuid: string) => invoke<void>('clear_signaling', { my_uuid: myUuid, peer_uuid: peerUuid }),
-};
-
-export const tauriWebRTC = {
-  sendOffer: (payload: SdpPayload) => invoke<void>('send_offer', { payload }),
-  sendAnswer: (payload: SdpPayload) => invoke<void>('send_answer', { payload }),
-  poll: (myUuid: string, peerUuid: string) => invoke<SdpPayload | null>('poll_signaling', { my_uuid: myUuid, peer_uuid: peerUuid }),
-  sendIce: (candidate: IceCandidate) => invoke<void>('send_ice_candidate', { candidate }),
-  pollIce: (myUuid: string, peerUuid: string) => invoke<IceCandidate[]>('poll_ice_candidates', { my_uuid: myUuid, peer_uuid: peerUuid }),
-  clear: (myUuid: string, peerUuid: string) => invoke<void>('clear_signaling', { my_uuid: myUuid, peer_uuid: peerUuid }),
-};
-
-// ── Friends ───────────────────────────────────────────────────────────────────
-export const tauriFriends = {
-  getAll: (accessToken: string) => invoke<unknown[]>('get_friends', { access_token: accessToken }),
-  add: (username: string, accessToken: string) => invoke<string>('add_friend', { username, access_token: accessToken }),
-  remove: (uuid: string, accessToken: string) => invoke<void>('remove_friend', { uuid, access_token: accessToken }),
-  joinWorld: (friendUuid: string, instanceId: string, serverAddress?: string) =>
-    invoke<void>('join_friend_world', { friend_uuid: friendUuid, instance_id: instanceId, server_address: serverAddress }),
-};
-
 // ── Settings ──────────────────────────────────────────────────────────────────
 export const tauriSettings = {
   getAll: () => invoke<Record<string, unknown>>('get_all'),

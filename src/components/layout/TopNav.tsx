@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  Home, Compass, Library, Users, User, Settings, Server, LogIn, Pin, ChevronLeft, ChevronRight,
+  Home, Compass, Library, User, Settings, LogIn, Pin, ChevronLeft, ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -13,15 +13,13 @@ import { getAvatarUrl, getAvatarFallbackUrl } from '@/lib/avatar';
 import { toIconSrc } from '@/lib/icon-src';
 import { CachedPlayerFace } from '@/components/CachedPlayerFace';
 
-interface NavItem { to: string; icon: LucideIcon; labelKey: 'home' | 'discover' | 'skins' | 'library' | 'friends' | 'hosting' | 'settings'; end?: boolean }
+interface NavItem { to: string; icon: LucideIcon; labelKey: 'home' | 'discover' | 'skins' | 'library' | 'settings'; end?: boolean }
 
 const NAV: NavItem[] = [
   { to: '/home', icon: Home, labelKey: 'home', end: true },
   { to: '/discover', icon: Compass, labelKey: 'discover' },
   { to: '/skins', icon: User, labelKey: 'skins' },
   { to: '/library', icon: Library, labelKey: 'library' },
-  { to: '/friends', icon: Users, labelKey: 'friends' },
-  { to: '/hosting', icon: Server, labelKey: 'hosting' },
 ];
 
 function orderedNav(order: string[]) {

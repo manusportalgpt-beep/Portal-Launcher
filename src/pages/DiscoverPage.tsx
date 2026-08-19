@@ -79,11 +79,11 @@ const PLATFORM_TYPES: Record<ProjectType, { modrinthFacet: string; cfClass: numb
 };
 
 const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
-  { value:'relevance', label:'Relevance' },
-  { value:'downloads', label:'Downloads' },
-  { value:'follows',   label:'Follows' },
-  { value:'newest',    label:'Newest' },
-  { value:'updated',   label:'Updated' },
+  { value:'relevance', label:'Релевантность' },
+  { value:'downloads', label:'Загрузки' },
+  { value:'follows',   label:'Подписки' },
+  { value:'newest',    label:'Новизна' },
+  { value:'updated',   label:'Обновлено' },
 ];
 
 const CF_LOADER_MAP: Record<string, number> = { forge:1, fabric:4, quilt:5, neoforge:6, vanilla:0 };
@@ -567,10 +567,10 @@ export function DiscoverPage() {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden" style={{ background:'var(--color-bg)' }}>
       {/* ── Top bar ── */}
-      <div className="flex items-center gap-2.5 px-4 py-2.5 shrink-0 flex-wrap"
-        style={{ borderBottom:'1px solid var(--color-border)' }}>
+      <div className="flex items-center gap-2.5 px-5 py-3 shrink-0 flex-wrap"
+        style={{ borderBottom:'1px solid var(--color-border)', background:'color-mix(in srgb, var(--color-surface) 92%, transparent)' }}>
 
         {/* Type tabs */}
         <div className="flex gap-1 flex-wrap">
@@ -582,10 +582,10 @@ export function DiscoverPage() {
                 setSelectedCats([]);
                 if (t !== 'mods' && t !== 'modpacks') setSelectedLoaders([]);
               }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
                 style={projectType===t
-                  ? { background:'var(--color-surface-2)', color:'var(--color-text)', border:'1px solid var(--color-border)' }
-                  : { color:'var(--color-text-secondary)' }}>
+                  ? { background:'var(--color-primary-dim)', color:'var(--color-primary)', border:'1px solid color-mix(in srgb, var(--color-primary) 46%, var(--color-border))', boxShadow:'0 5px 16px color-mix(in srgb, var(--color-primary) 12%, transparent)' }
+                  : { color:'var(--color-text-secondary)', border:'1px solid transparent' }}>
                 <Icon className="w-3.5 h-3.5" />{def.label}
               </button>
             );
@@ -623,7 +623,7 @@ export function DiscoverPage() {
       </div>
 
       {/* ── Search bar row with Platform toggle ── */}
-      <div className="flex items-center gap-2 px-4 py-2 shrink-0"
+      <div className="flex items-center gap-2 px-5 py-3 shrink-0"
         style={{ borderBottom:'1px solid var(--color-border)', background:'var(--color-surface)' }}>
         {/* Search input */}
         <div className="flex-1 relative">
@@ -632,9 +632,9 @@ export function DiscoverPage() {
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder={`Search ${platform === 'modrinth' ? 'Modrinth' : 'CurseForge'}…`}
-            className="w-full pl-9 pr-4 py-2 rounded-xl text-sm"
-            style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }}
+            placeholder={`Поиск в ${platform === 'modrinth' ? 'Modrinth' : 'CurseForge'}…`}
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm transition-colors"
+            style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)', boxShadow:'inset 0 1px 0 color-mix(in srgb, var(--color-text) 4%, transparent)' }}
           />
           {query && (
             <button onClick={() => setQuery('')}
@@ -690,12 +690,12 @@ export function DiscoverPage() {
           {/* Stats bar */}
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs" style={{ color:'var(--color-text-tertiary)' }}>
-              {loading ? 'Поиск…' : `${total.toLocaleString()} результатов`}
-              {hasFilters && <span> (filtered)</span>}
+              {loading ? 'Обновляем каталог…' : `${total.toLocaleString()} результатов`}
+              {hasFilters && <span> · фильтры активны</span>}
             </p>
             {hasFilters && (
               <button onClick={clearFilters} className="text-xs font-semibold hover:opacity-80"
-                style={{ color:'var(--color-error)' }}>Clear filters</button>
+                style={{ color:'var(--color-error)' }}>Сбросить фильтры</button>
             )}
           </div>
 
@@ -709,10 +709,10 @@ export function DiscoverPage() {
           ) : results.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <p className="text-sm font-semibold" style={{ color:'var(--color-text-secondary)' }}>
-                {platform === 'curseforge' && !cfApiKey ? 'Add your CurseForge API key in Settings → Advanced' : 'No results found'}
+                {platform === 'curseforge' && !cfApiKey ? 'Добавь ключ CurseForge в Настройки → Дополнительно' : 'Ничего не найдено'}
               </p>
               <p className="text-xs" style={{ color:'var(--color-text-tertiary)' }}>
-                {query ? `Nothing matched "${query}"` : 'Try a different search or adjust filters'}
+                {query ? `По запросу «${query}» нет совпадений` : 'Измени запрос или настройки фильтров'}
               </p>
             </div>
           ) : (

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@/lib/invoke-shim';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAuthorAvatar } from '@/lib/author-avatar';
+import { getModrinthProjectGateway } from '@/lib/modrinth-gateway';
 import { toIconSrc } from '@/lib/icon-src';
 import { ScreenshotEditor } from '@/components/ScreenshotEditor';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
@@ -199,7 +200,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       try {
         const project = item.source === 'curseforge'
           ? await invoke<any>('get_curseforge_mod', { projectId: Number(item.id), apiKey: curseforgeApiKey })
-          : await invoke<any>('get_modrinth_project', { projectId: item.id });
+          : await getModrinthProjectGateway(item.id);
         const author = item.source === 'curseforge' ? project?.authors?.[0]?.name : (project?.author || project?.team);
         const icon = item.source === 'curseforge' ? (project?.logo?.thumbnail_url || project?.logo?.thumbnailUrl) : project?.icon_url;
         const authorId = item.source === 'curseforge' ? project?.authors?.[0]?.id : undefined;

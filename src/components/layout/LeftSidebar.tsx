@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
-import { Home, Compass, User, Package, Server, Settings, Bell, LogIn, X, Plus } from 'lucide-react';
+import { Home, Compass, User, Package, Settings, Bell, LogIn, X, Plus } from 'lucide-react';
 import { useCurrentUser, useIsAuthenticated, useAuthStore } from '@/stores/authStore';
 import { useNotifStore } from '@/stores/notificationStore';
 import { useInstanceStore } from '@/stores/instanceStore';
@@ -19,11 +19,10 @@ interface NavItem {
 }
 
 const TOP_NAV: NavItem[] = [
-  { to: '/home',      icon: Home,    label: 'Home',     accent: '#DA2A3F', end: true },
-  { to: '/discover',  icon: Compass, label: 'Discover', accent: '#F59E0B' },
-  { to: '/skins',     icon: User,    label: 'Skins',    accent: '#8B5CF6' },
-  { to: '/library',   icon: Package, label: 'Library',  accent: '#3B82F6' },
-  { to: '/hosting',   icon: Server,  label: 'Hosting',  accent: '#35D07F' },
+  { to: '/home',      icon: Home,    label: 'Home',     accent: 'var(--color-primary)', end: true },
+  { to: '/discover',  icon: Compass, label: 'Discover', accent: 'var(--color-primary)' },
+  { to: '/skins',     icon: User,    label: 'Skins',    accent: 'var(--color-primary)' },
+  { to: '/library',   icon: Package, label: 'Library',  accent: 'var(--color-primary)' },
 ];
 
 function NavBtn({ item }: { item: NavItem }) {

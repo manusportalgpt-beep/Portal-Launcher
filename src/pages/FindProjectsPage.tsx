@@ -14,7 +14,7 @@ import { triggerInstallEffect } from '@/components/InstallEffectOverlay';
 import curseforgeAnvil from '@/assets/curseforge-anvil.png';
 import modrinthWrench from '@/assets/modrinth-wrench-clean.png';
 import { invoke } from '@/lib/invoke-shim';
-import { searchModrinthGateway } from '@/lib/modrinth-gateway';
+import { getModrinthVersionsGateway, searchModrinthGateway } from '@/lib/modrinth-gateway';
 import { toIconSrc } from '@/lib/icon-src';
 import { consumeSearchReturn, targetSearchScroll } from '@/lib/search-navigation';
 import { useUiStore } from '@/stores/uiStore';
@@ -216,17 +216,17 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
           loader: isModType && loader && loader !== 'vanilla' ? loader : undefined,
           gameVersion: mcVersion || undefined,
         };
-        let vers = await invoke<any[]>('get_modrinth_versions', versionParams);
+        let vers = await getModrinthVersionsGateway(
+          versionParams.projectId,
+          versionParams.gameVersion,
+          versionParams.loader,
+        );
         // У resourcepack/shader в Modrinth часто нет точного тега патч-версии,
         // хотя архив полностью подходит (например, 1.21.4 для 1.21.1). Страница
         // проекта уже использовала неотфильтрованный список как резервный;
         // повторяем это поведение и для быстрой кнопки Install.
         if (!vers || vers.length === 0) {
-          vers = await invoke<any[]>('get_modrinth_versions', {
-            projectId: project.id,
-            loader: undefined,
-            gameVersion: undefined,
-          });
+          vers = await getModrinthVersionsGateway(project.id);
         }
         if (!vers || vers.length === 0) {
           setErrorMsg('No downloadable versions were returned by Modrinth.');
@@ -738,10 +738,10 @@ export function FindProjectsPage() {
   const installLoader = instance?.modLoader ?? loader;
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden" style={{ background:'var(--color-bg)' }}>
       {/* ── Header ── */}
-      <div className="flex items-center gap-3 px-4 py-2.5 shrink-0 flex-wrap"
-        style={{ borderBottom:'1px solid var(--color-border)' }}>
+      <div className="flex items-center gap-3 px-5 py-3 shrink-0 flex-wrap"
+        style={{ borderBottom:'1px solid var(--color-border)', background:'color-mix(in srgb, var(--color-surface) 92%, transparent)' }}>
         <button onClick={() => navigate(-1)}
           className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/5 transition-colors shrink-0"
           style={{ color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
@@ -780,10 +780,10 @@ export function FindProjectsPage() {
                 setSelectedCats([]);
                 applyInstanceCompatibility(typeId);
               }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
                 style={projectType===typeId
-                  ? { background:'var(--color-surface-2)', color:'var(--color-text)', border:'1px solid var(--color-border)' }
-                  : { color:'var(--color-text-secondary)' }}>
+                  ? { background:'var(--color-primary-dim)', color:'var(--color-primary)', border:'1px solid color-mix(in srgb, var(--color-primary) 46%, var(--color-border))', boxShadow:'0 5px 16px color-mix(in srgb, var(--color-primary) 12%, transparent)' }
+                  : { color:'var(--color-text-secondary)', border:'1px solid transparent' }}>
                 <Icon className="w-3.5 h-3.5" />{t(`findProjects.types.${def.labelKey}`)}
               </button>
             );
@@ -849,7 +849,7 @@ export function FindProjectsPage() {
         {/* Main */}
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
           {/* Search bar */}
-          <div className="px-4 py-2.5 shrink-0" style={{ borderBottom:'1px solid var(--color-border)' }}>
+          <div className="px-5 py-3 shrink-0" style={{ borderBottom:'1px solid var(--color-border)', background:'var(--color-surface)' }}>
             <div className="flex items-center gap-2">
               <div className="flex-1 flex items-center gap-2 px-3.5 py-2.5 rounded-2xl"
                 style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
@@ -863,7 +863,7 @@ export function FindProjectsPage() {
               <button onClick={() => { setPage(0); doSearch(query, projectType, platform, sort, 0, selectedCats, selectedLoaders, selectedVersions); }}
                 className="w-10 h-10 flex items-center justify-center rounded-2xl shrink-0"
                 style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}
-                title="Refresh">
+                title="Обновить каталог">
                 <RefreshCw className={`w-4 h-4 ${loading?'animate-spin':''}`} style={{ color:'var(--color-text-secondary)' }} />
               </button>
               {/* Platform toggle — Modrinth ⇄ CurseForge */}
@@ -881,7 +881,7 @@ export function FindProjectsPage() {
                   border:     '1px solid var(--color-border)',
                   color:      'var(--color-text-secondary)',
                 }}
-                title={`Switch to ${platform === 'modrinth' ? 'CurseForge' : 'Modrinth'}`}>
+                title={`Переключить на ${platform === 'modrinth' ? 'CurseForge' : 'Modrinth'}`}>
                  {platform === 'modrinth'
                    ? <ModrinthLogo size={20} />
                    : <img src={curseforgeAnvil} alt="" className="h-5 w-5 object-contain grayscale opacity-70" />}
@@ -910,9 +910,9 @@ export function FindProjectsPage() {
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl mb-3 text-xs"
                 style={{ background:'rgba(241,100,54,0.08)', border:'1px solid rgba(241,100,54,0.3)', color:'#F16436' }}>
                 <Wifi className="w-3.5 h-3.5 shrink-0" />
-                <span className="flex-1">CurseForge API key not set. Add it in Settings → Advanced.</span>
+                <span className="flex-1">Ключ CurseForge не задан. Добавь его в Настройки → Дополнительно.</span>
                 <button onClick={() => navigate('/settings#advanced')}
-                  className="underline font-semibold hover:opacity-80">Go to Settings</button>
+                  className="underline font-semibold hover:opacity-80">Открыть настройки</button>
               </div>
             )}
             {/* Network error */}
@@ -945,14 +945,14 @@ export function FindProjectsPage() {
                   <Search className="w-8 h-8" style={{ color:'var(--color-text-tertiary)' }} />
                 </div>
                 <div className="text-center">
-                  <p className="font-bold" style={{ color:'var(--color-text)' }}>No results</p>
+                  <p className="font-bold" style={{ color:'var(--color-text)' }}>Ничего не найдено</p>
                   <p className="text-sm mt-1" style={{ color:'var(--color-text-secondary)' }}>
                     {query ? t('findProjects.tryDifferent') : t('findProjects.startSearching', { type: t(`findProjects.types.${TYPE_DEFS[projectType].labelKey}`).toLowerCase() })}
                   </p>
                 </div>
                 {hasFilters && (
                   <button onClick={clearFilters} className="px-4 py-2 rounded-xl text-sm font-semibold"
-                    style={{ background:'var(--color-primary)', color:'#fff' }}>Clear filters</button>
+                    style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>Сбросить фильтры</button>
                 )}
               </div>
             )}

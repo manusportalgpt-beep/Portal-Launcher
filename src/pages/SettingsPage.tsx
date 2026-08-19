@@ -11,7 +11,6 @@ import { invoke } from '@/lib/invoke-shim';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useCurrentUser, useIsAuthenticated, useAuthStore } from '@/stores/authStore';
-import { useMillidaAuthStore } from '@/stores/millidaAuthStore';
 import { MicrosoftAuthOAuth } from '@/components/auth/MicrosoftAuthOAuth';
 import { type ThemeId } from '@/lib/theme-engine';
 import { useUiStore } from '@/stores/uiStore';
@@ -31,13 +30,13 @@ type Section = 'account' | 'minecraft' | 'appearance' | 'audio' | 'language' | '
 
 interface SectionDef { id: Section; icon: any; label: string; desc: string }
 const SECTIONS: SectionDef[] = [
-  { id:'account',    icon:User,    label:'Account',    desc:'Microsoft account and profiles' },
-  { id:'minecraft',  icon:Cpu,     label:'Minecraft',  desc:'Java, memory, and launch options' },
-  { id:'appearance', icon:Palette, label:'Appearance', desc:'Theme and visual settings' },
-  { id:'audio',      icon:Volume2, label:'Audio',      desc:'Volume and sound settings' },
-  { id:'language',   icon:Globe,   label:'Language',   desc:'Interface language' },
-  { id:'advanced',   icon:Code,    label:'Advanced',   desc:'API keys and advanced options' },
-  { id:'about',      icon:Shield,  label:'About',      desc:'Version and license info' },
+  { id:'account',    icon:User,    label:'Аккаунты',    desc:'Microsoft, Ely.by и игровые профили' },
+  { id:'minecraft',  icon:Cpu,     label:'Minecraft',  desc:'Java, память и параметры запуска' },
+  { id:'appearance', icon:Palette, label:'Оформление',  desc:'Тема, панели и визуальные параметры' },
+  { id:'audio',      icon:Volume2, label:'Аудио',       desc:'Громкость, звуки и фоновая музыка' },
+  { id:'language',   icon:Globe,   label:'Язык',        desc:'Язык интерфейса лаунчера' },
+  { id:'advanced',   icon:Code,    label:'Дополнительно', desc:'Каталоги, API и расширенные параметры' },
+  { id:'about',      icon:Shield,  label:'О лаунчере',  desc:'Версия, лицензия и системная информация' },
 ];
 
 const THEMES: { id: ThemeId; name: string; preview: string; accent: string }[] = [
@@ -126,47 +125,6 @@ function InputRow({ label, desc, value, onChange, placeholder, type='text', read
   );
 }
 
-function MillidaAccountCard() {
-  const { profile, connected, busy, userCode, verifyUrl, error, startLogin, cancelLogin, logout } = useMillidaAuthStore();
-  const [linkFeedback, setLinkFeedback] = useState('');
-  useEffect(() => { void useMillidaAuthStore.getState().refresh(); }, []);
-  const openMillida = async () => {
-    if (!verifyUrl) return;
-    setLinkFeedback('Открываем…');
-    try {
-      await invoke('open_url', { url: verifyUrl });
-      setLinkFeedback('Страница Millida открыта');
-    } catch {
-      const popup = window.open(verifyUrl, '_blank', 'noopener,noreferrer');
-      setLinkFeedback(popup ? 'Страница Millida открыта' : 'Браузер заблокировал окно — скопируй ссылку');
-    }
-  };
-  const copyMillidaLink = async () => {
-    if (!verifyUrl) return;
-    try {
-      await navigator.clipboard.writeText(verifyUrl);
-      setLinkFeedback('Ссылка скопирована');
-    } catch {
-      setLinkFeedback('Не удалось скопировать ссылку');
-    }
-  };
-  return <div className="mt-6">
-    <h2 className="text-base font-bold mb-1" style={{ color:'var(--color-text)' }}>Millida</h2>
-    <p className="text-sm mb-3" style={{ color:'var(--color-text-secondary)' }}>Отдельный аккаунт для друзей, профиля и Portal LAN. Microsoft и Ely.by не используются.</p>
-    <div className="p-4 rounded-2xl" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
-      {connected && profile ? <div className="flex items-center gap-3">
-        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl flex items-center justify-center" style={{ background:'var(--color-primary)' }}>
-          {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" className="h-full w-full object-cover" /> : <User className="h-6 w-6" style={{ color:'var(--color-primary-text)' }} />}
-        </div>
-        <div className="min-w-0 flex-1"><p className="font-bold truncate" style={{ color:'var(--color-text)' }}>{profile.nickname || profile.email || 'Millida'}</p><p className="text-xs truncate" style={{ color:'var(--color-text-secondary)' }}>{profile.profileUrl || profile.email || 'Профиль Millida подключён'}</p></div>
-        <button onClick={() => void logout()} className="rounded-xl px-3 py-2 text-xs font-semibold" style={{ color:'var(--color-error)', background:'rgba(231,76,60,.10)' }}>Выйти</button>
-      </div> : <div className="flex items-center gap-3"><div className="min-w-0 flex-1"><p className="font-semibold" style={{ color:'var(--color-text)' }}>Millida не подключён</p><p className="text-xs mt-1" style={{ color:'var(--color-text-secondary)' }}>Откроется официальная страница Millida, где нужно подтвердить код.</p></div><button disabled={busy} onClick={() => void startLogin()} className="rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)', opacity:busy ? .65 : 1 }}>{busy ? 'Ожидание…' : 'Войти'}</button></div>}
-      {busy && <div className="mt-3 rounded-xl p-3" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}><p className="text-xs" style={{ color:'var(--color-text-secondary)' }}>Код подтверждения:</p><p className="mt-1 font-mono text-lg font-bold tracking-[.2em]" style={{ color:'var(--color-text)' }}>{userCode || '…'}</p><div className="mt-2 flex flex-wrap items-center gap-2"><button type="button" disabled={!verifyUrl} onClick={() => void openMillida()} className="inline-flex cursor-pointer items-center rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-40" style={{ color:'var(--color-primary)', background:'var(--color-primary-dim)', border:'1px solid var(--color-primary)' }}>Открыть Millida</button><button type="button" disabled={!verifyUrl} onClick={() => void copyMillidaLink()} className="inline-flex cursor-pointer items-center rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-40" style={{ color:'var(--color-text-secondary)', background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>Копировать ссылку</button><button type="button" onClick={cancelLogin} className="cursor-pointer rounded-lg px-2 py-1.5 text-xs" style={{ color:'var(--color-text-secondary)' }}>Отмена</button></div>{linkFeedback && <p className="mt-2 text-[11px]" style={{ color:'var(--color-text-tertiary)' }}>{linkFeedback}</p>}</div>}
-      {error && <p className="mt-2 text-xs" style={{ color:'var(--color-error)' }}>{error}</p>}
-    </div>
-  </div>;
-}
-
 function AccountSection() {
   const user = useCurrentUser();
   const isAuth = useIsAuthenticated();
@@ -252,7 +210,6 @@ function AccountSection() {
           </div>
         </div>
       )}
-      <MillidaAccountCard />
       <AnimatePresence>
         {showAuth && (
           <motion.div className="fixed inset-0 z-50 flex items-center justify-center"
@@ -713,9 +670,10 @@ function AdvancedSection() {
     if (!url) { setProxyStatus('error'); setProxyMessage('Укажи адрес proxy-сервера.'); return; }
     setProxyStatus('checking'); setProxyMessage('Проверяю подключение…');
     try {
-      const response = await fetch(`${url}/v2/`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      setProxyStatus('ok'); setProxyMessage('Proxy отвечает. Его можно использовать для Modrinth.');
+      const response = await fetch(`${url}/v2/search?query=sodium&limit=1`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+      const contentType = response.headers.get('content-type') || '';
+      if (!response.ok || !contentType.includes('application/json')) throw new Error(`endpoint вернул ${response.status || 'не-JSON ответ'}`);
+      setProxyStatus('ok'); setProxyMessage('Transport вернул совместимый JSON. Он включён для поиска и карточек Modrinth.');
     } catch (error) {
       setProxyStatus('error'); setProxyMessage(`Подключение не удалось: ${error instanceof Error ? error.message : 'неизвестная ошибка'}`);
     }
@@ -723,14 +681,14 @@ function AdvancedSection() {
 
   return (
     <div>
-      <h2 className="text-base font-bold mb-1" style={{ color:'var(--color-text)' }}>Advanced</h2>
-      <p className="text-sm mb-5" style={{ color:'var(--color-text-secondary)' }}>API keys and advanced options</p>
+      <h2 className="text-base font-bold mb-1" style={{ color:'var(--color-text)' }}>Дополнительно</h2>
+      <p className="text-sm mb-5" style={{ color:'var(--color-text-secondary)' }}>Сервисы каталога и расширенные параметры запуска.</p>
 
       <div className="mb-5 rounded-2xl p-4" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
-        <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Modrinth proxy</p><p className="mt-1 text-xs leading-5" style={{ color:'var(--color-text-secondary)' }}>Подключи совместимый gateway для поиска и страниц Modrinth. Для проксирования файлов сервер должен поддерживать те же download URL или отдельные download routes. Если proxy недоступен, можно автоматически вернуться к официальному API.</p></div><Toggle value={s.modrinthProxyEnabled} onChange={v => s.setSetting('modrinthProxyEnabled', v)} /></div>
-        <div className="mt-3 flex gap-2"><input value={proxyUrl} onChange={e => { setProxyUrl(e.target.value); setProxyStatus('idle'); }} placeholder="https://proxy.example" className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', color:'var(--color-text)' }} /><button onClick={() => void testModrinthProxy()} disabled={proxyStatus === 'checking'} className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)', opacity: proxyStatus === 'checking' ? .6 : 1 }}>{proxyStatus === 'checking' ? 'Проверка…' : 'Проверить'}</button></div>
-        <button onClick={() => s.update({ modrinthProxyUrl: proxyUrl.trim().replace(/\/$/, '') })} className="mt-2 rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background:'var(--color-surface)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Сохранить адрес</button>
-        <Row label="Official fallback" desc="Использовать официальный Modrinth API, если proxy временно недоступен"><Toggle value={s.modrinthProxyAllowOfficialFallback} onChange={v => s.setSetting('modrinthProxyAllowOfficialFallback', v)} /></Row>
+        <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Транспорт Modrinth</p><p className="mt-1 text-xs leading-5" style={{ color:'var(--color-text-secondary)' }}>Дополнительный endpoint проверяется по реальному поисковому JSON. Если сервис показывает HTML-защиту, ошибки или задержку, лаунчер сразу использует кэш и официальный API — без бесконечного поиска.</p></div><Toggle value={s.modrinthProxyEnabled} onChange={v => s.setSetting('modrinthProxyEnabled', v)} /></div>
+        <div className="mt-3 flex gap-2"><input value={proxyUrl} onChange={e => { setProxyUrl(e.target.value); setProxyStatus('idle'); }} placeholder="https://modrinth.black" className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', color:'var(--color-text)' }} /><button onClick={() => void testModrinthProxy()} disabled={proxyStatus === 'checking'} className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)', opacity: proxyStatus === 'checking' ? .6 : 1 }}>{proxyStatus === 'checking' ? 'Проверяем…' : 'Проверить JSON'}</button></div>
+        <button onClick={() => s.update({ modrinthProxyUrl: proxyUrl.trim().replace(/\/$/, '') })} className="mt-2 rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background:'var(--color-surface)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Сохранить endpoint</button>
+        <Row label="Официальный fallback" desc="Использовать официальный Modrinth API, если дополнительный endpoint недоступен"><Toggle value={s.modrinthProxyAllowOfficialFallback} onChange={v => s.setSetting('modrinthProxyAllowOfficialFallback', v)} /></Row>
         {proxyMessage && <p className="mt-2 text-xs" style={{ color: proxyStatus === 'error' ? 'var(--color-error)' : proxyStatus === 'ok' ? 'var(--color-success)' : 'var(--color-text-secondary)' }}>{proxyMessage}</p>}
       </div>
 
@@ -899,9 +857,9 @@ export function SettingsPage() {
           style={{ width:264, background:'linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 78%, transparent), color-mix(in srgb, var(--color-bg) 30%, transparent))', borderRight:'1px solid var(--color-border)' }}>
           <div className="mb-3 flex items-center gap-3 rounded-2xl p-3" style={{ background:'var(--color-primary-dim)', border:'1px solid color-mix(in srgb, var(--color-primary) 35%, var(--color-border))' }}>
             <img src="/launcher-icon.png" alt="Portal Launcher" className="h-9 w-9 rounded-xl object-cover" />
-            <div className="min-w-0"><p className="truncate text-sm font-black" style={{ color:'var(--color-text)' }}>Portal Launcher</p><p className="text-[10px]" style={{ color:'var(--color-text-secondary)' }}>Control Center</p></div>
+            <div className="min-w-0"><p className="truncate text-sm font-black" style={{ color:'var(--color-text)' }}>Portal Launcher</p><p className="text-[10px]" style={{ color:'var(--color-text-secondary)' }}>Центр управления</p></div>
           </div>
-          <p className="mb-1 px-2 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-text-tertiary)' }}>Settings</p>
+          <p className="mb-1 px-2 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-text-tertiary)' }}>Настройки</p>
           <nav className="space-y-1">
             {SECTIONS.map(sec => {
               const Icon = sec.icon;
@@ -921,8 +879,8 @@ export function SettingsPage() {
             })}
           </nav>
           <div className="mt-auto rounded-2xl p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
-            <p className="text-[10px] font-black uppercase tracking-wide" style={{ color:'var(--color-primary)' }}>Saved automatically</p>
-            <p className="mt-1 text-[10px] leading-4" style={{ color:'var(--color-text-secondary)' }}>Themes, Java choice, panel layout and language stay after restart.</p>
+            <p className="text-[10px] font-black uppercase tracking-wide" style={{ color:'var(--color-primary)' }}>Сохраняется автоматически</p>
+            <p className="mt-1 text-[10px] leading-4" style={{ color:'var(--color-text-secondary)' }}>Тема, Java, панели и язык сохраняются после перезапуска.</p>
           </div>
         </aside>
 

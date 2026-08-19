@@ -56,7 +56,7 @@ const defaults: Settings = {
   minRam: 1024,
   maxRam: 4096,
   curseforgeApiKey: '',
-  modrinthProxyEnabled: true,
+  modrinthProxyEnabled: false,
   modrinthProxyUrl: 'https://modrinth.black',
   modrinthProxyAllowOfficialFallback: true,
   closeLauncherOnStart: false,

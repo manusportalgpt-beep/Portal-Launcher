@@ -145,7 +145,10 @@ async function gatewayJson<T>(path: string, body?: unknown): Promise<T> {
 export async function getModrinthProjectGateway(projectId: string | undefined): Promise<any> {
   const normalized = projectId || '';
   const id = encodeURIComponent(normalized);
-  try { return await gatewayJson<any>(`/v2/project/${id}`); } catch { return withTimeout(invoke<any>('get_modrinth_project', { projectId: normalized }), REQUEST_TIMEOUT_MS); }
+  const attempts: Array<Promise<any>> = [withTimeout(invoke<any>('get_modrinth_project', { projectId: normalized }), REQUEST_TIMEOUT_MS)];
+  if (configuredGatewayUrl()) attempts.unshift(gatewayJson<any>(`/v2/project/${id}`));
+  try { return await Promise.any(attempts); }
+  catch { throw new Error('Modrinth project metadata is unavailable'); }
 }
 
 export async function getModrinthVersionsGateway(projectId: string | undefined, gameVersion?: string, loader?: string): Promise<any[]> {
@@ -154,7 +157,11 @@ export async function getModrinthVersionsGateway(projectId: string | undefined, 
   const params = new URLSearchParams();
   if (gameVersion) params.set('game_version', gameVersion);
   if (loader) params.set('loader', loader);
-  try { return await gatewayJson<any[]>(`/v2/project/${id}/version${params.toString() ? `?${params.toString()}` : ''}`); } catch { return withTimeout(invoke<any[]>('get_modrinth_versions', { projectId: normalized, gameVersion: gameVersion || null, loader: loader || null }), REQUEST_TIMEOUT_MS); }
+  const suffix = `/v2/project/${id}/version${params.toString() ? `?${params.toString()}` : ''}`;
+  const attempts: Array<Promise<any[]>> = [withTimeout(invoke<any[]>('get_modrinth_versions', { projectId: normalized, gameVersion: gameVersion || null, loader: loader || null }), REQUEST_TIMEOUT_MS)];
+  if (configuredGatewayUrl()) attempts.unshift(gatewayJson<any[]>(suffix));
+  try { return await Promise.any(attempts); }
+  catch { throw new Error('Modrinth versions are unavailable'); }
 }
 
 export async function searchModrinthGateway(query: ModrinthGatewayQuery): Promise<ModrinthSearchResult> {
@@ -164,24 +171,17 @@ export async function searchModrinthGateway(query: ModrinthGatewayQuery): Promis
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.data;
   const failures: string[] = [];
   const gatewayUrl = configuredGatewayUrl();
-  if (gatewayUrl) {
-    try {
-      const result = await gatewayFetch(gatewayUrl, '/v2/search', query).then(response => response.json() as Promise<ModrinthSearchResult>);
-      storeSearchCache(key, result);
-      return result;
-    } catch (error) { failures.push(error instanceof Error ? error.message : 'gateway failed'); }
-  }
+  const attempts: Array<Promise<ModrinthSearchResult>> = [
+    withTimeout(invoke<ModrinthSearchResult>('search_modrinth', query as unknown as Record<string, unknown>), REQUEST_TIMEOUT_MS),
+  ];
+  if (gatewayUrl) attempts.unshift(gatewayFetch(gatewayUrl, '/v2/search', query).then(response => response.json() as Promise<ModrinthSearchResult>));
+  if (allowOfficialFallback()) attempts.push(directSearch(query));
   try {
-    const result = await withTimeout(invoke<ModrinthSearchResult>('search_modrinth', query as unknown as Record<string, unknown>), REQUEST_TIMEOUT_MS);
-    memoryCache.set(key, { at: Date.now(), data: result });
+    const result = await Promise.any(attempts);
+    storeSearchCache(key, result);
     return result;
-  } catch (error) { failures.push(error instanceof Error ? error.message : 'rust adapter failed'); }
-  if (allowOfficialFallback()) {
-    try {
-      const result = await directSearch(query);
-      storeSearchCache(key, result);
-      return result;
-    } catch (error) { failures.push(error instanceof Error ? error.message : 'official API failed'); }
+  } catch (error) {
+    failures.push(error instanceof AggregateError ? error.errors.map((item: unknown) => item instanceof Error ? item.message : String(item)).join(' → ') : error instanceof Error ? error.message : 'transport failed');
   }
   if (cached && Date.now() - cached.at < STALE_TTL_MS) return cached.data;
   throw new Error(`Modrinth недоступен: ${failures.join(' → ')}`);

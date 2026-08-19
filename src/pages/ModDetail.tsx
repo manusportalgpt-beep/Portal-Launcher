@@ -627,11 +627,11 @@ export function ModDetail() {
         // Спрашиваем у Modrinth только версии под этот загрузчик и сборку MC —
         // но только для модов; ресурспаки/шейдеры/датапаки грузчиком не тегируются.
         const loaderRelevant = (project?.project_type ?? 'mod') === 'mod';
-        const filtered = await invoke<any>('get_modrinth_versions', {
-          projectId: project?.id ?? modId ?? '',
-          gameVersion: mcVersion || undefined,
-          loader: loaderRelevant && loader !== 'vanilla' ? loader : undefined,
-        });
+        const filtered = await getModrinthVersionsGateway(
+          project?.id ?? modId ?? '',
+          mcVersion || undefined,
+          loaderRelevant && loader !== 'vanilla' ? loader : undefined,
+        );
         const arr: ModVersion[] = Array.isArray(filtered) ? filtered : [];
         bestVersion =
           pickNewest(arr, mcVersion, loader) ??
@@ -812,7 +812,7 @@ export function ModDetail() {
           const p = await invoke<any>('get_curseforge_mod', { projectId: Number(d.project_id), apiKey: cfApiKey });
           setDepInfo(prev => ({ ...prev, [d.project_id!]: { name: p.name || d.project_id!, author: p.authors?.[0]?.name || 'Author unavailable', icon_url: p.logo?.thumbnail_url } }));
         } else {
-          const p = await invoke<any>('get_modrinth_project', { projectId: d.project_id });
+          const p = await getModrinthProjectGateway(d.project_id);
           setDepInfo(prev => ({ ...prev, [d.project_id!]: { name: p.title || d.project_id!, author: p.author || p.owner || 'Author unavailable', icon_url: p.icon_url, game_versions: p.game_versions ?? [], loaders: p.loaders ?? [] } }));
         }
       } catch {

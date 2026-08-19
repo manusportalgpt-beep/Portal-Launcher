@@ -13,8 +13,6 @@ import { ModDetail } from '@/pages/ModDetail';
 import { SkinSelectorPage } from '@/pages/SkinSelectorPage';
 import { GalleryPage } from '@/pages/GalleryPage';
 import { FindProjectsPage } from '@/pages/FindProjectsPage';
-import { FriendsPage } from './pages/FriendsPage';
-import HostingPage from './pages/HostingPage';
 import { AuthorPage } from '@/pages/AuthorPage';
 import { ControlCenterPage } from '@/pages/ControlCenterPage';
 import { TitleBar } from '@/components/window/WindowControls';
@@ -161,8 +159,6 @@ function App() {
             <Route path="/discover" element={<DiscoverPage />} />
             <Route path="/discover/:source/:modId" element={<ModDetail />} />
             <Route path="/find-projects" element={<FindProjectsPage />} />
-            <Route path="/friends" element={<FriendsPage />} />
-            <Route path="/hosting" element={<HostingPage />} />
             <Route path="/author/:source/:name" element={<AuthorPage />} />
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/instances" element={<InstancesPage />} />

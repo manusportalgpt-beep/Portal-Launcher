@@ -36,6 +36,7 @@ function DockButton({ item, vertical, scale = 100 }: { item: NavItem; vertical: 
   const activeIndicator = useUiStore(s => s.navActiveIndicator);
   const labels = useUiStore(s => s.navLabels);
   const hoverIndicator = useUiStore(s => s.navHoverIndicator);
+  const uiMode = useUiStore(s => s.uiMode);
   const label = t(`nav.${item.labelKey}`);
   const showLabel = labels === 'always';
   return (
@@ -44,13 +45,13 @@ function DockButton({ item, vertical, scale = 100 }: { item: NavItem; vertical: 
       end={item.end}
       title={label}
       data-testid={`nav-${item.labelKey}`}
-      className="group relative flex items-center justify-center gap-1.5 rounded-lg px-1.5"
-      style={{ width: showLabel ? 'auto' : 36 * scale / 100, minWidth: 36 * scale / 100, height: 32 * scale / 100 }}
+      className="group relative flex items-center justify-center gap-1.5 px-1.5"
+      style={{ width: showLabel ? 'auto' : 36 * scale / 100, minWidth: 36 * scale / 100, height: 32 * scale / 100, borderRadius: uiMode === 'old' ? 'var(--radius-sm)' : 'var(--radius-button)' }}
     >
       {({ isActive }) => (
         <>
-          <span className="absolute inset-0 rounded-lg transition-colors"
-            style={{ background: isActive ? activeIndicator === 'pill' ? 'var(--color-primary)' : 'var(--color-primary-dim)' : 'transparent' }} />
+          <span className="absolute inset-0 transition-colors"
+            style={{ borderRadius: uiMode === 'old' ? 'var(--radius-sm)' : 'var(--radius-button)', background: isActive ? activeIndicator === 'pill' ? 'var(--color-primary)' : uiMode === 'old' ? 'var(--color-surface-2)' : 'var(--color-primary-dim)' : 'transparent' }} />
           <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100"
             style={{ border: hoverIndicator === 'none' ? '0 solid transparent' : '1px solid color-mix(in srgb, var(--color-primary) 72%, transparent)', borderRadius: hoverIndicator === 'circle' ? '999px' : 'var(--radius-sm)', background: hoverIndicator === 'none' ? 'transparent' : 'color-mix(in srgb, var(--color-primary) 7%, transparent)' }} />
           <Icon size={16} strokeWidth={2} shapeRendering="geometricPrecision" vectorEffect="non-scaling-stroke" className="relative shrink-0" style={{
@@ -147,13 +148,14 @@ function SidebarNav() {
   const blur = useUiStore(s => s.navBlur);
   const shadow = useUiStore(s => s.navShadow);
   const border = useUiStore(s => s.navBorder);
+  const uiMode = useUiStore(s => s.uiMode);
   const items = orderedNav(order);
   const justifyContent = alignment === 'start' ? 'flex-start' : alignment === 'end' ? 'flex-end' : 'center';
   const borderColor = border === 'none' ? 'transparent' : border === 'strong' ? 'var(--color-border-strong)' : 'var(--color-border)';
   const shadowValue = shadow === 'none' ? 'none' : shadow === 'strong' ? '12px 0 38px rgba(0,0,0,0.28)' : '8px 0 24px rgba(0,0,0,0.14)';
   return (
     <aside className="shrink-0 flex flex-col items-center z-40"
-      style={{ width: sidebarWidth, gap, padding: `${edgePadding}px 0`, justifyContent, background: `color-mix(in srgb, var(--color-surface) ${Math.max(opacity, 99)}%, transparent)`, borderRight: `1px solid ${borderColor}`, boxShadow: shadowValue, backdropFilter: 'none', WebkitBackdropFilter: 'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease, background calc(180ms * var(--portal-motion-multiplier, 1)) ease, box-shadow calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
+      style={{ width: sidebarWidth, gap, padding: `${edgePadding}px 0`, justifyContent, background: uiMode === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${Math.max(opacity, 99)}%, transparent)`, borderRight: `1px solid ${borderColor}`, boxShadow: uiMode === 'old' ? 'none' : shadowValue, backdropFilter: 'none', WebkitBackdropFilter: 'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease, background calc(180ms * var(--portal-motion-multiplier, 1)) ease, box-shadow calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
       {items.map(item => <DockButton key={item.to} item={item} vertical scale={scale} />)}
       <div className="w-6 h-px my-1" style={{ background: 'var(--color-border)' }} />
       <InstanceQuickAccess vertical />
@@ -166,7 +168,8 @@ function SidebarNav() {
 
 /** Выезжающая минималистичная Notch-панель. Перетаскивание окна отключено. */
 function NotchNav() {
-  const { notchHotzone, notchPinned, notchCloseDelay, notchWidth, notchSide, navHoverMs, navItemScale, navItemOrder, panelVersion, navAlignment, navGap, navEdgePadding, navOpacity, navBlur, navShadow, navBorder, set } = useUiStore();
+  const { notchHotzone, notchPinned, notchCloseDelay, notchWidth, notchSide, navHoverMs, navItemScale, navItemOrder, panelVersion, uiMode, navAlignment, navGap, navEdgePadding, navOpacity, navBlur, navShadow, navBorder, set } = useUiStore();
+  const visualPanelVersion = uiMode === 'old' ? 'old' : panelVersion;
   const items = orderedNav(navItemOrder);
   const [hover, setHover] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -231,14 +234,14 @@ function NotchNav() {
               transition={{ duration: Math.max(0.12, navHoverMs / 1000), ease: [0.22, 0.78, 0.24, 1] }}
               className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1 rounded-xl`}
               style={{
-                padding: Math.max(panelVersion === 'new' ? 7 : 5, navEdgePadding / 2),
+                padding: Math.max(visualPanelVersion === 'new' ? 7 : 5, navEdgePadding / 2),
                 gap: navGap,
-                background: `color-mix(in srgb, var(--color-surface) ${Math.max(navOpacity, 99)}%, transparent)`,
+                background: visualPanelVersion === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${Math.max(navOpacity, 99)}%, transparent)`,
                 border: `1px solid ${borderColor}`,
-                borderRadius: panelVersion === 'new' ? 'var(--radius-modal)' : 'var(--radius-xl)',
+                borderRadius: visualPanelVersion === 'new' ? 'var(--radius-modal)' : 'var(--radius-xl)',
                 backdropFilter: 'none',
                 WebkitBackdropFilter: 'none',
-                boxShadow: shadowValue,
+                boxShadow: visualPanelVersion === 'old' ? 'none' : shadowValue,
               }}>
               {items.map(item => <DockButton key={item.to} item={item} vertical={vertical} scale={navItemScale} />)}
               <InstanceQuickAccess vertical={vertical} />

@@ -417,6 +417,11 @@ function AppearanceSection() {
         options={[{ id: 'sidebar', label: 'Sidebar' }, { id: 'notch', label: 'Notch panel' }]}
         onChange={v => ui.set('navMode', v as any)} />
 
+      <SegRow label="Стиль интерфейса" desc="Классический сохраняет более строгие поверхности, новый использует мягкие акценты и расширенные скругления — для Notch и Sidebar одинаково"
+        value={ui.uiMode}
+        options={[{ id: 'old', label: 'Классический' }, { id: 'new', label: 'Новый' }]}
+        onChange={v => { ui.set('uiMode', v as any); ui.set('panelVersion', v as any); }} />
+
       {ui.navMode === 'notch' && (
         <>
           <SegRow label="Notch position" desc="Which screen edge the panel is docked to"

@@ -4,6 +4,7 @@ import { Image, X, ChevronLeft, ChevronRight, Folder, Camera, RefreshCw, Trash2 
 import { useInstanceStore } from '@/stores/instanceStore';
 import { useLocation } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
+import { toIconSrc } from '@/lib/icon-src';
 
 interface Screenshot {
   id: string;
@@ -32,12 +33,12 @@ export function GalleryPage() {
       const all: Screenshot[] = [];
       for (const inst of instances) {
         try {
-          const paths = await invoke<string[]>('list_screenshots', { instanceId: inst.id });
+          const paths = await invoke<string[]>('list_screenshots', { id: inst.id });
           for (const p of paths || []) {
             all.push({
               id: `${inst.id}-${p}`,
               path: p,
-              url: `asset://localhost/${p}`,
+              url: toIconSrc(p) || '',
               instanceName: inst.name,
               instanceId: inst.id,
               createdAt: new Date().toISOString(),

@@ -558,3 +558,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript and production build, then commit and push the completed simplification/redesign to GitHub main.
 
 ---
+
+# Interface mode and screenshot preview repair
+
+- [x] Add a persisted Classic/New interface mode that works with both Notch panel and Sidebar navigation without changing Instances page content.
+- [x] Add a clear Appearance setting for selecting the interface mode and preserve the current navigation placement behavior.
+- [x] Trace screenshot paths from Rust list/read commands through the React gallery to Tauri-safe asset URLs.
+- [x] Fix screenshot grid/detail previews, loading state and broken-image fallback without changing or deleting instance files.
+- [x] Run TypeScript only, then commit and push the repair to GitHub main.
+
+---

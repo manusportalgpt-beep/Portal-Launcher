@@ -789,6 +789,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                         </button>
                       </div>
                       <VersionPicker versions={mcVersions} value={form.mcVersion} onChange={mcVersion => setForm(current => ({ ...current, mcVersion }))} showSnapshots={showSnapshots} />
+                      {!form.mcVersion && <p className="mt-2 rounded-xl px-3 py-2 text-xs font-semibold" style={{ background:'color-mix(in srgb, var(--color-primary) 18%, transparent)', border:'1px solid color-mix(in srgb, var(--color-primary) 45%, transparent)', color:'#fff' }}>Выберете версию Minecraft</p>}
                       <p className="text-[10px] mt-1" style={{ color:'var(--color-text-tertiary)' }}>{mcVersions.length} версий из официального манифеста Mojang</p>
                     </div>
                     {form.loader!=='vanilla' && (
@@ -864,7 +865,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
         <div className="px-6 pb-6 flex justify-end gap-2.5">
           {step==='custom' && (
             <button onClick={doCreate} disabled={creating || (form.loader !== 'bedrock' && !form.mcVersion)}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-all"
+              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:cursor-not-allowed disabled:opacity-40"
               style={{ background:'var(--color-primary)', color:'#fff', opacity:creating?0.55:1 }}>
               {creating ? <><div className="w-4 h-4 border border-white/40 border-t-white rounded-full animate-spin" />Creating...</> : '+ Create Instance'}
             </button>
@@ -1032,8 +1033,34 @@ function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported }: 
   const [groups, setGroups] = useState<string[]>(onExtraGroups);
   const [dragOver, setDragOver] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [smartTerms, setSmartTerms] = useState<Record<string, string>>({});
 
-  const visible = filter ? instances.filter(i => i.name.toLowerCase().includes(filter.toLowerCase())) : instances;
+  useEffect(() => {
+    const query = filter.trim();
+    if (!query) return;
+    let cancelled = false;
+    void Promise.all(instances.map(async instance => {
+      const base = [instance.name, instance.minecraftVersion, instance.modLoader, instance.lastPlayed ? new Date(instance.lastPlayed).toLocaleString('ru-RU') : 'не запускалась'].join(' ').toLowerCase();
+      try {
+        const content = await invoke<any[]>('get_instance_mods', { instanceId: instance.id });
+        const details = (Array.isArray(content) ? content : []).map(item => {
+          const bytes = Number(item.file_size ?? item.fileSize ?? 0);
+          const size = bytes > 0 ? `${Math.round(bytes / 1024 / 1024)} mb ${Math.round(bytes / 1024 / 1024 / 1024 * 10) / 10} gb` : '';
+          return [item.name, item.file_name ?? item.fileName, item.author, item.version, size].filter(Boolean).join(' ');
+        }).join(' ');
+        return [instance.id, `${base} ${details}`.toLowerCase()] as const;
+      } catch { return [instance.id, base] as const; }
+    })).then(index => {
+      if (!cancelled) setSmartTerms(Object.fromEntries(index));
+    });
+    return () => { cancelled = true; };
+  }, [filter, instances]);
+
+  const query = filter.trim().toLowerCase();
+  const visible = query ? instances.filter(instance => {
+    const basic = [instance.name, instance.minecraftVersion, instance.modLoader, instance.lastPlayed ? new Date(instance.lastPlayed).toLocaleString('ru-RU') : 'не запускалась'].join(' ').toLowerCase();
+    return (smartTerms[instance.id] ?? basic).includes(query);
+  }) : instances;
   const ungrouped = visible.filter(i => !i.group);
   const byGroup = (g: string) => visible.filter(i => i.group === g);
   const allGroupNames = Array.from(new Set([...groups, ...instances.map(i => i.group).filter(Boolean) as string[]]))
@@ -1097,7 +1124,7 @@ function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported }: 
         <div className="flex-1 min-w-[140px] flex items-center gap-1.5 px-3 py-2.5 rounded-xl ml-auto"
           style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', maxWidth: 260 }}>
           <Search className="w-3.5 h-3.5 shrink-0" style={{ color:'var(--color-text-tertiary)' }} />
-          <input className="flex-1 min-w-0 bg-transparent text-sm" placeholder="Search instances..."
+          <input className="flex-1 min-w-0 bg-transparent text-sm" placeholder="Умный поиск: сборка, мод, автор, версия…"
             value={filter} onChange={e => setFilter(e.target.value)} style={{ color:'var(--color-text)' }} />
         </div>
       </div>

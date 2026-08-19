@@ -456,6 +456,9 @@ function AppearanceSection() {
         ))}
       </div>
       <RangeRow label={t('settings.appearanceUi.titlebarHeight')} desc={t('settings.appearanceUi.titlebarHeightDescription')} value={ui.titlebarHeight} min={32} max={52} unit="px" onChange={v => ui.set('titlebarHeight', v)} />
+      <Row label="Адаптивный цвет верхней панели" desc="Верхняя панель мягко подстраивается под поверхность открытой страницы, как Adaptive Tab Color.">
+        <Toggle value={ui.adaptiveTitlebarColor} onChange={value => ui.set('adaptiveTitlebarColor', value)} />
+      </Row>
 
       <div className="flex items-center gap-2 mt-6 mb-1">
         <SlidersHorizontal className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />

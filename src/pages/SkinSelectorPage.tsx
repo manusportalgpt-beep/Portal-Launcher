@@ -347,7 +347,7 @@ export function SkinSelectorPage() {
         reader.readAsDataURL(blob);
       });
       setPendingModel(found.skin_variant === 'slim' ? 'slim' : 'classic');
-      setPendingName(`${found.name} — skin`);
+      setPendingName(found.name.trim() || requestedName);
       setPendingCapeId(activeCape?.id ?? null);
       setPreviewError('');
       setSelectedSkinId(null);

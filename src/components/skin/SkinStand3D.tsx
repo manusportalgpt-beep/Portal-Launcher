@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { useThemeStore } from '@/stores/themeStore';
 // Локальные псевдонимы: пакет three в этом проекте не отдаёт свои .d.ts,
 // поэтому объявляем минимальные типы вручную.
 type BufferGeometry = any;
@@ -111,6 +112,7 @@ export function SkinStand3D({
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<any>(null);
+  const themeId = useThemeStore(state => state.themeId);
 
   // Инициализация сцены — один раз на монтирование или смену базовых параметров.
   useEffect(() => {
@@ -149,7 +151,7 @@ export function SkinStand3D({
     shadow.scale.set(1.36, 0.58, 1);
     shadow.position.set(0, -16.2, -0.5);
     scene.add(shadow);
-    const st: any = { scene, camera, renderer, player, shadow, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [], applyStartedAt: 0, particle: null, particleBase: null, headTargetYaw: 0, headTargetPitch: 0, bodyTargetYaw: 0, bodyTargetPitch: 0, bodyFollowYaw: 0, bodyFollowPitch: 0, legs: null };
+    const st: any = { scene, camera, renderer, player, shadow, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [], meshMaterials: [], whiteApplied: false, applyStartedAt: 0, particle: null, particleBase: null, headTargetYaw: 0, headTargetPitch: 0, bodyTargetYaw: 0, bodyTargetPitch: 0, bodyFollowYaw: 0, bodyFollowPitch: 0, legs: null };
     stateRef.current = st;
 
     const resize = () => {
@@ -217,10 +219,10 @@ export function SkinStand3D({
       }
       if (st.applyStartedAt) {
         const progress = Math.min(1, (performance.now() - st.applyStartedAt) / 1120);
-        if (progress > 0.08 && progress < 0.21) {
-          scene.overrideMaterial = st.whiteMaterial;
-        } else {
-          scene.overrideMaterial = null;
+        const whiteFlash = progress > 0.08 && progress < 0.21;
+        if (whiteFlash !== st.whiteApplied) {
+          st.whiteApplied = whiteFlash;
+          st.meshes.forEach((mesh: Mesh, index: number) => { mesh.material = whiteFlash ? st.whiteMaterial : st.meshMaterials[index]; });
         }
         const turn = Math.sin(Math.min(1, progress / 0.78) * Math.PI) * Math.PI * 1.1;
         player.rotation.y = st.yaw + turn;
@@ -239,7 +241,8 @@ export function SkinStand3D({
           st.particle.material.opacity = Math.max(0, 1 - Math.max(0, progress - 0.12) / 0.85);
         }
         if (progress >= 1) {
-          scene.overrideMaterial = null;
+          if (st.whiteApplied) st.meshes.forEach((mesh: Mesh, index: number) => { mesh.material = st.meshMaterials[index]; });
+          st.whiteApplied = false;
           player.scale.setScalar(1);
           st.applyStartedAt = 0;
           if (st.particle) {
@@ -314,20 +317,30 @@ export function SkinStand3D({
       st.particle.geometry.dispose();
       st.particle.material.dispose();
     }
-    const points = new Float32Array(96 * 3);
-    for (let index = 0; index < 96; index += 1) {
+    const particleCount = 144;
+    const points = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+    const neutralTheme = ['light', 'dark', 'system', 'glass-white'].includes(themeId);
+    const primary = new THREE.Color(neutralTheme ? '#ffffff' : getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#ffffff');
+    const white = new THREE.Color('#ffffff');
+    for (let index = 0; index < particleCount; index += 1) {
       points[index * 3] = (Math.random() - 0.5) * 15;
       points[index * 3 + 1] = (Math.random() - 0.5) * 24;
       points[index * 3 + 2] = (Math.random() - 0.5) * 10;
+      const shade = neutralTheme ? white : white.clone().lerp(primary, 0.18 + (index % 7) * 0.1);
+      colors[index * 3] = shade.r;
+      colors[index * 3 + 1] = shade.g;
+      colors[index * 3 + 2] = shade.b;
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(points, 3));
-    const material = new THREE.PointsMaterial({ color: 0xffffff, size: 0.42, transparent: true, opacity: 0.92, depthWrite: false });
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    const material = new THREE.PointsMaterial({ color: 0xffffff, vertexColors: true, size: 0.34, transparent: true, opacity: 0.96, depthWrite: false, blending: THREE.AdditiveBlending });
     st.particleBase = points.slice();
     st.particle = new THREE.Points(geometry, material);
     st.particle.visible = false;
     st.player.add(st.particle);
-  }, [applySequence]);
+  }, [applySequence, themeId]);
 
   // Перестройка модели: смена скина, типа тела или плаща.
   useEffect(() => {
@@ -352,6 +365,7 @@ export function SkinStand3D({
         (m.material as Material).dispose();
       });
       st.meshes = [];
+      st.meshMaterials = [];
       st.tex?.dispose?.();
       st.tex = tex;
 
@@ -371,6 +385,7 @@ export function SkinStand3D({
         mesh.position.set(...pos);
         parent.add(mesh);
         st.meshes.push(mesh);
+        st.meshMaterials.push(mat);
         return mesh;
       };
 

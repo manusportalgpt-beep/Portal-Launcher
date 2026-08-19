@@ -112,6 +112,8 @@ export interface UiState {
   contentInset: number;
   /** Высота нативной визуальной titlebar, px */
   titlebarHeight: number;
+  /** Подстраивать цвет верхней панели под активную страницу */
+  adaptiveTitlebarColor: boolean;
 
   set: <K extends keyof UiState>(key: K, value: UiState[K]) => void;
   reset: () => void;
@@ -176,6 +178,7 @@ const defaults = {
   contentWidth: 100,
   contentInset: 0,
   titlebarHeight: 32,
+  adaptiveTitlebarColor: true,
 };
 
 export const useUiStore = create<UiState>()(

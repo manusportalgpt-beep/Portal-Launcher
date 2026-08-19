@@ -629,3 +629,15 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the regression repair to GitHub main.
 
 ---
+
+# Library intelligence, skin polish and adaptive top bar
+
+- [x] Add a smart Library search that can match instance name, Minecraft version, loader, installed mod name, author, last-played state and on-disk size without inventing metadata.
+- [x] Improve Skin Studio motion: preserve a dark ground shadow during apply, use beautiful white particles that take only a theme-derived gradient on coloured themes, and keep Light/Dark/System/Glasswhite particles white.
+- [x] Name a nickname-imported skin preset after the resolved Minecraft player name.
+- [x] Keep the Title Bar visible above every launcher surface, add the Portal Launcher app icon immediately before its name at the left edge, and avoid Notch overlap.
+- [x] Require an explicit Minecraft version before a Java instance can be created; disable Create Instance and show the exact Russian validation text in white until selected.
+- [x] Add an enabled-by-default Appearance setting in Russian for an adaptive top-bar colour matching the active page surface.
+- [x] Run TypeScript only and commit/push the Library, Skin Studio and top-bar improvements to GitHub main.
+
+---

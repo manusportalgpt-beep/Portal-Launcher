@@ -654,3 +654,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the manifest, media, controls and UX improvement work to GitHub main.
 
 ---
+
+# Portal Launcher .mrpack round-trip compatibility
+
+- [x] Export a standards-compatible .mrpack with a complete modrinth.index.json, exact extensions, dependency metadata, hashes where available and no Portal Launcher filename suffix.
+- [x] Package supported non-downloadable instance files as overrides, including configs, resource packs, shaderpacks, datapacks, options and Portal-specific display metadata.
+- [x] Preserve the real instance cover and supported screenshots in Portal-specific archive metadata without breaking external Modrinth-compatible importers.
+- [x] Restore Portal-specific cover, screenshots, settings and supported override files when importing a Portal-exported .mrpack, while remaining compatible with ordinary .mrpack files.
+- [x] Run TypeScript only and commit/push the .mrpack round-trip repair to GitHub main.
+
+---

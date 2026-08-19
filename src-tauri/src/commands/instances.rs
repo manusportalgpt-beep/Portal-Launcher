@@ -1,6 +1,7 @@
 use serde::{Serialize, Deserialize};
 use std::path::{Path, PathBuf};
 use std::io::{Write, Read};
+use sha2::{Digest, Sha512};
 use tauri::Emitter;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -399,6 +400,7 @@ fn add_mrpack_overrides(
     base: &PathBuf,
     dir: &PathBuf,
     options: &zip::write::FileOptions<()>,
+    manifest_paths: &std::collections::HashSet<String>,
 ) -> Result<(), String> {
     const EXCLUDED_TOP_LEVEL: &[&str] = &["saves", "screenshots", "logs", "crash-reports", "server-resource-packs", ".launcher-trash"];
     if let Ok(entries) = std::fs::read_dir(dir) {
@@ -407,10 +409,12 @@ fn add_mrpack_overrides(
             let rel_path = path.strip_prefix(base).map_err(|e| e.to_string())?;
             let first = rel_path.components().next().and_then(|c| c.as_os_str().to_str()).unwrap_or("");
             if EXCLUDED_TOP_LEVEL.contains(&first) { continue; }
+            let manifest_path = rel_path.to_string_lossy().replace('\\', "/");
+            if manifest_paths.contains(&manifest_path) { continue; }
             let archive_path = format!("overrides/{}", rel_path.to_string_lossy().replace('\\', "/"));
             if path.is_dir() {
                 zip.add_directory(&archive_path, *options).map_err(|e| e.to_string())?;
-                add_mrpack_overrides(zip, base, &path, options)?;
+                add_mrpack_overrides(zip, base, &path, options, manifest_paths)?;
             } else {
                 zip.start_file(&archive_path, *options).map_err(|e| e.to_string())?;
                 zip.write_all(&std::fs::read(&path).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
@@ -418,6 +422,34 @@ fn add_mrpack_overrides(
         }
     }
     Ok(())
+}
+
+fn mrpack_content_path(item: &InstanceMod) -> String {
+    let folder = match item.mod_type.as_str() {
+        "resourcepack" => "resourcepacks",
+        "shaderpack" | "shader" => "shaderpacks",
+        "datapack" => "datapacks",
+        _ => "mods",
+    };
+    let fallback = if item.file_name.trim().is_empty() { format!("{}.jar", item.id) } else { item.file_name.clone() };
+    format!("{folder}/{fallback}")
+}
+
+fn add_portal_mrpack_media(zip: &mut zip::ZipWriter<std::fs::File>, src_dir: &PathBuf, options: &zip::write::FileOptions<()>) -> Result<Vec<String>, String> {
+    let screenshots_dir = src_dir.join(".minecraft").join("screenshots");
+    let mut screenshots = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(screenshots_dir) {
+        for (index, entry) in entries.flatten().take(16).enumerate() {
+            let path = entry.path();
+            let ext = path.extension().and_then(|value| value.to_str()).unwrap_or("").to_ascii_lowercase();
+            if !matches!(ext.as_str(), "png" | "jpg" | "jpeg") { continue; }
+            let name = format!("portal-launcher/screenshots/{:02}.{}", index + 1, ext);
+            zip.start_file(&name, *options).map_err(|e| e.to_string())?;
+            zip.write_all(&std::fs::read(path).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+            screenshots.push(name);
+        }
+    }
+    Ok(screenshots)
 }
 
 /// Exports a portable, self-contained Modrinth Pack into Downloads by default.
@@ -451,13 +483,34 @@ pub async fn export_instance_mrpack(app: tauri::AppHandle, id: String, dest_path
         "neoforge" => { dependencies.insert("neoforge".to_string(), serde_json::Value::String(inst.loader_version.clone())); }
         _ => {}
     }
+    let minecraft_dir = src_dir.join(".minecraft");
+    let mut manifest_paths = std::collections::HashSet::new();
+    let mut manifest_files = Vec::new();
+    for item in &inst.mods {
+        let content_path = mrpack_content_path(item);
+        let disk_path = minecraft_dir.join(&content_path);
+        if !item.enabled || !item.source.eq_ignore_ascii_case("modrinth") || item.id.trim().is_empty() || item.version_id.trim().is_empty() || !disk_path.exists() { continue; }
+        let bytes = std::fs::read(&disk_path).map_err(|e| format!("Read {}: {e}", content_path))?;
+        let hash = format!("{:x}", Sha512::digest(&bytes));
+        let encoded_id = urlencoding::encode(&item.id);
+        let encoded_version = urlencoding::encode(&item.version_id);
+        let encoded_file = urlencoding::encode(disk_path.file_name().and_then(|value| value.to_str()).unwrap_or("mod.jar"));
+        manifest_files.push(serde_json::json!({
+            "path": content_path,
+            "hashes": { "sha512": hash },
+            "downloads": [format!("https://cdn.modrinth.com/data/{encoded_id}/versions/{encoded_version}/{encoded_file}")],
+            "fileSize": bytes.len(),
+            "env": { "client": "required", "server": "unsupported" }
+        }));
+        manifest_paths.insert(content_path);
+    }
     let manifest = serde_json::json!({
         "formatVersion": 1,
         "game": "minecraft",
         "versionId": "1.0.0",
         "name": inst.name,
         "summary": inst.description,
-        "files": [],
+        "files": manifest_files,
         "dependencies": dependencies,
     });
 
@@ -470,9 +523,25 @@ pub async fn export_instance_mrpack(app: tauri::AppHandle, id: String, dest_path
     if icon.exists() {
         zip.start_file("icon.png", options).map_err(|e| e.to_string())?;
         zip.write_all(&std::fs::read(icon).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+        zip.start_file("portal-launcher/icon.png", options).map_err(|e| e.to_string())?;
+        zip.write_all(&std::fs::read(src_dir.join("icon.png")).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
     }
-    let minecraft_dir = src_dir.join(".minecraft");
-    if minecraft_dir.exists() { add_mrpack_overrides(&mut zip, &minecraft_dir, &minecraft_dir, &options)?; }
+    if minecraft_dir.exists() { add_mrpack_overrides(&mut zip, &minecraft_dir, &minecraft_dir, &options, &manifest_paths)?; }
+    let screenshots = add_portal_mrpack_media(&mut zip, &src_dir, &options)?;
+    let portal_metadata = serde_json::json!({
+        "format": 1,
+        "description": inst.description,
+        "color": inst.color.clone(),
+        "minRam": inst.min_ram,
+        "maxRam": inst.max_ram,
+        "javaPath": inst.java_path,
+        "customJvmArgs": inst.custom_jvm_args,
+        "icon": if icon.exists() { Some("portal-launcher/icon.png") } else { None::<&str> },
+        "screenshots": screenshots,
+        "mods": &inst.mods,
+    });
+    zip.start_file("portal-launcher/instance.json", options).map_err(|e| e.to_string())?;
+    zip.write_all(serde_json::to_string_pretty(&portal_metadata).map_err(|e| e.to_string())?.as_bytes()).map_err(|e| e.to_string())?;
     zip.finish().map_err(|e| format!("Finish .mrpack: {e}"))?;
     app.emit("instance-progress", serde_json::json!({"stage":"done","name":inst.name,"percent":100,"message":"Modrinth Pack exported"})).ok();
     Ok(dest.to_string_lossy().to_string())
@@ -863,6 +932,15 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, ex
         let mut s = String::new(); f.read_to_string(&mut s).map_err(|e| e.to_string())?; s
     };
     let index: serde_json::Value = serde_json::from_str(&index_data).map_err(|e| e.to_string())?;
+    let portal_metadata: serde_json::Value = archive.by_name("portal-launcher/instance.json")
+        .ok()
+        .and_then(|mut file| {
+            let mut text = String::new();
+            file.read_to_string(&mut text).ok()?;
+            serde_json::from_str(&text).ok()
+        })
+        .unwrap_or(serde_json::Value::Null);
+    let portal_mods: Vec<InstanceMod> = serde_json::from_value(portal_metadata["mods"].clone()).unwrap_or_default();
     let pack_name = index["name"].as_str().unwrap_or("Modrinth Pack").to_string();
     app.emit("instance-progress", serde_json::json!({"stage":"importing","name":pack_name,"percent":5,"message":"Reading pack manifest..."})).ok();
 
@@ -889,7 +967,7 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, ex
     // Try common icon filenames inside the mrpack archive.
     let icon_b64: Option<String> = {
         let mut found: Option<String> = None;
-        for candidate in &["icon.png", "pack.png", "icon.jpg"] {
+        for candidate in &["portal-launcher/icon.png", "icon.png", "pack.png", "icon.jpg"] {
             if let Ok(mut f) = archive.by_name(candidate) {
                 let mut buf = vec![];
                 std::io::Read::read_to_end(&mut f, &mut buf).ok();
@@ -930,6 +1008,16 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, ex
         if let Some(p) = out.parent() { std::fs::create_dir_all(p).ok(); }
         let mut outf = std::fs::File::create(&out).map_err(|e| e.to_string())?;
         std::io::copy(&mut entry, &mut outf).map_err(|e| e.to_string())?;
+    }
+
+    let portal_screenshots = portal_metadata["screenshots"].as_array().cloned().unwrap_or_default();
+    for (index, path) in portal_screenshots.iter().filter_map(|value| value.as_str()).filter(|path| path.starts_with("portal-launcher/screenshots/") && !path.contains("..")).take(16).enumerate() {
+        if let Ok(mut entry) = archive.by_name(path) {
+            let extension = Path::new(path).extension().and_then(|value| value.to_str()).unwrap_or("png");
+            let target = mc_dir.join("screenshots").join(format!("pack-{:02}.{extension}", index + 1));
+            if let Some(parent) = target.parent() { std::fs::create_dir_all(parent).ok(); }
+            if let Ok(mut output) = std::fs::File::create(target) { let _ = std::io::copy(&mut entry, &mut output); }
+        }
     }
 
     // ── Download files (mods, resource-packs, etc.) into .minecraft/ ──────────
@@ -1004,12 +1092,13 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, ex
         ));
     }
 
+    let restored_mods: Vec<InstanceMod> = portal_mods.into_iter().filter(|item| !excluded_paths.contains(&mrpack_content_path(item))).collect();
     let instance = Instance {
-        id: new_id, name: pack_name, description: "Imported from Modrinth Pack".to_string(),
+        id: new_id, name: pack_name, description: portal_metadata["description"].as_str().unwrap_or("Imported from Modrinth Pack").to_string(),
         mc_version, loader: loader.to_string(), loader_version: loader_version.to_string(),
-        min_ram: 2048, max_ram: 6144, java_path: String::new(), custom_jvm_args: String::new(),
+        min_ram: portal_metadata["minRam"].as_u64().unwrap_or(2048) as u32, max_ram: portal_metadata["maxRam"].as_u64().unwrap_or(6144) as u32, java_path: portal_metadata["javaPath"].as_str().unwrap_or("").to_string(), custom_jvm_args: portal_metadata["customJvmArgs"].as_str().unwrap_or("").to_string(),
         play_time_minutes: 0, last_played: None, created_at: chrono::Utc::now().to_rfc3339(),
-        icon: icon_b64, color: Some("#6C5CE7".to_string()), mods,
+        icon: icon_b64, color: portal_metadata["color"].as_str().map(String::from).or_else(|| Some("#6C5CE7".to_string())), mods: if restored_mods.is_empty() { mods } else { restored_mods },
     };
     save_instance(&instance)?;
     clear_cancel(&instance.id);

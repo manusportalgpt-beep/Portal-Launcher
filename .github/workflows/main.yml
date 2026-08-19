@@ -1,0 +1,88 @@
+name: Build Portal Launcher
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  # ─── Windows x64 installer ────────────────────────────────────────────────
+  build-windows:
+    name: Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install Rust stable (Windows MSVC)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      # Delete Cargo.lock so Cargo re-solves cleanly — prevents brotli/alloc-no-stdlib conflicts
+      - name: Remove Cargo.lock (ensure clean dep resolution)
+        run: |
+          if (Test-Path "src-tauri\Cargo.lock") {
+            Remove-Item "src-tauri\Cargo.lock" -Force
+            Write-Host "Cargo.lock deleted — will regenerate fresh"
+          } else {
+            Write-Host "No Cargo.lock — fresh build"
+          }
+        shell: pwsh
+
+      - name: Rust build cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          cache-on-failure: true
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        run: pnpm build
+
+      - name: Clean previous Rust artifacts
+        run: cargo clean
+        working-directory: src-tauri
+        continue-on-error: true
+
+      - name: Build Tauri app (Windows x64)
+        run: pnpm tauri build --target x86_64-pc-windows-msvc
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ""
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+          # Disable brotli-related compression features at the network layer
+          CARGO_PROFILE_RELEASE_LTO: "true"
+
+      - name: Upload installer — NSIS (.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-launcher-windows-exe
+          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+      - name: Upload installer — WiX MSI (.msi)
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-launcher-windows-msi
+          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+          if-no-files-found: warn
+
+      - name: Upload portable executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-launcher-windows-portable
+          path: src-tauri/target/x86_64-pc-windows-msvc/release/portal-launcher.exe
+          if-no-files-found: warn

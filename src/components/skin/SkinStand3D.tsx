@@ -141,7 +141,15 @@ export function SkinStand3D({
     const player = new THREE.Group();
     scene.add(player);
 
-    const st: any = { scene, camera, renderer, player, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [], applyStartedAt: 0, particle: null, headTargetYaw: 0, headTargetPitch: 0 };
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(10.8, 48),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25, depthWrite: false }),
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.scale.set(1.36, 0.58, 1);
+    shadow.position.set(0, -16.2, -0.5);
+    scene.add(shadow);
+    const st: any = { scene, camera, renderer, player, shadow, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [], applyStartedAt: 0, particle: null, particleBase: null, headTargetYaw: 0, headTargetPitch: 0, bodyTargetYaw: 0, bodyTargetPitch: 0, bodyFollowYaw: 0, bodyFollowPitch: 0 };
     stateRef.current = st;
 
     const resize = () => {
@@ -165,7 +173,9 @@ export function SkinStand3D({
         const nx = Math.max(-1, Math.min(1, ((e.clientX - rect.left) / Math.max(rect.width, 1) - 0.5) * 2));
         const ny = Math.max(-1, Math.min(1, ((e.clientY - rect.top) / Math.max(rect.height, 1) - 0.5) * 2));
         st.headTargetYaw = nx * 0.34;
-        st.headTargetPitch = -ny * 0.18;
+        st.headTargetPitch = ny * 0.18;
+        st.bodyTargetYaw = nx * 0.085;
+        st.bodyTargetPitch = ny * 0.028;
       }
       if (!st.drag) return;
       st.yaw += (e.clientX - st.drag.x) * 0.01;
@@ -195,29 +205,38 @@ export function SkinStand3D({
       st.raf = requestAnimationFrame(loop);
       t += 0.016;
       if (autoRotate && !st.drag) st.yaw += 0.0035;
-      player.rotation.y = st.yaw;
-      player.rotation.x = st.pitch;
+      const bodyFollow = trackCursor ? 0.08 : 0.12;
+      st.bodyFollowYaw += ((trackCursor ? st.bodyTargetYaw : 0) - st.bodyFollowYaw) * bodyFollow;
+      st.bodyFollowPitch += ((trackCursor ? st.bodyTargetPitch : 0) - st.bodyFollowPitch) * bodyFollow;
+      player.rotation.y = st.yaw + st.bodyFollowYaw;
+      player.rotation.x = st.pitch + st.bodyFollowPitch;
       if (st.head) {
         const follow = trackCursor ? 0.16 : 0.11;
         st.head.rotation.y += ((trackCursor ? st.headTargetYaw : 0) - st.head.rotation.y) * follow;
         st.head.rotation.x += ((trackCursor ? st.headTargetPitch : 0) - st.head.rotation.x) * follow;
       }
       if (st.applyStartedAt) {
-        const progress = Math.min(1, (performance.now() - st.applyStartedAt) / 560);
-        if (progress < 0.26) {
+        const progress = Math.min(1, (performance.now() - st.applyStartedAt) / 1120);
+        if (progress > 0.08 && progress < 0.21) {
           scene.overrideMaterial = st.whiteMaterial;
         } else {
           scene.overrideMaterial = null;
         }
-        const turn = Math.sin(Math.min(1, progress / 0.74) * Math.PI) * Math.PI * 1.25;
+        const turn = Math.sin(Math.min(1, progress / 0.78) * Math.PI) * Math.PI * 1.1;
         player.rotation.y = st.yaw + turn;
         const pulse = 1 + Math.sin(Math.min(1, progress / 0.5) * Math.PI) * 0.045;
         player.scale.setScalar(pulse);
         if (st.particle) {
-          st.particle.visible = progress > 0.16 && progress < 0.92;
+          st.particle.visible = progress > 0.1 && progress < 0.97;
           st.particle.rotation.y += 0.085;
-          st.particle.position.y = 1.5 + progress * 4;
-          st.particle.material.opacity = Math.max(0, 1 - Math.max(0, progress - 0.18) / 0.74);
+          const attribute = st.particle.geometry.getAttribute('position');
+          if (st.particleBase && attribute) {
+            for (let index = 0; index < attribute.count; index += 1) {
+              attribute.setY(index, st.particleBase[index * 3 + 1] + progress * (5 + (index % 5) * 0.45));
+            }
+            attribute.needsUpdate = true;
+          }
+          st.particle.material.opacity = Math.max(0, 1 - Math.max(0, progress - 0.12) / 0.85);
         }
         if (progress >= 1) {
           scene.overrideMaterial = null;
@@ -259,6 +278,8 @@ export function SkinStand3D({
       st.tex?.dispose?.();
       st.capeTex?.dispose?.();
       st.whiteMaterial?.dispose?.();
+      st.shadow?.geometry?.dispose?.();
+      st.shadow?.material?.dispose?.();
       st.particle?.geometry?.dispose?.();
       st.particle?.material?.dispose?.();
       renderer.dispose();
@@ -278,8 +299,8 @@ export function SkinStand3D({
       st.particle.geometry.dispose();
       st.particle.material.dispose();
     }
-    const points = new Float32Array(72 * 3);
-    for (let index = 0; index < 72; index += 1) {
+    const points = new Float32Array(96 * 3);
+    for (let index = 0; index < 96; index += 1) {
       points[index * 3] = (Math.random() - 0.5) * 15;
       points[index * 3 + 1] = (Math.random() - 0.5) * 24;
       points[index * 3 + 2] = (Math.random() - 0.5) * 10;
@@ -287,6 +308,7 @@ export function SkinStand3D({
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(points, 3));
     const material = new THREE.PointsMaterial({ color: 0xffffff, size: 0.42, transparent: true, opacity: 0.92, depthWrite: false });
+    st.particleBase = points.slice();
     st.particle = new THREE.Points(geometry, material);
     st.particle.visible = false;
     st.player.add(st.particle);

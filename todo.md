@@ -578,3 +578,14 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the Skin Studio polish to GitHub main.
 
 ---
+
+# Skin Studio motion, UI polish and icon framing repair
+
+- [x] Persist selected skin preset ID across page changes and restore its fixed green selected state safely.
+- [x] Correct cursor coordinate direction for head/body tracking, with smooth bounded body response and no inverted axes.
+- [x] Add a grounded circular stand shadow and lengthen the real white-particle apply sequence.
+- [x] Improve global UI transitions while respecting reduced-motion settings and keeping high-frequency interactions fast.
+- [x] Rebuild Windows app/installer icons with tighter logo framing so taskbar and installer surfaces do not show excessive padding.
+- [x] Run TypeScript only and commit/push the repair to GitHub main.
+
+---

@@ -19,6 +19,7 @@ interface PublicSkinTexture {
 
 const STEVE_UUID = '8667ba71-b85a-4004-af54-457a9734eed7';
 const SKIN_HISTORY_KEY = 'portal-player-skin-history-v1';
+const SKIN_SELECTED_KEY = 'portal-player-selected-skin-v1';
 const MAX_AUTO_SKINS = 6;
 
 interface SavedSkin { id: string; name: string; dataUrl: string; model: SkinModel; savedAt: number; textureHash?: string; capeId?: string | null; capeUrl?: string | null }
@@ -37,6 +38,8 @@ function loadSkinHistory(): SavedSkin[] {
   } catch { return []; }
 }
 function persistSkinHistory(items: SavedSkin[]) { try { localStorage.setItem(SKIN_HISTORY_KEY, JSON.stringify(items)); } catch {} }
+function loadSelectedSkinId() { try { return localStorage.getItem(SKIN_SELECTED_KEY) || null; } catch { return null; } }
+function persistSelectedSkinId(id: string | null) { try { if (id) localStorage.setItem(SKIN_SELECTED_KEY, id); else localStorage.removeItem(SKIN_SELECTED_KEY); } catch {} }
 function addSkinToHistory(items: SavedSkin[], skin: SavedSkin) {
   const duplicate = items.find(item => (skin.textureHash && item.textureHash === skin.textureHash) || item.dataUrl === skin.dataUrl);
   const automaticCapture = skin.name.endsWith(' — active');
@@ -236,8 +239,13 @@ export function SkinSelectorPage() {
   const [skinHistory, setSkinHistory] = useState<SavedSkin[]>(loadSkinHistory);
   const [nickname, setNickname] = useState('');
   const [nicknameLoading, setNicknameLoading] = useState(false);
-  const [selectedSkinId, setSelectedSkinId] = useState<string | null>(null);
+  const [selectedSkinId, setSelectedSkinId] = useState<string | null>(loadSelectedSkinId);
   const [applySequence, setApplySequence] = useState(0);
+
+  useEffect(() => { persistSelectedSkinId(selectedSkinId); }, [selectedSkinId]);
+  useEffect(() => {
+    if (selectedSkinId && !skinHistory.some(skin => skin.id === selectedSkinId)) setSelectedSkinId(null);
+  }, [selectedSkinId, skinHistory]);
 
   const fileRef = useRef<HTMLInputElement>(null);
 

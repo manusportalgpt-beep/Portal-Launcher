@@ -1,0 +1,72 @@
+[package]
+name = "portal-launcher"
+version = "1.2.0"
+description = "Portal Launcher — Minecraft Launcher"
+authors = ["Portal Team"]
+license = "MIT"
+repository = ""
+default-run = "portal-launcher"
+edition = "2021"
+rust-version = "1.77"
+# Note: the recent fixes for instance/mod command handling were applied in the Rust source files
+# and are reflected here only as a manifest note; no dependency changes were required.
+
+[[bin]]
+name = "portal-launcher"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", default-features = false , features = [] }
+tauri-utils = { version = "2", default-features = false, features = ["build-2"] }
+
+[dependencies]
+# Tauri БЕЗ compression чтобы полностью убрать brotli из графа зависимостей
+tauri = { version = "2", default-features = false, features = ["wry", "devtools", "custom-protocol"] }
+tauri-plugin-shell = { version = "2", default-features = false }
+tauri-plugin-oauth = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# reqwest БЕЗ gzip чтобы не тянуть async-compression → brotli
+reqwest = { version = "0.12", features = ["json", "stream", "multipart"] }
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+# zip БЕЗ brotli (этой фичи нет в zip 2.x) - используем deflate/zstd/bzip2/lzma/xz
+zip = { version = "2", default-features = false, features = ["deflate", "bzip2", "zstd", "lzma", "xz"] }
+flate2 = "1.0"
+bzip2 = "0.4"
+zstd = "0.13"
+xz2 = "0.1"
+tar = "0.4"
+sha2 = "0.10"
+dirs-next = "2"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+env_logger = "0.11"
+log = "0.4"
+lazy_static = "1"
+bytes = "1"
+libc = "0.2"
+rusqlite = { version = "0.32", features = ["bundled"] }
+sha1 = "0.10"
+md5 = "0.7"
+base64 = "0.22"
+urlencoding = "2.1"
+cpal = "0.15"
+once_cell = "1"
+webbrowser = "1.0"
+# For cloud auth service
+hostname = "0.3"
+# Utility to locate binaries
+which = "4"
+# НЕТ brotli зависимости - он вызывает конфликт alloc-no-stdlib!
+
+[profile.dev]
+incremental = true
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
+

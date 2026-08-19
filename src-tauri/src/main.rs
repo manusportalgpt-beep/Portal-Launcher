@@ -75,6 +75,7 @@ fn main() {
             commands::token_manager::delete_stored_tokens,
             // Instances
             commands::instances::get_instances,
+            commands::instances::get_launcher_storage_overview,
             commands::instances::create_instance,
             commands::instances::create_optifine_instance,
             commands::instances::update_instance,

@@ -22,7 +22,6 @@ pub struct BedrockPackage {
 
 #[cfg(target_os = "windows")]
 fn read_dword(path: &str, name: &str) -> Option<u32> {
-    use std::process::Command;
     let out = crate::utils::create_hidden_command("reg")
         .args(["query", path, "/v", name])
         .output()
@@ -102,7 +101,6 @@ pub async fn enable_developer_mode() -> Result<DeveloperModeState, String> {
 pub async fn list_bedrock_versions() -> Result<Vec<BedrockPackage>, String> {
     #[cfg(target_os = "windows")]
     {
-        use std::process::Command;
         // ВАЖНО: раньше AppID собирался вручную как "<family>!App" — это
         // угадывание неверно для части Minecraft UWP-пакетов (у Preview,
         // например, суффикс другой). Get-StartApps отдаёт РЕАЛЬНЫЙ AUMID

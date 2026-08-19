@@ -664,3 +664,15 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the .mrpack round-trip repair to GitHub main.
 
 ---
+
+# Full attached launcher request
+
+- [x] Read the attached full launcher request, break it into code-verifiable work items and implement every compatible requirement without regressing existing flows.
+- [x] Fix the reported Rust E0382 moved `icon` error in .mrpack export and remove the unused Command imports that generate shown build warnings.
+- [x] Add a first-launch onboarding with language choice, an honest disk-space summary, launcher preview and Microsoft/Ely.by sign-in entry points.
+- [x] Add a dismissible round tutorial after onboarding that introduces Home, Library, Discover, Notch Panel and the main navigation.
+- [x] Redesign Home in a rounded, professional System-theme-aware visual language with real local data, clear actions and safe empty states.
+- [x] Add randomly chosen Skin Studio idle poses (standing, sitting, lying and jumping) and smoothly stand up when the user begins drag inspection.
+- [x] Run TypeScript only and commit/push the attached full request implementation to GitHub main.
+
+---

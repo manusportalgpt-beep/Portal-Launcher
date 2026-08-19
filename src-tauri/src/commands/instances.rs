@@ -61,6 +61,37 @@ fn instances_dir() -> PathBuf {
     p
 }
 
+fn directory_size(path: &Path) -> u64 {
+    let mut total = 0u64;
+    if let Ok(entries) = std::fs::read_dir(path) {
+        for entry in entries.flatten() {
+            let item = entry.path();
+            if item.is_dir() { total = total.saturating_add(directory_size(&item)); }
+            else if let Ok(metadata) = item.metadata() { total = total.saturating_add(metadata.len()); }
+        }
+    }
+    total
+}
+
+#[tauri::command]
+pub fn get_launcher_storage_overview() -> serde_json::Value {
+    let root = mc_base_dir();
+    let used_bytes = directory_size(&root);
+    #[cfg(target_os = "windows")]
+    let free_bytes = {
+        let escaped = root.to_string_lossy().replace('"', "\"");
+        let script = format!("$p=Get-Item -LiteralPath \"{escaped}\"; (Get-PSDrive -Name $p.PSDrive.Name).Free");
+        crate::utils::create_hidden_command("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+            .output().ok()
+            .and_then(|out| String::from_utf8(out.stdout).ok())
+            .and_then(|text| text.trim().parse::<u64>().ok())
+    };
+    #[cfg(not(target_os = "windows"))]
+    let free_bytes: Option<u64> = None;
+    serde_json::json!({ "launcherPath": root, "usedBytes": used_bytes, "freeBytes": free_bytes })
+}
+
 fn instance_path(id: &str) -> PathBuf { instances_dir().join(id).join("instance.json") }
 
 /// Convert an instance name into a filesystem-safe folder name
@@ -522,7 +553,7 @@ pub async fn export_instance_mrpack(app: tauri::AppHandle, id: String, dest_path
     let icon = src_dir.join("icon.png");
     if icon.exists() {
         zip.start_file("icon.png", options).map_err(|e| e.to_string())?;
-        zip.write_all(&std::fs::read(icon).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+        zip.write_all(&std::fs::read(&icon).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
         zip.start_file("portal-launcher/icon.png", options).map_err(|e| e.to_string())?;
         zip.write_all(&std::fs::read(src_dir.join("icon.png")).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
     }

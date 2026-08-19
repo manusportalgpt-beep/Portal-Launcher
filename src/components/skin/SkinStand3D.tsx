@@ -151,7 +151,8 @@ export function SkinStand3D({
     shadow.scale.set(1.36, 0.58, 1);
     shadow.position.set(0, -16.2, -0.5);
     scene.add(shadow);
-    const st: any = { scene, camera, renderer, player, shadow, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [], meshMaterials: [], whiteApplied: false, applyStartedAt: 0, inspectUntil: 0, particle: null, particleBase: null, headTargetYaw: 0, headTargetPitch: 0, bodyTargetYaw: 0, bodyTargetPitch: 0, bodyFollowYaw: 0, bodyFollowPitch: 0, legs: null };
+    const idlePoses = interactive && height >= 300 ? ['stand', 'sit', 'lie', 'jump'] : ['stand'];
+    const st: any = { scene, camera, renderer, player, shadow, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [], meshMaterials: [], whiteApplied: false, applyStartedAt: 0, inspectUntil: 0, standUntil: 0, idlePose: idlePoses[Math.floor(Math.random() * idlePoses.length)], poseBlend: 0, particle: null, particleBase: null, headTargetYaw: 0, headTargetPitch: 0, bodyTargetYaw: 0, bodyTargetPitch: 0, bodyFollowYaw: 0, bodyFollowPitch: 0, legs: null };
     stateRef.current = st;
 
     const resize = () => {
@@ -167,6 +168,7 @@ export function SkinStand3D({
 
     const onDown = (e: PointerEvent) => {
       st.drag = { x: e.clientX, y: e.clientY };
+      st.standUntil = performance.now() + 1100;
       renderer.domElement.style.cursor = 'grabbing';
     };
     const onMove = (e: PointerEvent) => {
@@ -186,6 +188,7 @@ export function SkinStand3D({
     };
     const onUp = () => {
       st.drag = null;
+      st.standUntil = performance.now() + 700;
       renderer.domElement.style.cursor = 'grab';
     };
     const onWheel = (e: WheelEvent) => {
@@ -254,18 +257,29 @@ export function SkinStand3D({
           }
         }
       }
+      const now = performance.now();
+      const forceStanding = Boolean(st.drag) || st.applyStartedAt || st.inspectUntil > now || st.standUntil > now;
+      const activePose = forceStanding ? 'stand' : st.idlePose;
+      const poseTarget = activePose === 'stand' ? 1 : 0;
+      st.poseBlend += (poseTarget - st.poseBlend) * 0.075;
       const idleLift = Math.sin(t * 1.35) * 0.28;
-      player.position.y = idleLift;
-      player.rotation.z = Math.sin(t * 0.68) * 0.012;
+      const sitting = activePose === 'sit' ? 1 - st.poseBlend : 0;
+      const lying = activePose === 'lie' ? 1 - st.poseBlend : 0;
+      const jumping = activePose === 'jump' ? 1 - st.poseBlend : 0;
+      const jumpLift = jumping * (2.1 + Math.abs(Math.sin(t * 2.15)) * 2.1);
+      player.position.y = idleLift - sitting * 3.6 - lying * 4.1 + jumpLift;
+      player.rotation.z = Math.sin(t * 0.68) * 0.012 + lying * 1.12;
       if (st.shadow) {
         const shadowScale = 1 - idleLift * 0.075;
         st.shadow.scale.set(1.36 * shadowScale, 0.58 * shadowScale, 1);
         st.shadow.material.opacity = 0.25 - Math.max(0, idleLift) * 0.045;
       }
       if (st.arms) {
-        const inspecting = st.inspectUntil > performance.now();
-        st.arms.left.rotation.x = inspecting ? -0.74 + Math.sin(t * 3.2) * 0.04 : Math.sin(t * 1.12) * 0.075 + 0.018;
-        st.arms.right.rotation.x = inspecting ? -0.42 + Math.sin(t * 3.2 + 0.7) * 0.035 : -Math.sin(t * 1.12) * 0.075 - 0.018;
+        const inspecting = st.inspectUntil > now;
+        const sitArm = sitting * 0.22;
+        const jumpArm = jumping * -0.78;
+        st.arms.left.rotation.x = inspecting ? -0.74 + Math.sin(t * 3.2) * 0.04 : Math.sin(t * 1.12) * 0.075 + 0.018 + sitArm + jumpArm;
+        st.arms.right.rotation.x = inspecting ? -0.42 + Math.sin(t * 3.2 + 0.7) * 0.035 : -Math.sin(t * 1.12) * 0.075 - 0.018 - sitArm + jumpArm;
         st.arms.left.rotation.z += ((inspecting ? 0.18 : 0) - st.arms.left.rotation.z) * 0.16;
         st.arms.right.rotation.z += ((inspecting ? -0.1 : 0) - st.arms.right.rotation.z) * 0.16;
         if (inspecting && st.head) {
@@ -275,8 +289,10 @@ export function SkinStand3D({
       }
       if (st.legs) {
         const step = Math.sin(t * 1.12) * 0.035;
-        st.legs.left.rotation.x = step;
-        st.legs.right.rotation.x = -step;
+        const sitLeg = sitting * 1.32;
+        const jumpLeg = jumping * (0.24 + Math.sin(t * 2.15) * 0.1);
+        st.legs.left.rotation.x = step + sitLeg + jumpLeg;
+        st.legs.right.rotation.x = -step + sitLeg + jumpLeg;
       }
       if (st.cape) {
         st.cape.rotation.x = 0.18 + Math.sin(t * 1.1) * 0.05;

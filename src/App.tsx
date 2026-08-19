@@ -28,6 +28,7 @@ import { DialogHost } from '@/components/DialogHost';
 import { BackgroundMusicPlayer } from '@/components/BackgroundMusicPlayer';
 import { BackgroundVideo } from '@/components/BackgroundVideo';
 import { GlobalHotkeys } from '@/components/GlobalHotkeys';
+import { FirstLaunchExperience } from '@/components/FirstLaunchExperience';
 import { useNotifStore } from '@/stores/notificationStore';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -175,6 +176,7 @@ function App() {
       <InstallEffectOverlay />
       {!loading && <BackgroundMusicPlayer />}
       <DialogHost />
+      {!loading && <FirstLaunchExperience />}
       </div>
       </div>
     </>

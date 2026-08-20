@@ -247,9 +247,9 @@ function NotchNav() {
               style={{
                 position: 'absolute',
                 zIndex: 1,
-                // The dock remains visually attached to the handle. Four pixels
-                // of air prevent the opened surface from covering the tab itself.
-                ...(vertical ? { [isStart ? 'left' : 'right']: 16 } : { [isStart ? 'top' : 'bottom']: 16 }),
+                // Dock edge meets the visible handle edge: no air gap, while
+                // the higher panel layer remains in front of the page tab.
+                ...(vertical ? { [isStart ? 'left' : 'right']: 10 } : { [isStart ? 'top' : 'bottom']: 10 }),
                 padding: Math.max(visualPanelVersion === 'new' ? 5 : 4, Math.min(5, appearance.edgePadding / 2)),
                 gap: Math.min(appearance.gap, 3),
                 background: visualPanelVersion === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${appearance.opacity}%, transparent)`,

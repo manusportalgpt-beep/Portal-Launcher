@@ -913,3 +913,10 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push both repairs to GitHub main.
 
 ---
+
+# Notch Panel zero-gap refinement
+
+- [x] Remove the remaining visual gap between the compact handle and opened Notch Panel without lowering its layer above the tab.
+- [x] Run TypeScript-only verification and commit/push the zero-gap geometry refinement to GitHub main.
+
+---

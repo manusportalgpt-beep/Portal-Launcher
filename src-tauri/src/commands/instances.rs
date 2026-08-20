@@ -955,14 +955,24 @@ pub async fn preview_remote_modpack(
 #[tauri::command]
 pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, excluded_paths: Option<Vec<String>>) -> Result<Instance, String> {
     let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(300)).user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
+    let raw = std::fs::read(&mrpack_path).map_err(|e| format!("Не удалось прочитать .mrpack: {e}"))?;
+    if raw.len() < 4 || raw[0] != b'P' || raw[1] != b'K' {
+        return Err("Файл .mrpack не является ZIP-архивом или был скопирован не полностью. Скачайте файл заново и попробуйте ещё раз.".to_string());
+    }
     let file = std::fs::File::open(&mrpack_path).map_err(|e| format!("Open: {e}"))?;
-    let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Read: {e}"))?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Архив .mrpack повреждён или не завершён: {e}"))?;
 
     let index_data = {
-        let mut f = archive.by_name("modrinth.index.json").map_err(|_| "No modrinth.index.json".to_string())?;
+        let index_name = (0..archive.len())
+            .filter_map(|i| archive.by_index(i).ok().map(|entry| entry.name().replace('\\', "/")))
+            .find(|name| name == "modrinth.index.json" || name.ends_with("/modrinth.index.json"));
+        let Some(index_name) = index_name else {
+            return Err("В этом .mrpack не найден modrinth.index.json. Это не Modrinth Pack либо архив создан неполностью.".to_string());
+        };
+        let mut f = archive.by_name(&index_name).map_err(|e| format!("Не удалось открыть modrinth.index.json: {e}"))?;
         let mut s = String::new(); f.read_to_string(&mut s).map_err(|e| e.to_string())?; s
     };
-    let index: serde_json::Value = serde_json::from_str(&index_data).map_err(|e| e.to_string())?;
+    let index: serde_json::Value = serde_json::from_str(&index_data).map_err(|e| format!("modrinth.index.json повреждён: {e}"))?;
     let portal_metadata: serde_json::Value = archive.by_name("portal-launcher/instance.json")
         .ok()
         .and_then(|mut file| {

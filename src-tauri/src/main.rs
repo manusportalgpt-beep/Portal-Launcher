@@ -188,6 +188,7 @@ fn main() {
             commands::mods::restore_update_snapshot,
             commands::mods::detect_mod_conflicts,
             commands::mods::check_mod_compatibility,
+            commands::mods::check_instance_target_mod_compatibility,
             // Modrinth
             commands::modrinth::search_modrinth,
             commands::modrinth::get_modrinth_project,

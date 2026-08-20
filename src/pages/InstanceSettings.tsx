@@ -185,7 +185,24 @@ export function InstanceSettings() {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    const gameCoreChanged = form.minecraftVersion !== inst.minecraftVersion || form.modLoader !== inst.modLoader;
+    if (gameCoreChanged) {
+      try {
+        const incompatible = await invoke<Array<{ name: string }>>('check_instance_target_mod_compatibility', {
+          instanceId: inst.id, targetVersion: form.minecraftVersion, targetLoader: form.modLoader,
+        });
+        if (incompatible.length) {
+          const names = incompatible.map(item => item.name).slice(0, 8).join(', ');
+          const subject = incompatible.length === 1 ? 'Этот мод не работает' : 'Эти моды не работают';
+          const approved = await dialog.confirm(`${subject} на Minecraft ${form.minecraftVersion} с ${form.modLoader}: ${names}${incompatible.length > 8 ? ' и другие' : ''}.\n\nЕсли продолжить, моды останутся в сборке: mclo.gs сможет показать их в диагностике запуска.`, { title: 'Предупреждение о совместимости модов', confirmLabel: 'Изменить всё равно', cancelLabel: 'Отмена', danger: true });
+          if (!approved) return;
+        }
+      } catch {
+        // Network/platform checks must not silently block an offline user from
+        // editing an instance. The installed mod metadata remains available to mclo.gs.
+      }
+    }
     update(inst.id, form as any);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);

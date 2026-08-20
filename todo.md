@@ -857,3 +857,14 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the final runtime refinement to GitHub main.
 
 ---
+
+# Final platform filters, import and compatibility refinement
+
+- [x] Separate active Modrinth and CurseForge filter state so each provider receives only its own supported category, version and loader parameters.
+- [x] Add a clearly visible dashed drop-zone in Library while dragging .mrpack/.zip, followed by specific import progress feedback for large manifests.
+- [x] Repair .mrpack import parsing and distinguish an absent manifest from a genuinely invalid or incomplete ZIP archive in localized errors.
+- [x] Check only installed mods before changing Minecraft version or loader, warn about unavailable compatible updates, and retain data needed for mclo.gs diagnostics if the user proceeds.
+- [x] Simplify first-launch presentation and add original undisclosed local easter-egg achievements without external meme assets.
+- [x] Run TypeScript only and commit/push the final platform/import refinement to GitHub main.
+
+---

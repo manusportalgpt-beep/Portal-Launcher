@@ -511,13 +511,13 @@ function ProjectCard({ p, view, instanceId, mcVersion, loader, onClick }: {
 }
 
 // ── Filter Sidebar ───────────────────────────────────────────────────────────
-function FilterSidebar({ projectType, selectedCats, selectedLoaders, selectedVersions, mcVersions, onCat, onLoader, onVersion, onClear }: {
-  projectType: ProjectType;
+function FilterSidebar({ platform, projectType, selectedCats, selectedLoaders, selectedVersions, mcVersions, onCat, onLoader, onVersion, onClear }: {
+  platform: Platform; projectType: ProjectType;
   selectedCats: string[]; selectedLoaders: string[]; selectedVersions: string[]; mcVersions: string[];
   onCat(c: string): void; onLoader(l: string): void; onVersion(v: string): void; onClear(): void;
 }) {
   const { t } = useTranslation();
-  const cats = MODRINTH_CATS[projectType] ?? [];
+  const cats = platform === 'modrinth' ? (MODRINTH_CATS[projectType] ?? []) : [];
   const hasFilters = selectedCats.length>0||selectedLoaders.length>0||selectedVersions.length>0;
   return (
     <div className="flex h-full flex-col gap-4 overflow-hidden p-3">
@@ -603,6 +603,18 @@ export function FindProjectsPage() {
   const [selectedVersions, setSelectedVersions] = useState<string[]>(() => restoredFilters.current.selectedVersions ?? (instance?.minecraftVersion ? [instance.minecraftVersion] : []));
   const [selectedLoaders, setSelectedLoaders] = useState<string[]>(() => restoredFilters.current.selectedLoaders ?? (instance?.modLoader && instance.modLoader !== 'vanilla' ? [instance.modLoader] : []));
   const [selectedCats, setSelectedCats] = useState<string[]>(() => restoredFilters.current.selectedCats ?? []);
+  const platformFiltersRef = useRef<Record<Platform, { cats: string[]; loaders: string[]; versions: string[] }>>({
+    modrinth: {
+      cats: restoredFilters.current.platform === 'modrinth' ? (restoredFilters.current.selectedCats ?? []) : [],
+      loaders: restoredFilters.current.platform === 'modrinth' ? (restoredFilters.current.selectedLoaders ?? []) : (instance?.modLoader && instance.modLoader !== 'vanilla' ? [instance.modLoader] : []),
+      versions: restoredFilters.current.platform === 'modrinth' ? (restoredFilters.current.selectedVersions ?? []) : (instance?.minecraftVersion ? [instance.minecraftVersion] : []),
+    },
+    curseforge: {
+      cats: [],
+      loaders: restoredFilters.current.platform === 'curseforge' ? (restoredFilters.current.selectedLoaders ?? []) : (instance?.modLoader && instance.modLoader !== 'vanilla' ? [instance.modLoader] : []),
+      versions: restoredFilters.current.platform === 'curseforge' ? (restoredFilters.current.selectedVersions ?? []) : (instance?.minecraftVersion ? [instance.minecraftVersion] : []),
+    },
+  });
 
   const [results, setResults] = useState<Project[]>([]);
   const [total, setTotal] = useState(0);
@@ -625,6 +637,17 @@ export function FindProjectsPage() {
         : [],
     );
   }, [instance?.minecraftVersion, instance?.modLoader, projectType]);
+
+  const switchPlatform = (nextPlatform: Platform) => {
+    platformFiltersRef.current[platform] = { cats: selectedCats, loaders: selectedLoaders, versions: selectedVersions };
+    const next = platformFiltersRef.current[nextPlatform];
+    setPlatform(nextPlatform);
+    setSelectedCats(nextPlatform === 'modrinth' ? next.cats : []);
+    setSelectedLoaders(next.loaders);
+    setSelectedVersions(next.versions);
+    setPage(0);
+    setShowFilters(true);
+  };
 
   // MC versions — always load from Mojang manifest (fallback to base list)
   const [mcVersions, setMcVersions] = useState<string[]>(MC_VERSIONS_BASE);
@@ -899,7 +922,7 @@ export function FindProjectsPage() {
               initial={{ width:0, opacity:0 }} animate={{ width:220, opacity:1 }} exit={{ width:0, opacity:0 }}
               transition={{ duration:0.2 }}>
               <FilterSidebar
-                projectType={projectType}
+                platform={platform} projectType={projectType}
                 selectedCats={selectedCats} selectedLoaders={selectedLoaders} selectedVersions={selectedVersions}
                 mcVersions={mcVersions}
                 onCat={toggleCat} onLoader={toggleLoader} onVersion={toggleVersion} onClear={clearFilters} />
@@ -930,11 +953,7 @@ export function FindProjectsPage() {
               {/* Platform toggle — Modrinth ⇄ CurseForge */}
               <button
                 onClick={() => {
-                  setPlatform(p => p === 'modrinth' ? 'curseforge' : 'modrinth');
-                  // Switching providers returns to the actual compatibility
-                  // of the selected instance rather than stale saved chips.
-                  applyInstanceCompatibility();
-                  setShowFilters(true);
+                  switchPlatform(platform === 'modrinth' ? 'curseforge' : 'modrinth');
                 }}
                 className="flex h-10 w-10 items-center justify-center rounded-2xl shrink-0 transition-all hover:bg-white/5"
                 style={{

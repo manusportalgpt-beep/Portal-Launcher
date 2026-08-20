@@ -1344,3 +1344,45 @@ pub async fn check_mod_compatibility(instance_id: String, project_id: String) ->
     let compatible = resp.as_array().map(|a| !a.is_empty()).unwrap_or(false);
     Ok(serde_json::json!({"compatible":compatible,"mc_version":mc_version,"loader":loader,"latest_compatible_version":resp.as_array().and_then(|a| a.first()).cloned(),"message":if compatible { format!("Compatible with MC {} ({})", mc_version, loader) } else { format!("NOT compatible with MC {} ({})", mc_version, loader) }}))
 }
+
+/// Checks only installed Java mods with a known platform id before the instance changes
+/// its Minecraft version or loader. Unknown/local files are deliberately omitted: the
+/// launcher cannot safely claim they are incompatible without authoritative metadata.
+#[tauri::command]
+pub async fn check_instance_target_mod_compatibility(
+    instance_id: String,
+    target_version: String,
+    target_loader: String,
+) -> Result<Vec<serde_json::Value>, String> {
+    let mods = get_instance_mods(instance_id).await?;
+    let client = reqwest::Client::builder().user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
+    let cf_loader = match target_loader.as_str() { "forge" => Some(1), "fabric" => Some(4), "quilt" => Some(5), "neoforge" => Some(6), _ => None };
+    let mut incompatible = Vec::new();
+
+    for item in mods.into_iter().filter(|item| item.mod_type == "mod") {
+        let compatible = match item.source.as_str() {
+            "modrinth" if !item.id.trim().is_empty() => {
+                let url = format!("https://api.modrinth.com/v2/project/{}/version?game_versions=[\"{}\"]&loaders=[\"{}\"]", item.id, target_version, target_loader);
+                match client.get(url).send().await {
+                    Ok(response) => match response.json::<serde_json::Value>().await {
+                        Ok(value) => value.as_array().map(|versions| !versions.is_empty()).unwrap_or(true),
+                        Err(_) => true,
+                    },
+                    Err(_) => true,
+                }
+            }
+            "curseforge" if item.id.parse::<u64>().is_ok() => {
+                let id = item.id.parse::<u64>().unwrap_or_default();
+                super::curseforge::get_curseforge_mod_files(id, Some(target_version.clone()), cf_loader, String::new()).await
+                    .ok()
+                    .and_then(|value| value["data"].as_array().map(|files| !files.is_empty()))
+                    .unwrap_or(true)
+            }
+            _ => true,
+        };
+        if !compatible {
+            incompatible.push(serde_json::json!({"name": item.name, "source": item.source, "file_name": item.file_name}));
+        }
+    }
+    Ok(incompatible)
+}

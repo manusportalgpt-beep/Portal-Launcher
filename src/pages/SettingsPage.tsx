@@ -851,6 +851,8 @@ function AboutSection() {
     localStorage.setItem('portal-easter-clicks', String(next));
     setBurst(true);
     window.setTimeout(() => setBurst(false), 650);
+    if (clicks < 3 && next >= 3) unlockAchievement('first-signal');
+    if (Math.random() < 0.035) unlockAchievement('static-in-the-void');
     if (clicks < 500 && next >= 500 && !manusUnlocked) {
       unlockAchievement('manus-secret');
       playManusClick();

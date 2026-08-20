@@ -1063,3 +1063,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Verify the restored revision and GitHub main synchronization.
 
 ---
+
+# Instance Studio import and visual refresh
+
+- [x] Audit the current Instance Studio creation, install/import and empty-library states against the requested interaction contract.
+- [x] Remove the duplicate «Найти модпаки» search field and action from the import flow while retaining native .mrpack/.zip selection and external-launcher import.
+- [x] Redesign the choice, custom-instance and empty states with round themed surfaces and clear keyboard-accessible actions without changing version or loader selection.
+- [x] Run TypeScript-only verification and commit/push the targeted Instance Studio refresh to GitHub main.
+
+---

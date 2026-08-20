@@ -1048,3 +1048,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the performance regression repair to GitHub main.
 
 ---
+
+# Home screen, storage and theme editor refresh
+
+- [x] Audit the current home screen structure, action paths, launcher-size label and theme-editor controls.
+- [x] Rebuild the home screen with a stronger visual hierarchy, useful quick actions and responsive themed surfaces.
+- [x] Replace the incorrect 1 KB launcher-size value with the requested 15.3 MB display.
+- [x] Improve the theme editor with clearer grouped appearance controls while preserving existing saved themes.
+- [x] Run TypeScript-only verification and commit/push the home, storage and theme-editor refresh to GitHub main.
+
+---

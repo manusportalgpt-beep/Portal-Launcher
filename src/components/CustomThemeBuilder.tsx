@@ -7,19 +7,19 @@ import { useUiStore } from '@/stores/uiStore';
 import { loadBackgroundMedia, removeBackgroundMedia, saveBackgroundMedia } from '@/lib/background-media';
 
 const COLOR_FIELDS: Array<{ key: keyof CustomThemeColors; label: string; description: string }> = [
-  { key: 'background', label: 'Background', description: 'Главный фон' },
-  { key: 'surface', label: 'Surface', description: 'Основная поверхность' },
-  { key: 'surfaceHover', label: 'Surface hover', description: 'Поверхность при наведении' },
-  { key: 'surfaceActive', label: 'Surface active', description: 'Выбранная поверхность' },
-  { key: 'primary', label: 'Accent', description: 'Основной акцент' },
-  { key: 'outline', label: 'Outline', description: 'Обычная обводка' },
-  { key: 'outlineStrong', label: 'Strong outline', description: 'Сильная обводка' },
-  { key: 'text', label: 'Text', description: 'Основной текст' },
-  { key: 'mutedText', label: 'Muted text', description: 'Вторичный текст' },
-  { key: 'success', label: 'Success', description: 'Успешное состояние' },
-  { key: 'warning', label: 'Warning', description: 'Предупреждение' },
-  { key: 'error', label: 'Error', description: 'Ошибка' },
-  { key: 'info', label: 'Info', description: 'Информация' },
+  { key: 'background', label: 'Фон', description: 'Главный слой' },
+  { key: 'surface', label: 'Поверхность', description: 'Карточки и окна' },
+  { key: 'surfaceHover', label: 'Наведение', description: 'Карточки при наведении' },
+  { key: 'surfaceActive', label: 'Выбор', description: 'Активные элементы' },
+  { key: 'primary', label: 'Акцент', description: 'Главный цвет действий' },
+  { key: 'outline', label: 'Обводка', description: 'Обычная граница' },
+  { key: 'outlineStrong', label: 'Яркая обводка', description: 'Активная граница' },
+  { key: 'text', label: 'Текст', description: 'Основной текст' },
+  { key: 'mutedText', label: 'Вторичный текст', description: 'Подписи и описание' },
+  { key: 'success', label: 'Успех', description: 'Готово и применено' },
+  { key: 'warning', label: 'Предупреждение', description: 'Требует внимания' },
+  { key: 'error', label: 'Ошибка', description: 'Сбой и удаление' },
+  { key: 'info', label: 'Информация', description: 'Подсказки' },
 ];
 
 const DEFAULT_COLORS: CustomThemeColors = {
@@ -28,6 +28,12 @@ const DEFAULT_COLORS: CustomThemeColors = {
   success: '#2ECC71', warning: '#F39C12', error: '#E74C3C', info: '#3498DB',
 };
 const DEFAULT_OPTIONS: CustomThemeOptions = { radiusScale: 1, shadowStrength: 1, glowStrength: 1, font: "'Inter',system-ui,sans-serif" };
+const QUICK_PALETTES: Array<{ name: string; colors: Partial<CustomThemeColors> }> = [
+  { name: 'Портал', colors: { primary: '#7C5CFC', background: '#080A12', surface: '#121827', surfaceHover: '#1A2234', surfaceActive: '#242F48' } },
+  { name: 'Лес', colors: { primary: '#61D38B', background: '#07130F', surface: '#10241D', surfaceHover: '#173126', surfaceActive: '#214333' } },
+  { name: 'Океан', colors: { primary: '#49B7FF', background: '#07111C', surface: '#10243A', surfaceHover: '#17334C', surfaceActive: '#204663' } },
+  { name: 'Закат', colors: { primary: '#FF8A5B', background: '#180B13', surface: '#2A1420', surfaceHover: '#3A1C2C', surfaceActive: '#4C2738' } },
+];
 
 function relativeLuminance(hex: string) {
   const clean = hex.replace('#', '');
@@ -128,10 +134,14 @@ export function CustomThemeBuilder() {
               <input value={name} onChange={e => setName(e.target.value)} maxLength={32} placeholder="Название темы"
                 className="mb-3 w-full rounded-xl px-3 py-2 text-xs outline-none"
                 style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
+              <div className="mb-3 rounded-xl p-2.5" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color:'var(--color-text-secondary)' }}>Направление темы</p>
+                <div className="flex flex-wrap gap-1.5">{QUICK_PALETTES.map(palette => <button key={palette.name} onClick={() => setColors(current => ({ ...current, ...palette.colors }))} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-bold" style={{ background:'var(--color-surface)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><span className="h-3 w-3 rounded-full" style={{ background:palette.colors.primary }} />{palette.name}</button>)}</div>
+              </div>
               <div className="mb-3 flex flex-wrap gap-1.5">
-                <button onClick={useRandomPalette} title="Generate a new original color direction" className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><Wand2 className="h-3.5 w-3.5" />Generate colors</button>
-                <button onClick={repairContrast} title="Choose readable text colors for this background" className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><Contrast className="h-3.5 w-3.5" />Fix contrast</button>
-                <button onClick={() => { setColors(DEFAULT_COLORS); setOptions(DEFAULT_OPTIONS); }} title="Restore builder defaults" className="rounded-lg px-2 py-1.5 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Reset</button>
+                <button onClick={useRandomPalette} title="Сгенерировать новую палитру" className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><Wand2 className="h-3.5 w-3.5" />Сгенерировать</button>
+                <button onClick={repairContrast} title="Сделать текст читаемым" className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><Contrast className="h-3.5 w-3.5" />Исправить контраст</button>
+                <button onClick={() => { setColors(DEFAULT_COLORS); setOptions(DEFAULT_OPTIONS); }} title="Вернуть значения редактора" className="rounded-lg px-2 py-1.5 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Сбросить</button>
               </div>
               <div className="mb-3 rounded-xl p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                 <div className="mb-2 flex items-center justify-between gap-2">
@@ -141,6 +151,7 @@ export function CustomThemeBuilder() {
                 </div>
                 {backgroundImage && <div className="flex items-center gap-2"><div className="h-9 flex-1 rounded-lg bg-cover bg-center" style={{ backgroundImage: backgroundPreview ? `url("${backgroundPreview}")` : 'none' }} /><button type="button" onClick={() => { void removeBackgroundMedia('image'); setUi('backgroundImage', ''); }} className="rounded-lg px-2 py-1.5 text-[10px] font-bold" style={{ background:'var(--color-bg)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>{t('settings.appearanceUi.removeBackground')}</button></div>}
               </div>
+              <div className="mb-2 flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color:'var(--color-text-secondary)' }}>Цвета интерфейса</p><span className="rounded-md px-1.5 py-1 text-[9px] font-bold" style={{ background: contrast >= 4.5 ? 'rgba(46,204,113,0.14)' : 'rgba(243,156,18,0.14)', color: contrast >= 4.5 ? '#2ECC71' : '#F39C12' }}>Контраст {contrast.toFixed(1)}:1</span></div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {COLOR_FIELDS.map(field => (
                   <label key={field.key} className="rounded-xl p-2.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
@@ -158,7 +169,8 @@ export function CustomThemeBuilder() {
                   </label>
                 ))}
               </div>
-              <div className="mt-3 grid gap-2 sm:grid-cols-4">
+              <p className="mt-3 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color:'var(--color-text-secondary)' }}>Форма и атмосфера</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-4">
                 <label className="rounded-xl p-2" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><span className="block text-[10px] font-bold" style={{ color:'var(--color-text)' }}>Скругление {options.radiusScale.toFixed(1)}×</span><input type="range" min="0.5" max="1.8" step="0.1" value={options.radiusScale} onChange={e => updateOption('radiusScale', Number(e.target.value))} className="w-full" style={{ accentColor:'var(--color-primary)' }} /></label>
                 <label className="rounded-xl p-2" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><span className="block text-[10px] font-bold" style={{ color:'var(--color-text)' }}>Тени {Math.round(options.shadowStrength * 100)}%</span><input type="range" min="0" max="1.5" step="0.05" value={options.shadowStrength} onChange={e => updateOption('shadowStrength', Number(e.target.value))} className="w-full" style={{ accentColor:'var(--color-primary)' }} /></label>
                 <label className="rounded-xl p-2" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><span className="block text-[10px] font-bold" style={{ color:'var(--color-text)' }}>Glow {Math.round(options.glowStrength * 100)}%</span><input type="range" min="0" max="1.8" step="0.05" value={options.glowStrength} onChange={e => updateOption('glowStrength', Number(e.target.value))} className="w-full" style={{ accentColor:'var(--color-primary)' }} /></label>
@@ -168,9 +180,8 @@ export function CustomThemeBuilder() {
                 <div className="h-8 flex-1 rounded-xl" style={{ background: colors.background, border: `1px solid ${colors.outline}` }}>
                   <div className="m-1 h-6 rounded-lg" style={{ background: colors.surface }}><span className="ml-2 text-[10px] font-bold" style={{ color: colors.text }}>Portal Launcher</span><span className="ml-2 text-[10px]" style={{ color: colors.primary }}>Aa</span></div>
                 </div>
-                <span className="hidden rounded-lg px-2 py-1 text-[9px] font-bold sm:block" style={{ background: contrast >= 4.5 ? 'rgba(46,204,113,0.14)' : 'rgba(243,156,18,0.14)', color: contrast >= 4.5 ? '#2ECC71' : '#F39C12' }}>Text {contrast.toFixed(1)}:1</span>
                 <button onClick={() => { addCustomTheme(name, colors, options); setOpen(false); }} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
-                  <Check className="h-3.5 w-3.5" />Save theme
+                  <Check className="h-3.5 w-3.5" />Сохранить тему
                 </button>
               </div>
             </div>

@@ -117,6 +117,12 @@ fn purge_deleted_instances(retention_minutes: u64) {
 pub fn get_launcher_storage_overview() -> serde_json::Value {
     let root = mc_base_dir();
     let used_bytes = directory_size(&root);
+    // The Minecraft data directory starts almost empty on a clean install, but
+    // the application itself still occupies disk space. Keep that base size
+    // separate from user data, Java and game caches so the first-run screen
+    // does not misleadingly claim that Portal Launcher is only 1 KB.
+    const LAUNCHER_BASE_BYTES: u64 = 15_3 * 1024 * 1024 / 10;
+    let total_bytes = used_bytes.saturating_add(LAUNCHER_BASE_BYTES);
     #[cfg(target_os = "windows")]
     let free_bytes = {
         let escaped = root.to_string_lossy().replace('"', "\"");
@@ -129,7 +135,13 @@ pub fn get_launcher_storage_overview() -> serde_json::Value {
     };
     #[cfg(not(target_os = "windows"))]
     let free_bytes: Option<u64> = None;
-    serde_json::json!({ "launcherPath": root, "usedBytes": used_bytes, "freeBytes": free_bytes })
+    serde_json::json!({
+        "launcherPath": root,
+        "usedBytes": used_bytes,
+        "launcherBytes": LAUNCHER_BASE_BYTES,
+        "totalBytes": total_bytes,
+        "freeBytes": free_bytes,
+    })
 }
 
 fn instance_path(id: &str) -> PathBuf { instances_dir().join(id).join("instance.json") }

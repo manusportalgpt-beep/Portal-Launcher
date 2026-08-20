@@ -171,7 +171,7 @@ function SidebarNav() {
 /** Выезжающая минималистичная Notch-панель. Перетаскивание окна отключено. */
 function NotchNav() {
   const { t } = useTranslation();
-  const { notchPinned, notchSide, navItemScale, navItemOrder, panelVersion, uiMode, titlebarHeight, notchPanelAppearance: appearance, set } = useUiStore();
+  const { notchPinned, notchSide, notchHotzone, notchOpenOnTab, notchAboveHotzone, notchDockScale, navItemScale, navItemOrder, panelVersion, uiMode, titlebarHeight, notchPanelAppearance: appearance, set } = useUiStore();
   const visualPanelVersion = uiMode === 'old' ? 'old' : panelVersion;
   const blurEnabled = useUiStore(state => state.blur);
   const items = orderedNav(navItemOrder);
@@ -191,6 +191,8 @@ function NotchNav() {
   const align = appearance.alignment === 'start' ? 'flex-start' : appearance.alignment === 'end' ? 'flex-end' : 'center';
   const borderColor = appearance.border === 'none' ? 'transparent' : appearance.border === 'strong' ? 'var(--color-border-strong)' : 'var(--color-border)';
   const shadowValue = appearance.shadow === 'none' ? 'none' : appearance.shadow === 'strong' ? 'var(--shadow-lg)' : 'var(--shadow-md)';
+  const dockScale = notchDockScale / 100;
+  const tabHitbox = notchOpenOnTab ? Math.max(40, notchHotzone) : 40;
   const crossAxisPosition: React.CSSProperties = vertical
     ? appearance.alignment === 'start' ? { top: appearance.edgePadding } : appearance.alignment === 'end' ? { bottom: appearance.edgePadding } : { top: '50%', transform: 'translateY(-50%)' }
     : appearance.alignment === 'start' ? { left: appearance.edgePadding } : appearance.alignment === 'end' ? { right: appearance.edgePadding } : { left: '50%', transform: 'translateX(-50%)' };
@@ -206,8 +208,8 @@ function NotchNav() {
     pointerEvents: 'none',
     ...crossAxisPosition,
     ...(vertical
-      ? { [notchSide]: 0, width: 14, height: 40 }
-      : { [notchSide]: notchSide === 'top' ? titlebarHeight : 0, width: 40, height: 14 }),
+      ? { [notchSide]: 0, width: 14, height: tabHitbox }
+      : { [notchSide]: notchSide === 'top' ? titlebarHeight : 0, width: tabHitbox, height: 14 }),
   };
 
   const offset = vertical ? { x: isStart ? -14 : 14 } : { y: isStart ? -14 : 14 };
@@ -216,7 +218,7 @@ function NotchNav() {
     <div style={wrap}>
       {/* Hitbox exactly follows the visible Notch span; it no longer covers the entire screen edge. */}
       <div
-        onMouseEnter={openNotch}
+        onMouseEnter={notchOpenOnTab ? openNotch : undefined}
         onMouseLeave={scheduleClose}
         className="flex items-center justify-center"
         style={{
@@ -227,6 +229,9 @@ function NotchNav() {
           alignSelf: vertical ? align : 'auto',
         }}
       >
+        {notchAboveHotzone > 0 && (
+          <div onMouseEnter={openNotch} onMouseLeave={scheduleClose} style={{ position:'absolute', pointerEvents:'auto', ...(vertical ? { width:notchAboveHotzone, height:'100%', [isStart ? 'left' : 'right']:-notchAboveHotzone } : { width:'100%', height:notchAboveHotzone, [isStart ? 'top' : 'bottom']:-notchAboveHotzone }) }} />
+        )}
         <AnimatePresence>
           {!open && (
             <motion.div key="handle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -241,7 +246,7 @@ function NotchNav() {
         <AnimatePresence>
           {open && (
             <motion.nav key="dock"
-              initial={{ opacity: 0, ...offset }} animate={{ opacity: 1, x: 0, y: 0 }} exit={{ opacity: 0, ...offset }}
+              initial={{ opacity: 0, scale: dockScale * 0.96, ...offset }} animate={{ opacity: 1, scale: dockScale, x: 0, y: 0 }} exit={{ opacity: 0, scale: dockScale * 0.96, ...offset }}
               transition={{ duration: 0.12, ease: [0.22, 0.78, 0.24, 1] }}
               className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1 rounded-xl`}
               style={{
@@ -258,6 +263,7 @@ function NotchNav() {
                 backdropFilter: blurEnabled && appearance.blur ? `blur(${appearance.blur}px)` : 'none',
                 WebkitBackdropFilter: blurEnabled && appearance.blur ? `blur(${appearance.blur}px)` : 'none',
                 boxShadow: visualPanelVersion === 'old' ? 'none' : shadowValue,
+                transformOrigin: vertical ? (isStart ? 'left center' : 'right center') : (isStart ? 'center top' : 'center bottom'),
               }}>
               {items.map(item => <DockButton key={item.to} item={item} vertical={vertical} scale={navItemScale} appearance={appearance} />)}
               <InstanceQuickAccess vertical={vertical} />

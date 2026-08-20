@@ -41,6 +41,12 @@ export interface UiState {
   notchHotzone: number;
   /** Панель всегда раскрыта */
   notchPinned: boolean;
+  /** Разрешать открытие Notch Panel при наведении на tab/ручку */
+  notchOpenOnTab: boolean;
+  /** Дополнительная hover-зона прямо над ручкой Notch Panel, px */
+  notchAboveHotzone: number;
+  /** Масштаб только выезжающей Notch Panel, % */
+  notchDockScale: number;
   /** Задержка закрытия Notch после выхода курсора, мс */
   notchCloseDelay: number;
   /** Порядок основных иконок Home, Discover, Skins и Library */
@@ -145,6 +151,9 @@ const defaults = {
   notchSide: 'top' as NotchSide,
   notchHotzone: 46,
   notchPinned: false,
+  notchOpenOnTab: true,
+  notchAboveHotzone: 0,
+  notchDockScale: 100,
   notchCloseDelay: 180,
   navItemOrder: ['home', 'discover', 'skins', 'library'],
   navHoverMs: 180,

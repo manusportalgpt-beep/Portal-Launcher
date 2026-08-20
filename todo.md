@@ -966,3 +966,14 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the profile cache, file scrolling and localization repair to GitHub main.
 
 ---
+
+# Screenshot studio and configurable Notch Panel
+
+- [x] Add large previous/next arrows to the screenshot viewer for direct navigation.
+- [x] Give brush and eraser separate numeric size controls, with an upper limit of 160.
+- [x] Add named editable drawing layers and non-destructive image controls for brightness, contrast, palette and blur.
+- [x] Remove redundant «Изображение» and «Рисунок» labels from the screenshot editor.
+- [x] Add Notch Panel settings for hover activation on the tab or just above it, plus adjustable panel size.
+- [x] Run TypeScript-only verification and commit/push the screenshot studio and Notch Panel changes to GitHub main.
+
+---

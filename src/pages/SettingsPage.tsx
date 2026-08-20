@@ -455,6 +455,13 @@ function AppearanceSection() {
             onChange={v => ui.set('notchSide', v as any)} />
           <RangeRow label="Зона наведения" desc="Размер области, которая открывает Notch-панель"
             value={ui.notchHotzone} min={18} max={96} unit=" px" onChange={v => ui.set('notchHotzone', v)} />
+          <Row label="Открывать на tab" desc="Открывать Notch-панель при наведении прямо на её ручку/tab">
+            <Toggle value={ui.notchOpenOnTab} onChange={v => ui.set('notchOpenOnTab', v)} />
+          </Row>
+          <RangeRow label="Зона над tab" desc="Дополнительная область чуть выше ручки, которая также открывает Notch-панель"
+            value={ui.notchAboveHotzone} min={0} max={48} unit=" px" onChange={v => ui.set('notchAboveHotzone', v)} />
+          <RangeRow label="Размер Notch-панели" desc="Масштаб самой выезжающей панели и её кнопок"
+            value={ui.notchDockScale} min={70} max={150} unit=" %" onChange={v => ui.set('notchDockScale', v)} />
           <RangeRow label="Задержка закрытия" desc="Кратко удерживать Notch-панель открытой при переходе между её кнопками" value={ui.notchCloseDelay} min={0} max={800} unit=" мс" onChange={v => ui.set('notchCloseDelay', v)} />
           <Row label="Всегда показывать" desc="Закрепить Notch-панель в открытом состоянии">
             <Toggle value={ui.notchPinned} onChange={v => ui.set('notchPinned', v)} />

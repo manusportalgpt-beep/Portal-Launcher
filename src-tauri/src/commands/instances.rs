@@ -955,12 +955,11 @@ pub async fn preview_remote_modpack(
 #[tauri::command]
 pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, excluded_paths: Option<Vec<String>>) -> Result<Instance, String> {
     let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(300)).user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
-    let raw = std::fs::read(&mrpack_path).map_err(|e| format!("Не удалось прочитать .mrpack: {e}"))?;
-    if raw.len() < 4 || raw[0] != b'P' || raw[1] != b'K' {
-        return Err("Файл .mrpack не является ZIP-архивом или был скопирован не полностью. Скачайте файл заново и попробуйте ещё раз.".to_string());
-    }
     let file = std::fs::File::open(&mrpack_path).map_err(|e| format!("Open: {e}"))?;
-    let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Архив .mrpack повреждён или не завершён: {e}"))?;
+    // ZipArchive читает центральный каталог, поэтому это единственный
+    // корректный валидатор: он поддерживает допустимые ZIP-варианты, которые
+    // нельзя надёжно определить только по первым двум байтам.
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("Не удалось открыть .mrpack как ZIP-архив: {e}"))?;
 
     let index_data = {
         let index_name = (0..archive.len())
@@ -1161,7 +1160,9 @@ pub async fn import_archive_data(
     let ext = if lower.ends_with(".mrpack") { "mrpack" } else if lower.ends_with(".zip") { "zip" } else {
         return Err("Поддерживаются только .mrpack и .zip архивы".to_string());
     };
-    let encoded = data_url.split(',').nth(1).unwrap_or(&data_url);
+    let encoded = data_url.strip_prefix("data:")
+        .and_then(|value| value.split_once(',').map(|(_, payload)| payload))
+        .unwrap_or(&data_url);
     use base64::Engine as _;
     let bytes = base64::engine::general_purpose::STANDARD.decode(encoded)
         .map_err(|e| format!("Не удалось прочитать архив: {e}"))?;

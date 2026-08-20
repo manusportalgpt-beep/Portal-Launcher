@@ -886,3 +886,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the Notch Panel geometry fix to GitHub main.
 
 ---
+
+# Critical `.mrpack` import and Library drop regression
+
+- [x] Trace the `.mrpack` ZIP-signature validation and accept valid ZIP variants without rejecting intact files.
+- [x] Make a library drop immediately show the import path/progress instead of leaving the empty Library view unchanged.
+- [x] Preserve all project files on validation, manifest, metadata or installation failure; show a concrete safe error rather than silently losing the dropped action.
+- [x] Run TypeScript-only verification and available targeted import tests, then commit/push the repair to GitHub main.
+
+---

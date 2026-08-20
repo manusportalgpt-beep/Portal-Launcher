@@ -1046,8 +1046,9 @@ function NewGroupModal({ onClose, onCreate }: { onClose: () => void; onCreate: (
   );
 }
 
-function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported }: {
+function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported, onImportStarted, onImportFailed }: {
   instances: Instance[]; onSelect:(id:string)=>void; onNew:()=>void; onExtraGroups: string[]; onImported:(raw:any)=>void;
+  onImportStarted: (fileName: string) => void; onImportFailed: () => void;
 }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -1099,10 +1100,9 @@ function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported }: 
     setImporting(true);
     try {
       for (const file of archives) {
-        const signature = new Uint8Array(await file.slice(0, 4).arrayBuffer());
-        if (signature[0] !== 0x50 || signature[1] !== 0x4b) {
-          throw new Error(`«${file.name}» не является ZIP-архивом .mrpack/.zip или загрузился не полностью.`);
-        }
+        // `File.slice()` в WebView может вернуть неполную сигнатуру у
+        // корректного полного файла. Проверку формата выполняет Rust ZIP-парсер.
+        onImportStarted(file.name);
         const dataUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(String(reader.result ?? ''));
@@ -1110,9 +1110,11 @@ function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported }: 
           reader.readAsDataURL(file);
         });
         const imported = await invoke<any>('import_archive_data', { fileName: file.name, dataUrl });
-        if (imported?.id) onImported(imported);
+        if (!imported?.id) throw new Error('Импорт не вернул созданную сборку. Исходный файл не был изменён.');
+        onImported(imported);
       }
     } catch (error) {
+      onImportFailed();
       dialog.alert(String(error), { title: 'Импорт сборки', danger: true });
     } finally {
       setImporting(false);
@@ -2134,12 +2136,30 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
+function LibraryImportState({ fileName }: { fileName: string }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-3xl" style={{ background:'var(--color-primary-dim)', border:'1px solid var(--color-primary)', color:'var(--color-primary)' }}>
+        <Upload className="h-7 w-7 animate-pulse" />
+      </div>
+      <p className="mt-5 text-base font-black" style={{ color:'var(--color-text)' }}>Импортирую сборку</p>
+      <p className="mt-1 max-w-md text-sm leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>
+        «{fileName}» читается и проверяется. Исходный файл остаётся без изменений; после чтения manifest откроется импортируемая сборка.
+      </p>
+      <div className="mt-5 h-1.5 w-52 overflow-hidden rounded-full" style={{ background:'var(--color-surface-2)' }}>
+        <div className="h-full w-2/5 rounded-full animate-pulse" style={{ background:'var(--color-primary)' }} />
+      </div>
+    </div>
+  );
+}
+
 export function LibraryPage() {
   const navigate = useNavigate();
   const { id: routeInstanceId } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { instances, add, remove, selectedId, select: setSelectedId } = useInstanceStore();
   const [showCreate, setShowCreate] = useState(false);
+  const [pendingImportName, setPendingImportName] = useState<string | null>(null);
 
   useEffect(() => {
     if (searchParams.get('create') === '1') {
@@ -2189,6 +2209,7 @@ export function LibraryPage() {
       totalPlayTime: 0,
       color: ['#6C5CE7','#E74C3C','#2ECC71','#3498DB','#F39C12'][Math.floor(Math.random()*5)],
     };
+    setPendingImportName(null);
     add(inst); setSelectedId(inst.id); navigate(`/library/${inst.id}`);
   };
 
@@ -2204,7 +2225,9 @@ export function LibraryPage() {
   return (
     <div className="h-full flex overflow-hidden">
       <div className="flex-1 min-w-0 overflow-hidden">
-        {selectedId && instances.find(i => i.id===selectedId) ? (
+        {pendingImportName ? (
+          <LibraryImportState fileName={pendingImportName} />
+        ) : selectedId && instances.find(i => i.id===selectedId) ? (
           <InstanceDetail
             inst={instances.find(i => i.id===selectedId)!}
             onDelete={() => handleDelete(selectedId!)}
@@ -2217,6 +2240,8 @@ export function LibraryPage() {
             onNew={() => setShowCreate(true)}
             onExtraGroups={[]}
             onImported={handleCreated}
+            onImportStarted={setPendingImportName}
+            onImportFailed={() => setPendingImportName(null)}
           />
         )}
       </div>

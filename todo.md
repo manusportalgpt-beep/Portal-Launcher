@@ -868,3 +868,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the final platform/import refinement to GitHub main.
 
 ---
+
+# Visual polish, onboarding and local easter eggs
+
+- [x] Refine Library hierarchy and interactive cards with theme-aware surfaces, stronger focus states and no layout regression.
+- [x] Add short, interruptible motion for cards, panels and feedback while respecting reduced-motion preferences.
+- [x] Simplify first-launch presentation into a lighter, more focused onboarding flow while retaining language, disk and account steps.
+- [x] Add several undisclosed original local easter-egg achievements without external meme assets or fabricated user content.
+- [x] Run TypeScript only and commit/push the visual polish to GitHub main.
+
+---

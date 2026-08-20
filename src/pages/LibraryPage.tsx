@@ -1004,8 +1004,8 @@ function InstanceCard({ inst, onClick, onDropOnGroup }: {
       whileHover={{ y: dragging ? 0 : -1.5 }}
       whileTap={{ scale: 0.985 }}
       transition={{ layout: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } }}
-      className="flex flex-col items-start gap-2.5 p-3 rounded-2xl text-left relative overflow-hidden w-full cursor-grab active:cursor-grabbing"
-      style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', touchAction: 'none' }}>
+      className="portal-instance-card flex flex-col items-start gap-2.5 p-3 rounded-2xl text-left relative overflow-hidden w-full cursor-grab active:cursor-grabbing"
+      style={{ background:'linear-gradient(145deg, color-mix(in srgb, var(--color-surface) 96%, var(--color-primary-dim)), var(--color-surface))', border:'1px solid var(--color-border)', touchAction: 'none' }}>
       <div className="w-full aspect-square rounded-xl overflow-hidden flex items-center justify-center font-black text-2xl relative pointer-events-none"
         style={{ background: inst.color ? `${inst.color}1A` : 'var(--color-surface-2)', color: inst.color || 'var(--color-text-tertiary)' }}>
         {inst.iconPath ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" draggable={false} /> : inst.name[0]?.toUpperCase()}

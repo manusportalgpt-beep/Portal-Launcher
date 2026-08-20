@@ -93,6 +93,31 @@ button, a, input, [role="button"] {
               transform var(--motion-base) var(--motion-ease);
 }
 
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+button:active:not(:disabled), [role="button"]:active:not([aria-disabled="true"]) { transform: scale(0.975); }
+
+.portal-instance-card {
+  isolation: isolate;
+  transition: transform var(--motion-base) var(--motion-ease-soft), border-color var(--motion-base) var(--motion-ease), box-shadow var(--motion-base) var(--motion-ease), filter var(--motion-base) var(--motion-ease);
+}
+.portal-instance-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(130deg, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 42%);
+  transition: opacity var(--motion-base) var(--motion-ease);
+}
+.portal-instance-card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 52%, var(--color-border));
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--color-primary) 11%, rgba(0,0,0,0.38));
+}
+.portal-instance-card:hover::before { opacity: 1; }
+
 .surface-transition, .content-transition {
   transition: opacity var(--motion-base) var(--motion-ease-soft),
               transform var(--motion-base) var(--motion-ease-soft),

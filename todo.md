@@ -1096,3 +1096,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the deleted-content bulk delete to GitHub main.
 
 ---
+
+# Modrinth App performance parity
+
+- [x] Compare Portal Launcher JVM, Java, memory and launch arguments against documented Modrinth App behavior for the same modpack.
+- [x] Remove launcher-specific runtime choices that can cause lower FPS or severe stutter than Modrinth App.
+- [x] Expose the exact effective Java, Xms, Xmx and safe JVM flags in the launch diagnostic without exposing tokens.
+- [x] Run TypeScript-only verification and commit/push the Modrinth App parity fix to GitHub main.
+
+---

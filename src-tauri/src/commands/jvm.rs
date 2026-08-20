@@ -54,7 +54,7 @@ pub fn find_java(major: u32) -> String {
             if let Some(info) = run_java(&bin.to_string_lossy()) {
                 log::info!("🔍 Found managed Java: {} (version={}, vendor={}, managed={})", 
                     bin.display(), info.major_version, info.vendor, info.managed);
-                if info.major_version >= major || major == 0 {
+                if info.major_version == major || major == 0 {
                     log::info!("✅ Using managed Java: {}", bin.display());
                     return bin.to_string_lossy().to_string();
                 }
@@ -69,7 +69,7 @@ pub fn find_java(major: u32) -> String {
         if bin.exists() {
             if let Some(info) = run_java(&bin.to_string_lossy()) {
                 log::info!("🔍 Found JAVA_HOME Java: {} (version={})", bin.display(), info.major_version);
-                if info.major_version >= major || major == 0 {
+                if info.major_version == major || major == 0 {
                     log::info!("✅ Using JAVA_HOME Java: {}", bin.display());
                     return bin.to_string_lossy().to_string();
                 }
@@ -97,7 +97,7 @@ pub fn find_java(major: u32) -> String {
             });
             for bin in candidates {
                 if let Some(info) = run_java(&bin.to_string_lossy()) {
-                    if info.major_version >= major || major == 0 {
+                    if info.major_version == major || major == 0 {
                         log::info!("✅ Using macOS system Java: {}", bin.display());
                         return bin.to_string_lossy().to_string();
                     }
@@ -125,7 +125,7 @@ pub fn find_java(major: u32) -> String {
                 });
                 for bin in bins {
                     if let Some(info) = run_java(&bin.to_string_lossy()) {
-                        if info.major_version >= major || major == 0 {
+                        if info.major_version == major || major == 0 {
                             log::info!("✅ Using Linux system Java: {}", bin.display());
                             return bin.to_string_lossy().to_string();
                         }

@@ -292,13 +292,13 @@ pub async fn launch_instance(
     let java_major = required_java(&version);
     let java_path = if !instance.java_path.is_empty() && Path::new(&instance.java_path).exists()
         && crate::commands::jvm::run_java(&instance.java_path)
-            .map(|info| info.major_version >= java_major && !info.architecture.eq_ignore_ascii_case("x86"))
+            .map(|info| info.major_version == java_major && !info.architecture.eq_ignore_ascii_case("x86"))
             .unwrap_or(false) {
         instance.java_path.clone()
     } else {
         let found = crate::commands::jvm::find_java(java_major);
         let found_ok = crate::commands::jvm::run_java(&found)
-            .map(|info| info.major_version >= java_major && !info.architecture.eq_ignore_ascii_case("x86"))
+            .map(|info| info.major_version == java_major && !info.architecture.eq_ignore_ascii_case("x86"))
             .unwrap_or(false);
         if !found_ok {
             prepared_only = true;
@@ -310,6 +310,17 @@ pub async fn launch_instance(
             found
         }
     };
+    if let Some(info) = crate::commands::jvm::run_java(&java_path) {
+        status(
+            "java",
+            &format!(
+                "Java {} · {} · {}",
+                info.major_version,
+                if info.vendor.is_empty() { "совместимый runtime" } else { &info.vendor },
+                info.architecture,
+            ),
+        );
+    }
 
     // 4. Пути сборки (своя файловая система на каждую сборку)
     let game_dir = instance_game_dir(&instance_id);
@@ -586,6 +597,43 @@ pub async fn launch_instance(
     check_cancelled()?;
     let mut cmd = crate::utils::create_hidden_command(&java_path);
     cmd.current_dir(&game_dir);
+    // Windows stores GPU preference per executable. Modrinth documents this
+    // as the way to prevent Minecraft from silently using an integrated GPU.
+    // Register the actual managed/custom Java used by this profile, then also
+    // request the high-performance GPU for the child process where supported.
+    #[cfg(windows)]
+    {
+        let java_file = Path::new(&java_path);
+        let mut gpu_targets = vec![java_file.to_path_buf()];
+        if let Some(bin_dir) = java_file.parent() {
+            gpu_targets.push(bin_dir.join("javaw.exe"));
+        }
+        for target in gpu_targets.into_iter().filter(|path| path.exists()) {
+            let target_string = target.to_string_lossy().to_string();
+            let updated = crate::utils::create_hidden_command("reg")
+                .args([
+                    "add",
+                    r"HKCU\Software\Microsoft\DirectX\UserGpuPreferences",
+                    "/v",
+                    &target_string,
+                    "/t",
+                    "REG_SZ",
+                    "/d",
+                    "GpuPreference=2;",
+                    "/f",
+                ])
+                .output()
+                .map(|output| output.status.success())
+                .unwrap_or(false);
+            log::info!(
+                "GPU preference for Minecraft Java {}: {}",
+                target.display(),
+                if updated { "high performance" } else { "unchanged" },
+            );
+        }
+        cmd.env("NV_OPTIMUS_ENABLEMENT", "0x00000001");
+        cmd.env("AMD_SWITCHABLE_GRAPHICS", "1");
+    }
     cmd.args(&jvm_args);
     if !jvm_args.iter().any(|a| a == "-cp" || a == "-classpath") {
         cmd.arg("-cp").arg(&classpath_str);
@@ -602,9 +650,13 @@ pub async fn launch_instance(
     let detected_threads = std::thread::available_parallelism()
         .map(|count| count.get())
         .unwrap_or(0);
+    let java_info = crate::commands::jvm::run_java(&java_path);
     log::info!(
-        "Конфигурация производительности Minecraft: Java >= {}, Xms={} MiB, Xmx={} MiB, CPU={} (автоопределение JVM)",
+        "Конфигурация производительности Minecraft: Java {} (требуется {}), vendor={}, arch={}, Xms={} MiB, Xmx={} MiB, CPU={} (автоопределение JVM)",
+        java_info.as_ref().map(|info| info.major_version).unwrap_or(0),
         java_major,
+        java_info.as_ref().map(|info| info.vendor.as_str()).unwrap_or("неизвестно"),
+        java_info.as_ref().map(|info| info.architecture.as_str()).unwrap_or("неизвестно"),
         min_ram,
         max_ram,
         if detected_threads > 0 { detected_threads.to_string() } else { "неизвестно".to_string() },

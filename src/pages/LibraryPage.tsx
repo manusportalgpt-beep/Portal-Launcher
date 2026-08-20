@@ -2211,7 +2211,7 @@ export function LibraryPage() {
   const navigate = useNavigate();
   const { id: routeInstanceId } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { instances, add, remove, selectedId, select: setSelectedId } = useInstanceStore();
+  const { instances, add, update, remove, selectedId, select: setSelectedId } = useInstanceStore();
   const [showCreate, setShowCreate] = useState(false);
   const [createInitialStep, setCreateInitialStep] = useState<CreateStep>('type');
   const [pendingImportName, setPendingImportName] = useState<string | null>(null);
@@ -2231,6 +2231,17 @@ export function LibraryPage() {
     window.addEventListener('portal:new-instance', openCreate);
     return () => window.removeEventListener('portal:new-instance', openCreate);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void invoke<any[]>('get_instances').then(rawInstances => {
+      if (!active) return;
+      for (const raw of rawInstances) {
+        if (raw?.id && raw.icon) update(raw.id, { iconPath: raw.icon });
+      }
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [update]);
 
   useEffect(() => {
     // Сетка сборок — теперь стартовый экран (как в референсе), поэтому

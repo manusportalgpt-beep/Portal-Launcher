@@ -1157,3 +1157,11 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the loader-installer Java repair to GitHub main.
 
 ---
+
+# Modpack icon recovery
+
+- [x] Trace Modrinth, CurseForge and local .mrpack icon metadata from import through persisted instance state to the library card.
+- [x] Persist and recover a valid modpack icon with a safe fallback when the remote image is temporarily unavailable.
+- [x] Refresh the library card after icon recovery, run TypeScript-only verification and push the fix to GitHub main.
+
+---

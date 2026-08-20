@@ -159,8 +159,28 @@ fn slugify_name(name: &str) -> String {
     if slug.is_empty() { "instance".to_string() } else { slug }
 }
 
+fn local_instance_icon(id: &str) -> Option<String> {
+    let root = instances_dir().join(id);
+    for (name, mime) in [("icon.png", "image/png"), ("icon.jpg", "image/jpeg"), ("icon.jpeg", "image/jpeg"), ("pack.png", "image/png")] {
+        if let Ok(bytes) = std::fs::read(root.join(name)) {
+            if !bytes.is_empty() && bytes.len() <= 8 * 1024 * 1024 {
+                use base64::Engine as _;
+                return Some(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)));
+            }
+        }
+    }
+    None
+}
+
 fn load_instance(id: &str) -> Option<Instance> {
-    serde_json::from_str(&std::fs::read_to_string(instance_path(id)).ok()?).ok()
+    let mut instance: Instance = serde_json::from_str(&std::fs::read_to_string(instance_path(id)).ok()?).ok()?;
+    // A previous interrupted import can leave icon.png on disk while
+    // instance.json still has no icon. Prefer the local persisted asset so a
+    // remote CDN failure or app restart never produces an empty library card.
+    if let Some(local_icon) = local_instance_icon(id) {
+        instance.icon = Some(local_icon);
+    }
+    Some(instance)
 }
 
 fn save_instance(instance: &Instance) -> Result<(), String> {

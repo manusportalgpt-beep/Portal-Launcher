@@ -451,13 +451,16 @@ pub async fn launch_instance(
     let features: Vec<&str> = vec![];
 
     // 5. JVM аргументы
+    // Respect the per-instance RAM selection. The launcher used to force every
+    // process to report exactly eight CPU cores and to use an undersized thread
+    // stack. That can throttle chunk work or trigger severe stutter in modpacks
+    // which were previously smooth, especially on hardware with a different
+    // core layout. Let the JVM detect the real processor count instead.
+    let min_ram = instance.min_ram.max(512);
+    let max_ram = instance.max_ram.max(min_ram);
     let mut jvm_args: Vec<String> = vec![
-        format!("-Xms{}m", instance.min_ram.max(512)),
-        format!("-Xmx{}m", instance.max_ram.max(instance.min_ram.max(1024))),
-        // Современный Sodium/LWJGL активно создаёт worker threads; меньший
-        // native stack оставляет запас памяти, когда пользователь выделил много RAM игре.
-        "-Xss512k".into(),
-        "-XX:ActiveProcessorCount=8".into(),
+        format!("-Xms{min_ram}m"),
+        format!("-Xmx{max_ram}m"),
         "-Dfile.encoding=UTF-8".into(),
         "-Dstdout.encoding=UTF-8".into(),
         "-Dstderr.encoding=UTF-8".into(),
@@ -569,6 +572,17 @@ pub async fn launch_instance(
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
+
+    let detected_threads = std::thread::available_parallelism()
+        .map(|count| count.get())
+        .unwrap_or(0);
+    log::info!(
+        "Конфигурация производительности Minecraft: Java >= {}, Xms={} MiB, Xmx={} MiB, CPU={} (автоопределение JVM)",
+        java_major,
+        min_ram,
+        max_ram,
+        if detected_threads > 0 { detected_threads.to_string() } else { "неизвестно".to_string() },
+    );
 
     let printable = format!(
         "{java_path} {} -cp <{} entries> {main_class} {}",

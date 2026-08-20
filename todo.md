@@ -1039,3 +1039,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the launch-card repair to GitHub main.
 
 ---
+
+# In-game performance regression
+
+- [x] Inspect recent global JVM launch arguments and memory defaults that could cause severe stutter in previously stable modpacks.
+- [x] Remove unsafe launcher-wide CPU or thread-stack constraints while preserving per-instance RAM choices and custom JVM arguments.
+- [x] Add non-sensitive launch diagnostics for selected Java and effective memory settings.
+- [x] Run TypeScript-only verification and commit/push the performance regression repair to GitHub main.
+
+---

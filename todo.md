@@ -895,3 +895,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and available targeted import tests, then commit/push the repair to GitHub main.
 
 ---
+
+# Instance page Russian localization and compact progress
+
+- [x] Replace remaining English instance-page tabs, action-menu labels, tooltips, errors and progress text with Russian i18n keys.
+- [x] Keep internal folder names unchanged while translating only user-visible interface text.
+- [x] Remove the wide installation progress panel from the instance page and retain progress only in the compact global panel.
+- [x] Run TypeScript-only verification and commit/push the instance-page localization and progress fix to GitHub main.
+
+---

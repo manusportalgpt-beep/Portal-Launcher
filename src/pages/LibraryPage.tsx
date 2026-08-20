@@ -1340,12 +1340,12 @@ function ContentRow({ item, onToggle, onDelete, onShowInFolder }: { item:any; on
 }
 
 // ── Content tabs ──────────────────────────────────────────────────────────────
-const TABS: { id: ContentTab; Icon: any; label: string }[] = [
-  { id:'content', Icon:Package, label:'Content' },
-  { id:'files',   Icon:Folder,  label:'Files' },
-  { id:'worlds',  Icon:Globe,   label:'Worlds' },
-  { id:'screenshots', Icon:Image, label:'Screenshots' },
-  { id:'logs',    Icon:Terminal, label:'Logs' },
+const TABS: { id: ContentTab; Icon: any; labelKey: string }[] = [
+  { id:'content', Icon:Package, labelKey:'content' },
+  { id:'files',   Icon:Folder,  labelKey:'files' },
+  { id:'worlds',  Icon:Globe,   labelKey:'worlds' },
+  { id:'screenshots', Icon:Image, labelKey:'screenshots' },
+  { id:'logs',    Icon:Terminal, labelKey:'logs' },
 ];
 const CONTENT_FILTERS: { id: ContentFilter; label: string }[] = [
   { id:'all',           label:'Всё' },
@@ -1492,6 +1492,7 @@ function InstanceInstallProgress({ instanceId, active }: { instanceId: string; a
 
 function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: () => void; onBack: () => void }) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const user = useCurrentUser();
   const { update } = useInstanceStore();
   // Fallback values for RAM/Java when the instance itself doesn't override
@@ -1553,7 +1554,7 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
     })
       .then(() => { loadContent(); if (tab === 'files') loadFiles(cwd); })
       .catch(error => {
-        dialog.alert(`Не удалось добавить файлы: ${String(error)}`, { title: 'Files', danger: true });
+        dialog.alert(t('instancePage.fileAddFailed', { error: String(error) }), { title: t('instancePage.files'), danger: true });
       });
   }
 
@@ -1800,7 +1801,7 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-4 px-6 py-4 shrink-0" style={{ borderBottom:'1px solid var(--color-border)' }}>
-        <button onClick={onBack} title="Back to instances"
+        <button onClick={onBack} title={t('instancePage.back')}
           className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 hover:bg-white/5 transition-colors"
           style={{ color:'var(--color-text-secondary)' }}>
           <ArrowLeft className="w-4.5 h-4.5" />
@@ -1815,8 +1816,8 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
             <span className="font-semibold capitalize" style={{ color:LOADER_COLOR[inst.modLoader]||'inherit' }}>{inst.modLoader}</span>
             {inst.modLoaderVersion && inst.modLoader!=='vanilla' && <> {inst.modLoaderVersion}</>}
             {' '}{inst.minecraftVersion}
-            {inst.totalPlayTime > 0 && <> · {inst.totalPlayTime >= 60 ? `${Math.floor(inst.totalPlayTime/60)}h ${inst.totalPlayTime%60}m` : `${inst.totalPlayTime}m`} played</>}
-            {inst.lastPlayed&&<> · Last played {new Date(inst.lastPlayed).toLocaleDateString()}</>}
+            {inst.totalPlayTime > 0 && <> · {t('instancePage.playTime', { hours: Math.floor(inst.totalPlayTime / 60), minutes: inst.totalPlayTime % 60 })}</>}
+            {inst.lastPlayed&&<> · {t('instancePage.lastPlayed', { date: new Date(inst.lastPlayed).toLocaleDateString() })}</>}
           </p>
           {launchError&&<p className="text-[10px] mt-0.5" style={{ color:'var(--color-error)' }}>{launchError}</p>}
           {launchNotice&&<p className="text-[10px] mt-0.5" style={{ color:'var(--color-primary)' }}>{launchNotice}</p>}
@@ -1825,13 +1826,13 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
           {(launchStatus==='running' || launchStatus==='launching') ? (
             <button onClick={stop} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold"
               style={{ background:'rgba(231,76,60,0.15)',color:'var(--color-error)' }}>
-              <Square className="w-3.5 h-3.5 fill-current" />{launchStatus==='launching' ? 'Cancel' : 'Stop'}
+              <Square className="w-3.5 h-3.5 fill-current" />{launchStatus==='launching' ? t('instancePage.cancel') : t('instancePage.stop')}
             </button>
           ) : (
             <button onClick={launch}
               className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition-all"
               style={{ background:'var(--color-primary)',color:'#fff' }}>
-              <Play className="w-3.5 h-3.5 fill-current" />Play
+              <Play className="w-3.5 h-3.5 fill-current" />{t('instancePage.play')}
             </button>
           )}
           <button onClick={() => navigate(`/instances/${inst.id}/settings`)}
@@ -1862,14 +1863,14 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
                           instanceName: inst.name,
                           iconIcoDataUrl,
                         });
-                        dialog.alert(`Shortcut created on the desktop:\n${shortcut}`, { title: 'Portal Launcher shortcut' });
+                        dialog.alert(t('instancePage.shortcutCreated', { path: shortcut }), { title: t('instancePage.shortcutTitle') });
                       } catch (e) {
-                        dialog.alert(`Shortcut creation failed: ${e}`, { title: 'Error', danger: true });
+                        dialog.alert(t('instancePage.shortcutFailed', { error: String(e) }), { title: t('common.error'), danger: true });
                       }
                     }}
                     className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5"
                     style={{ color:'var(--color-text-secondary)' }}>
-                    <Link2 className="w-3.5 h-3.5 shrink-0" />Create desktop shortcut
+                    <Link2 className="w-3.5 h-3.5 shrink-0" />{t('instancePage.shortcut')}
                   </button>
                   <button
                     onClick={async () => {
@@ -1878,7 +1879,7 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
                     }}
                     className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5"
                     style={{ color:'var(--color-text-secondary)' }}>
-                    <Folder className="w-3.5 h-3.5 shrink-0" />Open folder
+                    <Folder className="w-3.5 h-3.5 shrink-0" />{t('instancePage.openFolder')}
                   </button>
                   <button
                     onClick={async () => {
@@ -1886,49 +1887,49 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
                       try {
                                                 const exported = await invoke<string>('export_instance_mrpack', { id: inst.id, destPath: '' });
                          await invoke('reveal_file_path', { path: exported }).catch(() => {});
-                         dialog.alert(`Modrinth Pack saved as:\n${exported}`, { title: 'Export complete' });
+                         dialog.alert(t('instancePage.exported', { path: exported }), { title: t('instancePage.exportComplete') });
 
-                      } catch (e) { dialog.alert(`MRPACK export failed: ${e}`, { title: 'Error', danger: true }); }
+                      } catch (e) { dialog.alert(t('instancePage.exportFailed', { error: String(e) }), { title: t('common.error'), danger: true }); }
                     }}
                     className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5"
                     style={{ color:'var(--color-text-secondary)' }}>
-                    <Download className="w-3.5 h-3.5 shrink-0" />Export Modrinth Pack (.mrpack)
+                    <Download className="w-3.5 h-3.5 shrink-0" />{t('instancePage.exportMrpack')}
                   </button>
                   <button onClick={async () => {
                     setHeaderMenu(false);
-                    try { const backup = await invoke<string>('backup_instance', { id: inst.id }); dialog.alert(`Backup created:\n${backup}`, { title:'Backup complete' }); }
-                    catch (e) { dialog.alert(`Backup failed: ${e}`, { title:'Error', danger:true }); }
-                  }} className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5" style={{ color:'var(--color-text-secondary)' }}><Database className="w-3.5 h-3.5 shrink-0" />Create backup</button>
+                    try { const backup = await invoke<string>('backup_instance', { id: inst.id }); dialog.alert(t('instancePage.backupCreated', { path: backup }), { title:t('instancePage.backupComplete') }); }
+                    catch (e) { dialog.alert(t('instancePage.backupFailed', { error: String(e) }), { title:t('common.error'), danger:true }); }
+                  }} className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5" style={{ color:'var(--color-text-secondary)' }}><Database className="w-3.5 h-3.5 shrink-0" />{t('instancePage.backup')}</button>
                   <button onClick={async () => {
                     setHeaderMenu(false);
                     try {
                       const conflicts = await invoke<any[]>('detect_mod_conflicts', { instanceId: inst.id });
                       if (!conflicts?.length) {
-                        dialog.alert('No known conflicts or duplicate mods were found in this instance.', { title: 'Health check complete' });
+                        dialog.alert(t('instancePage.noConflicts'), { title: t('instancePage.healthCheck') });
                       } else {
-                        const text = conflicts.map((item: any) => `${item.mod_a ?? item.modA ?? 'Mod'} + ${item.mod_b ?? item.modB ?? 'Mod'}: ${item.reason ?? 'Possible conflict'}`).join('\n');
-                        dialog.alert(text, { title: `${conflicts.length} possible conflict${conflicts.length === 1 ? '' : 's'} found`, danger: true });
+                        const text = conflicts.map((item: any) => `${item.mod_a ?? item.modA ?? 'Мод'} + ${item.mod_b ?? item.modB ?? 'Мод'}: ${item.reason ?? t('instancePage.checkConflicts')}`).join('\n');
+                        dialog.alert(text, { title: t('instancePage.conflictSummary', { count: conflicts.length }), danger: true });
                       }
-                    } catch (e) { dialog.alert(`Conflict check failed: ${e}`, { title:'Error', danger:true }); }
-                  }} className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5" style={{ color:'var(--color-warning)' }}><Wrench className="w-3.5 h-3.5 shrink-0" />Check mod conflicts</button>
+                    } catch (e) { dialog.alert(t('instancePage.conflictFailed', { error: String(e) }), { title:t('common.error'), danger:true }); }
+                  }} className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5" style={{ color:'var(--color-warning)' }}><Wrench className="w-3.5 h-3.5 shrink-0" />{t('instancePage.checkConflicts')}</button>
                   <button onClick={async () => {
                     setHeaderMenu(false);
-                    try { await invoke('backup_instance', { id: inst.id }); const count = await invoke<number>('set_instance_safe_mode', { instanceId: inst.id, enabled:true }); dialog.alert(`Safe Mode enabled. ${count} mod files were temporarily disabled. A backup was created first.`, { title:'Safe Mode' }); }
-                    catch (e) { dialog.alert(`Safe Mode failed: ${e}`, { title:'Error', danger:true }); }
-                  }} className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5" style={{ color:'var(--color-warning)' }}><Shield className="w-3.5 h-3.5 shrink-0" />Start Safe Mode</button>
+                    try { await invoke('backup_instance', { id: inst.id }); const count = await invoke<number>('set_instance_safe_mode', { instanceId: inst.id, enabled:true }); dialog.alert(t('instancePage.safeModeEnabled', { count }), { title:t('instancePage.safeMode') }); }
+                    catch (e) { dialog.alert(t('instancePage.safeModeFailed', { error: String(e) }), { title:t('common.error'), danger:true }); }
+                  }} className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5" style={{ color:'var(--color-warning)' }}><Shield className="w-3.5 h-3.5 shrink-0" />{t('instancePage.safeMode')}</button>
                   <div style={{ borderTop:'1px solid var(--color-border)' }} />
                   <button
                     onClick={async () => {
                       setHeaderMenu(false);
                       const ok = await dialog.confirm(
-                        'This will permanently remove all of its mods, saves and config.',
-                        { title: `Delete instance "${inst.name}"?`, danger: true, confirmLabel: 'Delete' }
+                        t('instancePage.deleteWarning'),
+                        { title: t('instancePage.deleteTitle', { name: inst.name }), danger: true, confirmLabel: t('instancePage.deleteConfirm') }
                       );
                       if (ok) onDelete();
                     }}
                     className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-red-500/10"
                     style={{ color:'var(--color-error)' }}>
-                    <Trash2 className="w-3.5 h-3.5 shrink-0" />Delete instance
+                    <Trash2 className="w-3.5 h-3.5 shrink-0" />{t('instancePage.deleteInstance')}
                   </button>
                 </motion.div>
               )}
@@ -1937,17 +1938,13 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
         </div>
       </div>
 
-      <AnimatePresence>
-        <InstanceInstallProgress instanceId={inst.id} active={launchStatus === 'launching'} />
-      </AnimatePresence>
-
       {/* Tabs */}
       <div className="flex items-center gap-1 px-4 py-2 shrink-0" style={{ borderBottom:'1px solid var(--color-border)' }}>
-        {TABS.filter(() => inst.modLoader !== 'bedrock').map(({ id, Icon, label }) => (
+        {TABS.filter(() => inst.modLoader !== 'bedrock').map(({ id, Icon, labelKey }) => (
           <button key={id} onClick={() => setTab(id)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all relative"
             style={tab===id ? { background:'var(--color-surface-2)',color:'var(--color-text)',border:'1px solid var(--color-border)' } : { color:'var(--color-text-secondary)' }}>
-            <Icon className="w-3.5 h-3.5" />{label}
+            <Icon className="w-3.5 h-3.5" />{t(`instancePage.${labelKey}`)}
             {id==='content' && unseenUpdateCount>0 && <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black text-white" style={{ background:'var(--color-error)', boxShadow:'0 0 0 2px var(--color-surface)' }}>{unseenUpdateCount}</span>}
           </button>
         ))}
@@ -1976,8 +1973,8 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
           <input className="flex-1 bg-transparent text-xs"
             placeholder={
               tab==='content'
-                ? (items.length > 0 ? `Search ${items.length} проектов...` : 'Search проектов...')
-                : tab==='files' ? 'Search файлов...' : 'Search worlds...'
+                ? (items.length > 0 ? t('instancePage.searchProjects', { count: items.length }) : t('instancePage.searchProjectsEmpty'))
+                : tab==='files' ? t('instancePage.searchFiles') : t('instancePage.searchWorlds')
             }
             value={search} onChange={e => setSearch(e.target.value)} style={{ color:'var(--color-text)' }} />
         </div>
@@ -1989,7 +1986,7 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
               setSourceFilter(order[(order.indexOf(sourceFilter)+1) % order.length]);
             }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all"
-            title="Filter by source"
+            title={t('instancePage.sourceFilter')}
             style={{
               background: sourceFilter==='modrinth' ? 'rgba(27,217,106,0.12)'
                         : sourceFilter==='curseforge' ? 'rgba(241,100,54,0.12)'
@@ -2001,14 +1998,14 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
             <span className="inline-block w-2 h-2 rounded-full" style={{
               background: sourceFilter==='modrinth' ? '#1BD96A' : sourceFilter==='curseforge' ? '#F16436' : 'var(--color-text-tertiary)'
             }} />
-            {sourceFilter==='all' ? 'All' : sourceFilter==='modrinth' ? 'Modrinth' : sourceFilter==='curseforge' ? 'CurseForge' : 'Local'}
+            {sourceFilter==='all' ? t('instancePage.sourceAll') : sourceFilter==='modrinth' ? 'Modrinth' : sourceFilter==='curseforge' ? 'CurseForge' : t('instancePage.sourceLocal')}
           </button>
         )}
         {tab==='content' && (
           <button onClick={() => navigate(`/find-projects?instanceId=${inst.id}`)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold hover:opacity-90 transition-all"
             style={{ background:'var(--color-primary)',color:'#fff' }}>
-            <Plus className="w-3.5 h-3.5" />Find projects
+            <Plus className="w-3.5 h-3.5" />{t('instancePage.findProjects')}
           </button>
         )}
         <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFilesPicked} />
@@ -2016,21 +2013,21 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
           <button onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all"
             style={{ color:'var(--color-text-secondary)',border:'1px solid var(--color-border)' }}>
-            <FolderPlus className="w-3.5 h-3.5" />Добавить файлы
+            <FolderPlus className="w-3.5 h-3.5" />{t('instancePage.addFiles')}
           </button>
         )}
         {tab==='content' && updateItems.length>0 && (
           <button onClick={async () => {
-            setUpdatingAll(true); setUpdateProgress({ percent: 0, message: 'Preparing updates…' });
+            setUpdatingAll(true); setUpdateProgress({ percent: 0, message: t('instancePage.preparingUpdates') });
             try {
               await invoke('update_all_mods', { instanceId: inst.id });
-              setUpdateProgress({ percent: 100, message: 'All compatible updates installed.' });
+              setUpdateProgress({ percent: 100, message: t('instancePage.updatesInstalled') });
               await loadContent();
-            } catch (e) { setUpdateProgress({ percent: 0, message: `Update failed: ${e}` }); }
+            } catch (e) { setUpdateProgress({ percent: 0, message: t('instancePage.updatesFailed', { error: String(e) }) }); }
             finally { setTimeout(() => setUpdatingAll(false), 1200); }
           }} disabled={updatingAll} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold disabled:opacity-60"
             style={{ background:'var(--color-primary)',color:'var(--color-primary-text)' }}>
-            {updatingAll ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}{updatingAll ? 'Updating…' : 'Update all'}
+            {updatingAll ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}{updatingAll ? t('instancePage.updating') : t('instancePage.updateAll')}
           </button>
         )}
         <button onClick={() => { if (tab==='content') loadContent(); else if (tab==='files') loadFiles(cwd); else if (tab==='worlds') { loadWorlds(); } }}
@@ -2042,7 +2039,7 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
 
       {tab==='content' && contentFilter==='updates' && updateItems.length>0 && (
         <div className="mx-4 mt-2 rounded-xl px-3 py-2" style={{ background:'var(--color-primary-dim)', border:'1px solid var(--color-primary)' }}>
-          <div className="flex items-center justify-between gap-3"><span className="text-xs font-bold" style={{ color:'var(--color-text)' }}>{updateItems.length} update{updateItems.length===1 ? '' : 's'} ready</span><span className="text-[10px]" style={{ color:'var(--color-primary)' }}>Modrinth-compatible files are updated safely in their matching content folders.</span></div>
+          <div className="flex items-center justify-between gap-3"><span className="text-xs font-bold" style={{ color:'var(--color-text)' }}>{t('instancePage.updatesReady', { count: updateItems.length })}</span><span className="text-[10px]" style={{ color:'var(--color-primary)' }}>{t('instancePage.updateHint')}</span></div>
           {updateProgress && <><div className="mt-1.5 flex justify-between text-[10px]" style={{ color:'var(--color-text-secondary)' }}><span className="truncate">{updateProgress.message}</span><span>{updateProgress.percent}%</span></div><div className="mt-1 h-1 overflow-hidden rounded-full" style={{ background:'var(--color-surface)' }}><div className="h-full rounded-full transition-all" style={{ width:`${updateProgress.percent}%`, background:'var(--color-primary)' }} /></div></>}
         </div>
       )}

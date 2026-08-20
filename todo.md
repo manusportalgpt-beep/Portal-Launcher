@@ -773,3 +773,15 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the instance-content, Notch Panel and Settings localization work to GitHub main.
 
 ---
+
+# Screenshot viewer, navigation, install flow and recovery refinement
+
+- [x] Raise the screenshot viewer above Title Bar and remove inner image scrolling so every aspect ratio fits while navigation controls remain clickable.
+- [x] Add non-destructive editable layers to ScreenshotEditor so the eraser affects only the active drawing layer and never clears the original image.
+- [x] Correct compact Title Bar icon/title alignment and make Notch Panel open only from its exact visual hitbox without an excessive offset.
+- [x] Remove the obsolete duplicate install-files flow, hide the redundant Content heading, and separate Install modpack discovery from local Import files.
+- [x] Add a separate Deleted tab for recoverable removed mods with real Restore and permanent Delete actions.
+- [x] Translate remaining user-facing Search and related visible English labels to Russian without translating file names, providers or identifiers.
+- [x] Run TypeScript only and commit/push the refinement work to GitHub main.
+
+---

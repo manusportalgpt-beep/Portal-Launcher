@@ -205,8 +205,8 @@ function NotchNav() {
     pointerEvents: 'none',
     ...crossAxisPosition,
     ...(vertical
-      ? { [notchSide]: 0, width: notchHotzone, height: `${notchWidth}vh` }
-      : { [notchSide]: notchSide === 'top' ? titlebarHeight : 0, width: `${notchWidth}vw`, height: notchHotzone }),
+      ? { [notchSide]: 0, width: notchHotzone, height: 44 }
+      : { [notchSide]: notchSide === 'top' ? titlebarHeight : 0, width: 44, height: notchHotzone }),
   };
 
   const offset = vertical ? { x: isStart ? -14 : 14 } : { y: isStart ? -14 : 14 };

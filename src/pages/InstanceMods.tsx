@@ -36,10 +36,10 @@ type WorldInfo = { folder: string; name: string; icon?: string; last_played?: nu
 
 type ScreenshotItem = { path: string; name: string; url: string };
 type MainTab = 'content' | 'files' | 'worlds' | 'screenshots';
-type ContentFilter = 'all' | 'mods' | 'resourcepacks' | 'shaders' | 'updates' | 'disabled';
+type ContentFilter = 'all' | 'mods' | 'resourcepacks' | 'shaders' | 'updates' | 'disabled' | 'deleted';
 
 const MAIN_TABS: { id: MainTab; label: string; icon: any }[] = [
-  { id: 'content', label: 'Content', icon: Package },
+  { id: 'content', label: 'Модификации', icon: Package },
   { id: 'files', label: 'Files', icon: FolderTree },
   { id: 'worlds', label: 'Worlds', icon: Globe },
   { id: 'screenshots', label: 'Screenshots', icon: Camera },
@@ -156,6 +156,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 export function InstanceMods({ instanceId }: { instanceId: string }) {
   const navigate = useNavigate();
   const [mods, setMods] = useState<ModEntry[]>([]);
+  const [deletedMods, setDeletedMods] = useState<Array<{ id: string; timestamp: string; file_name: string; mod_type: string; was_disabled: boolean }>>([]);
   const [worlds, setWorlds] = useState<WorldInfo[]>([]);
   const [screenshots, setScreenshots] = useState<ScreenshotItem[]>([]);
   const [selectedScreenshot, setSelectedScreenshot] = useState<ScreenshotItem | null>(null);
@@ -274,6 +275,12 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
     } finally { setLoading(false); }
   }, [instanceId, enrichMissingMetadata]);
 
+  const loadDeletedMods = useCallback(async () => {
+    try {
+      setDeletedMods(await invoke<Array<{ id: string; timestamp: string; file_name: string; mod_type: string; was_disabled: boolean }>>('list_deleted_mods', { instanceId }) || []);
+    } catch { setDeletedMods([]); }
+  }, [instanceId]);
+
   const loadWorlds = useCallback(async () => {
     try { setWorlds((await invoke('instance_list_worlds', { instanceId })) as WorldInfo[] || []); } catch { setWorlds([]); }
   }, [instanceId]);
@@ -312,7 +319,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   };
 
   useEffect(() => {
-    void loadMods(); void loadWorlds(); void loadScreenshots(); void loadFiles('');
+    void loadMods(); void loadDeletedMods(); void loadWorlds(); void loadScreenshots(); void loadFiles('');
     const unsubs: UnlistenFn[] = [];
     (async () => {
       const handler = (e: any) => {
@@ -328,7 +335,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       unsubs.push(await listen('download-complete', (e: any) => { handler(e); void loadMods(true); }));
     })();
     return () => { unsubs.forEach(u => u()); };
-  }, [instanceId, loadMods, loadWorlds, loadScreenshots, loadFiles]);
+  }, [instanceId, loadMods, loadDeletedMods, loadWorlds, loadScreenshots, loadFiles]);
 
   const visibleMods = useMemo(() => {
     let list = mods;
@@ -341,9 +348,11 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
     return [...list].sort((a, b) => a.name.localeCompare(b.name));
   }, [mods, contentFilter, search]);
 
-  const contentFilters = useMemo(() => mods.some(mod => mod.enabled === false)
-    ? [...CONTENT_FILTERS, { id: 'disabled' as ContentFilter, label: 'Выключено' }]
-    : CONTENT_FILTERS, [mods]);
+  const contentFilters = useMemo(() => [
+    ...CONTENT_FILTERS,
+    ...(mods.some(mod => mod.enabled === false) ? [{ id: 'disabled' as ContentFilter, label: 'Выключено' }] : []),
+    { id: 'deleted' as ContentFilter, label: deletedMods.length ? `Удалённые · ${deletedMods.length}` : 'Удалённые' },
+  ], [mods, deletedMods.length]);
 
   const duplicateGroups = useMemo(() => {
     const groups = new Map<string, ModEntry[]>();
@@ -368,7 +377,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       for (const item of remove) {
         await invoke('remove_mod', { instanceId, fileName: item.fileName, modType: item.mod_type || 'mod' });
       }
-      await loadMods(true);
+      await Promise.all([loadMods(true), loadDeletedMods()]);
       setError(null);
     } catch (e: any) {
       setError(`Не удалось удалить лишние версии: ${e?.toString?.() ?? e}`);
@@ -400,8 +409,8 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   };
 
   async function handleRemove(mod: ModEntry) {
-    try {       await invoke('remove_mod', { instanceId, fileName: mod.fileName, modType: mod.mod_type }); void loadMods(true); }
-    catch (e: any) { setError(e?.toString() ?? 'Failed to remove'); }
+    try { await invoke('remove_mod', { instanceId, fileName: mod.fileName, modType: mod.mod_type }); await Promise.all([loadMods(true), loadDeletedMods()]); }
+    catch (e: any) { setError(e?.toString() ?? 'Не удалось удалить файл'); }
   }
 
   async function handleToggle(mod: ModEntry) {
@@ -459,7 +468,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         await invoke('remove_mod', { instanceId, fileName: mod.fileName, modType: mod.mod_type || 'mod' });
       }
       setSelectedModIds(new Set());
-      await loadMods(true);
+      await Promise.all([loadMods(true), loadDeletedMods()]);
     } catch (e: any) {
       setError(e?.toString() ?? 'Не удалось удалить выбранные элементы');
     }
@@ -482,7 +491,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         mod_type: normalizeContentType(m.mod_type ?? m.modType ?? m.type),
       })));
       setHealthChecked(true);
-    } catch (e: any) { setError(e?.toString() ?? 'Health check failed'); }
+    } catch (e: any) { setError(e?.toString() ?? 'Не удалось проверить сборку'); }
     finally { setHealthLoading(false); }
   }
 
@@ -494,7 +503,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
     try {
       const undone = await invoke<any>('undo_last_mod_action', { instanceId });
       if (undone) { await loadMods(true); await loadHistory(); }
-    } catch (e: any) { setError(e?.toString() ?? 'Undo failed'); }
+    } catch (e: any) { setError(e?.toString() ?? 'Не удалось отменить последнее действие'); }
   }
 
   async function importPaths(paths: string[]) {
@@ -561,9 +570,9 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   const cardStyle = { background: 'var(--color-surface)', border: '1px solid var(--color-border)' } as const;
   const filteredScreenshots = useMemo(() => search ? screenshots.filter(s => s.name.toLowerCase().includes(search.toLowerCase())) : screenshots, [screenshots, search]);
   const searchCount = mainTab === 'content' ? mods.length : mainTab === 'worlds' ? worlds.length : mainTab === 'screenshots' ? screenshots.length : files.length;
-  const searchLabel = mainTab === 'content' ? 'проектов' : mainTab === 'worlds' ? 'worlds' : mainTab === 'screenshots' ? 'скриншотов' : 'файлов';
+  const searchLabel = mainTab === 'content' ? 'проектов' : mainTab === 'worlds' ? 'миров' : mainTab === 'screenshots' ? 'скриншотов' : 'файлов';
 
-  const isEmpty = mainTab === 'content' ? visibleMods.length === 0
+  const isEmpty = mainTab === 'content' ? contentFilter === 'deleted' ? deletedMods.length === 0 : visibleMods.length === 0
     : mainTab === 'worlds' ? filteredWorlds.length === 0
     : mainTab === 'screenshots' ? filteredScreenshots.length === 0
     : filteredFiles.length === 0;
@@ -601,7 +610,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         <div className="flex-1 relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-text-tertiary)' }} />
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder={`Search ${searchCount} ${searchLabel}...`}
+            placeholder={`Найти среди ${searchCount} ${searchLabel}…`}
             className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
             style={{ ...cardStyle, color: 'var(--color-text)' }} />
         </div>
@@ -670,7 +679,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       )}
 
       {error && <div className="px-4 pb-2 text-xs shrink-0" style={{ color: 'var(--color-error)' }}>{error}</div>}
-      {loading && <div className="px-4 pb-2 text-xs shrink-0" style={{ color: 'var(--color-text-secondary)' }}>Loading…</div>}
+      {loading && <div className="px-4 pb-2 text-xs shrink-0" style={{ color: 'var(--color-text-secondary)' }}>Загрузка…</div>}
       {mainTab === 'content' && showHistory && (
         <div className="mx-4 mb-3 rounded-xl overflow-hidden shrink-0" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
           <div className="px-3 py-2 text-xs font-bold" style={{ color:'var(--color-text)' }}>История изменений</div>
@@ -717,7 +726,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
 
       <div className="flex-1 min-h-0 overflow-y-auto scroll-area px-4" style={{ paddingBottom: selectedModIds.size ? 104 : 32 }}>
         {/* ---------- Content ---------- */}
-        {mainTab === 'content' && (
+        {mainTab === 'content' && contentFilter !== 'deleted' && (
           <div className="rounded-2xl overflow-hidden" style={cardStyle}>
             <div className="flex items-center gap-3 px-3 py-2 text-[11px] font-bold uppercase tracking-wide"
               style={{ color: 'var(--color-text-tertiary)', borderBottom: '1px solid var(--color-border)' }}>
@@ -776,16 +785,33 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
                           console.error('Mod update failed:', error);
                         }
                       }}
-                      className="p-1.5 rounded-lg" style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }} title="Update">
+                      className="p-1.5 rounded-lg" style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }} title="Обновить">
                       <RefreshCw className="w-3.5 h-3.5" />
                     </button>
                   )}
                   <Toggle checked={m.enabled !== false} onChange={() => handleToggle(m)} />
                   <button onClick={() => handleRemove(m)} className="p-1.5 rounded-lg"
-                    style={{ background: 'rgba(231,76,60,0.1)', color: 'var(--color-error)' }} title="Remove">
+                    style={{ background: 'rgba(231,76,60,0.1)', color: 'var(--color-error)' }} title="Удалить">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {mainTab === 'content' && contentFilter === 'deleted' && (
+          <div className="rounded-2xl overflow-hidden" style={cardStyle}>
+            <div className="flex items-center gap-3 px-3 py-3" style={{ borderBottom:'1px solid var(--color-border)' }}>
+              <Trash2 className="w-4 h-4" style={{ color:'var(--color-error)' }} />
+              <div><p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>Удалённые модификации</p><p className="text-[11px]" style={{ color:'var(--color-text-secondary)' }}>Файлы можно восстановить в сборку или удалить окончательно.</p></div>
+            </div>
+            {deletedMods.map((mod, index) => (
+              <div key={mod.id} className="flex items-center gap-3 px-3 py-3" style={{ borderBottom:index < deletedMods.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ background:'rgba(231,76,60,0.10)', color:'var(--color-error)' }}><Package className="w-4 h-4" /></div>
+                <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold" style={{ color:'var(--color-text)' }}>{mod.file_name}</p><p className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{mod.mod_type} · удалено {fmtDate(mod.timestamp)}{mod.was_disabled ? ' · было выключено' : ''}</p></div>
+                <button onClick={async () => { try { await invoke('restore_deleted_mod', { instanceId, id: mod.id }); await Promise.all([loadDeletedMods(), loadMods(true)]); } catch (e: any) { setError(e?.toString() ?? 'Не удалось восстановить файл'); } }} className="rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>Восстановить</button>
+                <button onClick={async () => { try { await invoke('permanently_delete_deleted_mod', { instanceId, id: mod.id }); await loadDeletedMods(); } catch (e: any) { setError(e?.toString() ?? 'Не удалось удалить файл окончательно'); } }} className="rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'rgba(231,76,60,0.10)', color:'var(--color-error)' }}>Удалить</button>
               </div>
             ))}
           </div>
@@ -845,7 +871,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         {mainTab === 'screenshots' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between rounded-2xl px-4 py-3" style={cardStyle}>
-              <div><p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>Screenshots</p><p className="text-xs" style={{ color:'var(--color-text-secondary)' }}>{screenshots.length} изображений в .minecraft/screenshots</p></div>
+              <div><p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>Скриншоты</p><p className="text-xs" style={{ color:'var(--color-text-secondary)' }}>{screenshots.length} изображений в .minecraft/screenshots</p></div>
               <div className="flex items-center gap-2"><button onClick={() => invoke('instance_open_dir', { instanceId, path:'screenshots' }).catch(() => {})} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><Folder className="h-3.5 w-3.5" />Показать в папке</button><button onClick={loadScreenshots} className="rounded-xl p-2" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }} title="Обновить"><RefreshCw className="h-3.5 w-3.5" /></button></div>
             </div>
             {filteredScreenshots.length === 0 ? <div className="flex flex-col items-center justify-center rounded-2xl py-20" style={cardStyle}><Camera className="mb-3 h-10 w-10" style={{ color:'var(--color-text-tertiary)' }} /><p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>Скриншотов пока нет</p><p className="mt-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>Нажми F2 в Minecraft, затем обнови список.</p></div> : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{filteredScreenshots.map(s => <button key={s.path} onClick={() => setSelectedScreenshot(s)} className="group overflow-hidden rounded-2xl text-left transition-transform hover:-translate-y-0.5" style={cardStyle}><div className="aspect-video overflow-hidden" style={{ background:'var(--color-surface-2)' }}><img src={s.url} alt={s.name} className="h-full w-full object-cover transition-transform group-hover:scale-[1.03]" /></div><div className="flex items-center gap-2 px-3 py-2"><span className="min-w-0 flex-1 truncate text-xs font-semibold" style={{ color:'var(--color-text)' }}>{s.name}</span><Camera className="h-3.5 w-3.5 shrink-0" style={{ color:'var(--color-primary)' }} /></div></button>)}</div>}
@@ -908,9 +934,9 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         {!loading && !error && isEmpty && (
           <div className="flex flex-col items-center py-14 gap-2">
             <Upload className="w-6 h-6" style={{ color: 'var(--color-text-tertiary)' }} />
-            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Nothing here yet</p>
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Здесь пока ничего нет</p>
             <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-              Drag &amp; drop files here to add them to this instance
+              Перетащите файлы сюда, чтобы добавить их в эту сборку
             </p>
           </div>
         )}
@@ -950,7 +976,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         )}
       </AnimatePresence>
 
-      {mainTab === 'content' && selectedMods.length > 0 && (
+      {mainTab === 'content' && contentFilter !== 'deleted' && selectedMods.length > 0 && (
         <div
           className="absolute bottom-4 left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1.5 rounded-2xl p-2 shadow-xl"
           style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-lg)' }}
@@ -978,12 +1004,12 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       )}
 
       {selectedScreenshot && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setSelectedScreenshot(null)}>
-          <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }} onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setSelectedScreenshot(null)}>
+          <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b px-4 py-3" style={{ borderColor:'var(--color-border)' }}><Camera className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color:'var(--color-text)' }}>{selectedScreenshot.name}</p><button onClick={() => navigator.clipboard?.writeText(selectedScreenshot.path)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>Копировать путь</button><button onClick={() => invoke('instance_open_dir', { instanceId, path:'screenshots' }).catch(() => {})} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>Показать в папке</button><button onClick={() => setSelectedScreenshot(null)} className="rounded-lg p-1.5" style={{ color:'var(--color-text-secondary)' }}><X className="h-4 w-4" /></button></div>
-            <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-5" style={{ background:'radial-gradient(circle, var(--color-surface-2), var(--color-bg))' }}>
+            <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-5" style={{ background:'radial-gradient(circle, var(--color-surface-2), var(--color-bg))' }}>
               {screenshots.length > 1 && <button onClick={() => selectScreenshotOffset(-1)} title="Предыдущий скриншот" className="absolute left-6 z-10 grid h-14 w-14 place-items-center rounded-2xl transition-transform hover:scale-105 active:scale-95" style={{ background:'color-mix(in srgb, var(--color-surface) 86%, transparent)', border:'1px solid var(--color-border)', color:'var(--color-text)', boxShadow:'var(--shadow-md)' }}><ChevronLeft className="h-8 w-8" /></button>}
-              <img src={selectedScreenshot.url} alt={selectedScreenshot.name} className="max-h-[70vh] max-w-full rounded-xl object-contain shadow-2xl" />
+              <img src={selectedScreenshot.url} alt={selectedScreenshot.name} className="max-h-[calc(100vh-11rem)] max-w-[calc(100vw-10rem)] rounded-xl object-contain shadow-2xl" />
               {screenshots.length > 1 && <button onClick={() => selectScreenshotOffset(1)} title="Следующий скриншот" className="absolute right-6 z-10 grid h-14 w-14 place-items-center rounded-2xl transition-transform hover:scale-105 active:scale-95" style={{ background:'color-mix(in srgb, var(--color-surface) 86%, transparent)', border:'1px solid var(--color-border)', color:'var(--color-text)', boxShadow:'var(--shadow-md)' }}><ChevronRight className="h-8 w-8" /></button>}
             </div>
             <div className="flex items-center justify-center gap-2 border-t px-4 py-3" style={{ borderColor:'var(--color-border)' }}><button onClick={() => setEditorScreenshot(selectedScreenshot)} className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Edit3 className="h-3.5 w-3.5" />Редактировать</button><button onClick={async () => { await invoke('delete_instance_screenshot', { id: instanceId, fileName: selectedScreenshot.name }); setSelectedScreenshot(null); await loadScreenshots(); }} className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold" style={{ background:'rgba(231,76,60,.12)', color:'var(--color-error)' }}><Trash2 className="h-3.5 w-3.5" />Удалить</button></div>

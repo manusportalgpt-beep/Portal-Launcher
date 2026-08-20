@@ -15,12 +15,12 @@ export function WindowControls() {
   }, [win]);
 
   const btn =
-    'h-7 w-9 inline-flex items-center justify-center text-[var(--color-text)]/65 transition-colors duration-150 hover:text-[var(--color-text)] hover:bg-white/10 active:scale-[0.96]';
+    'h-6 w-8 inline-flex items-center justify-center text-[var(--color-text)]/65 transition-colors duration-150 hover:text-[var(--color-text)] hover:bg-white/10 active:scale-[0.96]';
 
   return (
     <div className="flex items-center select-none" data-tauri-drag-region-exclude>
       <button className={btn} title="Свернуть" onClick={() => win.minimize()}>
-        <Minus size={13} strokeWidth={2} />
+        <Minus size={12} strokeWidth={2} />
       </button>
       <button
         className={btn}
@@ -30,10 +30,10 @@ export function WindowControls() {
           setMaximized(await win.isMaximized());
         }}
       >
-        {maximized ? <Copy size={12} /> : <Square size={11} />}
+        {maximized ? <Copy size={11} /> : <Square size={10} />}
       </button>
       <button className={`${btn} hover:bg-[#e81123] hover:text-white`} title="Закрыть" onClick={() => win.close()}>
-        <X size={13} strokeWidth={2} />
+        <X size={12} strokeWidth={2} />
       </button>
     </div>
   );
@@ -57,13 +57,13 @@ export function TitleBar({ title = 'Portal Launcher' }: { title?: string }) {
     >
       <div
         data-tauri-drag-region
-        className="flex h-full min-w-0 flex-1 cursor-move items-center gap-1.5 text-[11px] font-medium tracking-[0.01em]"
+        className="flex h-full min-w-0 flex-1 cursor-move items-center gap-1.5 text-[10px] font-semibold leading-none tracking-[0.01em]"
         style={{ color: 'var(--color-text-tertiary)' }}
         onPointerDown={event => {
           if (event.button === 0) void getCurrentWindow().startDragging();
         }}
       >
-        <img src={portalIcon} width={14} height={14} draggable={false} className="shrink-0 rounded-[4px] object-cover" alt="" />
+        <img src={portalIcon} width={12} height={12} draggable={false} className="block shrink-0 rounded-[3px] object-cover" alt="" />
         <span>{title}</span>
       </div>
       <WindowControls />

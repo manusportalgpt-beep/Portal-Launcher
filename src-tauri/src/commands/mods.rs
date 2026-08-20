@@ -813,7 +813,19 @@ pub struct ModHistoryEntry {
     pub was_disabled: bool,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DeletedModEntry {
+    pub id: String,
+    pub timestamp: String,
+    pub file_name: String,
+    pub mod_type: String,
+    pub recovery_name: String,
+    pub was_disabled: bool,
+}
+
 fn mod_history_path(instance_id: &str) -> PathBuf { instance_base(instance_id).join("mod-history.json") }
+fn deleted_mods_path(instance_id: &str) -> PathBuf { instance_base(instance_id).join("deleted-mods.json") }
+fn deleted_mods_dir(instance_id: &str, mod_type: &str) -> PathBuf { instance_base(instance_id).join(".portal-recovery").join(mod_type) }
 fn load_mod_history(instance_id: &str) -> Vec<ModHistoryEntry> {
     std::fs::read_to_string(mod_history_path(instance_id)).ok().and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_default()
 }
@@ -823,9 +835,45 @@ fn push_mod_history(instance_id: &str, entry: ModHistoryEntry) {
     if history.len() > 100 { history.drain(0..history.len()-100); }
     let _ = std::fs::write(mod_history_path(instance_id), serde_json::to_string_pretty(&history).unwrap_or_default());
 }
+fn load_deleted_mods(instance_id: &str) -> Vec<DeletedModEntry> {
+    std::fs::read_to_string(deleted_mods_path(instance_id)).ok().and_then(|v| serde_json::from_str(&v).ok()).unwrap_or_default()
+}
+fn save_deleted_mods(instance_id: &str, entries: &[DeletedModEntry]) -> Result<(), String> {
+    std::fs::write(deleted_mods_path(instance_id), serde_json::to_string_pretty(entries).unwrap_or_default()).map_err(|e| e.to_string())
+}
 
 #[tauri::command]
 pub async fn list_mod_history(instance_id: String) -> Result<Vec<ModHistoryEntry>, String> { Ok(load_mod_history(&instance_id)) }
+
+#[tauri::command]
+pub async fn list_deleted_mods(instance_id: String) -> Result<Vec<DeletedModEntry>, String> { Ok(load_deleted_mods(&instance_id)) }
+
+#[tauri::command]
+pub async fn restore_deleted_mod(instance_id: String, id: String) -> Result<(), String> {
+    let mut entries = load_deleted_mods(&instance_id);
+    let index = entries.iter().position(|entry| entry.id == id).ok_or_else(|| "Удалённый файл не найден".to_string())?;
+    let entry = entries[index].clone();
+    let recovery = deleted_mods_dir(&instance_id, &entry.mod_type).join(&entry.recovery_name);
+    if !recovery.exists() { return Err("Файл восстановления больше не существует".to_string()); }
+    let target_dir = mods_dir_for(&instance_id, &entry.mod_type);
+    std::fs::create_dir_all(&target_dir).map_err(|e| e.to_string())?;
+    let target_name = if entry.was_disabled { format!("{}.disabled", entry.file_name) } else { entry.file_name.clone() };
+    let target = target_dir.join(target_name);
+    if target.exists() { return Err("Невозможно восстановить: файл с таким именем уже есть в сборке".to_string()); }
+    std::fs::rename(&recovery, target).map_err(|e| format!("Восстановление файла: {e}"))?;
+    entries.remove(index);
+    save_deleted_mods(&instance_id, &entries)
+}
+
+#[tauri::command]
+pub async fn permanently_delete_deleted_mod(instance_id: String, id: String) -> Result<(), String> {
+    let mut entries = load_deleted_mods(&instance_id);
+    let index = entries.iter().position(|entry| entry.id == id).ok_or_else(|| "Удалённый файл не найден".to_string())?;
+    let entry = entries.remove(index);
+    let recovery = deleted_mods_dir(&instance_id, &entry.mod_type).join(&entry.recovery_name);
+    if recovery.exists() { std::fs::remove_file(recovery).map_err(|e| format!("Окончательное удаление файла: {e}"))?; }
+    save_deleted_mods(&instance_id, &entries)
+}
 
 #[tauri::command]
 pub async fn toggle_mod(instance_id: String, file_name: String, mod_type: Option<String>, enabled: bool) -> Result<(), String> {
@@ -857,15 +905,16 @@ pub async fn remove_mod(instance_id: String, file_name: String, mod_type: Option
     let active = dir.join(&base_name);
     let disabled = dir.join(format!("{base_name}.disabled"));
     let (source, was_disabled) = if active.exists() { (active, false) } else if disabled.exists() { (disabled, true) } else { return Ok(()); };
-    // Удаление контента должно быть окончательным: игрок явно нажал на мусорку.
-    // Старые версии перемещали файл в скрытую `.launcher-trash`, из-за чего
-    // папка разрасталась и вводила в заблуждение при просмотре Files.
-    std::fs::remove_file(&source).map_err(|e| format!("Delete content file: {e}"))?;
-    let legacy_trash = instance_base(&instance_id).join(".launcher-trash");
-    if legacy_trash.exists() {
-        let _ = std::fs::remove_dir_all(legacy_trash);
-    }
-    push_mod_history(&instance_id, ModHistoryEntry { timestamp: chrono::Utc::now().to_rfc3339(), action: "remove".to_string(), file_name: base_name, mod_type: kind, enabled: None, trashed_name: None, was_disabled });
+    let timestamp = chrono::Utc::now();
+    let recovery_dir = deleted_mods_dir(&instance_id, &kind);
+    std::fs::create_dir_all(&recovery_dir).map_err(|e| format!("Создание каталога восстановления: {e}"))?;
+    let recovery_name = format!("{}-{}", timestamp.timestamp_micros(), base_name);
+    std::fs::rename(&source, recovery_dir.join(&recovery_name)).map_err(|e| format!("Перемещение файла в восстановление: {e}"))?;
+    let id = format!("{}-{}", timestamp.timestamp_micros(), base_name);
+    let mut deleted = load_deleted_mods(&instance_id);
+    deleted.push(DeletedModEntry { id, timestamp: timestamp.to_rfc3339(), file_name: base_name.clone(), mod_type: kind.clone(), recovery_name: recovery_name.clone(), was_disabled });
+    save_deleted_mods(&instance_id, &deleted)?;
+    push_mod_history(&instance_id, ModHistoryEntry { timestamp: timestamp.to_rfc3339(), action: "remove".to_string(), file_name: base_name, mod_type: kind, enabled: None, trashed_name: Some(recovery_name), was_disabled });
     Ok(())
 }
 

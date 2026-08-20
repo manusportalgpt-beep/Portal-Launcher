@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import { invoke } from '@/lib/invoke-shim';
-import { Check, Droplet, Eraser, Minus, Paintbrush, Redo2, Save, Undo2, X } from 'lucide-react';
+import { Check, Droplet, Eraser, Image as ImageIcon, Layers3, Minus, Paintbrush, Redo2, Save, Undo2, X } from 'lucide-react';
 
 export type ScreenshotEditorProps = {
   instanceId: string;
@@ -42,6 +42,7 @@ function floodFill(ctx: CanvasRenderingContext2D, x: number, y: number, color: s
 }
 
 export function ScreenshotEditor({ instanceId, fileName, imageUrl, onClose, onSaved }: ScreenshotEditorProps) {
+  const baseCanvasRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const historyRef = useRef<string[]>([]);
@@ -52,6 +53,10 @@ export function ScreenshotEditor({ instanceId, fileName, imageUrl, onClose, onSa
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [, setHistoryRevision] = useState(0);
+
+  // The original screenshot is a locked base layer. All tools operate only on
+  // the transparent drawing layer, so the eraser can never delete the source image.
+  const [activeLayer, setActiveLayer] = useState<'drawing'>('drawing');
 
   useEffect(() => {
     document.body.dataset.portalOverlay = 'screenshot-editor';
@@ -82,10 +87,11 @@ export function ScreenshotEditor({ instanceId, fileName, imageUrl, onClose, onSa
   const redo = () => { if (historyIndexRef.current >= historyRef.current.length - 1) return; historyIndexRef.current += 1; restore(historyRef.current[historyIndexRef.current]); setDirty(historyIndexRef.current > 0); setHistoryRevision(value => value + 1); };
 
   useEffect(() => {
-    const canvas = canvasRef.current; if (!canvas) return;
+    const canvas = canvasRef.current; const baseCanvas = baseCanvasRef.current; if (!canvas || !baseCanvas) return;
     const image = new Image(); image.onload = () => {
       canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
-      canvas.getContext('2d')?.drawImage(image, 0, 0);
+      baseCanvas.width = image.naturalWidth; baseCanvas.height = image.naturalHeight;
+      baseCanvas.getContext('2d')?.drawImage(image, 0, 0);
       historyRef.current = [canvas.toDataURL('image/png')]; historyIndexRef.current = 0; setDirty(false);
     }; image.src = imageUrl;
   }, [imageUrl]);
@@ -105,9 +111,15 @@ export function ScreenshotEditor({ instanceId, fileName, imageUrl, onClose, onSa
   const end = () => { if (!drawingRef.current) return; drawingRef.current = false; canvasRef.current?.getContext('2d')?.closePath(); pushHistory(); };
 
   const save = async () => {
-    const canvas = canvasRef.current; if (!canvas) return; setSaving(true);
+    const canvas = canvasRef.current; const baseCanvas = baseCanvasRef.current; if (!canvas || !baseCanvas) return; setSaving(true);
     try {
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+      const merged = document.createElement('canvas');
+      merged.width = baseCanvas.width; merged.height = baseCanvas.height;
+      const mergedContext = merged.getContext('2d');
+      if (!mergedContext) throw new Error('Не удалось подготовить итоговое изображение');
+      mergedContext.drawImage(baseCanvas, 0, 0);
+      mergedContext.drawImage(canvas, 0, 0);
+      const blob = await new Promise<Blob | null>(resolve => merged.toBlob(resolve, 'image/png'));
       if (!blob) throw new Error('Could not encode screenshot');
       const data = Array.from(new Uint8Array(await blob.arrayBuffer()));
       await invoke('save_instance_screenshot', { id: instanceId, fileName: fileName.replace(/\.(jpg|jpeg)$/i, '.png'), data });
@@ -115,18 +127,27 @@ export function ScreenshotEditor({ instanceId, fileName, imageUrl, onClose, onSa
     } catch (e) { console.error(e); } finally { setSaving(false); }
   };
 
-  return <div data-portal-overlay="true" className="fixed inset-0 z-[180] flex flex-col bg-[#09090b]/95 backdrop-blur-md">
+  return <div data-portal-overlay="true" className="fixed inset-0 z-[230] flex flex-col bg-[#09090b]/95 backdrop-blur-md">
     <div className="flex items-center gap-3 border-b px-4 py-3" style={{ borderColor:'var(--color-border)' }}>
       <Paintbrush className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color:'var(--color-text)' }}>{fileName}{dirty ? ' · изменено' : ''}</p>
-      <button onClick={undo} disabled={historyIndexRef.current <= 0} className="rounded-lg p-2 disabled:opacity-30" title="Undo"><Undo2 className="h-4 w-4" /></button>
-      <button onClick={redo} disabled={historyIndexRef.current >= historyRef.current.length - 1} className="rounded-lg p-2 disabled:opacity-30" title="Redo"><Redo2 className="h-4 w-4" /></button>
+      <button onClick={undo} disabled={historyIndexRef.current <= 0} className="rounded-lg p-2 disabled:opacity-30" title="Отменить"><Undo2 className="h-4 w-4" /></button>
+      <button onClick={redo} disabled={historyIndexRef.current >= historyRef.current.length - 1} className="rounded-lg p-2 disabled:opacity-30" title="Повторить"><Redo2 className="h-4 w-4" /></button>
       <button onClick={save} disabled={saving || !dirty} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Save className="h-3.5 w-3.5" />{saving ? 'Сохраняю…' : 'Сохранить'}</button>
-      <button data-portal-close="true" onClick={onClose} className="rounded-lg p-2" title="Close"><X className="h-4 w-4" /></button>
+      <button data-portal-close="true" onClick={onClose} className="rounded-lg p-2" title="Закрыть"><X className="h-4 w-4" /></button>
     </div>
-    <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-6">
-      <div className="rounded-xl p-3 shadow-2xl" style={{ background:'repeating-conic-gradient(#242424 0% 25%, #1b1b1b 0% 50%) 50% / 24px 24px' }}><canvas ref={canvasRef} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} className="max-h-[calc(100vh-180px)] max-w-[calc(100vw-48px)] touch-none object-contain shadow-xl" /></div>
+    <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-6">
+      <div className="relative rounded-xl p-3 shadow-2xl" style={{ background:'repeating-conic-gradient(#242424 0% 25%, #1b1b1b 0% 50%) 50% / 24px 24px' }}>
+        <canvas ref={baseCanvasRef} className="block max-h-[calc(100vh-220px)] max-w-[calc(100vw-48px)] object-contain shadow-xl" />
+        <canvas ref={canvasRef} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} className="absolute left-3 top-3 max-h-[calc(100vh-220px)] max-w-[calc(100vw-48px)] touch-none object-contain" />
+      </div>
     </div>
     <div className="flex flex-wrap items-center justify-center gap-2 border-t px-4 py-3" style={{ borderColor:'var(--color-border)', background:'var(--color-surface)' }}>
+      <div className="flex items-center gap-1 rounded-xl px-2 py-1.5" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+        <Layers3 className="h-3.5 w-3.5" style={{ color:'var(--color-primary)' }} />
+        <span className="text-[10px] font-bold" style={{ color:'var(--color-text-secondary)' }}>Слои</span>
+        <span className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}><ImageIcon className="h-3 w-3" />Изображение</span>
+        <button onClick={() => setActiveLayer('drawing')} className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] font-bold" style={{ background:activeLayer === 'drawing' ? 'var(--color-primary-dim)' : 'transparent', color:activeLayer === 'drawing' ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}><Paintbrush className="h-3 w-3" />Рисунок</button>
+      </div>
       {([['brush','Кисть',Paintbrush],['fill','Заливка',Droplet],['eraser','Ластик',Eraser]] as const).map(([id,label,Icon]) => <button key={id} onClick={() => setTool(id)} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ background:tool === id ? 'var(--color-primary-dim)' : 'var(--color-surface-2)', color:tool === id ? 'var(--color-primary)' : 'var(--color-text-secondary)', border:`1px solid ${tool === id ? 'var(--color-primary)' : 'var(--color-border)'}` }}><Icon className="h-3.5 w-3.5" />{label}</button>)}
       <label className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}>Цвет <input type="color" value={color} onChange={e => setColor(e.target.value)} className="h-6 w-8 cursor-pointer border-0 bg-transparent" /></label>
       <label className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}><Minus className="h-3.5 w-3.5" />Размер <input type="range" min="1" max="120" value={size} onChange={e => setSize(Number(e.target.value))} /><span className="w-7 text-right tabular-nums">{size}</span></label>

@@ -74,7 +74,7 @@ function VersionPicker({ versions, value, onChange, showSnapshots }: { versions:
       <button type="button" onClick={() => setOpen(current => !current)} className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }}>
         <span className="min-w-0">
           <span className="block" style={{ color: value ? 'var(--color-text)' : 'var(--color-text-tertiary)' }}>{value || 'Выберите версию Minecraft'}</span>
-          <span className="mt-0.5 block text-[10px] font-medium" style={{ color:'var(--color-text-tertiary)' }}>{showSnapshots ? 'Releases and snapshots' : 'Release versions only'}</span>
+          <span className="mt-0.5 block text-[10px] font-medium" style={{ color:'var(--color-text-tertiary)' }}>{showSnapshots ? 'Релизы и snapshot-версии' : 'Только релизные версии'}</span>
         </span>
         <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} style={{ color:'var(--color-primary)' }} />
       </button>
@@ -84,17 +84,17 @@ function VersionPicker({ versions, value, onChange, showSnapshots }: { versions:
             <div className="border-b p-2.5" style={{ borderColor:'var(--color-border)' }}>
               <div className="flex items-center gap-2 rounded-xl px-2.5 py-2" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                 <Search className="h-3.5 w-3.5" style={{ color:'var(--color-text-tertiary)' }} />
-                <input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search version..." className="min-w-0 flex-1 bg-transparent text-xs outline-none" style={{ color:'var(--color-text)' }} />
+                <input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Найти версию…" className="min-w-0 flex-1 bg-transparent text-xs outline-none" style={{ color:'var(--color-text)' }} />
               </div>
             </div>
             <div className="max-h-60 overflow-y-auto p-1.5 scroll-area">
-              {visible.length === 0 ? <p className="px-3 py-6 text-center text-xs" style={{ color:'var(--color-text-tertiary)' }}>No matching versions</p> : visible.map(version => {
+              {visible.length === 0 ? <p className="px-3 py-6 text-center text-xs" style={{ color:'var(--color-text-tertiary)' }}>Подходящих версий не найдено</p> : visible.map(version => {
                 const selected = version === value;
                 const snapshot = /[a-zA-Z]/.test(version.replace(/\./g, ''));
                 return (
                   <button key={version} type="button" onClick={() => { onChange(version); setOpen(false); setQuery(''); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold" style={{ background:selected ? 'var(--color-primary-dim)' : 'transparent', color:selected ? 'var(--color-primary)' : 'var(--color-text-secondary)', border:`1px solid ${selected ? 'var(--color-primary)' : 'transparent'}` }}>
                     <span className="min-w-0 flex-1">{version}</span>
-                    {snapshot && <span className="rounded-md px-1.5 py-0.5 text-[9px] font-black" style={{ background:'var(--color-warning)', color:'#1A1200' }}>SNAPSHOT</span>}
+                    {snapshot && <span className="rounded-md px-1.5 py-0.5 text-[9px] font-black" style={{ background:'var(--color-warning)', color:'#1A1200' }}>СНИМОК</span>}
                     {selected && <Check className="h-3.5 w-3.5" />}
                   </button>
                 );
@@ -369,6 +369,7 @@ function LogsBody({ filtered, logs, filter, containerRef, bottomRef, setAutoScro
 
 // ── Create Instance Modal ─────────────────────────────────────────────────────
 function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (i: any) => void }) {
+  const navigate = useNavigate();
   const [step, setStep] = useState<CreateStep>('type');
   const [creating, setCreating] = useState(false);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
@@ -378,6 +379,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   const [localPreview, setLocalPreview] = useState<{ preview: ModpackPreview; dataUrl: string; fileName: string } | null>(null);
   const [loaderVersions, setLoaderVersions] = useState<LoaderVersionOption[]>([]);
   const [loaderVersionsLoading, setLoaderVersionsLoading] = useState(false);
+  const [installQuery, setInstallQuery] = useState('');
   const mcVersions = useAvailableVersions(showSnapshots);
   const [form, setForm] = useState({
     name: '', loader: 'fabric' as typeof LOADERS[number], mcVersion: '',
@@ -701,7 +703,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-black uppercase tracking-wider" style={{ color:'var(--color-text)' }}>Game core</label>
+                    <label className="text-xs font-black uppercase tracking-wider" style={{ color:'var(--color-text)' }}>Игровое ядро</label>
                     <span className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>Выберите ядро и его версию</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -795,13 +797,13 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                   <>
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <label className="text-xs font-bold" style={{ color:'var(--color-text)' }}>Game Version</label>
+                        <label className="text-xs font-bold" style={{ color:'var(--color-text)' }}>Версия игры</label>
                         <button type="button" role="switch" aria-checked={showSnapshots}
                           onClick={() => setShowSnapshots(v => !v)}
                           className="flex items-center gap-2 rounded-full px-2.5 py-1.5 text-[10px] font-bold transition-all"
                           style={{ background: showSnapshots ? 'var(--color-primary-dim)' : 'var(--color-surface-2)', border:`1px solid ${showSnapshots ? 'var(--color-primary)' : 'var(--color-border)'}`, color: showSnapshots ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
                           <span className="relative h-3.5 w-6 rounded-full" style={{ background: showSnapshots ? 'var(--color-primary)' : 'var(--color-border)' }}><span className="absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white transition-all" style={{ left: showSnapshots ? 11 : 2 }} /></span>
-                          Snapshots
+                          Snapshot-версии
                         </button>
                       </div>
                       <VersionPicker versions={mcVersions} value={form.mcVersion} onChange={mcVersion => setForm(current => ({ ...current, mcVersion }))} showSnapshots={showSnapshots} />
@@ -810,21 +812,21 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                     </div>
                     {form.loader!=='vanilla' && (
                       <div>
-                        <label className="block text-xs font-bold mb-2" style={{ color:'var(--color-text)' }}>{form.loader==='optifine' || form.loader==='labymod' ? 'Core Version' : 'Loader Version'}</label>
+                        <label className="block text-xs font-bold mb-2" style={{ color:'var(--color-text)' }}>{form.loader==='optifine' || form.loader==='labymod' ? 'Версия ядра' : 'Версия загрузчика'}</label>
                         <div className="flex gap-2">
                           {(['stable','latest','custom'] as const).map(t => (
                             <button key={t} onClick={() => setForm(f => ({...f,loaderVersionType:t, customLoaderVersion:t==='custom'?f.customLoaderVersion:''}))}
                               className="px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all"
                               style={form.loaderVersionType===t ? { background:'var(--color-primary)', color:'#fff' } : { background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-                              {t==='stable'?'Recommended':t==='latest'?'Latest':'Custom'}
+                              {t==='stable'?'Рекомендуемая':t==='latest'?'Последняя':'Своя'}
                             </button>
                           ))}
                         </div>
                         {form.loaderVersionType==='stable' && loaderVersions.length > 0 && (
                           <select value={form.customLoaderVersion} onChange={e => setForm(f => ({...f, customLoaderVersion:e.target.value}))}
                             className="w-full mt-2 px-3 py-2.5 rounded-xl text-sm" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }}>
-                            <option value="">{loaderVersionsLoading ? 'Loading versions…' : `Рекомендуемая · ${recommendedLoaderVersion?.value ?? 'автоматически'}`}</option>
-                            {loaderVersions.map(version => <option key={version.value} value={version.value}>{version.value}{version.recommended ? ' · recommended' : version.unreliable ? ' · potentially unstable' : ''}</option>)}
+                            <option value="">{loaderVersionsLoading ? 'Загрузка версий…' : `Рекомендуемая · ${recommendedLoaderVersion?.value ?? 'автоматически'}`}</option>
+                            {loaderVersions.map(version => <option key={version.value} value={version.value}>{version.value}{version.recommended ? ' · рекомендуемая' : version.unreliable ? ' · возможна нестабильность' : ''}</option>)}
                           </select>
                         )}
                         {loaderVersions.length > 0 && (
@@ -852,14 +854,14 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
               <motion.div key="install" initial={{ opacity:0,x:12 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-12 }} className="space-y-4">
                 <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                   <Search className="w-4 h-4 shrink-0" style={{ color:'var(--color-text-tertiary)' }} />
-                  <input autoFocus placeholder="Search modpacks on Modrinth..." className="flex-1 bg-transparent text-sm" style={{ color:'var(--color-text)' }} />
+                  <input autoFocus value={installQuery} onChange={event => setInstallQuery(event.target.value)} placeholder="Найти модпаки на Modrinth…" className="flex-1 bg-transparent text-sm" style={{ color:'var(--color-text)' }} />
                 </div>
-                <div className="text-center text-xs py-1" style={{ color:'var(--color-text-tertiary)' }}>— or —</div>
-                <button onClick={pickFile}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold border hover:bg-white/5 transition-all"
-                  style={{ border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}>
-                  <FileText className="w-4 h-4" />Import .mrpack or .zip file
+                <button onClick={() => { navigate(`/discover?projectType=modpacks&query=${encodeURIComponent(installQuery.trim())}`); onClose(); }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold"
+                  style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>
+                  <Search className="w-4 h-4" />Найти модпаки
                 </button>
+                <p className="text-center text-[11px]" style={{ color:'var(--color-text-tertiary)' }}>Локальные файлы .mrpack и .zip импортируются на отдельной вкладке «Импорт».</p>
               </motion.div>
             )}
 
@@ -871,7 +873,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                 <button onClick={pickFile}
                   className="w-full py-3 rounded-xl text-sm font-semibold border hover:bg-white/5 transition-all"
                   style={{ border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}>
-                  Import from .zip / .mrpack file
+                  Импортировать файл .zip / .mrpack
                 </button>
               </motion.div>
             )}

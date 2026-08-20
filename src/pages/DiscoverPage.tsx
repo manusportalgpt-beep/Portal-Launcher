@@ -377,6 +377,8 @@ export function DiscoverPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const contextInstanceId = searchParams.get('instanceId');
+  const requestedProjectType = searchParams.get('projectType');
+  const requestedQuery = searchParams.get('query');
   const defaultPlatform = useSettingsStore(s => s.defaultPlatform);
   const cfApiKey = useSettingsStore(s => s.curseforgeApiKey);
   const showSnapshots = useSettingsStore(s => s.showSnapshots);
@@ -387,8 +389,8 @@ export function DiscoverPage() {
   const hasRestoredFilters = useRef(Object.keys(restoredFilters.current).length > 0);
 
   const [platform, setPlatform] = useState<Platform>(() => restoredFilters.current.platform ?? defaultPlatform);
-  const [projectType, setProjectType] = useState<ProjectType>(() => restoredFilters.current.projectType ?? 'mods');
-  const [query, setQuery] = useState(restoredFilters.current.query ?? '');
+  const [projectType, setProjectType] = useState<ProjectType>(() => requestedProjectType === 'modpacks' ? 'modpacks' : restoredFilters.current.projectType ?? 'mods');
+  const [query, setQuery] = useState(() => requestedQuery ?? restoredFilters.current.query ?? '');
   const [sort, setSort] = useState<SortOrder>(restoredFilters.current.sort ?? 'relevance');
   const [view, setView] = useState<'grid'|'list'>(restoredFilters.current.view ?? 'list');
   const [showFilters, setShowFilters] = useState(() => restoredFilters.current.showFilters ?? true);

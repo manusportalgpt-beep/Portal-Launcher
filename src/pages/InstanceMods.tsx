@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@/lib/invoke-shim';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useUiStore } from '@/stores/uiStore';
 import { useAuthorAvatar } from '@/lib/author-avatar';
 import { getModrinthProjectGateway } from '@/lib/modrinth-gateway';
 import { toIconSrc } from '@/lib/icon-src';
@@ -194,6 +195,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeInstanceIdRef = useRef(instanceId);
   const curseforgeApiKey = useSettingsStore(s => s.curseforgeApiKey);
+  const uiMode = useUiStore(s => s.uiMode);
 
   useEffect(() => {
     activeInstanceIdRef.current = instanceId;
@@ -592,7 +594,11 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
     importPaths(paths);
   }
 
-  const cardStyle = { background: 'var(--color-surface)', border: '1px solid var(--color-border)' } as const;
+  const cardStyle = {
+    background: uiMode === 'new' ? 'color-mix(in srgb, var(--color-surface) 94%, transparent)' : 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
+    boxShadow: uiMode === 'new' ? 'var(--shadow-sm)' : 'none',
+  } as const;
   const filteredScreenshots = useMemo(() => search ? screenshots.filter(s => s.name.toLowerCase().includes(search.toLowerCase())) : screenshots, [screenshots, search]);
   const searchCount = mainTab === 'content' ? mods.length : mainTab === 'worlds' ? worlds.length : mainTab === 'screenshots' ? screenshots.length : files.length;
   const searchLabelKey = mainTab === 'content' ? 'instanceContent.searchTypes.projects' : mainTab === 'worlds' ? 'instanceContent.searchTypes.worlds' : mainTab === 'screenshots' ? 'instanceContent.searchTypes.screenshots' : 'instanceContent.searchTypes.files';
@@ -603,7 +609,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
     : filteredFiles.length === 0;
 
   return (
-    <div className="h-full flex flex-col min-h-0 relative"
+    <div className="h-full flex flex-col min-h-0 relative px-3 pb-3"
       onDragOver={e => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}>
@@ -611,21 +617,18 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFilePicked} />
 
       {/* Main tabs */}
-      <div className="flex items-center gap-4 px-4 pt-3 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
+      <div className="mt-3 flex items-center gap-1 rounded-2xl p-1.5 shrink-0 overflow-x-auto" style={cardStyle}>
         {MAIN_TABS.map(({ id, labelKey, icon: Icon }) => (
           <button key={id} onClick={() => { setMainTab(id); setSearch(''); }}
-            className="flex items-center gap-1.5 pb-2.5 px-1 text-sm font-semibold whitespace-nowrap transition-colors relative"
-            style={{ color: mainTab === id ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
+            className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold whitespace-nowrap transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+            style={{ color: mainTab === id ? 'var(--color-primary)' : 'var(--color-text-secondary)', background: mainTab === id ? 'var(--color-primary-dim)' : 'transparent', border: mainTab === id ? '1px solid color-mix(in srgb, var(--color-primary) 45%, transparent)' : '1px solid transparent' }}>
             <Icon className="w-4 h-4" />{t(labelKey)}
-            {mainTab === id && (
-              <span className="absolute left-0 right-0 -bottom-px h-0.5 rounded-full" style={{ background: 'var(--color-primary)' }} />
-            )}
           </button>
         ))}
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-3 shrink-0">
+      <div className="mt-2 flex items-center gap-2 rounded-2xl p-2 shrink-0" style={cardStyle}>
         {mainTab === 'files' && (
           <button onClick={() => { setCwd(''); loadFiles(''); }}
             className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={cardStyle}>
@@ -636,8 +639,8 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-text-tertiary)' }} />
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder={t('instanceContent.search', { count: searchCount, type: t(searchLabelKey) })}
-            className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
-            style={{ ...cardStyle, color: 'var(--color-text)' }} />
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+            style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
         </div>
         {mainTab === 'content' && (
           <>
@@ -678,7 +681,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
 
       {/* Filter row */}
       {mainTab === 'content' && (
-        <div className="flex items-center gap-2 px-4 pb-3 shrink-0 overflow-x-auto">
+        <div className="mt-2 flex items-center gap-2 rounded-2xl px-3 py-2 shrink-0 overflow-x-auto" style={cardStyle}>
           {contentFilters.map(f => (
             <button key={f.id} onClick={() => setContentFilter(f.id)}
               className="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors"
@@ -695,7 +698,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         </div>
       )}
       {mainTab === 'worlds' && (
-        <div className="flex items-center gap-2 px-4 pb-3 shrink-0">
+        <div className="mt-2 flex items-center gap-2 rounded-2xl px-3 py-2 shrink-0" style={cardStyle}>
           <span className="px-3 py-1.5 rounded-full text-xs font-bold"
             style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)', border: '1px solid var(--color-primary)' }}>
             Всё
@@ -703,8 +706,8 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         </div>
       )}
 
-      {error && <div className="px-4 pb-2 text-xs shrink-0" style={{ color: 'var(--color-error)' }}>{error}</div>}
-      {loading && <div className="px-4 pb-2 text-xs shrink-0" style={{ color: 'var(--color-text-secondary)' }}>Загрузка…</div>}
+      {error && <div className="mt-2 rounded-xl px-3 py-2 text-xs shrink-0" style={{ background:'color-mix(in srgb, var(--color-error) 10%, transparent)', border:'1px solid color-mix(in srgb, var(--color-error) 32%, transparent)', color: 'var(--color-error)' }}>{error}</div>}
+      {loading && <div className="mt-2 rounded-xl px-3 py-2 text-xs shrink-0" style={{ background:'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>Загрузка…</div>}
       {mainTab === 'content' && showHistory && (
         <div className="mx-4 mb-3 rounded-xl overflow-hidden shrink-0" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
           <div className="px-3 py-2 text-xs font-bold" style={{ color:'var(--color-text)' }}>История изменений</div>
@@ -749,7 +752,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         </div>
       )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto scroll-area px-4" style={{ paddingBottom: selectedModIds.size ? 104 : 32 }}>
+      <div className="mt-2 flex-1 min-h-0 overflow-y-auto scroll-area px-1" style={{ paddingBottom: selectedModIds.size ? 104 : 32 }}>
         {/* ---------- Content ---------- */}
         {mainTab === 'content' && contentFilter !== 'deleted' && (
           <div className="rounded-2xl overflow-hidden" style={cardStyle}>
@@ -852,7 +855,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
             {filteredWorlds.map(w => {
               const worldIcon = toIconSrc(w.icon);
               return (
-              <div key={w.folder} className="p-3 rounded-2xl flex items-center justify-between gap-3" style={cardStyle}>
+              <div key={w.folder} className="group p-3 rounded-2xl flex items-center justify-between gap-3 transition-transform duration-150 hover:-translate-y-0.5" style={cardStyle}>
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 flex items-center justify-center"
                     title={w.icon ? 'Превью мира из Minecraft' : 'Minecraft не создал icon.png для этого мира'}
@@ -880,13 +883,13 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <GameModeBadge mode={w.game_mode} hardcore={w.hardcore} />
-                  <button onClick={() => invoke('launch_instance', { instanceId, quickPlay: { world: w.folder } }).catch(e => setError(String(e)))}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold"
-                    style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
+                  <button type="button" onClick={() => invoke('launch_instance', { instanceId, quickPlay: { world: w.folder } }).catch(e => setError(String(e)))}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold outline-none transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                    style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)', border: '1px solid color-mix(in srgb, var(--color-primary) 34%, transparent)' }}>
                     Играть
                   </button>
-                  <button onClick={() => invoke('instance_delete_world', { instanceId, folder: w.folder }).then(loadWorlds)}
-                    className="p-1.5 rounded-lg" style={{ background: 'rgba(231,76,60,0.1)', color: 'var(--color-error)' }}>
+                  <button type="button" onClick={() => invoke('instance_delete_world', { instanceId, folder: w.folder }).then(loadWorlds)} aria-label={`Удалить мир ${w.name}`}
+                    className="p-2 rounded-xl outline-none transition-colors hover:bg-red-500/15 focus-visible:ring-2 focus-visible:ring-[var(--color-error)]" style={{ background: 'rgba(231,76,60,0.1)', color: 'var(--color-error)' }}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -899,11 +902,12 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         {/* ---------- Screenshots ---------- */}
         {mainTab === 'screenshots' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between rounded-2xl px-4 py-3" style={cardStyle}>
-              <div><p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>Скриншоты</p><p className="text-xs" style={{ color:'var(--color-text-secondary)' }}>{screenshots.length} изображений в .minecraft/screenshots</p></div>
+            <div className="relative flex items-center justify-between overflow-hidden rounded-2xl px-4 py-3" style={{ ...cardStyle, background:'linear-gradient(115deg, color-mix(in srgb, var(--color-surface) 94%, var(--color-primary) 6%), var(--color-surface))' }}>
+              <span aria-hidden className="pointer-events-none absolute -right-6 -top-9 h-24 w-24 rounded-full" style={{ background:'radial-gradient(circle, color-mix(in srgb, var(--color-primary) 17%, transparent), transparent 70%)' }} />
+              <div className="relative"><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Скриншоты</p><p className="text-xs" style={{ color:'var(--color-text-secondary)' }}>{screenshots.length} изображений в .minecraft/screenshots</p></div>
               <div className="flex items-center gap-2"><button onClick={() => invoke('instance_open_dir', { instanceId, path:'screenshots' }).catch(() => {})} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><Folder className="h-3.5 w-3.5" />Показать в папке</button><button onClick={loadScreenshots} className="rounded-xl p-2" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }} title="Обновить"><RefreshCw className="h-3.5 w-3.5" /></button></div>
             </div>
-            {filteredScreenshots.length === 0 ? <div className="flex flex-col items-center justify-center rounded-2xl py-20" style={cardStyle}><Camera className="mb-3 h-10 w-10" style={{ color:'var(--color-text-tertiary)' }} /><p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>Скриншотов пока нет</p><p className="mt-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>Нажми F2 в Minecraft, затем обнови список.</p></div> : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{filteredScreenshots.map(s => <button key={s.path} onClick={() => setSelectedScreenshot(s)} className="group overflow-hidden rounded-2xl text-left transition-transform hover:-translate-y-0.5" style={cardStyle}><div className="aspect-video overflow-hidden" style={{ background:'var(--color-surface-2)' }}><img src={s.url} alt={s.name} className="h-full w-full object-cover transition-transform group-hover:scale-[1.03]" /></div><div className="flex items-center gap-2 px-3 py-2"><span className="min-w-0 flex-1 truncate text-xs font-semibold" style={{ color:'var(--color-text)' }}>{s.name}</span><Camera className="h-3.5 w-3.5 shrink-0" style={{ color:'var(--color-primary)' }} /></div></button>)}</div>}
+            {filteredScreenshots.length === 0 ? <div className="flex flex-col items-center justify-center rounded-2xl py-20" style={cardStyle}><Camera className="mb-3 h-10 w-10" style={{ color:'var(--color-text-tertiary)' }} /><p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>Скриншотов пока нет</p><p className="mt-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>Нажми F2 в Minecraft, затем обнови список.</p></div> : <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">{filteredScreenshots.map(s => <button type="button" key={s.path} onClick={() => setSelectedScreenshot(s)} className="group overflow-hidden rounded-2xl text-left outline-none transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={cardStyle}><div className="aspect-video overflow-hidden" style={{ background:'var(--color-surface-2)' }}><img src={s.url} alt={s.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" /></div><div className="flex items-center gap-2 px-3 py-2"><span className="min-w-0 flex-1 truncate text-xs font-semibold" style={{ color:'var(--color-text)' }}>{s.name}</span><Camera className="h-3.5 w-3.5 shrink-0" style={{ color:'var(--color-primary)' }} /></div></button>)}</div>}
           </div>
         )}
 
@@ -930,9 +934,9 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
                 onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', f.path); }}
                 onDragOver={e => { if (f.is_dir && e.dataTransfer.types.includes('text/plain')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }}
                 onDrop={e => { if (f.is_dir) void moveEntryIntoFolder(e, f.path); }}
-                className="flex items-center gap-3 px-3 py-2"
+                className="flex items-center gap-3 px-3 py-2 transition-colors hover:bg-white/[0.025]"
                 style={{ borderBottom: i < filteredFiles.length - 1 ? '1px solid var(--color-border)' : 'none', outline: f.is_dir ? '1px solid transparent' : undefined }}>
-                <button className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+                <button type="button" className="flex items-center gap-2.5 flex-1 min-w-0 rounded-lg py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
                   onClick={() => { if (f.is_dir) { setCwd(f.path); loadFiles(f.path); } }}>
                   {fileIconFor(f)}
                   <span className="text-sm truncate" style={{ color: 'var(--color-text)' }}>{f.name}</span>
@@ -945,13 +949,13 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
                 </span>
                 <div className="w-24 shrink-0 flex justify-end gap-1">
                   {!f.is_dir && (f.kind === 'text' || /\.(json|toml|cfg|properties|txt|log|css|js|ts|mcmeta|yaml|yml)$/i.test(f.name)) && (
-                    <button onClick={() => openEditor(f.path)} title="Edit file"
-                      className="p-1.5 rounded-lg" style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
+                    <button type="button" onClick={() => openEditor(f.path)} title="Редактировать файл" aria-label={`Редактировать ${f.name}`}
+                      className="p-1.5 rounded-lg outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
                   )}
-                  <button onClick={() => invoke('instance_delete_path', { instanceId, path: f.path }).then(() => loadFiles(cwd))}
-                    className="p-1.5 rounded-lg" style={{ background: 'rgba(231,76,60,0.1)', color: 'var(--color-error)' }}>
+                  <button type="button" onClick={() => invoke('instance_delete_path', { instanceId, path: f.path }).then(() => loadFiles(cwd))} aria-label={`Удалить ${f.name}`}
+                    className="p-1.5 rounded-lg outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-[var(--color-error)]" style={{ background: 'rgba(231,76,60,0.1)', color: 'var(--color-error)' }}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -1034,7 +1038,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
 
       {selectedScreenshot && (
         <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setSelectedScreenshot(null)}>
-          <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }} onClick={e => e.stopPropagation()}>
+          <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-[28px]" style={{ background:'color-mix(in srgb, var(--color-surface) 96%, transparent)', border:'1px solid color-mix(in srgb, var(--color-border) 76%, var(--color-primary))', boxShadow:'var(--shadow-lg)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b px-4 py-3" style={{ borderColor:'var(--color-border)' }}><Camera className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color:'var(--color-text)' }}>{selectedScreenshot.name}</p><button onClick={() => navigator.clipboard?.writeText(selectedScreenshot.path)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>Копировать путь</button><button onClick={() => invoke('instance_open_dir', { instanceId, path:'screenshots' }).catch(() => {})} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>Показать в папке</button><button onClick={() => setSelectedScreenshot(null)} className="rounded-lg p-1.5" style={{ color:'var(--color-text-secondary)' }}><X className="h-4 w-4" /></button></div>
             <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-5" style={{ background:'radial-gradient(circle, var(--color-surface-2), var(--color-bg))' }}>
               {screenshots.length > 1 && <button onClick={() => selectScreenshotOffset(-1)} title="Предыдущий скриншот" className="absolute left-6 z-10 grid h-14 w-14 place-items-center rounded-2xl transition-transform hover:scale-105 active:scale-95" style={{ background:'color-mix(in srgb, var(--color-surface) 86%, transparent)', border:'1px solid var(--color-border)', color:'var(--color-text)', boxShadow:'var(--shadow-md)' }}><ChevronLeft className="h-8 w-8" /></button>}

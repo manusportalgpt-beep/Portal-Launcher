@@ -1058,3 +1058,14 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the home, storage and theme-editor refresh to GitHub main.
 
 ---
+
+# Unified themed workspace redesign
+
+- [x] Audit Instances Studio, Notch Panel, Sidebar, Skin, manifest, Logs, Content, Files, Worlds and Screenshots for existing interaction contracts and theme gaps.
+- [x] Add a persisted New/Classic interface-style preference to first-run setup and the bottom of Appearance without changing functional behavior.
+- [x] Redesign Instances Studio, Sidebar and Notch Panel as one themed and keyboard-accessible navigation system.
+- [x] Redesign Skin, manifest, Logs and Content without removing working install, launch, account, search, filter or log actions.
+- [x] Redesign Files, Worlds and Screenshots without breaking native pickers, drag/drop, recovery, editing, downloads or navigation controls.
+- [x] Run TypeScript-only verification and commit/push the unified themed workspace redesign to GitHub main.
+
+---

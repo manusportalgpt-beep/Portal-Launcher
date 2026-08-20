@@ -420,16 +420,18 @@ export function SkinSelectorPage() {
 
   return (
     <div className="h-full min-h-0 flex flex-col">
-      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-6 pt-5 pb-4 sm:flex sm:justify-between">
+      <header className="relative mx-4 mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 overflow-hidden rounded-[24px] px-5 py-4 sm:mx-6 sm:mt-5 sm:flex sm:justify-between" style={{ background:'linear-gradient(120deg, color-mix(in srgb, var(--color-surface) 94%, var(--color-primary) 6%), var(--color-surface))', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-sm)' }}>
+        <span aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full" style={{ background:'radial-gradient(circle, color-mix(in srgb, var(--color-primary) 20%, transparent), transparent 70%)' }} />
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-bold sm:text-2xl" style={{ color: 'var(--color-text)' }}>Skin Studio</h1>
+          <p className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color:'var(--color-primary)' }}>Внешность игрока</p>
+          <h1 className="mt-1 truncate text-xl font-black sm:text-2xl" style={{ color: 'var(--color-text)' }}>Skin Studio</h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
             Именованные пресеты с 3D-проверкой, типом тела и плащом внутри редактора
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button onClick={loadProfile} disabled={!canView || loading}
-            className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold"
+          <button type="button" onClick={loadProfile} disabled={!canView || loading}
+            className="relative flex items-center gap-2 px-3.5 py-2 text-xs font-bold transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-60"
             style={{ borderRadius: 'var(--radius-button)', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}>
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}Обновить
           </button>
@@ -439,7 +441,7 @@ export function SkinSelectorPage() {
       <input ref={fileRef} type="file" accept=".png,image/png" className="hidden"
         onChange={e => e.target.files?.[0] && openPreview(e.target.files[0])} />
 
-      <div className="flex-1 min-h-0 scroll-area px-6 pb-6">
+      <div className="flex-1 min-h-0 scroll-area px-4 pb-6 pt-4 sm:px-6">
         <div className="grid gap-5" style={{ gridTemplateColumns: 'minmax(320px, 420px) minmax(0, 1fr)' }}>
           {/* 3D стенд */}
           <div className="flex flex-col gap-4">
@@ -462,7 +464,7 @@ export function SkinSelectorPage() {
               </div>
             </div>
 
-            <div className="p-4" style={card}>
+            <div className="rounded-2xl p-4" style={{ ...card, background:'color-mix(in srgb, var(--color-surface) 94%, transparent)' }}>
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 shrink-0" style={{ color: 'var(--color-primary)' }} />
                 <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>Выберите или создайте пресет справа. Тип тела и плащ привязаны к пресету, поэтому случайно не меняют текущий вид.</p>
@@ -492,7 +494,7 @@ export function SkinSelectorPage() {
             )}
 
             {/* Загрузка */}
-            <div className="p-5" style={card}>
+            <div className="rounded-2xl p-5" style={{ ...card, background:'color-mix(in srgb, var(--color-surface) 94%, transparent)' }}>
               <h3 className="font-bold text-sm mb-1" style={{ color: 'var(--color-text)' }}>Своя текстура</h3>
               <p className="text-xs mb-4" style={{ color: 'var(--color-text-secondary)' }}>
                 Только реальная текстура Minecraft: PNG 64×64 или legacy 64×32. Перед применением откроется редактор с выбором имени, тела и плаща.
@@ -513,7 +515,7 @@ export function SkinSelectorPage() {
               </div>
             </div>
 
-            <div className="p-4" style={card}>
+            <div className="rounded-2xl p-4" style={{ ...card, background:'color-mix(in srgb, var(--color-surface) 94%, transparent)' }}>
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ background:'var(--color-primary-dim)', color:'var(--color-primary)' }}><Search className="h-4 w-4" /></span>
                 <div className="min-w-0 flex-1">
@@ -529,7 +531,7 @@ export function SkinSelectorPage() {
               </div>
             </div>
 
-            <div className="p-4" style={card}>
+            <div className="rounded-2xl p-4" style={{ ...card, background:'color-mix(in srgb, var(--color-surface) 94%, transparent)' }}>
               <div className="flex items-center justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Мои пресеты</p><p className="mt-0.5 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>После применения скин автоматически сохраняется как ваш пресет.</p></div><span className="shrink-0 px-2 py-1 text-[10px] font-bold" style={{ borderRadius: 999, background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>{skinHistory.length}/{MAX_AUTO_SKINS}</span></div>
               <div className="mt-2 flex items-center gap-3 rounded-xl p-2.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg" style={{ background: 'var(--color-surface)' }}>

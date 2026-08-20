@@ -45,14 +45,15 @@ function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem
       to={item.to}
       end={item.end}
       title={label}
+      aria-label={label}
       data-testid={`nav-${item.labelKey}`}
-      className="group relative flex items-center justify-center gap-2 px-2.5 text-left"
-      style={{ width: showLabel ? '100%' : 36 * scale / 100, minWidth: 36 * scale / 100, height: showLabel ? 42 * scale / 100 : 32 * scale / 100, borderRadius: interactionRadius, isolation:'isolate' }}
+      className="group relative flex items-center justify-center gap-2 px-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)]"
+      style={{ width: showLabel ? '100%' : Math.max(38, 36 * scale / 100), minWidth: Math.max(38, 36 * scale / 100), height: showLabel ? Math.max(42, 42 * scale / 100) : Math.max(38, 32 * scale / 100), borderRadius: interactionRadius, isolation:'isolate', transition:'transform 150ms cubic-bezier(.23,1,.32,1)' }}
     >
       {({ isActive }) => (
         <>
           <span className="pointer-events-none absolute inset-0"
-            style={{ zIndex:-1, border:`1px solid ${isActive ? 'var(--color-primary)' : 'transparent'}`, borderRadius: interactionRadius, background: isActive ? activeIndicator === 'pill' ? 'var(--color-primary)' : uiMode === 'old' ? 'var(--color-surface-2)' : 'var(--color-primary-dim)' : 'transparent' }} />
+            style={{ zIndex:-1, border:`1px solid ${isActive ? 'var(--color-primary)' : 'transparent'}`, borderRadius: interactionRadius, background: isActive ? activeIndicator === 'pill' ? 'var(--color-primary)' : uiMode === 'old' ? 'var(--color-surface-2)' : 'color-mix(in srgb, var(--color-primary-dim) 84%, transparent)' : 'transparent', boxShadow: isActive && uiMode === 'new' ? '0 7px 18px color-mix(in srgb, var(--color-primary) 14%, transparent)' : 'none' }} />
           {!isActive && <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100"
             style={{ zIndex:-1, transitionDuration:`${navHoverMs}ms`, border: hoverIndicator === 'none' ? '0 solid transparent' : '1px solid color-mix(in srgb, var(--color-primary) 72%, transparent)', borderRadius: hoverIndicator === 'circle' ? '999px' : 'var(--radius-sm)', background: hoverIndicator === 'none' ? 'transparent' : 'color-mix(in srgb, var(--color-primary) 7%, transparent)', willChange:'opacity' }} />}
           <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-100 group-active:opacity-100"
@@ -156,8 +157,8 @@ function SidebarNav() {
   const shadowValue = appearance.shadow === 'none' ? 'none' : appearance.shadow === 'strong' ? '12px 0 38px rgba(0,0,0,0.28)' : '8px 0 24px rgba(0,0,0,0.14)';
   return (
     <aside className="shrink-0 flex flex-col z-40"
-      style={{ width: sidebarWidth, gap:appearance.gap, padding: `${appearance.edgePadding}px 10px`, justifyContent, background: uiMode === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${appearance.opacity}%, transparent)`, borderRight: `1px solid ${borderColor}`, boxShadow: uiMode === 'old' ? 'none' : shadowValue, backdropFilter: blurEnabled && appearance.blur ? `blur(${appearance.blur}px)` : 'none', WebkitBackdropFilter: blurEnabled && appearance.blur ? `blur(${appearance.blur}px)` : 'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease, background calc(180ms * var(--portal-motion-multiplier, 1)) ease, box-shadow calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
-      <div className="px-2 pb-3 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-text-tertiary)' }}>Portal Launcher</div>
+      style={{ width: sidebarWidth, gap:appearance.gap, padding: `${appearance.edgePadding}px 10px`, justifyContent, background: uiMode === 'old' ? 'var(--color-surface)' : `linear-gradient(180deg, color-mix(in srgb, var(--color-surface) ${appearance.opacity}%, transparent), color-mix(in srgb, var(--color-surface-2) ${Math.max(40, appearance.opacity - 8)}%, transparent))`, borderRight: `1px solid ${borderColor}`, boxShadow: uiMode === 'old' ? 'none' : shadowValue, backdropFilter: blurEnabled && appearance.blur ? `blur(${appearance.blur}px)` : 'none', WebkitBackdropFilter: blurEnabled && appearance.blur ? `blur(${appearance.blur}px)` : 'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease, background calc(180ms * var(--portal-motion-multiplier, 1)) ease, box-shadow calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
+      <div className="mb-1 flex items-center gap-2 px-2 pb-3 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-text-tertiary)' }}><span className="h-2 w-2 rounded-full" style={{ background:'var(--color-primary)', boxShadow: uiMode === 'new' ? '0 0 12px var(--color-primary)' : 'none' }} />Portal Launcher</div>
       {items.map(item => <DockButton key={item.to} item={item} vertical scale={scale} appearance={appearance} />)}
       <div className="h-px my-2" style={{ background: 'var(--color-border)' }} />
       <InstanceQuickAccess vertical />
@@ -248,7 +249,7 @@ function NotchNav() {
             <motion.nav key="dock"
               initial={{ opacity: 0, scale: dockScale * 0.96, ...offset }} animate={{ opacity: 1, scale: dockScale, x: 0, y: 0 }} exit={{ opacity: 0, scale: dockScale * 0.96, ...offset }}
               transition={{ duration: 0.12, ease: [0.22, 0.78, 0.24, 1] }}
-              className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1 rounded-xl`}
+              className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1 rounded-2xl`}
               style={{
                 position: 'absolute',
                 zIndex: 1,
@@ -262,7 +263,7 @@ function NotchNav() {
                 borderRadius: visualPanelVersion === 'new' ? 'var(--radius-modal)' : 'var(--radius-xl)',
                 backdropFilter: blurEnabled && appearance.blur ? `blur(${appearance.blur}px)` : 'none',
                 WebkitBackdropFilter: blurEnabled && appearance.blur ? `blur(${appearance.blur}px)` : 'none',
-                boxShadow: visualPanelVersion === 'old' ? 'none' : shadowValue,
+                boxShadow: visualPanelVersion === 'old' ? 'none' : `${shadowValue}, 0 0 0 1px color-mix(in srgb, var(--color-primary) 7%, transparent)`,
                 transformOrigin: vertical ? (isStart ? 'left center' : 'right center') : (isStart ? 'center top' : 'center bottom'),
               }}>
               {items.map(item => <DockButton key={item.to} item={item} vertical={vertical} scale={navItemScale} appearance={appearance} />)}
@@ -272,8 +273,8 @@ function NotchNav() {
               <div className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1`}>
                 <AccountButton />
                 <DockButton item={{ to: '/settings', icon: Settings, labelKey: 'settings' }} vertical={vertical} scale={navItemScale} appearance={appearance} />
-                <button title="Назад" onClick={() => window.history.back()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronLeft size={13} /></button>
-                <button title="Вперёд" onClick={() => window.history.forward()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronRight size={13} /></button>
+                <button title="Назад" aria-label="Назад" onClick={() => window.history.back()} className="rounded-lg p-1.5 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronLeft size={13} /></button>
+                <button title="Вперёд" aria-label="Вперёд" onClick={() => window.history.forward()} className="rounded-lg p-1.5 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronRight size={13} /></button>
                 <button title={t('notch.pin')} onClick={() => set('notchPinned', !notchPinned)}
                   className="flex items-center justify-center rounded-md"
                   style={{ width: 18, height: 18, color: notchPinned ? 'var(--color-primary)' : 'var(--color-text-tertiary)', background:'transparent' }}

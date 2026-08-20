@@ -1159,7 +1159,7 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
       </div>
 
       {instances.length === 0 ? (
-        <div className="mx-auto mt-8 flex max-w-md flex-col items-center justify-center gap-4 rounded-[32px] px-8 py-16 text-center" style={{ background:'radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--color-primary) 12%, transparent), var(--color-surface) 68%)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-sm)' }}>
+        <div className="mx-auto mt-8 flex max-w-md flex-col items-center justify-center gap-4 px-8 py-16 text-center">
           <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ background:'var(--color-primary-dim)', border:'1px solid color-mix(in srgb, var(--color-primary) 35%, transparent)', boxShadow:'0 12px 28px color-mix(in srgb, var(--color-primary) 16%, transparent)' }}>
             <Package className="w-10 h-10" style={{ color:'var(--color-text-tertiary)' }} />
           </div>

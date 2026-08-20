@@ -1072,3 +1072,10 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the targeted Instance Studio refresh to GitHub main.
 
 ---
+
+# Empty library background correction
+
+- [x] Remove the large light/raised empty-state panel and retain a compact themed call to action on the normal library background.
+- [x] Run TypeScript-only verification and commit/push the empty-library background correction to GitHub main.
+
+---

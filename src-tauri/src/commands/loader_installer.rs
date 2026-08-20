@@ -52,6 +52,27 @@ async fn download_bytes(client: &reqwest::Client, url: &str) -> Result<bytes::By
         .map_err(|e| format!("read: {e}"))
 }
 
+fn maven_versions(xml: &str) -> Vec<String> {
+    let mut versions = Vec::new();
+    let mut remainder = xml;
+    while let Some(start) = remainder.find("<version>") {
+        let after_start = &remainder[start + 9..];
+        let Some(end) = after_start.find("</version>") else { break; };
+        let version = after_start[..end].trim();
+        if !version.is_empty() { versions.push(version.to_string()); }
+        remainder = &after_start[end + 10..];
+    }
+    versions
+}
+
+fn neoforge_versions_for_mc(xml: &str, mc_version: &str) -> Vec<String> {
+    let prefix = format!("{}.", mc_version.trim_start_matches("1."));
+    let mut versions: Vec<String> = maven_versions(xml).into_iter().filter(|version| version.starts_with(&prefix)).collect();
+    versions.sort_by(|left, right| right.cmp(left));
+    versions.dedup();
+    versions
+}
+
 /// Install Fabric loader – 1.14+ to latest snapshots.
 #[tauri::command]
 pub async fn install_fabric(mc_version: String, loader_version: String, instance_dir: String) -> Result<LoaderInstallResult, String> {
@@ -267,16 +288,8 @@ pub async fn install_neoforge(mc_version: String, neoforge_version: String, inst
     let nfv = if neoforge_version.is_empty() {
         let xml = client.get("https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml")
             .send().await.map_err(|e| e.to_string())?.text().await.map_err(|e| e.to_string())?;
-        let mc_short = mc_version.trim_start_matches("1.").to_string();
-        xml.lines()
-            .filter(|l| l.contains("<version>") && l.contains(&mc_short))
-            .filter_map(|l| {
-                let s = l.find("<version>")? + 9;
-                let e = l.find("</version>")?;
-                Some(l[s..e].trim().to_string())
-            })
-            .last()
-            .unwrap_or_else(|| format!("{}.0", mc_version.trim_start_matches("1.")))
+        neoforge_versions_for_mc(&xml, &mc_version).into_iter().next()
+            .ok_or_else(|| format!("Для NeoForge нет совместимой сборки под Minecraft {mc_version}. Выберите другую версию Minecraft или загрузчик."))?
     } else { neoforge_version };
 
     let installer_url = format!(
@@ -377,15 +390,5 @@ pub async fn get_neoforge_versions(mc_version: String) -> Result<Vec<String>, St
         .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
     let xml = client.get("https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml")
         .send().await.map_err(|e| e.to_string())?.text().await.map_err(|e| e.to_string())?;
-    let mc_short = mc_version.trim_start_matches("1.").to_string();
-    let mut versions: Vec<String> = xml.lines()
-        .filter(|l| l.contains("<version>") && l.contains(&mc_short))
-        .filter_map(|l| {
-            let s = l.find("<version>")? + 9;
-            let e = l.find("</version>")?;
-            Some(l[s..e].trim().to_string())
-        })
-        .collect();
-    versions.reverse(); // newest first
-    Ok(versions)
+    Ok(neoforge_versions_for_mc(&xml, &mc_version))
 }

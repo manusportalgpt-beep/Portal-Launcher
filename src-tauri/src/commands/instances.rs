@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 use std::path::{Path, PathBuf};
 use std::io::{Write, Read};
-use sha2::{Digest, Sha512};
+use sha2::{Digest, Sha256, Sha512};
 use tauri::Emitter;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -313,6 +313,8 @@ pub async fn update_instance(id: String, updates: serde_json::Value) -> Result<I
     let mut inst = load_instance(&id).ok_or("Instance not found")?;
     if let Some(v) = updates["name"].as_str() { inst.name = v.to_string(); }
     if let Some(v) = updates["description"].as_str() { inst.description = v.to_string(); }
+    if let Some(v) = updates["mc_version"].as_str().or_else(|| updates["minecraft_version"].as_str()) { inst.mc_version = v.to_string(); }
+    if let Some(v) = updates["loader"].as_str().or_else(|| updates["mod_loader"].as_str()) { inst.loader = v.to_string(); }
     if let Some(v) = updates["min_ram"].as_u64() { inst.min_ram = v as u32; }
     if let Some(v) = updates["max_ram"].as_u64() { inst.max_ram = v as u32; }
     if let Some(v) = updates["java_path"].as_str() { inst.java_path = v.to_string(); }
@@ -1099,7 +1101,8 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, ex
         ("forge", index["dependencies"]["forge"].as_str().unwrap_or(""))
     } else { ("vanilla", "") };
 
-    let new_id = uuid::Uuid::new_v4().to_string();
+    let source_hash = format!("{:x}", Sha256::digest(mrpack_path.as_bytes()));
+    let new_id = format!("import-{}", &source_hash[..16]);
     clear_cancel(&new_id);
     let dest_dir = instances_dir().join(&new_id);
     create_instance_folders(&dest_dir)?;
@@ -1174,14 +1177,13 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, ex
     let files = index["files"].as_array().cloned().unwrap_or_default();
     let excluded_paths: std::collections::HashSet<String> = excluded_paths.unwrap_or_default().into_iter().collect();
     let total_files = files.len();
-    app.emit("instance-progress", serde_json::json!({"stage":"downloading","name":pack_name,"percent":30,"message":format!("Downloading {} files...", total_files)})).ok();
+    app.emit("instance-progress", serde_json::json!({"stage":"downloading","instance_id":new_id,"name":pack_name,"percent":30,"message":format!("Downloading {} files...", total_files)})).ok();
     let mut mods = vec![];
     let mut failed = 0usize;
     let mut downloaded = 0usize;
     for (i, file_entry) in files.iter().enumerate() {
         if cancel_requested(&new_id) {
             clear_cancel(&new_id);
-            let _ = std::fs::remove_dir_all(&dest_dir);
             app.emit("instance-progress", serde_json::json!({"stage":"cancelled","instance_id":new_id,"name":pack_name,"percent":0,"message":"Installation cancelled"})).ok();
             return Err("Pack installation cancelled".to_string());
         }
@@ -1197,16 +1199,19 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, ex
 
         // Пробуем все зеркала по очереди — раньше бралось только первое,
         // и если конкретно оно было недоступно, файл молча пропускался.
-        let mut got = false;
-        for url in &urls {
-            match (async { client.get(*url).send().await?.error_for_status()?.bytes().await }).await {
-                Ok(bytes) => {
-                    std::fs::write(&out_path, &bytes).map_err(|e| format!("Не удалось сохранить {path}: {e}"))?;
-                    got = true;
-                    downloaded += 1;
-                    break;
+        let mut got = out_path.is_file() && std::fs::metadata(&out_path).map(|meta| meta.len() > 0).unwrap_or(false);
+        if got { downloaded += 1; }
+        if !got {
+            for url in &urls {
+                match (async { client.get(*url).send().await?.error_for_status()?.bytes().await }).await {
+                    Ok(bytes) => {
+                        std::fs::write(&out_path, &bytes).map_err(|e| format!("Не удалось сохранить {path}: {e}"))?;
+                        got = true;
+                        downloaded += 1;
+                        break;
+                    }
+                    Err(e) => log::warn!("mrpack: зеркало не сработало ({url}): {e}"),
                 }
-                Err(e) => log::warn!("mrpack: зеркало не сработало ({url}): {e}"),
             }
         }
         if !got { failed += 1; log::warn!("mrpack: не удалось скачать {path} — все зеркала недоступны"); }
@@ -1317,6 +1322,12 @@ pub async fn import_archive_data(
 /// Загружает архив модпака из Discover и передаёт его тому же импортеру,
 /// что используется для локальных файлов. Это создаёт полноценную сборку со
 /// всем содержимым модпака вместо пустой сборки с одиночным файлом.
+#[tauri::command]
+pub fn cancel_instance_install(instance_id: String) -> Result<(), String> {
+    crate::mc::launch::CANCELLED.lock().map_err(|_| "Не удалось отменить установку")?.insert(instance_id);
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn import_remote_modpack(
     app: tauri::AppHandle,

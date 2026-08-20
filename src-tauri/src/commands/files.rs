@@ -82,6 +82,15 @@ pub fn pick_local_modpack() -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
+pub fn pick_local_files() -> Result<Vec<String>, String> {
+    let selected = rfd::FileDialog::new()
+        .set_title("Добавить файлы в сборку")
+        .pick_files()
+        .unwrap_or_default();
+    Ok(selected.into_iter().map(|path| path.to_string_lossy().to_string()).collect())
+}
+
+#[tauri::command]
 pub async fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
     std::fs::read(&path).map_err(|e| format!("Read error: {e}"))
 }

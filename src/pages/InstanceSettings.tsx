@@ -236,9 +236,19 @@ export function InstanceSettings() {
         // editing an instance. The installed mod metadata remains available to mclo.gs.
       }
     }
-    update(inst.id, form as any);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    try {
+      await invoke('update_instance', { id: inst.id, updates: {
+        name: form.name, description: form.description, mc_version: form.minecraftVersion, loader: form.modLoader,
+        loader_version: form.modLoaderVersion, java_path: form.javaPath, custom_jvm_args: form.jvmArgs,
+        min_ram: form.minRam, max_ram: form.maxRam,
+      } });
+      update(inst.id, form as any);
+      if (gameCoreChanged) await invoke('check_mod_updates', { instanceId: inst.id }).catch(() => undefined);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (reason) {
+      await dialog.alert(`Настройки сборки не сохранены: ${String(reason)}`, { title:'Ошибка сохранения' });
+    }
   };
 
   const Field = ({ label, desc, children }: { label: string; desc?: string; children: React.ReactNode }) => (

@@ -2043,7 +2043,7 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
 
       {tab==='content' && contentFilter==='updates' && updateItems.length>0 && (
         <div className="mx-4 mt-2 rounded-xl px-3 py-2" style={{ background:'var(--color-primary-dim)', border:'1px solid var(--color-primary)' }}>
-          <div className="flex items-center justify-between gap-3"><span className="text-xs font-bold" style={{ color:'var(--color-text)' }}>{t('instancePage.updatesReady', { count: updateItems.length })}</span><span className="text-[10px]" style={{ color:'var(--color-primary)' }}>{t('instancePage.updateHint')}</span></div>
+          <div className="flex items-center justify-between gap-3"><span className="text-xs font-bold" style={{ color:'var(--color-text)' }}>Доступно обновлений: {updateItems.length}</span><span className="text-[10px]" style={{ color:'var(--color-primary)' }}>{t('instancePage.updateHint')}</span></div>
           {updateProgress && <><div className="mt-1.5 flex justify-between text-[10px]" style={{ color:'var(--color-text-secondary)' }}><span className="truncate">{updateProgress.message}</span><span>{updateProgress.percent}%</span></div><div className="mt-1 h-1 overflow-hidden rounded-full" style={{ background:'var(--color-surface)' }}><div className="h-full rounded-full transition-all" style={{ width:`${updateProgress.percent}%`, background:'var(--color-primary)' }} /></div></>}
         </div>
       )}

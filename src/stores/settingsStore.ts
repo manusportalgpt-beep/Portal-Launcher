@@ -15,6 +15,7 @@ interface Settings {
   musicVolume: number;
   musicAutoplay: 'startup' | 'manual';
   musicLoop: boolean;
+  musicPlayerPosition: { x: number; y: number };
   javaPath: string;
   customJvmArgs: string;
   minRam: number;
@@ -52,6 +53,7 @@ const defaults: Settings = {
   musicVolume: 35,
   musicAutoplay: 'manual',
   musicLoop: true,
+  musicPlayerPosition: { x: 12, y: 40 },
   javaPath: '',
   customJvmArgs: '',
   minRam: 1024,

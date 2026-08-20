@@ -1264,7 +1264,7 @@ pub async fn update_all_mods(app: tauri::AppHandle, instance_id: String, mod_id:
     let updatable: Vec<_> = mods.iter().filter(|m| {
         m.update_available
             && m.source == "modrinth"
-            && mod_id.as_deref().map(|requested| requested == m.id || requested == m.name).unwrap_or(true)
+            && mod_id.as_deref().map(|requested| requested == m.id || requested == m.name || requested == m.file_name).unwrap_or(true)
     }).collect();
     let total = updatable.len();
     let mut results = vec![];

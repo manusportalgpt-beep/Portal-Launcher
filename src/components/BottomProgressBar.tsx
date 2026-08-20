@@ -54,6 +54,17 @@ function stageLabel(event: ProgressEvent): string {
       default: return 'Instance installation';
     }
   }
+  if (event.source === 'launch') {
+    switch (event.stage) {
+      case 'auth': return 'Аккаунт';
+      case 'resolve': return 'Метаданные версии';
+      case 'install': return 'Установка Minecraft';
+      case 'java': return 'Java';
+      case 'natives': return 'Нативные библиотеки';
+      case 'starting': return 'Запуск игры';
+      default: return 'Подготовка Minecraft';
+    }
+  }
   switch (event.stage) {
     case 'client': return 'Minecraft client';
     case 'libraries': return 'Game libraries';
@@ -112,6 +123,7 @@ export function BottomProgressBar() {
         iconPath: String(p.icon ?? p.icon_path ?? ''),
       });
       if (p.stage === 'done') clearLater(2200);
+      if (/^cancelled$/i.test(String(p.stage ?? ''))) clearLater(0);
     }).then(unsub => unsubs.push(unsub));
 
     listen<any>('java-download', e => {
@@ -133,10 +145,6 @@ export function BottomProgressBar() {
 
     // Keep support for other byte-based downloads used by the launcher.
     listen<any>('download-progress', e => {
-      // Byte downloads can continue briefly while launch-status is already in
-      // auth/resolve/starting. Do not replace the clear launch state with a
-      // misleading "Downloading" card during a normal Minecraft start.
-      if (launchingRef.current) return;
       const p = e.payload ?? {};
       const current = Number(p.current ?? p.downloaded ?? 0);
       const total = Number(p.total ?? 0);
@@ -161,6 +169,7 @@ export function BottomProgressBar() {
         instanceName: String(p.instance_name ?? p.instanceName ?? ''),
         iconPath: String(p.icon ?? p.icon_path ?? ''),
       });
+      if (launchingRef.current) setCollapsed(false);
       const isFinished = Number(p.percent ?? 0) >= 100 || /^(?:done|complete|completed|error|cancelled|canceled)$/i.test(String(p.stage ?? ''));
       if (isFinished) clearLater(1200);
     }).then(unsub => unsubs.push(unsub));
@@ -174,6 +183,7 @@ export function BottomProgressBar() {
         if (hideTimer.current) clearTimeout(hideTimer.current);
         launchingRef.current = instanceId;
         setLaunching(instanceId);
+        if (['install', 'java', 'natives'].includes(status)) setCollapsed(false);
         // A launch status owns the global card until the process is running;
         // stale byte-download events must not survive into this state.
         setEvent({
@@ -207,7 +217,7 @@ export function BottomProgressBar() {
   const isByteProgress = event?.source === 'download' && total > 1024 * 1024;
   const itemCounter = total > 0 && !isByteProgress ? `${Math.min(current, total)}/${total} files` : null;
   const cancelTarget = event?.source === 'instance' ? event.instanceId : launching;
-  const canCancelInstallation = Boolean(cancelTarget) && event?.source === 'instance';
+  const canCancelInstallation = Boolean(cancelTarget) && (event?.source === 'instance' || (event?.source === 'launch' && event.stage === 'install'));
 
   if (collapsed) {
     return (
@@ -245,7 +255,7 @@ export function BottomProgressBar() {
                 {instance?.name || event?.instanceName || event?.message || 'Preparing Minecraft…'}
               </p>
               <p className="text-[10px] truncate" style={{ color: 'var(--color-text-secondary)' }}>
-                {event ? `${stageLabel(event)}${itemCounter ? ` · ${itemCounter}` : ''}` : 'Preparing launch'}
+                {event ? `${stageLabel(event)} · ${event.message || 'Подготавливаю…'}${itemCounter ? ` · ${itemCounter}` : ''}` : 'Подготавливаю запуск'}
               </p>
             </div>
             <span className="text-[11px] font-black tabular-nums shrink-0" style={{ color: 'var(--color-primary)' }}>{percent}%</span>
@@ -269,13 +279,13 @@ export function BottomProgressBar() {
         {canCancelInstallation && cancelTarget && (
           <button
             onClick={() => {
-              invoke('cancel_launch', { instanceId: cancelTarget })
+              invoke(event?.source === 'instance' ? 'cancel_instance_install' : 'cancel_launch', { instanceId: cancelTarget })
                 .catch(() => undefined)
-                .finally(() => clearLater(250));
+                .finally(() => { setEvent(null); setLaunching(null); setCollapsed(true); });
             }}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold shrink-0"
             style={{ background: 'rgba(231,76,60,0.12)', color: 'var(--color-error)' }}>
-            <X className="w-3 h-3" />Cancel
+            <X className="w-3 h-3" />Отменить
           </button>
         )}
       </div>

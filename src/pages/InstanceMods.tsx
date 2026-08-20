@@ -169,6 +169,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progressMap, setProgressMap] = useState<Record<string, { percent: number; message?: string }>>({});
+  const [updatingModId, setUpdatingModId] = useState<string | null>(null);
   const [mainTab, setMainTab] = useState<MainTab>('content');
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
   const [selectedModIds, setSelectedModIds] = useState<Set<string>>(() => new Set());
@@ -191,14 +192,21 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   const [editorSaving, setEditorSaving] = useState(false);
   const [editorDirty, setEditorDirty] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeInstanceIdRef = useRef(instanceId);
   const curseforgeApiKey = useSettingsStore(s => s.curseforgeApiKey);
+
+  useEffect(() => {
+    activeInstanceIdRef.current = instanceId;
+    setMods([]); setDeletedMods([]); setWorlds([]); setScreenshots([]); setFiles([]); setProgressMap({});
+    setSelectedModIds(new Set()); setContentFilter('all'); setSearch(''); setCwd(''); setError(null);
+  }, [instanceId]);
 
   const enrichMissingMetadata = useCallback(async (items: ModEntry[]) => {
     const candidates = items.filter(item =>
       item.source === 'modrinth' || (item.source === 'curseforge' && curseforgeApiKey && /^\d+$/.test(item.id))
     ).filter(item => !item.author || !item.icon);
     if (!candidates.length) return;
-    const patches = await Promise.all(candidates.slice(0, 24).map(async item => {
+    const patches = await Promise.all(candidates.slice(0, 8).map(async item => {
       const cacheKey = `portal-project-meta:v1:${item.source}:${item.id}`;
       try {
         const cached = localStorage.getItem(cacheKey);
@@ -221,6 +229,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
     }));
     const valid = patches.filter(Boolean) as Array<{ id: string; author?: string; icon?: string; authorId?: number }>;
     if (!valid.length) return;
+    if (activeInstanceIdRef.current !== instanceId) return;
     setMods(current => {
       const enriched = current.map(item => {
         const patch = valid.find(value => value.id === item.id);
@@ -232,6 +241,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   }, [curseforgeApiKey]);
 
   const loadMods = useCallback(async (force = false) => {
+    const requestedInstanceId = instanceId;
     const cacheKey = `portal-instance-mods:v2:${instanceId}`;
     let cached: { savedAt: number; mods: ModEntry[] } | null = null;
     try {
@@ -252,6 +262,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
     setError(null);
     try {
       const res = (await invoke('get_instance_mods', { instanceId })) as any[] | string;
+      if (activeInstanceIdRef.current !== requestedInstanceId) return;
       if (typeof res === 'string') { setError(res); setMods([]); return; }
       const list: ModEntry[] = [];
       for (const m of res || []) {
@@ -273,7 +284,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       void enrichMissingMetadata(list);
       setContentFilter(current => current === 'disabled' && !list.some(mod => mod.enabled === false) ? 'all' : current);
     } catch (e: any) {
-      setError(e?.toString() ?? 'Failed to load mods'); setMods([]);
+      if (activeInstanceIdRef.current === requestedInstanceId) { setError(e?.toString() ?? 'Failed to load mods'); setMods([]); }
     } finally { setLoading(false); }
   }, [instanceId, enrichMissingMetadata]);
 
@@ -327,6 +338,8 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
     (async () => {
       const handler = (e: any) => {
         const p = e.payload as any; if (!p) return;
+        const eventInstanceId = p.instance_id || p.instanceId;
+        if (eventInstanceId && eventInstanceId !== instanceId) return;
         const id = p.id || p.modId || 'global';
         const percent = typeof p.percent === 'number'
           ? p.percent
@@ -335,7 +348,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       };
       unsubs.push(await listen('download-progress', handler));
       unsubs.push(await listen('install-progress', handler));
-      unsubs.push(await listen('download-complete', (e: any) => { handler(e); void loadMods(true); }));
+      unsubs.push(await listen('download-complete', (e: any) => { const eventInstanceId = e.payload?.instance_id || e.payload?.instanceId; if (eventInstanceId && eventInstanceId !== instanceId) return; handler(e); void loadMods(true); }));
     })();
     return () => { unsubs.forEach(u => u()); };
   }, [instanceId, loadMods, loadDeletedMods, loadWorlds, loadScreenshots, loadFiles]);
@@ -534,6 +547,15 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
     }
   }
 
+  async function pickFilesForInstance() {
+    try {
+      const paths = await invoke<string[]>('pick_local_files');
+      if (paths?.length) await importPaths(paths);
+    } catch (e: any) {
+      setError(e?.toString() ?? 'Не удалось открыть выбор файлов');
+    }
+  }
+
   async function moveEntryIntoFolder(ev: React.DragEvent, toDir: string) {
     const from = ev.dataTransfer.getData('text/plain');
     if (!from) return;
@@ -619,7 +641,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         </div>
         {mainTab === 'content' && (
           <>
-            <button onClick={() => fileInputRef.current?.click()}
+            <button onClick={() => void pickFilesForInstance()}
               className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap"
               style={cardStyle}>
               <FolderPlus className="w-4 h-4" style={{ color: 'var(--color-text-secondary)' }} />{t('instanceContent.addFiles')}
@@ -778,18 +800,22 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
                 </div>
                 <div className="w-24 shrink-0 flex items-center justify-end gap-2">
                   {m.updateAvailable && (
-                    <button onClick={async () => {
+                    <button disabled={updatingModId !== null} onClick={async () => {
+                        setUpdatingModId(m.id);
                         try {
-                          const result = await invoke<any[]>('update_all_mods', { instanceId, modId: m.id });
+                          const result = await invoke<any[]>('update_all_mods', { instanceId, modId: m.fileName || m.id });
                           const failed = Array.isArray(result) ? result.filter(item => !item.success) : [];
-                          if (failed.length) console.error('Mod update failed:', failed[0]?.error ?? 'Unknown update error');
+                          if (!result?.length) setError(`Для «${m.name}» не найдено совместимое обновление.`);
+                          else if (failed.length) setError(`Не удалось обновить «${m.name}»: ${failed[0]?.error ?? 'неизвестная ошибка'}`);
                           await loadMods(true);
                         } catch (error) {
-                          console.error('Mod update failed:', error);
+                          setError(`Не удалось обновить «${m.name}»: ${String(error)}`);
+                        } finally {
+                          setUpdatingModId(null);
                         }
                       }}
-                      className="p-1.5 rounded-lg" style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }} title="Обновить">
-                      <RefreshCw className="w-3.5 h-3.5" />
+                      className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-bold disabled:opacity-60" style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }} title="Обновить этот мод">
+                      <RefreshCw className={`w-3.5 h-3.5 ${updatingModId === m.id ? 'animate-spin' : ''}`} />{updatingModId === m.id ? 'Обновляю…' : 'Обновить'}
                     </button>
                   )}
                   <Toggle checked={m.enabled !== false} onChange={() => handleToggle(m)} />

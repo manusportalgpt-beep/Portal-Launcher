@@ -997,3 +997,27 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push deleted-content recovery and instance-settings visual improvements to GitHub main.
 
 ---
+
+# Runtime, files, loader and update reliability repair
+
+- [x] Reduce the music mini-player footprint and let the user drag it to a remembered launcher position.
+- [x] Repair the Add files action so it opens a native picker and transfers selected files into the current instance.
+- [x] Restore reliable NeoForge version discovery and installation for the chosen Minecraft version.
+- [x] Persist changed Minecraft version and loader settings, then refresh mod compatibility/update requirements after save and reopen.
+- [x] Make the installation Cancel action stop promptly, dismiss the install window, and retain resumable unfinished download state for a later retry.
+- [x] Use singular Russian category labels in search: «Моды», «Ресурс-паки», «Шейдеры».
+- [x] Translate the per-mod Update action and make it update the selected mod rather than only supporting Update all.
+- [x] Run TypeScript-only verification and commit/push the reliability repair package to GitHub main.
+
+---
+
+# Critical first-launch visibility and instance isolation
+
+- [x] Show explicit first-launch stages for Java, Minecraft client, libraries, assets, natives and loader preparation, with per-stage progress and actionable wait context.
+- [x] Audit all launch paths and cancel states so the compact install panel never presents a stale or incomplete status.
+- [x] Prevent stale asynchronous mod results, update counts and metadata from one instance rendering inside another instance after navigation.
+- [x] Remove the visible untranslated `instancePage.updatesReady` key and verify all update UI uses localized text.
+- [x] Profile and reduce repeated foreground work in instance content and first-launch progress paths that causes interface slowdown.
+- [x] Run TypeScript-only verification and commit/push the critical launch and instance-isolation repair to GitHub main.
+
+---

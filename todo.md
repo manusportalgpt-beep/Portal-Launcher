@@ -740,3 +740,10 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the regression repair to GitHub main.
 
 ---
+
+# Adaptive Tab Color regression
+
+- [x] Restrict Adaptive Tab Color to a stable, subtle Title Bar tint derived from the active page class without colouring neighbouring surfaces or background layers.
+- [x] Run TypeScript only and commit/push the Adaptive Tab Color fix to GitHub main.
+
+---

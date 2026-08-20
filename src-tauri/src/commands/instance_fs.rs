@@ -252,6 +252,12 @@ pub fn instance_delete_path(instance_id: String, path: String) -> Result<(), Str
     if p == instance_game_dir(&instance_id) {
         return Err("Нельзя удалить корень сборки".into());
     }
+    let first_segment = path.replace('\\', "/").split('/').next().unwrap_or("").to_ascii_lowercase();
+    let content_type = match first_segment.as_str() { "mods" => Some("mod"), "resourcepacks" => Some("resourcepack"), "shaderpacks" => Some("shaderpack"), "datapacks" => Some("datapack"), "saves" => Some("saves"), _ => None };
+    if let Some(mod_type) = content_type {
+        crate::commands::mods::move_instance_content_to_recovery(&instance_id, p, mod_type, false)?;
+        return Ok(());
+    }
     if p.is_dir() {
         std::fs::remove_dir_all(p).map_err(|e| e.to_string())
     } else {
@@ -467,7 +473,7 @@ pub fn instance_list_servers(instance_id: String) -> Result<Vec<ServerInfo>, Str
 #[tauri::command]
 pub fn instance_delete_world(instance_id: String, folder: String) -> Result<(), String> {
     let dir = safe_join(&instance_id, &format!("saves/{folder}"))?;
-    std::fs::remove_dir_all(dir).map_err(|e| e.to_string())
+    crate::commands::mods::move_instance_content_to_recovery(&instance_id, dir, "saves", false).map(|_| ())
 }
 
 /// Добавляет сервер в servers.dat сборки (простая запись NBT).

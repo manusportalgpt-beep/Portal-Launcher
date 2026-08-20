@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronLeft, Save, Cpu, Folder, Play, Wrench, ShieldCheck, Database, Package, Settings2, History, RefreshCw, RotateCcw, ImagePlus, Trash2, Layers, Box, Sparkles, Check, Info } from 'lucide-react';
 import { useInstanceStore } from '@/stores/instanceStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@/lib/invoke-shim';
 import { fetchMcVersionIds, MC_VERSIONS_FALLBACK } from '@/lib/mc-versions';
@@ -99,6 +100,38 @@ function UpdateRollbackPanel({ instanceId }: { instanceId: string }) {
       </div>
     </div>
   );
+}
+
+type DeletedContentEntry = { id: string; timestamp: string; file_name: string; mod_type: string; was_disabled: boolean; is_directory?: boolean };
+
+function DeletedContentPanel({ instanceId }: { instanceId: string }) {
+  const retentionMinutes = useSettingsStore(state => state.deletedInstanceRetentionMinutes);
+  const [items, setItems] = useState<DeletedContentEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const load = async () => {
+    setLoading(true);
+    try { setItems(await invoke<DeletedContentEntry[]>('list_deleted_mods', { instanceId, retentionMinutes })); setError(''); }
+    catch (reason) { setError(String(reason)); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { void load(); }, [instanceId, retentionMinutes]);
+  const restore = async (item: DeletedContentEntry) => {
+    setBusy(item.id);
+    try { await invoke('restore_deleted_mod', { instanceId, id:item.id }); await load(); }
+    catch (reason) { setError(String(reason)); }
+    finally { setBusy(null); }
+  };
+  const permanentlyDelete = async (item: DeletedContentEntry) => {
+    const approved = await dialog.confirm(`Удалить «${item.file_name}» навсегда? Восстановить его после этого будет нельзя.`, { title:'Удалить навсегда', confirmLabel:'Удалить', cancelLabel:'Отмена', danger:true });
+    if (!approved) return;
+    setBusy(item.id);
+    try { await invoke('permanently_delete_deleted_mod', { instanceId, id:item.id }); await load(); }
+    catch (reason) { setError(String(reason)); }
+    finally { setBusy(null); }
+  };
+  return <div className="space-y-3"><section className="rounded-2xl p-4" style={{ background:'color-mix(in srgb, var(--color-surface-2) 88%, transparent)', border:'1px solid var(--color-border)' }}><div className="flex items-start justify-between gap-3"><div><div className="flex items-center gap-2"><Folder className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Удалённые файлы сборки</p></div><p className="mt-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>Моды, ресурс-паки, шейдеры, дата-паки и миры хранятся здесь до автоочистки. Срок задан в Настройки → Дополнительно.</p></div><button onClick={() => void load()} title="Обновить" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /></button></div></section>{error && <p className="rounded-xl px-3 py-2 text-xs" style={{ background:'rgba(231,76,60,0.1)', color:'var(--color-error)' }}>{error}</p>}{!loading && !items.length && <div className="rounded-2xl border border-dashed px-4 py-10 text-center" style={{ borderColor:'var(--color-border)', color:'var(--color-text-tertiary)' }}><Folder className="mx-auto h-8 w-8" /><p className="mt-3 text-sm font-bold" style={{ color:'var(--color-text)' }}>Корзина пуста</p><p className="mt-1 text-xs">После удаления контент сборки появится здесь и его можно будет восстановить.</p></div>}<div className="space-y-2">{items.map(item => <div key={item.id} className="flex flex-wrap items-center gap-3 rounded-xl p-3" style={{ background:'color-mix(in srgb, var(--color-surface-2) 88%, transparent)', border:'1px solid var(--color-border)' }}><div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background:'var(--color-surface)', color:'var(--color-primary)' }}><Package className="h-4 w-4" /></div><div className="min-w-0 flex-1"><p className="truncate text-xs font-black" style={{ color:'var(--color-text)' }}>{item.file_name}</p><p className="mt-0.5 text-[10px]" style={{ color:'var(--color-text-secondary)' }}>{item.mod_type} · {item.is_directory ? 'папка' : 'файл'} · {new Date(item.timestamp).toLocaleString('ru-RU')}</p></div><button disabled={busy !== null} onClick={() => void restore(item)} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-black disabled:opacity-50" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><RotateCcw className="h-3.5 w-3.5" />Восстановить</button><button disabled={busy !== null} onClick={() => void permanentlyDelete(item)} title="Удалить навсегда" className="flex h-8 w-8 items-center justify-center rounded-lg disabled:opacity-50" style={{ background:'rgba(231,76,60,0.1)', color:'var(--color-error)' }}><Trash2 className="h-3.5 w-3.5" /></button></div>)}</div></div>;
 }
 
 export function InstanceSettings() {
@@ -218,23 +251,23 @@ export function InstanceSettings() {
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-8"
-      style={{ background:'rgba(0,0,0,0.68)', backdropFilter:'blur(8px)' }}
+      style={{ background:'rgba(0,0,0,0.42)', backdropFilter:'blur(2px)' }}
       onMouseDown={e => { if (e.target === e.currentTarget) navigate(-1); }}>
       <motion.div initial={{ opacity:0, y:16, scale:0.97 }} animate={{ opacity:1, y:0, scale:1 }} transition={{ type:'spring', stiffness:420, damping:32 }}
         className="w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col"
-        style={{ background:'radial-gradient(ellipse at 100% 0%, var(--color-primary-dim), transparent 38%), var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-modal)', boxShadow:'var(--shadow-lg)' }}>
+        style={{ background:'radial-gradient(ellipse at 100% 0%, var(--color-primary-dim), transparent 38%), color-mix(in srgb, var(--color-bg) 87%, transparent)', backdropFilter:'blur(16px)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-modal)', boxShadow:'var(--shadow-lg)' }}>
         <div className="flex items-center justify-between gap-4 px-5 py-3.5 shrink-0" style={{ background:'color-mix(in srgb, var(--color-surface) 94%, transparent)', borderBottom:'1px solid var(--color-border)' }}>
           <div className="flex min-w-0 items-center gap-2 text-sm"><button onClick={()=>navigate(-1)} className="flex items-center gap-1.5 hover:opacity-80" style={{ color:'var(--color-text-secondary)' }}><ChevronLeft className="h-4 w-4" />{t('instanceUi.backToLibrary')}</button><span style={{ color:'var(--color-text-tertiary)' }}>/</span><span className="truncate font-semibold" style={{ color:'var(--color-text)' }}>{form.name || inst.name}</span></div>
           <div className="flex shrink-0 items-center gap-2"><button onClick={() => navigate(`/library/${inst.id}`)} className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}><Play className="h-3.5 w-3.5 fill-current" />{t('instanceUi.play')}</button><button onClick={handleSave} className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all" style={{ background:saved?'rgba(46,204,113,0.15)':'var(--color-primary)', color:saved?'var(--color-success)':'var(--color-primary-text)', border:saved?'1px solid var(--color-success)':'1px solid var(--color-primary)' }}><Save className="h-3.5 w-3.5" />{saved?t('instanceUi.saved'):t('instanceUi.saveChanges')}</button></div>
         </div>
 
         <div className="flex min-h-0 flex-1 gap-4 p-4 sm:p-5">
-          <aside className="flex w-52 shrink-0 flex-col gap-1.5 p-2.5" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-card)' }}>
+          <aside className="flex w-52 shrink-0 flex-col gap-1.5 p-2.5" style={{ background:'color-mix(in srgb, var(--color-surface) 90%, transparent)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-card)' }}>
             {tabs.map(({id:tabId,labelKey,icon:Icon,descKey}) => <button key={tabId} onClick={() => setTab(tabId)} className="flex items-center gap-2.5 px-2.5 py-2.5 text-left transition-all" style={{ borderRadius:'var(--radius-button)', background:tab===tabId?'var(--color-primary-dim)':'transparent', color:tab===tabId?'var(--color-text)':'var(--color-text-secondary)', border:`1px solid ${tab===tabId?'var(--color-primary)':'transparent'}` }}><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ background:tab===tabId?'var(--color-primary)':'var(--color-surface-2)', color:tab===tabId?'var(--color-primary-text)':'var(--color-text-secondary)' }}><Icon className="h-4 w-4" /></span><span className="min-w-0"><span className="block text-xs font-black">{t(labelKey)}</span><span className="block truncate text-[9px]" style={{ color:'var(--color-text-tertiary)' }}>{t(descKey)}</span></span></button>)}
             <div className="mt-auto p-3" style={{ background:'var(--color-surface-2)', borderRadius:'var(--radius-button)', border:'1px solid var(--color-border)' }}><div className="flex items-center gap-1.5 text-[10px] font-black" style={{ color:'var(--color-primary)' }}><ShieldCheck className="h-3.5 w-3.5" />{t('instanceUi.safeChanges')}</div><p className="mt-1 text-[9px] leading-3" style={{ color:'var(--color-text-secondary)' }}>{t('instanceUi.safeChangesDesc')}</p></div>
           </aside>
 
-          <motion.main key={tab} initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} className="min-w-0 flex-1 overflow-y-auto scroll-area" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-card)' }}>
+          <motion.main key={tab} initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} className="min-w-0 flex-1 overflow-y-auto scroll-area" style={{ background:'color-mix(in srgb, var(--color-surface) 90%, transparent)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-card)' }}>
             <div className="space-y-6 p-5 sm:p-6">
               {tab==='general' && <>
                 <section className="relative overflow-hidden p-4 sm:p-5" style={{ background:'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 14%, var(--color-surface)), var(--color-surface-2))', border:'1px solid var(--color-border)', borderRadius:'var(--radius-card)' }}>
@@ -253,7 +286,7 @@ export function InstanceSettings() {
 
               {tab==='java' && <><section className="p-4" style={{ background:'var(--color-primary-dim)', border:'1px solid var(--color-primary)', borderRadius:'var(--radius-card)' }}><div className="flex items-center gap-2"><Cpu className="h-5 w-5" style={{ color:'var(--color-primary)' }} /><div><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Java {recommendedJava} is recommended automatically</p><p className="text-[11px]" style={{ color:'var(--color-text-secondary)' }}>The launcher checks custom Java first, then managed Java, and downloads a compatible runtime only if needed.</p></div></div></section><Field label="Java path for this instance" desc="Leave empty to use automatic selection from Settings → Minecraft."><input value={form.javaPath} onChange={event=>setForm(current=>({...current,javaPath:event.target.value}))} placeholder={`Automatic Java ${recommendedJava}`} className="w-full px-3 py-2.5 text-sm outline-none" style={{background:'var(--color-surface-2)',border:'1px solid var(--color-border)',color:'var(--color-text)',borderRadius:'var(--radius-button)'}} /></Field><Field label="JVM arguments" desc="Optional arguments used only by this instance."><input value={form.jvmArgs} onChange={event=>setForm(current=>({...current,jvmArgs:event.target.value}))} placeholder="-XX:+UseG1GC" className="w-full px-3 py-2.5 text-sm outline-none" style={{background:'var(--color-surface-2)',border:'1px solid var(--color-border)',color:'var(--color-text)',borderRadius:'var(--radius-button)'}} /></Field><div className="grid grid-cols-2 gap-4"><Field label="Minimum memory"><input type="number" value={form.minRam} onChange={event=>setForm(current=>({...current,minRam:Number(event.target.value)}))} className="w-full px-3 py-2.5 text-sm outline-none" style={{background:'var(--color-surface-2)',border:'1px solid var(--color-border)',color:'var(--color-text)',borderRadius:'var(--radius-button)'}} /></Field><Field label="Maximum memory"><input type="number" value={form.maxRam} onChange={event=>setForm(current=>({...current,maxRam:Number(event.target.value)}))} className="w-full px-3 py-2.5 text-sm outline-none" style={{background:'var(--color-surface-2)',border:'1px solid var(--color-border)',color:'var(--color-text)',borderRadius:'var(--radius-button)'}} /></Field></div></>}
 
-              {tab==='content' && <div className="flex h-56 flex-col items-center justify-center gap-3"><Folder className="h-9 w-9" style={{color:'var(--color-primary)'}} /><div className="text-center"><p className="text-sm font-black" style={{color:'var(--color-text)'}}>{t('instanceUi.contentTitle')}</p><p className="mt-1 text-xs" style={{color:'var(--color-text-secondary)'}}>{t('instanceUi.contentDescription')}</p></div><button onClick={() => navigate(`/library/${inst.id}`)} className="rounded-xl px-4 py-2 text-xs font-black" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>{t('instanceUi.openInstance')}</button></div>}
+              {tab==='content' && <DeletedContentPanel instanceId={inst.id} />}
               {tab==='maintenance' && <div className="space-y-3"><section className="p-4" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-card)' }}><div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Safe Mode</p></div><p className="mt-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>Temporarily disables Java mods without removing worlds, configs, resource packs or shaders. Use it only to diagnose a launch crash.</p></section><UpdateRollbackPanel instanceId={inst.id} /><section className="p-4" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-card)' }}><div className="flex items-center gap-2"><Database className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Manual backup</p></div><p className="mt-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>Use a full backup before changing Minecraft version, loader, worlds or configs. Update rollback restores only files changed by a recorded mod update.</p></section><button onClick={() => navigate(`/library/${inst.id}`)} className="rounded-xl px-4 py-2 text-xs font-black" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>Open maintenance tools</button></div>}
             </div>
           </motion.main>

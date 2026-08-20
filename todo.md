@@ -987,3 +987,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the gallery and keyboard-navigation improvements to GitHub main.
 
 ---
+
+# Deleted content recovery and translucent instance settings
+
+- [x] Ensure deleting any supported instance content — mods, resource packs, shaders, data packs and worlds where applicable — moves its file and metadata to the recovery area instead of silently losing it.
+- [x] Add restore and permanent-delete actions for each deleted content item, and apply the Advanced deleted-content retention period to every content type.
+- [x] Ensure deleted-instance cards provide restore and permanent delete with no empty nonfunctional controls.
+- [x] Make the instance-settings surface subtly translucent so the current page background remains visible while all text stays readable.
+- [x] Run TypeScript-only verification and commit/push deleted-content recovery and instance-settings visual improvements to GitHub main.
+
+---

@@ -814,7 +814,7 @@ function AdvancedSection() {
         )}
       </div>
 
-      <Row label="Автоочистка удалённых сборок" desc="Удалённые сборки можно восстановить до окончания выбранного срока.">
+      <Row label="Автоочистка удалённых материалов" desc="Удалённые сборки, моды, ресурс-паки, шейдеры, дата-паки и миры можно восстановить до окончания выбранного срока.">
         <select value={s.deletedInstanceRetentionMinutes} onChange={event => s.setSetting('deletedInstanceRetentionMinutes', Number(event.target.value))} className="rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }}>
           <option value={15}>15 минут</option>
           <option value={60}>1 час</option>

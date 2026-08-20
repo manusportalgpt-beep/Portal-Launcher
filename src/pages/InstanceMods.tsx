@@ -279,7 +279,8 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
 
   const loadDeletedMods = useCallback(async () => {
     try {
-      setDeletedMods(await invoke<Array<{ id: string; timestamp: string; file_name: string; mod_type: string; was_disabled: boolean }>>('list_deleted_mods', { instanceId }) || []);
+      const retentionMinutes = useSettingsStore.getState().deletedInstanceRetentionMinutes;
+      setDeletedMods(await invoke<Array<{ id: string; timestamp: string; file_name: string; mod_type: string; was_disabled: boolean }>>('list_deleted_mods', { instanceId, retentionMinutes }) || []);
     } catch { setDeletedMods([]); }
   }, [instanceId]);
 

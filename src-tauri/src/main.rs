@@ -186,6 +186,7 @@ fn main() {
             commands::mods::list_deleted_mods,
             commands::mods::restore_deleted_mod,
             commands::mods::permanently_delete_deleted_mod,
+            commands::mods::permanently_delete_all_deleted_mods,
             commands::mods::undo_last_mod_action,
             commands::mods::set_instance_safe_mode,
             commands::mods::check_mod_updates,

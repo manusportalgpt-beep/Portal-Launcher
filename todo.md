@@ -1088,3 +1088,11 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the per-instance RAM repair to GitHub main.
 
 ---
+
+# Empty deleted-content trash
+
+- [x] Add a confirmed «Удалить всё» action that permanently clears only the deleted-content trash of the selected instance.
+- [x] Refresh the deleted-content list and leave active instance files, worlds, settings and other instances untouched.
+- [x] Run TypeScript-only verification and commit/push the deleted-content bulk delete to GitHub main.
+
+---

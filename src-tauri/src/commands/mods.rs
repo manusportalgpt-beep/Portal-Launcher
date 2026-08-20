@@ -981,6 +981,33 @@ pub async fn permanently_delete_deleted_mod(instance_id: String, id: String) -> 
     save_deleted_mods(&instance_id, &entries)
 }
 
+/// Permanently clear only the recovery entries that belong to one instance.
+/// Active content under .minecraft and recovery data of all other instances
+/// remain untouched.
+#[tauri::command]
+pub async fn permanently_delete_all_deleted_mods(instance_id: String) -> Result<usize, String> {
+    let entries = load_deleted_mods(&instance_id);
+    let count = entries.len();
+
+    for entry in &entries {
+        if entry.recovery_name.is_empty()
+            || entry.recovery_name.contains(&['/', '\\'][..])
+            || entry.recovery_name.contains("..")
+        {
+            return Err("Некорректная запись в корзине сборки".to_string());
+        }
+        let recovery = deleted_mods_dir(&instance_id, &entry.mod_type).join(&entry.recovery_name);
+        if recovery.is_dir() {
+            std::fs::remove_dir_all(&recovery).map_err(|error| format!("Окончательное удаление папки: {error}"))?;
+        } else if recovery.exists() {
+            std::fs::remove_file(&recovery).map_err(|error| format!("Окончательное удаление файла: {error}"))?;
+        }
+    }
+
+    save_deleted_mods(&instance_id, &[])?;
+    Ok(count)
+}
+
 #[tauri::command]
 pub async fn toggle_mod(instance_id: String, file_name: String, mod_type: Option<String>, enabled: bool) -> Result<(), String> {
     let kind = mod_type.unwrap_or_else(|| "mod".to_string());

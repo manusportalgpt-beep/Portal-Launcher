@@ -747,3 +747,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the Adaptive Tab Color fix to GitHub main.
 
 ---
+
+# Skin Studio stand, lighting and tracking refinement
+
+- [x] Remove random/alternate idle poses and keep one stable standing pose in Skin Studio.
+- [x] Add a restrained white top-light reflection effect without bleaching the skin texture or shadow.
+- [x] Correct and smooth head/body cursor tracking with clamped, natural axes and no inverted directions.
+- [x] Run TypeScript only and commit/push the Skin Studio refinement to GitHub main.
+
+---

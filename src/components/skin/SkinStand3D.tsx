@@ -11,7 +11,7 @@ type Object3D = any;
 
 /**
  * 3D-стенд со скином Minecraft: геометрия 64×64, classic/slim руки,
- * второй слой и плащ 64×32. Стенд поддерживает вращение и idle-анимацию.
+ * второй слой и плащ 64×32. Стенд сохраняет одну спокойную стойку и поддерживает вращение.
  */
 
 export type SkinModel = 'classic' | 'slim';
@@ -34,7 +34,7 @@ interface Props {
   autoRotate?: boolean;
   /** Базовая дистанция камеры для больших стендов. */
   cameraDistance?: number;
-  /** Изменение этого значения запускает короткую анимацию применения скина. */
+  /** Сохраняется для совместимости существующих вызовов; отдельная анимация применения отключена. */
   applySequence?: number;
   /** Голова модели плавно следует за курсором внутри стенда. */
   trackCursor?: boolean;
@@ -132,13 +132,13 @@ export function SkinStand3D({
     renderer.domElement.style.pointerEvents = interactive || trackCursor ? 'auto' : 'none';
     renderer.domElement.style.display = 'block';
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.92));
-    const key = new THREE.DirectionalLight(0xffffff, 0.55);
-    key.position.set(12, 18, 24);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x101521, 1.1));
+    const key = new THREE.DirectionalLight(0xffffff, 1.35);
+    key.position.set(-5, 28, 22);
     scene.add(key);
-    const rim = new THREE.DirectionalLight(0xff5566, 0.28);
-    rim.position.set(-16, 6, -18);
-    scene.add(rim);
+    const topGlow = new THREE.PointLight(0xffffff, 0.62, 70, 2);
+    topGlow.position.set(0, 26, 10);
+    scene.add(topGlow);
 
     const player = new THREE.Group();
     scene.add(player);
@@ -151,8 +151,7 @@ export function SkinStand3D({
     shadow.scale.set(1.36, 0.58, 1);
     shadow.position.set(0, -16.2, -0.5);
     scene.add(shadow);
-    const idlePoses = interactive && height >= 300 ? ['stand', 'sit', 'jump'] : ['stand'];
-    const st: any = { scene, camera, renderer, player, shadow, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [], meshMaterials: [], whiteApplied: false, applyStartedAt: 0, inspectUntil: 0, standUntil: 0, idlePose: idlePoses[Math.floor(Math.random() * idlePoses.length)], poseBlend: 0, particle: null, particleBase: null, headTargetYaw: 0, headTargetPitch: 0, bodyTargetYaw: 0, bodyTargetPitch: 0, bodyFollowYaw: 0, bodyFollowPitch: 0, legs: null };
+    const st: any = { scene, camera, renderer, player, shadow, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [], meshMaterials: [], headTargetYaw: 0, headTargetPitch: 0, bodyTargetYaw: 0, bodyTargetPitch: 0, bodyFollowYaw: 0, bodyFollowPitch: 0, legs: null };
     stateRef.current = st;
 
     const resize = () => {
@@ -168,7 +167,6 @@ export function SkinStand3D({
 
     const onDown = (e: PointerEvent) => {
       st.drag = { x: e.clientX, y: e.clientY };
-      st.standUntil = performance.now() + 1100;
       renderer.domElement.style.cursor = 'grabbing';
     };
     const onMove = (e: PointerEvent) => {
@@ -176,10 +174,12 @@ export function SkinStand3D({
         const rect = renderer.domElement.getBoundingClientRect();
         const nx = Math.max(-1, Math.min(1, ((e.clientX - rect.left) / Math.max(rect.width, 1) - 0.5) * 2));
         const ny = Math.max(-1, Math.min(1, ((e.clientY - rect.top) / Math.max(rect.height, 1) - 0.5) * 2));
-        st.headTargetYaw = nx * 0.34;
-        st.headTargetPitch = ny * 0.18;
-        st.bodyTargetYaw = nx * 0.085;
-        st.bodyTargetPitch = ny * 0.028;
+        // Positive X points to the preview's right; positive Three.js X pitch looks down,
+        // therefore vertical tracking needs the opposite sign to follow the cursor naturally.
+        st.headTargetYaw = nx * 0.38;
+        st.headTargetPitch = -ny * 0.22;
+        st.bodyTargetYaw = nx * 0.058;
+        st.bodyTargetPitch = -ny * 0.018;
       }
       if (!st.drag) return;
       st.yaw += (e.clientX - st.drag.x) * 0.01;
@@ -188,8 +188,13 @@ export function SkinStand3D({
     };
     const onUp = () => {
       st.drag = null;
-      st.standUntil = performance.now() + 700;
       renderer.domElement.style.cursor = 'grab';
+    };
+    const onLeave = () => {
+      st.headTargetYaw = 0;
+      st.headTargetPitch = 0;
+      st.bodyTargetYaw = 0;
+      st.bodyTargetPitch = 0;
     };
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -198,6 +203,7 @@ export function SkinStand3D({
     };
     if (interactive || trackCursor) {
       renderer.domElement.addEventListener('pointermove', onMove);
+      renderer.domElement.addEventListener('pointerleave', onLeave);
     }
     if (interactive) {
       renderer.domElement.addEventListener('pointerdown', onDown);
@@ -205,99 +211,36 @@ export function SkinStand3D({
       renderer.domElement.addEventListener('wheel', onWheel, { passive:false });
     }
 
-    let t = 0;
+    let lastFrame = performance.now();
     const loop = () => {
       st.raf = requestAnimationFrame(loop);
-      t += 0.016;
+      const now = performance.now();
+      const deltaSeconds = Math.min(0.05, (now - lastFrame) / 1000);
+      lastFrame = now;
       if (autoRotate && !st.drag) st.yaw += 0.0035;
-      const bodyFollow = trackCursor ? 0.08 : 0.12;
+      const bodyFollow = 1 - Math.exp(-deltaSeconds * (trackCursor ? 8 : 10));
       st.bodyFollowYaw += ((trackCursor ? st.bodyTargetYaw : 0) - st.bodyFollowYaw) * bodyFollow;
       st.bodyFollowPitch += ((trackCursor ? st.bodyTargetPitch : 0) - st.bodyFollowPitch) * bodyFollow;
       player.rotation.y = st.yaw + st.bodyFollowYaw;
       player.rotation.x = st.pitch + st.bodyFollowPitch;
       if (st.head) {
-        const follow = trackCursor ? 0.16 : 0.11;
+        const follow = 1 - Math.exp(-deltaSeconds * (trackCursor ? 12 : 10));
         st.head.rotation.y += ((trackCursor ? st.headTargetYaw : 0) - st.head.rotation.y) * follow;
         st.head.rotation.x += ((trackCursor ? st.headTargetPitch : 0) - st.head.rotation.x) * follow;
       }
-      if (st.applyStartedAt) {
-        const progress = Math.min(1, (performance.now() - st.applyStartedAt) / 1120);
-        const whiteFlash = progress > 0.08 && progress < 0.21;
-        if (whiteFlash !== st.whiteApplied) {
-          st.whiteApplied = whiteFlash;
-          st.meshes.forEach((mesh: Mesh, index: number) => { mesh.material = whiteFlash ? st.whiteMaterial : st.meshMaterials[index]; });
-        }
-        const turn = Math.sin(Math.min(1, progress / 0.78) * Math.PI) * Math.PI * 1.1;
-        player.rotation.y = st.yaw + turn;
-        const pulse = 1 + Math.sin(Math.min(1, progress / 0.5) * Math.PI) * 0.045;
-        player.scale.setScalar(pulse);
-        if (st.particle) {
-          st.particle.visible = progress > 0.1 && progress < 0.97;
-          st.particle.rotation.y += 0.085;
-          const attribute = st.particle.geometry.getAttribute('position');
-          if (st.particleBase && attribute) {
-            for (let index = 0; index < attribute.count; index += 1) {
-              attribute.setY(index, st.particleBase[index * 3 + 1] + progress * (5 + (index % 5) * 0.45));
-            }
-            attribute.needsUpdate = true;
-          }
-          st.particle.material.opacity = Math.max(0, 1 - Math.max(0, progress - 0.12) / 0.85);
-        }
-        if (progress >= 1) {
-          if (st.whiteApplied) st.meshes.forEach((mesh: Mesh, index: number) => { mesh.material = st.meshMaterials[index]; });
-          st.whiteApplied = false;
-          player.scale.setScalar(1);
-          st.applyStartedAt = 0;
-          st.inspectUntil = performance.now() + 1250;
-          if (st.particle) {
-            player.remove(st.particle);
-            st.particle.geometry.dispose();
-            st.particle.material.dispose();
-            st.particle = null;
-          }
-        }
-      }
-      const now = performance.now();
-      const forceStanding = Boolean(st.drag) || st.applyStartedAt || st.inspectUntil > now || st.standUntil > now;
-      const activePose = forceStanding ? 'stand' : st.idlePose;
-      const poseTarget = activePose === 'stand' ? 1 : 0;
-      st.poseBlend += (poseTarget - st.poseBlend) * 0.075;
-      const idleLift = Math.sin(t * 1.35) * 0.28;
-      const sitting = activePose === 'sit' ? 1 - st.poseBlend : 0;
-      const jumping = activePose === 'jump' ? 1 - st.poseBlend : 0;
-      const jumpLift = jumping * (2.1 + Math.abs(Math.sin(t * 2.15)) * 2.1);
-      // Minecraft-ноги — это единые сегменты без коленей. Чтобы поза читалась как
-      // сидение, переносим корпус к земле и вытягиваем обе ноги вперёд от hip pivot.
-      player.position.y = idleLift - sitting * 11.1 + jumpLift;
-      player.rotation.z = Math.sin(t * 0.68) * 0.012;
-      if (st.shadow) {
-        const shadowScale = 1 - idleLift * 0.075;
-        st.shadow.scale.set(1.36 * shadowScale, 0.58 * shadowScale, 1);
-        st.shadow.material.opacity = 0.25 - Math.max(0, idleLift) * 0.045;
-      }
+      player.position.y = 0;
+      player.rotation.z = 0;
       if (st.arms) {
-        const inspecting = st.inspectUntil > now;
-        const sitArm = 0;
-        const jumpArm = jumping * -0.78;
-        st.arms.left.rotation.x = inspecting ? -0.74 + Math.sin(t * 3.2) * 0.04 : Math.sin(t * 1.12) * 0.075 + 0.018 + sitArm + jumpArm;
-        st.arms.right.rotation.x = inspecting ? -0.42 + Math.sin(t * 3.2 + 0.7) * 0.035 : -Math.sin(t * 1.12) * 0.075 - 0.018 - sitArm + jumpArm;
-        st.arms.left.rotation.z += ((inspecting ? 0.18 : 0) - st.arms.left.rotation.z) * 0.16;
-        st.arms.right.rotation.z += ((inspecting ? -0.1 : 0) - st.arms.right.rotation.z) * 0.16;
-        if (inspecting && st.head) {
-          st.head.rotation.x += (0.22 - st.head.rotation.x) * 0.09;
-          st.head.rotation.y += (0.22 - st.head.rotation.y) * 0.07;
-        }
+        st.arms.left.rotation.set(0, 0, 0);
+        st.arms.right.rotation.set(0, 0, 0);
       }
       if (st.legs) {
-        const step = Math.sin(t * 1.12) * 0.035;
-        const sitLeg = sitting * 1.43;
-        const jumpLeg = jumping * (0.24 + Math.sin(t * 2.15) * 0.1);
-        st.legs.left.rotation.x = step + sitLeg + jumpLeg;
-        st.legs.right.rotation.x = -step + sitLeg + jumpLeg;
+        st.legs.left.rotation.x = 0;
+        st.legs.right.rotation.x = 0;
       }
       if (st.cape) {
-        st.cape.rotation.x = 0.18 + Math.sin(t * 1.1) * 0.05;
-        st.cape.rotation.z = Math.sin(t * 0.72) * 0.016;
+        st.cape.rotation.x = 0.18;
+        st.cape.rotation.z = 0;
       }
       renderer.render(scene, camera);
     };
@@ -308,6 +251,7 @@ export function SkinStand3D({
       ro.disconnect();
       if (interactive || trackCursor) {
         renderer.domElement.removeEventListener('pointermove', onMove);
+        renderer.domElement.removeEventListener('pointerleave', onLeave);
       }
       if (interactive) {
         renderer.domElement.removeEventListener('pointerdown', onDown);
@@ -320,52 +264,13 @@ export function SkinStand3D({
       });
       st.tex?.dispose?.();
       st.capeTex?.dispose?.();
-      st.whiteMaterial?.dispose?.();
       st.shadow?.geometry?.dispose?.();
       st.shadow?.material?.dispose?.();
-      st.particle?.geometry?.dispose?.();
-      st.particle?.material?.dispose?.();
       renderer.dispose();
       host.removeChild(renderer.domElement);
       stateRef.current = null;
     };
   }, [height, initialYaw, interactive, autoRotate, cameraDistance, trackCursor]);
-
-  useEffect(() => {
-    const st = stateRef.current;
-    if (!st || !applySequence || !st.player) return;
-    st.applyStartedAt = performance.now();
-    st.whiteMaterial?.dispose?.();
-    st.whiteMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    if (st.particle) {
-      st.player.remove(st.particle);
-      st.particle.geometry.dispose();
-      st.particle.material.dispose();
-    }
-    const particleCount = 144;
-    const points = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
-    const neutralTheme = ['light', 'dark', 'system', 'glass-white'].includes(themeId);
-    const primary = new THREE.Color(neutralTheme ? '#ffffff' : getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#ffffff');
-    const white = new THREE.Color('#ffffff');
-    for (let index = 0; index < particleCount; index += 1) {
-      points[index * 3] = (Math.random() - 0.5) * 15;
-      points[index * 3 + 1] = (Math.random() - 0.5) * 24;
-      points[index * 3 + 2] = (Math.random() - 0.5) * 10;
-      const shade = neutralTheme ? white : white.clone().lerp(primary, 0.18 + (index % 7) * 0.1);
-      colors[index * 3] = shade.r;
-      colors[index * 3 + 1] = shade.g;
-      colors[index * 3 + 2] = shade.b;
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(points, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    const material = new THREE.PointsMaterial({ color: 0xffffff, vertexColors: true, size: 0.34, transparent: true, opacity: 0.96, depthWrite: false, blending: THREE.AdditiveBlending });
-    st.particleBase = points.slice();
-    st.particle = new THREE.Points(geometry, material);
-    st.particle.visible = false;
-    st.player.add(st.particle);
-  }, [applySequence, themeId]);
 
   // Перестройка модели: смена скина, типа тела или плаща.
   useEffect(() => {
@@ -394,9 +299,11 @@ export function SkinStand3D({
       st.tex?.dispose?.();
       st.tex = tex;
 
-      const solid = () => new THREE.MeshLambertMaterial({ map: tex });
-      const layer = () => new THREE.MeshLambertMaterial({
+      const solid = () => new THREE.MeshStandardMaterial({ map: tex, roughness: 0.58, metalness: 0 });
+      const layer = () => new THREE.MeshStandardMaterial({
         map: tex,
+        roughness: 0.58,
+        metalness: 0,
         transparent: true,
         alphaTest: 0.02,
         side: THREE.DoubleSide,

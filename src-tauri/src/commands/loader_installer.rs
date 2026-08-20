@@ -26,24 +26,35 @@ fn java_major_for_mc(mc_version: &str) -> u32 {
     }
 }
 
-/// Find Java using the managed JVM directory (Azul Zulu preferred).
-fn find_java_for_mc(mc_version: &str) -> String {
-    let j = super::jvm::find_java(java_major_for_mc(mc_version));
-    if j.is_empty() { "java".to_string() } else { j }
+/// Return only a verified, exact and 64-bit Java. Running a loader installer
+/// through Oracle javapath with an unrelated major version produces an opaque
+/// installer failure, so refuse it before launching the installer process.
+fn verified_java(major: u32, purpose: &str) -> Result<String, String> {
+    let path = super::jvm::find_java(major);
+    let Some(info) = super::jvm::run_java(&path) else {
+        return Err(format!("Для {purpose} требуется Java {major}, но Java не удалось запустить. Установите или выберите Java {major} в Настройки → Minecraft."));
+    };
+    if info.major_version != major || info.architecture.eq_ignore_ascii_case("x86") {
+        return Err(format!("Для {purpose} требуется 64-битная Java {major}, но найдено Java {} ({}, {}). Выберите Java {major} в Настройки → Minecraft; Oracle javapath не будет использован.", info.major_version, info.vendor, info.architecture));
+    }
+    Ok(path)
 }
 
-fn find_java_17() -> String {
-    let j = super::jvm::find_java(17);
-    if j.is_empty() { "java".to_string() } else { j }
+fn find_java_for_mc(mc_version: &str) -> Result<String, String> {
+    let major = java_major_for_mc(mc_version);
+    verified_java(major, &format!("установки загрузчика для Minecraft {mc_version}"))
+}
+
+fn find_java_17() -> Result<String, String> {
+    verified_java(17, "установщика Fabric")
 }
 
 fn is_modern_quilt_target(mc_version: &str) -> bool {
     mc_version.split('.').next().and_then(|part| part.parse::<u32>().ok()).unwrap_or(0) >= 26
 }
 
-fn find_java_21() -> String {
-    let j = super::jvm::find_java(21);
-    if j.is_empty() { find_java_17() } else { j }
+fn find_java_21() -> Result<String, String> {
+    verified_java(21, "установщика NeoForge")
 }
 
 async fn download_bytes(client: &reqwest::Client, url: &str) -> Result<bytes::Bytes, String> {
@@ -131,7 +142,7 @@ pub async fn install_fabric(mc_version: String, loader_version: String, instance
     let jar_path = mc_base_dir().join("fabric-installer.jar");
     std::fs::write(&jar_path, &download_bytes(&client, installer_url).await?).map_err(|e| e.to_string())?;
 
-    let java = find_java_17();
+    let java = find_java_17()?;
     let status = crate::utils::create_hidden_command(&java)
         .args(&["-jar", &jar_path.to_string_lossy(), "client",
             "-mcversion", &mc_version, "-loader", &lv,
@@ -195,7 +206,7 @@ pub async fn install_forge(mc_version: String, forge_version: String, instance_d
     std::fs::write(&jar_path, &download_bytes(&client, &installer_url).await?)
         .map_err(|e| format!("Download Forge installer: {e}"))?;
 
-    let java = find_java_for_mc(&mc_version);
+    let java = find_java_for_mc(&mc_version)?;
     let jar_str = jar_path.to_string_lossy().to_string();
 
     // Pre-1.13 Forge installers don't accept a target directory; they install to ~/.minecraft.
@@ -253,7 +264,7 @@ pub async fn install_quilt(mc_version: String, loader_version: String, instance_
     let jar_path = mc_base_dir().join("quilt-installer.jar");
     std::fs::write(&jar_path, &download_bytes(&client, installer_url).await?).map_err(|e| e.to_string())?;
 
-    let java = find_java_for_mc(&mc_version);
+    let java = find_java_for_mc(&mc_version)?;
     let status = crate::utils::create_hidden_command(&java)
         .args(&["-jar", &jar_path.to_string_lossy(), "install", "client",
             &mc_version, &lv, "--install-dir", &instance_dir])
@@ -320,7 +331,7 @@ pub async fn install_neoforge(mc_version: String, neoforge_version: String, inst
         })
     }
 
-    let java = find_java_21();
+    let java = find_java_21()?;
     let status = crate::utils::create_hidden_command(&java)
         .args(&["-jar", &jar_path.to_string_lossy(), "--installClient", &instance_dir])
         .status().map_err(|e| format!("Run NeoForge ({java}): {e}"))?;

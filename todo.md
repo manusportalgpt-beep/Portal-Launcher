@@ -1148,3 +1148,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the Java preference and status repair to GitHub main.
 
 ---
+
+# Loader installer Java compatibility
+
+- [x] Trace why NeoForge installation uses Oracle javapath instead of a validated Java 21 runtime.
+- [x] Require an exact 64-bit Java version for Forge, NeoForge, Quilt and Fabric installers; prepare managed Java only when no compatible runtime exists.
+- [x] Report a direct Java-version/architecture issue when a loader installer cannot start safely.
+- [x] Run TypeScript-only verification and commit/push the loader-installer Java repair to GitHub main.
+
+---

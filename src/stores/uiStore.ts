@@ -149,7 +149,7 @@ const defaults = {
   navItemOrder: ['home', 'discover', 'skins', 'library'],
   navHoverMs: 180,
   notchWidth: 72,
-  sidebarWidth: 184,
+  sidebarWidth: 148,
   navItemScale: 100,
   uiScale: 100,
   cornerRadius: 12,

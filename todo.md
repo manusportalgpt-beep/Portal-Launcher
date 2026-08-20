@@ -731,3 +731,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the navigation icon rendering fix to GitHub main.
 
 ---
+
+# Skin, Sidebar and screenshot viewer regressions
+
+- [x] Restore Skin Studio texture loading and selected preview rendering without replacing the user’s saved preset data.
+- [x] Reduce the default permanent Sidebar footprint while keeping labels, accessibility and usable icon targets.
+- [x] Add large accessible previous/next arrows to the screenshot viewer for moving between actual screenshots.
+- [x] Run TypeScript only and commit/push the regression repair to GitHub main.
+
+---

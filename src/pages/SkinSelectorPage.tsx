@@ -262,7 +262,7 @@ export function SkinSelectorPage() {
     if (!profile?.skin_url) return `https://crafatar.com/skins/${uuid}?_=${refreshKey}`;
     const separator = profile.skin_url.includes('?') ? '&' : '?';
     return `${profile.skin_url}${separator}_=${refreshKey}`;
-  }, [profile?.skin_url, uuid, refreshKey]);
+  }, [profile?.skin_url, profile?.skin_bytes, uuid, refreshKey]);
 
   const rememberAppliedSkin = (skin: SavedSkin) => setSkinHistory(previous => {
     const next = addSkinToHistory(previous, skin);

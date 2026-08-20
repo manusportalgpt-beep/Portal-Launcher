@@ -11,7 +11,7 @@ import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import {
   Package, FolderTree, Globe,
   Folder, FileText, Upload, Trash2, RefreshCw, Home, Search, Image as ImageIcon, Sparkles, Braces, Archive,
-  Compass, FolderPlus, X, Sword, Blocks, Skull, Eye, ArrowUpDown, ShieldAlert, CheckCircle2, History, Undo2, Camera, Save, Edit3,
+  Compass, FolderPlus, X, Sword, Blocks, Skull, Eye, ArrowUpDown, ShieldAlert, CheckCircle2, History, Undo2, Camera, Save, Edit3, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
 type ModEntry = {
@@ -168,6 +168,12 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   const [progressMap, setProgressMap] = useState<Record<string, { percent: number; message?: string }>>({});
   const [mainTab, setMainTab] = useState<MainTab>('content');
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
+  const selectedScreenshotIndex = selectedScreenshot ? screenshots.findIndex(item => item.path === selectedScreenshot.path) : -1;
+  const selectScreenshotOffset = (offset: number) => {
+    if (selectedScreenshotIndex < 0 || screenshots.length < 2) return;
+    const next = (selectedScreenshotIndex + offset + screenshots.length) % screenshots.length;
+    setSelectedScreenshot(screenshots[next]);
+  };
   const [search, setSearch] = useState('');
   const [healthLoading, setHealthLoading] = useState(false);
   const [conflicts, setConflicts] = useState<Array<{ mod_a: string; mod_b: string; reason: string }>>([]);
@@ -883,7 +889,11 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setSelectedScreenshot(null)}>
           <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 border-b px-4 py-3" style={{ borderColor:'var(--color-border)' }}><Camera className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color:'var(--color-text)' }}>{selectedScreenshot.name}</p><button onClick={() => navigator.clipboard?.writeText(selectedScreenshot.path)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>Копировать путь</button><button onClick={() => invoke('instance_open_dir', { instanceId, path:'screenshots' }).catch(() => {})} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>Показать в папке</button><button onClick={() => setSelectedScreenshot(null)} className="rounded-lg p-1.5" style={{ color:'var(--color-text-secondary)' }}><X className="h-4 w-4" /></button></div>
-            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-5" style={{ background:'radial-gradient(circle, var(--color-surface-2), var(--color-bg))' }}><img src={selectedScreenshot.url} alt={selectedScreenshot.name} className="max-h-[70vh] max-w-full rounded-xl object-contain shadow-2xl" /></div>
+            <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-5" style={{ background:'radial-gradient(circle, var(--color-surface-2), var(--color-bg))' }}>
+              {screenshots.length > 1 && <button onClick={() => selectScreenshotOffset(-1)} title="Предыдущий скриншот" className="absolute left-6 z-10 grid h-14 w-14 place-items-center rounded-2xl transition-transform hover:scale-105 active:scale-95" style={{ background:'color-mix(in srgb, var(--color-surface) 86%, transparent)', border:'1px solid var(--color-border)', color:'var(--color-text)', boxShadow:'var(--shadow-md)' }}><ChevronLeft className="h-8 w-8" /></button>}
+              <img src={selectedScreenshot.url} alt={selectedScreenshot.name} className="max-h-[70vh] max-w-full rounded-xl object-contain shadow-2xl" />
+              {screenshots.length > 1 && <button onClick={() => selectScreenshotOffset(1)} title="Следующий скриншот" className="absolute right-6 z-10 grid h-14 w-14 place-items-center rounded-2xl transition-transform hover:scale-105 active:scale-95" style={{ background:'color-mix(in srgb, var(--color-surface) 86%, transparent)', border:'1px solid var(--color-border)', color:'var(--color-text)', boxShadow:'var(--shadow-md)' }}><ChevronRight className="h-8 w-8" /></button>}
+            </div>
             <div className="flex items-center justify-center gap-2 border-t px-4 py-3" style={{ borderColor:'var(--color-border)' }}><button onClick={() => setEditorScreenshot(selectedScreenshot)} className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Edit3 className="h-3.5 w-3.5" />Редактировать</button><button onClick={async () => { await invoke('delete_instance_screenshot', { id: instanceId, fileName: selectedScreenshot.name }); setSelectedScreenshot(null); await loadScreenshots(); }} className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold" style={{ background:'rgba(231,76,60,.12)', color:'var(--color-error)' }}><Trash2 className="h-3.5 w-3.5" />Удалить</button></div>
           </div>
         </div>

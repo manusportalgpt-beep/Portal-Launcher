@@ -703,3 +703,10 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the regression repair to GitHub main.
 
 ---
+
+# Title Bar drag zone regression
+
+- [x] Restore the draggable Title Bar area over the Portal Launcher name and safe empty header space without making window controls or Notch Panel draggable.
+- [x] Run TypeScript only and commit/push the Title Bar drag-zone fix to GitHub main.
+
+---

@@ -710,3 +710,10 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the Title Bar drag-zone fix to GitHub main.
 
 ---
+
+# Find Projects TypeScript build regression
+
+- [x] Fix TS2367 ProjectType comparisons for resource packs, shaderpacks and datapacks in FindProjectsPage.
+- [x] Run TypeScript only and commit/push the Find Projects build fix to GitHub main.
+
+---

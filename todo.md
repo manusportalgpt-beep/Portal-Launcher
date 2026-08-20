@@ -878,3 +878,11 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the visual polish to GitHub main.
 
 ---
+
+# Notch Panel and tab geometry regression
+
+- [x] Separate the real Notch Panel and tab geometry so their visible surfaces never overlap.
+- [x] Reduce the default Notch Panel footprint and offset it forward from the tab with a stable visual gap.
+- [x] Run TypeScript only and commit/push the Notch Panel geometry fix to GitHub main.
+
+---

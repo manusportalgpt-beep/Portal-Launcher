@@ -199,15 +199,15 @@ function NotchNav() {
     position: 'fixed',
     // Keep the dock just below the native-looking Title Bar rather than
     // clipping its top edge behind it. It still sits above page content.
-    zIndex: 190,
+    zIndex: 250,
     display: 'flex',
     alignItems: 'center',
     justifyContent: align,
     pointerEvents: 'none',
     ...crossAxisPosition,
     ...(vertical
-      ? { [notchSide]: 0, width: 18, height: 44 }
-      : { [notchSide]: notchSide === 'top' ? titlebarHeight : 0, width: 44, height: 18 }),
+      ? { [notchSide]: 0, width: 14, height: 40 }
+      : { [notchSide]: notchSide === 'top' ? titlebarHeight : 0, width: 40, height: 14 }),
   };
 
   const offset = vertical ? { x: isStart ? -14 : 14 } : { y: isStart ? -14 : 14 };
@@ -221,8 +221,8 @@ function NotchNav() {
         className="flex items-center justify-center"
         style={{
           pointerEvents: 'auto',
-          height: vertical ? '100%' : 18,
-          width: vertical ? 18 : '100%',
+          height: vertical ? '100%' : 14,
+          width: vertical ? 14 : '100%',
           flexDirection: vertical ? 'row' : 'column',
           alignSelf: vertical ? align : 'auto',
         }}
@@ -233,7 +233,7 @@ function NotchNav() {
               className="rounded-full"
               style={{
                 background: 'var(--color-border-strong)',
-                ...(vertical ? { width: 8, height: 40 } : { width: 40, height: 8 }),
+                ...(vertical ? { width: 6, height: 34 } : { width: 34, height: 6 }),
               }} />
           )}
         </AnimatePresence>
@@ -245,8 +245,11 @@ function NotchNav() {
               transition={{ duration: 0.12, ease: [0.22, 0.78, 0.24, 1] }}
               className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1 rounded-xl`}
               style={{
-                padding: Math.max(visualPanelVersion === 'new' ? 7 : 5, appearance.edgePadding / 2),
-                gap: appearance.gap,
+                position: 'absolute',
+                zIndex: 1,
+                ...(vertical ? { [isStart ? 'left' : 'right']: 22 } : { [isStart ? 'top' : 'bottom']: 22 }),
+                padding: Math.max(visualPanelVersion === 'new' ? 5 : 4, Math.min(5, appearance.edgePadding / 2)),
+                gap: Math.min(appearance.gap, 3),
                 background: visualPanelVersion === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${appearance.opacity}%, transparent)`,
                 border: `1px solid ${borderColor}`,
                 borderRadius: visualPanelVersion === 'new' ? 'var(--radius-modal)' : 'var(--radius-xl)',

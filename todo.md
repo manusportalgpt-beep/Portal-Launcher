@@ -1021,3 +1021,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the critical launch and instance-isolation repair to GitHub main.
 
 ---
+
+# Shared Minecraft runtime cache recovery
+
+- [x] Trace the shared version, game JAR and loader-cache preparation path causing TinyRemapper `Unfixable conflicts` across loaders.
+- [x] Safely validate and recover only corrupted runtime artifacts, preserving instance mods, worlds, screenshots, configs and account data.
+- [x] Report the recovery stage and retry the affected profile once without leaving the launcher in a stale running state.
+- [x] Run TypeScript-only verification and commit/push the shared runtime-cache repair to GitHub main.
+
+---

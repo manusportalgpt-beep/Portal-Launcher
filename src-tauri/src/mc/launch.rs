@@ -262,7 +262,10 @@ pub async fn launch_instance(
     // Если обязательных файлов ещё нет, первый вызов только подготавливает
     // окружение. Пользователь запускает Minecraft отдельной кнопкой после
     // завершения загрузки.
-    status("resolve", "Читаю метаданные версии…");
+    // resolve_version validates the shared vanilla/profile cache before it is
+    // reused. A mismatched loader profile is discarded and fetched again here,
+    // while per-instance mods, worlds and settings stay untouched.
+    status("resolve", "Проверяю Minecraft и совместимость загрузчика…");
     let client = http();
     let mut prepared_only = !version_jar_path(&instance.mc_version).exists()
         || !natives_dir(&instance.mc_version).exists();

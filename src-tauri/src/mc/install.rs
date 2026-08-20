@@ -152,9 +152,27 @@ pub async fn ensure_version_json(
     if path.exists() {
         if let Ok(raw) = std::fs::read_to_string(&path) {
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
-                return Ok(v);
+                // A previous loader install used to be able to leave a merged
+                // loader profile in the vanilla-version slot. That makes every
+                // loader start against the wrong parent metadata and Fabric can
+                // fail much later with TinyRemapper "Unfixable conflicts".
+                // Never reuse a cached vanilla file unless it is demonstrably
+                // the requested Minecraft release and contains its client JAR.
+                let is_requested_vanilla = v["id"].as_str() == Some(version_id)
+                    && v["downloads"]["client"]["url"].as_str().is_some();
+                if is_requested_vanilla {
+                    return Ok(v);
+                }
+                log::warn!(
+                    "Игнорирую несовместимый кэш version.json для {}: id={:?}",
+                    version_id,
+                    v["id"].as_str()
+                );
             }
         }
+        // Keep user instances untouched: only the globally cached metadata is
+        // replaced on the next download.
+        let _ = std::fs::remove_file(&path);
     }
     let manifest = fetch_manifest(client).await?;
     let entry = manifest["versions"]
@@ -225,13 +243,18 @@ pub async fn resolve_version(
         return Ok((vanilla, version_id.to_string()));
     }
 
-    // 1. Локально установленный профиль (Forge / NeoForge / ручная установка)
-    if let Some(profile_id) = find_local_loader_profile(&loader, version_id, loader_version) {
-        let raw = std::fs::read_to_string(version_json_path(&profile_id))
-            .map_err(|e| format!("Профиль {profile_id}: {e}"))?;
-        let child: serde_json::Value =
-            serde_json::from_str(&raw).map_err(|e| format!("Разбор {profile_id}: {e}"))?;
-        return Ok((merge_inherited(&child, &vanilla), profile_id));
+    // 1. Локально установленный профиль (Forge / NeoForge / ручная установка).
+    // A blank Fabric/Quilt version means "latest", so it must not reuse an
+    // arbitrary old profile from the shared cache. An exact loader version can
+    // reuse only a profile that explicitly inherits from this Minecraft version.
+    if !loader_version.trim().is_empty() {
+        if let Some(profile_id) = find_local_loader_profile(&loader, version_id, loader_version) {
+            let raw = std::fs::read_to_string(version_json_path(&profile_id))
+                .map_err(|e| format!("Профиль {profile_id}: {e}"))?;
+            let child: serde_json::Value =
+                serde_json::from_str(&raw).map_err(|e| format!("Разбор {profile_id}: {e}"))?;
+            return Ok((merge_inherited(&child, &vanilla), profile_id));
+        }
     }
 
     // 2. Fabric / Quilt — получаем профиль из meta API
@@ -254,6 +277,11 @@ pub async fn resolve_version(
             .map_err(|e| e.to_string())?;
         let child: serde_json::Value =
             serde_json::from_str(&text).map_err(|e| format!("Разбор профиля {loader}: {e}"))?;
+        if !loader_profile_matches(&child, &loader, version_id, &lv) {
+            return Err(format!(
+                "Получен несовместимый профиль {loader} {lv} для Minecraft {version_id}; кэш не изменён. Повторите установку загрузчика."
+            ));
+        }
         let profile_id = child["id"]
             .as_str()
             .unwrap_or(&format!("{loader}-loader-{lv}-{version_id}"))
@@ -293,24 +321,76 @@ async fn fetch_latest_loader(
 }
 
 fn find_local_loader_profile(loader: &str, mc: &str, loader_version: &str) -> Option<String> {
+    if loader_version.trim().is_empty() {
+        return None;
+    }
     let dir = versions_dir();
     let entries = std::fs::read_dir(dir).ok()?;
-    let mut best: Option<String> = None;
     for e in entries.flatten() {
         let name = e.file_name().to_string_lossy().to_string();
         let lower = name.to_lowercase();
-        if !lower.contains(loader) || !name.contains(mc) {
+        if !lower.contains(loader) || !name.contains(loader_version) {
             continue;
         }
-        if !version_json_path(&name).exists() {
+        let path = version_json_path(&name);
+        if !path.exists() {
             continue;
         }
-        if !loader_version.is_empty() && name.contains(loader_version) {
+        let Ok(raw) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let Ok(profile) = serde_json::from_str::<serde_json::Value>(&raw) else {
+            continue;
+        };
+        // Matching folder names alone is unsafe: e.g. 1.21.1 is a substring
+        // of 1.21.10. The profile itself must name this exact parent version
+        // and its own id must describe the selected loader/version.
+        if loader_profile_matches(&profile, loader, mc, loader_version) {
             return Some(name);
         }
-        best = Some(name);
     }
-    best
+    None
+}
+
+fn loader_profile_matches(
+    profile: &serde_json::Value,
+    loader: &str,
+    mc_version: &str,
+    loader_version: &str,
+) -> bool {
+    let Some(id) = profile["id"].as_str() else {
+        return false;
+    };
+    let normalized_id = id.to_lowercase();
+    normalized_id.contains(loader)
+        && profile["inheritsFrom"].as_str() == Some(mc_version)
+        && (loader_version.trim().is_empty() || id.contains(loader_version))
+}
+
+#[cfg(test)]
+mod loader_profile_tests {
+    use super::loader_profile_matches;
+    use serde_json::json;
+
+    #[test]
+    fn rejects_a_similar_but_different_minecraft_parent() {
+        let profile = json!({
+            "id": "fabric-loader-0.19.3-1.21.10",
+            "inheritsFrom": "1.21.10"
+        });
+
+        assert!(!loader_profile_matches(&profile, "fabric", "1.21.1", "0.19.3"));
+    }
+
+    #[test]
+    fn accepts_the_exact_loader_and_minecraft_parent() {
+        let profile = json!({
+            "id": "fabric-loader-0.19.3-1.21.1",
+            "inheritsFrom": "1.21.1"
+        });
+
+        assert!(loader_profile_matches(&profile, "fabric", "1.21.1", "0.19.3"));
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

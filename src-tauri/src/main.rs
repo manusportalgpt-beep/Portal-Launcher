@@ -105,6 +105,7 @@ fn main() {
             commands::instances::list_screenshots,
             commands::instances::read_instance_screenshot,
             commands::instances::save_instance_screenshot,
+            commands::instances::download_project_screenshot,
             // Minecraft
             // Реальный запуск Minecraft (mc::launch)
             mc::launch::launch_instance,

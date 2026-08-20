@@ -1,7 +1,7 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronLeft, Download, Star, Calendar, Code, Camera,
+  ChevronLeft, ChevronRight, Download, Star, Calendar, Code, Camera,
   ExternalLink, Zap, X, Check, AlertCircle, TriangleAlert,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
@@ -249,8 +249,21 @@ function ModpackPreviewModal({ preview, onClose, onInstall }: { preview: Modpack
   );
 }
 
-function ProjectScreenshots({ items }: { items: Array<{ url: string; title?: string; description?: string }> }) {
+function ProjectScreenshots({ items, instanceId }: { items: Array<{ url: string; title?: string; description?: string }>; instanceId?: string | null }) {
   const [selected, setSelected] = useState<number | null>(null);
+  const [downloading, setDownloading] = useState<'downloads' | 'instance' | null>(null);
+  const [downloadStatus, setDownloadStatus] = useState('');
+  const move = (direction: -1 | 1) => setSelected(current => current === null ? current : (current + direction + items.length) % items.length);
+  const saveSelected = async (destination: 'downloads' | 'instance') => {
+    if (selected === null) return;
+    setDownloading(destination); setDownloadStatus('');
+    try {
+      const item = items[selected];
+      const path = await invoke<string>('download_project_screenshot', { url:item.url, fileName:item.title || `project-screenshot-${selected + 1}`, instanceId:destination === 'instance' ? instanceId : null });
+      setDownloadStatus(`Сохранено: ${path}`);
+    } catch (error) { setDownloadStatus(`Не удалось скачать: ${String(error)}`); }
+    finally { setDownloading(null); }
+  };
   if (!items.length) return (
     <div className="flex flex-col items-center justify-center rounded-2xl p-12 text-center" style={{ background: 'var(--color-surface-2)', border: '1px dashed var(--color-border)' }}>
       <Camera className="mb-3 h-8 w-8" style={{ color: 'var(--color-text-tertiary)' }} />
@@ -272,8 +285,8 @@ function ProjectScreenshots({ items }: { items: Array<{ url: string; title?: str
         {selected !== null && (
           <motion.div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelected(null)}>
             <motion.div className="relative max-h-full max-w-5xl overflow-hidden rounded-2xl" initial={{ scale: 0.96, y: 10 }} animate={{ scale: 1, y: 0 }} onClick={event => event.stopPropagation()} style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
-              <img src={items[selected].url} alt={items[selected].title || 'Mod screenshot'} className="max-h-[78vh] max-w-[88vw] object-contain" />
-              <div className="flex items-center justify-between gap-3 p-3"><span className="truncate text-xs font-bold" style={{ color: 'var(--color-text)' }}>{items[selected].title || 'Screenshot'}</span><button onClick={() => setSelected(null)} className="rounded-lg p-1.5" style={{ color: 'var(--color-text-secondary)', background: 'var(--color-surface-2)' }}><X className="h-4 w-4" /></button></div>
+              <div className="relative flex items-center justify-center"><img src={items[selected].url} alt={items[selected].title || 'Mod screenshot'} className="max-h-[78vh] max-w-[88vw] object-contain" />{items.length > 1 && <><button onClick={() => move(-1)} className="absolute left-4 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-2xl" style={{ background:'color-mix(in srgb, var(--color-surface) 92%, transparent)', color:'var(--color-text)', border:'1px solid var(--color-border)' }} title="Предыдущий скриншот"><ChevronLeft className="h-7 w-7" /></button><button onClick={() => move(1)} className="absolute right-4 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-2xl" style={{ background:'color-mix(in srgb, var(--color-surface) 92%, transparent)', color:'var(--color-text)', border:'1px solid var(--color-border)' }} title="Следующий скриншот"><ChevronRight className="h-7 w-7" /></button></>}</div>
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3"><span className="min-w-0 flex-1 truncate text-xs font-bold" style={{ color: 'var(--color-text)' }}>{items[selected].title || 'Screenshot'}</span><button disabled={downloading !== null} onClick={() => void saveSelected('downloads')} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold disabled:opacity-40" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Download className="h-3.5 w-3.5" />{downloading === 'downloads' ? 'Скачиваю…' : 'В загрузки'}</button>{instanceId && <button disabled={downloading !== null} onClick={() => void saveSelected('instance')} className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold disabled:opacity-40" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><Camera className="h-3.5 w-3.5" />В скриншоты сборки</button>}<button onClick={() => setSelected(null)} className="rounded-lg p-1.5" style={{ color: 'var(--color-text-secondary)', background: 'var(--color-surface-2)' }}><X className="h-4 w-4" /></button>{downloadStatus && <p className="basis-full text-[10px]" style={{ color:downloadStatus.startsWith('Не удалось') ? 'var(--color-error)' : 'var(--color-text-secondary)' }}>{downloadStatus}</p>}</div>
             </motion.div>
           </motion.div>
         )}
@@ -1118,7 +1131,7 @@ export function ModDetail() {
             </div>
           )}
 
-          {tab === 'screenshots' && <ProjectScreenshots items={project?.gallery ?? []} />}
+          {tab === 'screenshots' && <ProjectScreenshots items={project?.gallery ?? []} instanceId={contextInstanceId} />}
         </motion.div>
       </div>
 

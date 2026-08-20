@@ -1917,6 +1917,31 @@ pub fn save_instance_screenshot(id: String, file_name: String, data: Vec<u8>) ->
     std::fs::write(screenshot_dir.join(file_name), data).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub async fn download_project_screenshot(url: String, file_name: String, instance_id: Option<String>) -> Result<String, String> {
+    if !url.starts_with("https://") && !url.starts_with("http://") { return Err("Скриншот должен быть доступен по HTTP(S)-адресу".to_string()); }
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(20)).user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
+    let response = client.get(&url).send().await.map_err(|e| format!("Не удалось скачать скриншот: {e}"))?.error_for_status().map_err(|e| format!("Сервер скриншота вернул ошибку: {e}"))?;
+    let content_type = response.headers().get(reqwest::header::CONTENT_TYPE).and_then(|value| value.to_str().ok()).unwrap_or("").to_ascii_lowercase();
+    if !content_type.starts_with("image/") { return Err("Сервер вернул не изображение".to_string()); }
+    let bytes = response.bytes().await.map_err(|e| format!("Не удалось прочитать скриншот: {e}"))?;
+    if bytes.is_empty() || bytes.len() > 24 * 1024 * 1024 { return Err("Размер скриншота должен быть от 1 байта до 24 МБ".to_string()); }
+    let extension = if content_type.contains("jpeg") || content_type.contains("jpg") { "jpg" } else if content_type.contains("webp") { "webp" } else { "png" };
+    let stem: String = file_name.chars().filter(|value| value.is_ascii_alphanumeric() || matches!(value, '-' | '_')).collect();
+    let name = format!("{}.{}", if stem.is_empty() { format!("project-screenshot-{}", chrono::Utc::now().timestamp()) } else { stem }, extension);
+    let target_dir = match instance_id.filter(|id| !id.trim().is_empty()) {
+        Some(id) => {
+            let _instance = load_instance(&id).ok_or("Сборка для сохранения скриншота не найдена")?;
+            instances_dir().join(id).join(".minecraft").join("screenshots")
+        }
+        None => dirs_next::download_dir().or_else(|| dirs_next::home_dir().map(|home| home.join("Downloads"))).ok_or("Не удалось найти системную папку «Загрузки»")?,
+    };
+    std::fs::create_dir_all(&target_dir).map_err(|e| format!("Не удалось открыть папку сохранения: {e}"))?;
+    let target = target_dir.join(name);
+    std::fs::write(&target, bytes).map_err(|e| format!("Не удалось сохранить скриншот: {e}"))?;
+    Ok(target.to_string_lossy().to_string())
+}
+
 /// Import a detected external launcher instance by copying its complete game directory.
 /// `source_kind` is `prism` when the source has a `minecraft/` child directory;
 /// otherwise the selected directory itself is treated as the game root.

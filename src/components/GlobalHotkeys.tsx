@@ -8,6 +8,7 @@ const editable = (target: EventTarget | null) => target instanceof HTMLElement &
 export function GlobalHotkeys() {
   const navigate = useNavigate();
   const bindings = useHotkeyStore(state => state.bindings);
+  const keyboardNavigationEnabled = useHotkeyStore(state => state.keyboardNavigationEnabled);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -16,6 +17,22 @@ export function GlobalHotkeys() {
         return;
       }
       if (editable(event.target)) return;
+      if (keyboardNavigationEnabled && !document.querySelector('[data-portal-overlay="true"]')) {
+        const focusable = Array.from(document.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), [role="button"], [tabindex]:not([tabindex="-1"])'))
+          .filter(element => element.offsetParent !== null && !element.closest('[aria-hidden="true"]'));
+        if (event.code === 'Enter' && document.activeElement instanceof HTMLElement && focusable.includes(document.activeElement)) {
+          event.preventDefault(); document.activeElement.click(); return;
+        }
+        const direction = event.code === 'ArrowRight' || event.code === 'ArrowDown' ? 1 : event.code === 'ArrowLeft' || event.code === 'ArrowUp' ? -1 : 0;
+        if (direction && focusable.length) {
+          event.preventDefault();
+          const current = focusable.indexOf(document.activeElement as HTMLElement);
+          const next = current < 0 ? (direction > 0 ? 0 : focusable.length - 1) : (current + direction + focusable.length) % focusable.length;
+          focusable[next].focus({ preventScroll: true });
+          focusable[next].scrollIntoView({ block:'nearest', inline:'nearest', behavior:'smooth' });
+          return;
+        }
+      }
       const chord = normaliseHotkey(event);
       if (!chord) return;
       const action = (Object.entries(bindings).find(([, binding]) => binding === chord)?.[0] ?? null) as HotkeyAction | null;
@@ -27,6 +44,6 @@ export function GlobalHotkeys() {
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [bindings, navigate]);
+  }, [bindings, keyboardNavigationEnabled, navigate]);
   return null;
 }

@@ -977,3 +977,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the screenshot studio and Notch Panel changes to GitHub main.
 
 ---
+
+# Project screenshot gallery and keyboard navigation
+
+- [x] Add previous/next controls when a mod or modpack has more than one screenshot.
+- [x] Add safe download actions for the current project screenshot: system Downloads and, for an installed pack, the instance screenshots folder.
+- [x] Add a persisted keyboard-navigation preference, enabled by default, to Settings → Controls.
+- [x] Implement Arrow keys and Enter navigation without hijacking typing, open editors, dialogs or screenshot overlays.
+- [x] Run TypeScript-only verification and commit/push the gallery and keyboard-navigation improvements to GitHub main.
+
+---

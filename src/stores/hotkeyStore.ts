@@ -31,5 +31,5 @@ export function normaliseHotkey(event: KeyboardEvent): string | null {
   return parts.join('+');
 }
 
-interface HotkeyState { bindings: HotkeyBindings; setBinding: (action: HotkeyAction, binding: string) => void; reset: () => void; }
-export const useHotkeyStore = create<HotkeyState>()(persist((set) => ({ bindings: HOTKEY_DEFAULTS, setBinding: (action, binding) => set(state => ({ bindings: { ...state.bindings, [action]: binding } })), reset: () => set({ bindings: HOTKEY_DEFAULTS }) }), { name:'portal-launcher-hotkeys' }));
+interface HotkeyState { bindings: HotkeyBindings; keyboardNavigationEnabled: boolean; setBinding: (action: HotkeyAction, binding: string) => void; setKeyboardNavigationEnabled: (enabled: boolean) => void; reset: () => void; }
+export const useHotkeyStore = create<HotkeyState>()(persist((set) => ({ bindings: HOTKEY_DEFAULTS, keyboardNavigationEnabled: true, setBinding: (action, binding) => set(state => ({ bindings: { ...state.bindings, [action]: binding } })), setKeyboardNavigationEnabled: (enabled) => set({ keyboardNavigationEnabled: enabled }), reset: () => set({ bindings: HOTKEY_DEFAULTS, keyboardNavigationEnabled: true }) }), { name:'portal-launcher-hotkeys' }));

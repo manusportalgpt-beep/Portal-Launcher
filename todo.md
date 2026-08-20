@@ -723,3 +723,11 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Revert only the unnecessary FindProjectsPage type mapping change from b89abbc after the user confirmed the screenshot was unrelated.
 
 ---
+
+# Navigation icon rendering regression
+
+- [x] Remove navigation icon flicker/blur caused by overlapping active, hover and pressed surfaces.
+- [x] Set the default active and pressed navigation form to a square outline and keep the option configurable in Appearance.
+- [x] Run TypeScript only and commit/push the navigation icon rendering fix to GitHub main.
+
+---

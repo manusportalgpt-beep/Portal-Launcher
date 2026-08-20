@@ -45,16 +45,16 @@ function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem
       title={label}
       data-testid={`nav-${item.labelKey}`}
       className="group relative flex items-center justify-center gap-2 px-2.5 text-left"
-      style={{ width: showLabel ? '100%' : 36 * scale / 100, minWidth: 36 * scale / 100, height: showLabel ? 42 * scale / 100 : 32 * scale / 100, borderRadius: interactionRadius }}
+      style={{ width: showLabel ? '100%' : 36 * scale / 100, minWidth: 36 * scale / 100, height: showLabel ? 42 * scale / 100 : 32 * scale / 100, borderRadius: interactionRadius, isolation:'isolate' }}
     >
       {({ isActive }) => (
         <>
-          <span className="absolute inset-0 transition-colors"
-            style={{ borderRadius: interactionRadius, background: isActive ? activeIndicator === 'pill' ? 'var(--color-primary)' : uiMode === 'old' ? 'var(--color-surface-2)' : 'var(--color-primary-dim)' : 'transparent' }} />
-          <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100"
-            style={{ border: hoverIndicator === 'none' ? '0 solid transparent' : '1px solid color-mix(in srgb, var(--color-primary) 72%, transparent)', borderRadius: hoverIndicator === 'circle' ? '999px' : 'var(--radius-sm)', background: hoverIndicator === 'none' ? 'transparent' : 'color-mix(in srgb, var(--color-primary) 7%, transparent)' }} />
+          <span className="pointer-events-none absolute inset-0"
+            style={{ zIndex:-1, border:`1px solid ${isActive ? 'var(--color-primary)' : 'transparent'}`, borderRadius: interactionRadius, background: isActive ? activeIndicator === 'pill' ? 'var(--color-primary)' : uiMode === 'old' ? 'var(--color-surface-2)' : 'var(--color-primary-dim)' : 'transparent' }} />
+          {!isActive && <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100"
+            style={{ zIndex:-1, border: hoverIndicator === 'none' ? '0 solid transparent' : '1px solid color-mix(in srgb, var(--color-primary) 72%, transparent)', borderRadius: hoverIndicator === 'circle' ? '999px' : 'var(--radius-sm)', background: hoverIndicator === 'none' ? 'transparent' : 'color-mix(in srgb, var(--color-primary) 7%, transparent)', willChange:'opacity' }} />}
           <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-100 group-active:opacity-100"
-            style={{ borderRadius: interactionRadius, background: 'color-mix(in srgb, var(--color-primary) 18%, transparent)' }} />
+            style={{ zIndex:-1, border:'1px solid var(--color-primary)', borderRadius: interactionRadius, background:'transparent', willChange:'opacity' }} />
           <Icon size={16} strokeWidth={2} shapeRendering="geometricPrecision" vectorEffect="non-scaling-stroke" className="relative shrink-0" style={{
             position: 'relative',
             color: isActive ? activeIndicator === 'pill' ? 'var(--color-primary-text)' : 'var(--color-primary)' : 'var(--color-text-secondary)',

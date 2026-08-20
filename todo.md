@@ -936,3 +936,11 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the local `.mrpack` selection repair to GitHub main.
 
 ---
+
+# File action popover readability
+
+- [x] Raise the file action popover above surrounding controls and make its surface opaque under every theme.
+- [x] Ensure the popover label and icon use high-contrast theme-aware foreground colors.
+- [x] Run TypeScript-only verification and commit/push the file popover readability repair to GitHub main.
+
+---

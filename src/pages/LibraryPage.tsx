@@ -1302,14 +1302,14 @@ function ContentRow({ item, onToggle, onDelete, onShowInFolder }: { item:any; on
             style={{ background:'rgba(231,76,60,0.1)',color:'var(--color-error)' }} title="Delete">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
-          <div className="relative">
+          <div className={`relative ${menu ? 'z-[320]' : ''}`}>
             <button onClick={() => setMenu(v => !v)} className="w-6 h-6 rounded-lg flex items-center justify-center hover:bg-white/5">
               <MoreVertical className="w-3 h-3" style={{ color:'var(--color-text-secondary)' }} />
             </button>
             <AnimatePresence>
               {menu && (
-                <motion.div className="absolute right-0 bottom-full mb-1 z-20 rounded-xl overflow-hidden min-w-[130px]"
-                  style={{ background:'var(--color-surface-2)',border:'1px solid var(--color-border)',boxShadow:'var(--shadow-lg)' }}
+                <motion.div className="absolute right-0 bottom-full mb-1 z-[400] min-w-[148px] overflow-hidden rounded-xl"
+                  style={{ background:'var(--color-surface)', border:'1px solid var(--color-border-strong)', boxShadow:'var(--shadow-lg)', isolation:'isolate', backdropFilter:'none', WebkitBackdropFilter:'none' }}
                   initial={{ opacity:0,scale:0.9,y:4 }} animate={{ opacity:1,scale:1,y:0 }} exit={{ opacity:0,scale:0.9,y:4 }}
                   transition={{ duration:0.1 }}>
                   {[
@@ -1317,8 +1317,8 @@ function ContentRow({ item, onToggle, onDelete, onShowInFolder }: { item:any; on
                     { Icon:Folder, label:'Показать в папке', fn:onShowInFolder },
                   ].map(r => (
                     <button key={r.label} onClick={() => { r.fn(); setMenu(false); }}
-                      className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5"
-                      style={{ color:'var(--color-text-secondary)' }}>
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-white/5"
+                      style={{ color:'var(--color-text)' }}>
                       <r.Icon className="w-3.5 h-3.5 shrink-0" />{r.label}
                     </button>
                   ))}

@@ -232,10 +232,10 @@ function GameLogsModal({ instanceId, onClose, inline }: { instanceId: string; on
     </div>
   ) : (
     <motion.div className="fixed inset-0 z-50 flex flex-col"
-      style={{ background: 'color-mix(in srgb, var(--color-bg) 48%, rgba(0,0,0,0.82))', backdropFilter: 'blur(10px)' }}
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)' }}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <motion.div className="flex flex-col h-full max-w-5xl w-full mx-auto my-6 rounded-[28px] overflow-hidden"
-        style={{ background: 'color-mix(in srgb, var(--color-surface) 96%, transparent)', border: '1px solid color-mix(in srgb, var(--color-border) 78%, var(--color-primary))', boxShadow: 'var(--shadow-lg)' }}
+      <motion.div className="flex flex-col h-full max-w-5xl w-full mx-auto my-6 rounded-2xl overflow-hidden"
+        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-lg)' }}
         initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 400, damping: 32 }}>
         <LogsToolbar logs={logs} filter={filter} setFilter={setFilter} autoScroll={autoScroll}
@@ -253,7 +253,7 @@ function LogsToolbar({ logs, filter, setFilter, autoScroll, setAutoScroll, copie
 }) {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-wrap items-center gap-2.5 px-4 py-3.5 shrink-0" style={{ background:'linear-gradient(120deg, color-mix(in srgb, var(--color-surface-2) 84%, var(--color-primary) 10%), transparent)', borderBottom: '1px solid var(--color-border)' }}>
+    <div className="flex flex-wrap items-center gap-2.5 px-4 py-3.5 shrink-0" style={{ background:'linear-gradient(180deg, color-mix(in srgb, var(--color-surface-2) 55%, transparent), transparent)', borderBottom: '1px solid var(--color-border)' }}>
       <Terminal className="w-4 h-4 shrink-0" style={{ color: 'var(--color-primary)' }} />
       <h2 className="font-bold text-sm flex-1" style={{ color: 'var(--color-text)' }}>
         {t('libraryRuntime.logs')}
@@ -272,7 +272,7 @@ function LogsToolbar({ logs, filter, setFilter, autoScroll, setAutoScroll, copie
           className="bg-transparent text-xs w-36 outline-none"
           style={{ color: 'var(--color-text)' }} />
         {filter && (
-          <button type="button" onClick={() => setFilter('')} aria-label="Очистить фильтр журналов" className="rounded p-0.5 hover:opacity-70">
+          <button onClick={() => setFilter('')} className="hover:opacity-70">
             <X className="w-3 h-3" style={{ color: 'var(--color-text-tertiary)' }} />
           </button>
         )}
@@ -303,7 +303,7 @@ function LogsToolbar({ logs, filter, setFilter, autoScroll, setAutoScroll, copie
       </button>
 
       {onClose && (
-        <button type="button" onClick={onClose} aria-label="Закрыть журналы" className="w-8 h-8 flex items-center justify-center rounded-xl outline-none hover:bg-white/5 ml-1 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]">
+        <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/5 ml-1">
           <X className="w-4 h-4" style={{ color: 'var(--color-text-secondary)' }} />
         </button>
       )}
@@ -336,7 +336,7 @@ function LogsBody({ filtered, logs, filter, containerRef, bottomRef, setAutoScro
           <div className="flex flex-col items-center justify-center h-full gap-3 py-16">
             <FileText className="w-8 h-8" style={{ color: 'var(--color-text-tertiary)' }} />
             <p style={{ color: 'var(--color-text-secondary)' }}>
-              {logs.length === 0 ? 'Журнал пока пуст. Запустите игру, чтобы увидеть её вывод.' : 'Нет строк, соответствующих фильтру.'}
+              {logs.length === 0 ? 'No logs yet. Launch the game to see output.' : 'No matching log lines.'}
             </p>
           </div>
         ) : filtered.map((l, i) => (
@@ -363,7 +363,7 @@ function LogsBody({ filtered, logs, filter, containerRef, bottomRef, setAutoScro
         </div>
         <div className="flex-1" />
         <p className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-          {filter ? `${filtered.length} / ${logs.length} строк` : `Всего строк: ${logs.length}`}
+          {filter ? `${filtered.length} / ${logs.length} lines` : `${logs.length} lines total`}
         </p>
       </div>
     </>

@@ -442,6 +442,11 @@ function AppearanceSection() {
         options={[{ id: 'sidebar', label: 'Боковая панель' }, { id: 'notch', label: 'Notch-панель' }]}
         onChange={v => ui.set('navMode', v as any)} />
 
+      <SegRow label="Стиль интерфейса" desc="Классический сохраняет более строгие поверхности, новый использует мягкие акценты и расширенные скругления — для Notch и Sidebar одинаково"
+        value={ui.uiMode}
+        options={[{ id: 'old', label: 'Классический' }, { id: 'new', label: 'Новый' }]}
+        onChange={v => { ui.set('uiMode', v as any); ui.set('panelVersion', v as any); }} />
+
       {ui.navMode === 'notch' && (
         <>
           <SegRow label="Положение Notch-панели" desc="К какому краю окна прикреплена панель"
@@ -627,18 +632,6 @@ function AppearanceSection() {
           style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
           Сбросить оформление
         </button>
-      </div>
-
-      <div className="mt-8 rounded-2xl p-4" style={{ background: 'linear-gradient(135deg, var(--color-surface-2), color-mix(in srgb, var(--color-surface-2) 72%, var(--color-primary) 12%))', border: '1px solid var(--color-border)' }}>
-        <p className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: 'var(--color-primary)' }}>Оболочка Portal Launcher</p>
-        <h3 className="mt-1 text-sm font-black" style={{ color: 'var(--color-text)' }}>Стиль интерфейса</h3>
-        <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>Выберите единый вид для рабочего пространства, Notch Panel и Sidebar. Все функции, пути и настройки останутся на своих местах.</p>
-        <div className="mt-3">
-          <SegRow label="Выбранный стиль" desc="Новый — мягкие тематические поверхности. Классический — более строгая привычная компоновка."
-            value={ui.uiMode}
-            options={[{ id: 'new', label: 'Новый' }, { id: 'old', label: 'Классический' }]}
-            onChange={v => { ui.set('uiMode', v as any); ui.set('panelVersion', v as any); }} />
-        </div>
       </div>
 
     </div>

@@ -904,3 +904,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the instance-page localization and progress fix to GitHub main.
 
 ---
+
+# Notch proximity and complete `.mrpack` validation
+
+- [x] Position the opened Notch Panel directly adjacent to its compact handle without overlapping the tab or adding a large gap.
+- [x] Detect a complete ZIP central directory and a `modrinth.index.json` before offering a `.mrpack` manifest preview or fallback import.
+- [x] Never fall back to ordinary import after a `.mrpack` archive fails ZIP parsing; preserve the source file and show a precise Russian error with the next safe action.
+- [x] Run TypeScript-only verification and commit/push both repairs to GitHub main.
+
+---

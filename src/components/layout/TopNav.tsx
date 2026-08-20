@@ -247,7 +247,9 @@ function NotchNav() {
               style={{
                 position: 'absolute',
                 zIndex: 1,
-                ...(vertical ? { [isStart ? 'left' : 'right']: 22 } : { [isStart ? 'top' : 'bottom']: 22 }),
+                // The dock remains visually attached to the handle. Four pixels
+                // of air prevent the opened surface from covering the tab itself.
+                ...(vertical ? { [isStart ? 'left' : 'right']: 16 } : { [isStart ? 'top' : 'bottom']: 16 }),
                 padding: Math.max(visualPanelVersion === 'new' ? 5 : 4, Math.min(5, appearance.edgePadding / 2)),
                 gap: Math.min(appearance.gap, 3),
                 background: visualPanelVersion === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${appearance.opacity}%, transparent)`,

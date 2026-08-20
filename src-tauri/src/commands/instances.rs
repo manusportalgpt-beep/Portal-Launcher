@@ -791,6 +791,8 @@ pub async fn preview_remote_modpack(
         use base64::Engine as _;
         base64::engine::general_purpose::STANDARD.decode(encoded)
             .map_err(|e| format!("Read local pack preview: {e}"))?
+    } else if Path::new(&download_url).is_file() {
+        std::fs::read(&download_url).map_err(|e| format!("Read local pack preview: {e}"))?
     } else {
         client.get(&download_url).send().await
             .map_err(|e| format!("Download pack preview: {e}"))?
@@ -798,13 +800,19 @@ pub async fn preview_remote_modpack(
             .to_vec()
     };
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes))
-        .map_err(|e| format!("Open {}: {e}", file_name))?;
+        .map_err(|e| format!("Не удалось открыть {file_name} как полный ZIP-архив: {e}"))?;
 
     let is_modrinth = source.eq_ignore_ascii_case("modrinth") || file_name.to_lowercase().ends_with(".mrpack");
     let index_data = {
         let manifest_name = if is_modrinth { "modrinth.index.json" } else { "manifest.json" };
-        let mut file = archive.by_name(manifest_name)
-            .map_err(|_| format!("No {manifest_name} in this archive"))?;
+        let archive_manifest_name = if is_modrinth {
+            (0..archive.len())
+                .filter_map(|index| archive.by_index(index).ok().map(|entry| entry.name().replace('\\', "/")))
+                .find(|name| name == manifest_name || name.ends_with(&format!("/{manifest_name}")))
+                .unwrap_or_else(|| manifest_name.to_string())
+        } else { manifest_name.to_string() };
+        let mut file = archive.by_name(&archive_manifest_name)
+            .map_err(|_| format!("В этом архиве не найден {manifest_name}"))?;
         let mut text = String::new();
         file.read_to_string(&mut text).map_err(|e| e.to_string())?;
         text
@@ -1160,6 +1168,16 @@ pub async fn import_archive_data(
     let ext = if lower.ends_with(".mrpack") { "mrpack" } else if lower.ends_with(".zip") { "zip" } else {
         return Err("Поддерживаются только .mrpack и .zip архивы".to_string());
     };
+    if Path::new(&data_url).is_file() {
+        let source = Path::new(&data_url);
+        let metadata = std::fs::metadata(source).map_err(|e| format!("Не удалось прочитать выбранный архив: {e}"))?;
+        if metadata.len() == 0 { return Err("Выбранный архив пуст. Исходный файл не был изменён.".to_string()); }
+        return if ext == "mrpack" {
+            import_modrinth_pack(app, data_url, excluded_paths).await
+        } else {
+            import_instance_zip(app, data_url, None, excluded_paths).await
+        };
+    }
     let encoded = data_url.strip_prefix("data:")
         .and_then(|value| value.split_once(',').map(|(_, payload)| payload))
         .unwrap_or(&data_url);

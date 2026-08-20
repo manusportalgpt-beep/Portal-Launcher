@@ -616,9 +616,14 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
       const f = e.target.files?.[0]; if (!f) return;
       let dataUrl = '';
       try {
-        // Браузерный File.name не является доступным Tauri путём. Передаём
-        // содержимое, а Rust сохраняет временную копию и читает манифест.
-        dataUrl = await new Promise<string>((resolve, reject) => {
+        // В Tauri `File.path` — это путь к именно выбранному пользователем
+        // архиву. Передаём его напрямую, чтобы большой .mrpack не был усечён
+        // при сериализации в base64 через IPC. Для браузерного fallback
+        // сохраняем прежнее чтение в data URL.
+        const nativePath = typeof (f as { path?: unknown }).path === 'string' && (f as { path: string }).path.trim()
+          ? (f as { path: string }).path
+          : null;
+        dataUrl = nativePath ?? await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(String(reader.result ?? ''));
           reader.onerror = () => reject(new Error('Не удалось прочитать архив'));
@@ -628,7 +633,11 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
         const preview = await invoke<ModpackPreview>('preview_remote_modpack', { downloadUrl: dataUrl, fileName: f.name, source, apiKey: null, projectName: null, projectAuthor: null, projectAuthorUrl: null, projectAuthorAvatarUrl: null, projectIconUrl: null });
         setLocalPreview({ preview, dataUrl, fileName: f.name });
       } catch (e) {
-        dialog.alert('В этом архиве не найден совместимый manifest. Его можно импортировать как обычную сборку.', { title: 'Импорт без manifest', danger: false });
+        if (f.name.toLowerCase().endsWith('.mrpack')) {
+          dialog.alert(`Не удалось прочитать .mrpack: ${String(e)}. Файл не был изменён. Проверьте, что экспорт завершился полностью, и выберите исходный .mrpack ещё раз.`, { title: 'Импорт .mrpack', danger: true });
+          return;
+        }
+        dialog.alert('В этом ZIP-архиве не найден совместимый manifest. Его можно импортировать как обычную сборку.', { title: 'Импорт без manifest', danger: false });
         void importPreparedArchive(dataUrl, f.name);
       }
     };
@@ -1103,7 +1112,11 @@ function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported, on
         // `File.slice()` в WebView может вернуть неполную сигнатуру у
         // корректного полного файла. Проверку формата выполняет Rust ZIP-парсер.
         onImportStarted(file.name);
-        const dataUrl = await new Promise<string>((resolve, reject) => {
+        const nativePathCandidate = (file as unknown as { path?: unknown }).path;
+        const nativePath = typeof nativePathCandidate === 'string' && nativePathCandidate.trim()
+          ? nativePathCandidate
+          : null;
+        const dataUrl = nativePath ?? await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(String(reader.result ?? ''));
           reader.onerror = () => reject(new Error('Не удалось прочитать архив'));

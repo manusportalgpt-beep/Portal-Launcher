@@ -1139,3 +1139,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the platform-switch and loader-profile repairs to GitHub main.
 
 ---
+
+# Prefer installed Java and clarify runtime status
+
+- [x] Audit Java discovery order so a compatible user-installed 64-bit runtime is used before managed Java is downloaded.
+- [x] Prevent redundant managed Java downloads when a matching local runtime is already available.
+- [x] Replace the misleading «Выбрана» runtime-card badge with the unified «Установлено» status.
+- [x] Run TypeScript-only verification and commit/push the Java preference and status repair to GitHub main.
+
+---

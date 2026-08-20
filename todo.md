@@ -1069,3 +1069,10 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the unified themed workspace redesign to GitHub main.
 
 ---
+
+# Revert unified workspace redesign
+
+- [ ] Revert commit 9cd0fd2 only, returning to stable commit c245236 while preserving prior Home, theme-editor, performance and launch repairs.
+- [ ] Verify the restored revision and GitHub main synchronization.
+
+---

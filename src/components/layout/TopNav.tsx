@@ -167,7 +167,7 @@ function SidebarNav() {
 
 /** Выезжающая минималистичная Notch-панель. Перетаскивание окна отключено. */
 function NotchNav() {
-  const { notchHotzone, notchPinned, notchCloseDelay, notchWidth, notchSide, navHoverMs, navItemScale, navItemOrder, panelVersion, uiMode, notchPanelAppearance: appearance, set } = useUiStore();
+  const { notchHotzone, notchPinned, notchCloseDelay, notchWidth, notchSide, navHoverMs, navItemScale, navItemOrder, panelVersion, uiMode, titlebarHeight, notchPanelAppearance: appearance, set } = useUiStore();
   const visualPanelVersion = uiMode === 'old' ? 'old' : panelVersion;
   const items = orderedNav(navItemOrder);
   const [hover, setHover] = useState(false);
@@ -192,7 +192,9 @@ function NotchNav() {
 
   const wrap: React.CSSProperties = {
     position: 'fixed',
-    zIndex: 50,
+    // Keep the dock just below the native-looking Title Bar rather than
+    // clipping its top edge behind it. It still sits above page content.
+    zIndex: 190,
     display: 'flex',
     alignItems: 'center',
     justifyContent: align,
@@ -200,7 +202,7 @@ function NotchNav() {
     ...crossAxisPosition,
     ...(vertical
       ? { [notchSide]: 0, width: notchHotzone, height: `${notchWidth}vh` }
-      : { [notchSide]: 0, width: `${notchWidth}vw`, height: notchHotzone }),
+      : { [notchSide]: notchSide === 'top' ? titlebarHeight : 0, width: `${notchWidth}vw`, height: notchHotzone }),
   };
 
   const offset = vertical ? { x: isStart ? -14 : 14 } : { y: isStart ? -14 : 14 };

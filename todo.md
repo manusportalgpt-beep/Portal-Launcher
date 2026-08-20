@@ -694,3 +694,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the navigation, installer and skin naming improvement to GitHub main.
 
 ---
+
+# Skin pose, hotkey and Notch Panel regressions
+
+- [x] Replace the broken pseudo-sitting pose with a real low seated pose: hips lowered, both legs extended forward, arms at the sides; remove the lying pose entirely.
+- [x] Restore configurable global hotkeys on normal launcher pages, while preserving priority closing behavior for editors and manifest previews.
+- [x] Fix Notch Panel layer ordering and exact edge hit geometry so it remains visible, clickable and never hides behind Title Bar or page content.
+- [x] Run TypeScript only and commit/push the regression repair to GitHub main.
+
+---

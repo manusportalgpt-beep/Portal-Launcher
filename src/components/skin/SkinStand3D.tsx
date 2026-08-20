@@ -151,7 +151,7 @@ export function SkinStand3D({
     shadow.scale.set(1.36, 0.58, 1);
     shadow.position.set(0, -16.2, -0.5);
     scene.add(shadow);
-    const idlePoses = interactive && height >= 300 ? ['stand', 'sit', 'lie', 'jump'] : ['stand'];
+    const idlePoses = interactive && height >= 300 ? ['stand', 'sit', 'jump'] : ['stand'];
     const st: any = { scene, camera, renderer, player, shadow, yaw: initialYaw, pitch: 0, zoom: cameraDistance, drag: null, raf: 0, meshes: [], meshMaterials: [], whiteApplied: false, applyStartedAt: 0, inspectUntil: 0, standUntil: 0, idlePose: idlePoses[Math.floor(Math.random() * idlePoses.length)], poseBlend: 0, particle: null, particleBase: null, headTargetYaw: 0, headTargetPitch: 0, bodyTargetYaw: 0, bodyTargetPitch: 0, bodyFollowYaw: 0, bodyFollowPitch: 0, legs: null };
     stateRef.current = st;
 
@@ -264,11 +264,12 @@ export function SkinStand3D({
       st.poseBlend += (poseTarget - st.poseBlend) * 0.075;
       const idleLift = Math.sin(t * 1.35) * 0.28;
       const sitting = activePose === 'sit' ? 1 - st.poseBlend : 0;
-      const lying = activePose === 'lie' ? 1 - st.poseBlend : 0;
       const jumping = activePose === 'jump' ? 1 - st.poseBlend : 0;
       const jumpLift = jumping * (2.1 + Math.abs(Math.sin(t * 2.15)) * 2.1);
-      player.position.y = idleLift - sitting * 3.6 - lying * 4.1 + jumpLift;
-      player.rotation.z = Math.sin(t * 0.68) * 0.012 + lying * 1.12;
+      // Minecraft-ноги — это единые сегменты без коленей. Чтобы поза читалась как
+      // сидение, переносим корпус к земле и вытягиваем обе ноги вперёд от hip pivot.
+      player.position.y = idleLift - sitting * 11.1 + jumpLift;
+      player.rotation.z = Math.sin(t * 0.68) * 0.012;
       if (st.shadow) {
         const shadowScale = 1 - idleLift * 0.075;
         st.shadow.scale.set(1.36 * shadowScale, 0.58 * shadowScale, 1);
@@ -276,7 +277,7 @@ export function SkinStand3D({
       }
       if (st.arms) {
         const inspecting = st.inspectUntil > now;
-        const sitArm = sitting * 0.22;
+        const sitArm = 0;
         const jumpArm = jumping * -0.78;
         st.arms.left.rotation.x = inspecting ? -0.74 + Math.sin(t * 3.2) * 0.04 : Math.sin(t * 1.12) * 0.075 + 0.018 + sitArm + jumpArm;
         st.arms.right.rotation.x = inspecting ? -0.42 + Math.sin(t * 3.2 + 0.7) * 0.035 : -Math.sin(t * 1.12) * 0.075 - 0.018 - sitArm + jumpArm;
@@ -289,7 +290,7 @@ export function SkinStand3D({
       }
       if (st.legs) {
         const step = Math.sin(t * 1.12) * 0.035;
-        const sitLeg = sitting * 1.32;
+        const sitLeg = sitting * 1.43;
         const jumpLeg = jumping * (0.24 + Math.sin(t * 2.15) * 0.1);
         st.legs.left.rotation.x = step + sitLeg + jumpLeg;
         st.legs.right.rotation.x = -step + sitLeg + jumpLeg;

@@ -19,7 +19,15 @@ export const HOTKEY_DEFAULTS: HotkeyBindings = {
 
 export function normaliseHotkey(event: KeyboardEvent): string | null {
   if (['Control', 'Alt', 'Shift', 'Meta'].includes(event.key)) return null;
-  const parts = [event.ctrlKey ? 'Ctrl' : '', event.altKey ? 'Alt' : '', event.shiftKey ? 'Shift' : '', event.metaKey ? 'Meta' : '', event.key.length === 1 ? event.key.toUpperCase() : event.key].filter(Boolean);
+  // event.key follows the active keyboard layout (for example, Ctrl+Ф on a
+  // Russian layout). event.code keeps the physical key stable, so a binding
+  // recorded as Ctrl+F works anywhere in the launcher on every layout.
+  const physicalKey = event.code.startsWith('Key')
+    ? event.code.slice(3)
+    : event.code.startsWith('Digit')
+    ? event.code.slice(5)
+    : event.key.length === 1 ? event.key.toUpperCase() : event.key;
+  const parts = [event.ctrlKey ? 'Ctrl' : '', event.altKey ? 'Alt' : '', event.shiftKey ? 'Shift' : '', event.metaKey ? 'Meta' : '', physicalKey].filter(Boolean);
   return parts.join('+');
 }
 

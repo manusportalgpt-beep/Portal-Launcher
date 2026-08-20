@@ -814,3 +814,14 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the i18n migration to GitHub main.
 
 ---
+
+# Active search, CurseForge and local-file metadata regression repair
+
+- [x] Map active search, install and local metadata paths to remove old duplicate project-search UI and identify the source of visible English statuses.
+- [x] Migrate the actual active project-search cards, buttons and install states to i18n Russian/English resources.
+- [x] Repair active CurseForge installation flow and surface a specific localized error when a download or response body fails.
+- [x] Hydrate manually added local mod/resourcepack/shader files with real platform metadata when an unambiguous Modrinth or CurseForge match exists.
+- [x] Keep unknown local files honest as local files when no safe metadata match exists.
+- [x] Run TypeScript only and commit/push the active search and metadata repair to GitHub main.
+
+---

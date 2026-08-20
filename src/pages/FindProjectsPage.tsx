@@ -181,6 +181,7 @@ function fmtNum(n: number): string {
 function InstallBtn({ project, instanceId, mcVersion, loader }: {
   project: Project; instanceId: string; mcVersion: string; loader: string;
 }) {
+  const { t } = useTranslation();
   const [state, setState] = useState<'idle'|'busy'|'done'|'err'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmRunningInstall, setConfirmRunningInstall] = useState(false);
@@ -191,7 +192,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
   if (isInstalled) return (
     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold"
       style={{ background:'rgba(108,92,231,0.15)', color:'var(--color-primary)', border:'1px solid rgba(108,92,231,0.3)' }}>
-      <Check className="w-3.5 h-3.5" />Downloaded
+      <Check className="w-3.5 h-3.5" />{t('findProjects.install.downloaded')}
     </div>
   );
 
@@ -229,7 +230,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
           vers = await getModrinthVersionsGateway(project.id);
         }
         if (!vers || vers.length === 0) {
-          setErrorMsg('No downloadable versions were returned by Modrinth.');
+          setErrorMsg(t('findProjects.install.modrinthNoFiles'));
           setState('err');
           setTimeout(() => setState('idle'), 4000);
           return;
@@ -245,7 +246,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         const downloadable = (vers ?? []).filter((v: any) => Array.isArray(v.files) && v.files.some((f: any) => Boolean(f?.url)));
         const ver = compatible.find((v: any) => downloadable.includes(v)) ?? downloadable[0] ?? null;
         if (!ver) {
-          setErrorMsg(`No version compatible with ${mcVersion || 'this game version'}${loader ? ' / ' + loader : ''}.`);
+          setErrorMsg(t('findProjects.install.noVersion'));
           setState('err');
           setTimeout(() => setState('idle'), 4000);
           return;
@@ -278,7 +279,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         // reserved for a deliberate click on the card itself, not Install.
         const numericProjectId = Number(project.id);
         if (!Number.isSafeInteger(numericProjectId) || numericProjectId <= 0) {
-          throw new Error('CurseForge project ID is missing or invalid. Refresh the results and try again.');
+          throw new Error(t('findProjects.install.curseforgeInvalidProject'));
         }
 
         const contentType =
@@ -309,7 +310,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         // can use a non-mod fallback. Mods never fall back across loader boundaries.
         const selectedFile = compatible[0] ?? (!isMod ? candidates[0] : null);
         if (!selectedFile) {
-          throw new Error(`No CurseForge file is compatible with ${mcVersion || 'this Minecraft version'}${isMod && loader ? ` / ${loader}` : ''}.`);
+          throw new Error(t('findProjects.install.curseforgeNoFile'));
         }
 
         // Use the same direct-file installation route as ModDetail. The
@@ -321,9 +322,14 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         const derivedDownloadUrl = fileIdText.length >= 5 && selectedFile.fileName
           ? `https://edge.forgecdn.net/files/${fileIdText.slice(0, 4)}/${fileIdText.slice(4).replace(/^0+/, '')}/${selectedFile.fileName}`
           : '';
-        const downloadUrl = rawDownloadUrl || derivedDownloadUrl;
+        const officialDownloadUrl = await invoke<string>('get_curseforge_file_download_url', {
+          modId: numericProjectId,
+          fileId: Number(selectedFile.id),
+          apiKey: cfApiKey,
+        }).catch(() => '');
+        const downloadUrl = officialDownloadUrl || rawDownloadUrl || derivedDownloadUrl;
         if (!downloadUrl) {
-          throw new Error('CurseForge did not provide a downloadable file URL for this version.');
+          throw new Error(t('findProjects.install.curseforgeNoUrl'));
         }
 
         await invoke('install_mod', {
@@ -356,21 +362,21 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
   if (state === 'done') return (
     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold"
       style={{ background:'rgba(46,204,113,0.15)', color:'#2ECC71' }}>
-      <Check className="w-3.5 h-3.5" />Done
+      <Check className="w-3.5 h-3.5" />{t('findProjects.install.done')}
     </div>
   );
   if (state === 'err') return (
-    <div title={errorMsg || 'No compatible version found'}
+    <div title={errorMsg || t('findProjects.install.noVersion')}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold cursor-help"
       style={{ background:'rgba(231,76,60,0.15)', color:'var(--color-error)' }}>
-      <X className="w-3.5 h-3.5" />Failed
+      <X className="w-3.5 h-3.5" />{t('findProjects.install.failed')}
     </div>
   );
   if (confirmRunningInstall && state === 'idle') return (
     <div className="flex max-w-[240px] items-center gap-2 rounded-xl px-2.5 py-2 text-[10px] font-medium" style={{ background:'rgba(241,196,15,0.13)', border:'1px solid rgba(241,196,15,0.45)', color:'var(--color-text)' }}>
       <TriangleAlert className="h-4 w-4 shrink-0" style={{ color:'var(--color-warning)' }} />
-      <span className="min-w-0 leading-snug">Minecraft is running. Restart the game after installation for changes to apply.</span>
-      <button onClick={doInstall} title="Install anyway" className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-bold" style={{ background:'var(--color-warning)', color:'#1c1600' }}>Continue</button>
+      <span className="min-w-0 leading-snug">{t('findProjects.install.running')}</span>
+      <button onClick={doInstall} title={t('findProjects.install.installAnyway')} className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-bold" style={{ background:'var(--color-warning)', color:'#1c1600' }}>{t('findProjects.install.installAnyway')}</button>
       <button onClick={event => { event.stopPropagation(); setConfirmRunningInstall(false); }} title="Отмена" className="shrink-0"><X className="h-3.5 w-3.5" /></button>
     </div>
   );
@@ -379,8 +385,8 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold hover:opacity-90 transition-all"
       style={{ background:'var(--color-primary)', color:'#fff', opacity: state==='busy' ? 0.7 : 1 }}>
       {state === 'busy'
-        ? <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />Installing…</>
-        : <><Download className="w-3.5 h-3.5" />Install</>}
+        ? <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />{t('findProjects.install.installing')}</>
+        : <><Download className="w-3.5 h-3.5" />{t('findProjects.install.install')}</>}
     </button>
   );
 }
@@ -390,6 +396,7 @@ function ProjectCard({ p, view, instanceId, mcVersion, loader, onClick }: {
   p: Project; view: 'grid'|'list'; instanceId: string; mcVersion: string; loader: string;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   const accent = p.color || '#6C5CE7';
   if (view === 'list') return (
     <div
@@ -414,7 +421,7 @@ function ProjectCard({ p, view, instanceId, mcVersion, loader, onClick }: {
           <span className="flex items-center gap-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>
             <Star className="w-3 h-3" />{fmtNum(p.follows)}
           </span>
-          <span className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>by {p.author}</span>
+          <span className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{t('findProjects.byAuthor', { author: p.author })}</span>
         </div>
       </div>
       <div onClick={e => e.stopPropagation()}>

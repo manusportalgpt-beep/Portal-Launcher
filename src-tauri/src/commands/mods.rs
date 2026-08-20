@@ -674,6 +674,71 @@ async fn resolve_resourcify_modrinth_file(
     })
 }
 
+/// Resolve a manually copied file only when CurseForge returns exactly one
+/// project-file match for the full filename. This deliberately does not guess
+/// from a similar project title: ambiguous files remain honest local files.
+async fn resolve_local_curseforge_file(
+    client: &reqwest::Client,
+    file_name: &str,
+    mod_type: &str,
+    enabled: bool,
+    file_size: u64,
+) -> Option<InstalledMod> {
+    let api_key = crate::commands::settings::read_curseforge_api_key();
+    if api_key.trim().is_empty() { return None; }
+    let clean_name = file_name.trim_end_matches(".disabled");
+    let query = clean_name.trim_end_matches(".jar").trim_end_matches(".zip");
+    if query.trim().len() < 4 { return None; }
+    let class_id = match mod_type {
+        "mod" => Some("6"),
+        "resourcepack" => Some("12"),
+        "shaderpack" => Some("6552"),
+        _ => None,
+    };
+    let mut request = client
+        .get("https://api.curseforge.com/v1/mods/search")
+        .header("x-api-key", &api_key)
+        .query(&[("gameId", "432"), ("pageSize", "8"), ("searchFilter", query)]);
+    if let Some(value) = class_id { request = request.query(&[("classId", value)]); }
+    let search: serde_json::Value = request.send().await.ok()?.error_for_status().ok()?.json().await.ok()?;
+    let projects = search["data"].as_array()?;
+    let mut matches: Vec<(serde_json::Value, serde_json::Value)> = Vec::new();
+    for project in projects.iter().take(8) {
+        let project_id = match project["id"].as_u64() { Some(value) => value, None => continue };
+        let files: serde_json::Value = client
+            .get(format!("https://api.curseforge.com/v1/mods/{project_id}/files"))
+            .header("x-api-key", &api_key)
+            .query(&[("pageSize", "50"), ("sortOrder", "desc")])
+            .send().await.ok()?.error_for_status().ok()?.json().await.ok()?;
+        if let Some(file) = files["data"].as_array().and_then(|values| values.iter().find(|value| {
+            value["fileName"].as_str().map(|name| name.eq_ignore_ascii_case(clean_name)).unwrap_or(false)
+        })) {
+            matches.push((project.clone(), file.clone()));
+            if matches.len() > 1 { return None; }
+        }
+    }
+    let (project, file) = matches.pop()?;
+    let id = project["id"].as_u64()?.to_string();
+    let fallback_name = query.to_string();
+    Some(InstalledMod {
+        id,
+        name: project["name"].as_str().unwrap_or(&fallback_name).to_string(),
+        version: file["displayName"].as_str().unwrap_or("").to_string(),
+        version_id: file["id"].as_u64().map(|value| value.to_string()).unwrap_or_default(),
+        source: "curseforge".to_string(),
+        enabled,
+        file_name: file_name.to_string(),
+        file_size,
+        mod_type: mod_type.to_string(),
+        author: project["authors"].as_array().and_then(|people| people.first()).and_then(|person| person["name"].as_str()).map(String::from),
+        icon_url: project["logo"]["thumbnailUrl"].as_str().map(String::from),
+        update_available: false,
+        latest_version: None,
+        latest_version_id: None,
+        latest_download_url: None,
+    })
+}
+
 #[tauri::command]
 pub async fn get_instance_mods(instance_id: String) -> Result<Vec<InstalledMod>, String> {
     let base = instance_base(&instance_id);
@@ -772,17 +837,20 @@ pub async fn get_instance_mods(instance_id: String) -> Result<Vec<InstalledMod>,
                         mods.push(matched);
                         continue;
                     }
-                    // Content installed by Resourcify often has no
-                    // instance.json entry. For non-mod content we can use an
-                    // exact Modrinth SHA-1 match and persist it for later
-                    // scans, avoiding a permanent "local file" label.
-                    if matches!(*mtype, "resourcepack" | "shaderpack" | "datapack") {
-                        if let Some(client) = metadata_client.as_ref() {
-                            if let Some(resolved) = resolve_resourcify_modrinth_file(client, &entry.path(), &fname, mtype, !is_disabled, fsize).await {
-                                update_instance_mod_list(&instance_id, &resolved);
-                                mods.push(resolved);
-                                continue;
-                            }
+                    // A manually copied file can still have an exact platform
+                    // identity. Check Modrinth by SHA-1 for every supported
+                    // content type, then CurseForge by an exact filename only.
+                    // If neither exact lookup succeeds, keep it as a local file.
+                    if let Some(client) = metadata_client.as_ref() {
+                        if let Some(resolved) = resolve_resourcify_modrinth_file(client, &entry.path(), &fname, mtype, !is_disabled, fsize).await {
+                            update_instance_mod_list(&instance_id, &resolved);
+                            mods.push(resolved);
+                            continue;
+                        }
+                        if let Some(resolved) = resolve_local_curseforge_file(client, &fname, mtype, !is_disabled, fsize).await {
+                            update_instance_mod_list(&instance_id, &resolved);
+                            mods.push(resolved);
+                            continue;
                         }
                     }
                     // Do not read and decompress every JAR during the initial scan.

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Search, Download, Star, X, ChevronDown, Grid, List,
   Package, Sparkles, Layers, SlidersHorizontal, RefreshCw, Wifi,
@@ -70,20 +71,20 @@ interface Project {
   color?: string;
 }
 
-const PLATFORM_TYPES: Record<ProjectType, { modrinthFacet: string; cfClass: number; label: string; icon: any }> = {
-  mods:         { modrinthFacet: 'mod',        cfClass: 6,    label: 'Mods',           icon: Package },
-  modpacks:     { modrinthFacet: 'modpack',     cfClass: 4471, label: 'Modpacks',       icon: Layers },
-  resourcepacks:{ modrinthFacet: 'resourcepack', cfClass: 12,  label: 'Resource Packs', icon: ImageIcon },
-  shaders:      { modrinthFacet: 'shader',      cfClass: 6552, label: 'Shaders',        icon: Sparkles },
-  datapacks:    { modrinthFacet: 'datapack',    cfClass: 5820, label: 'Data Packs',     icon: Database },
+const PLATFORM_TYPES: Record<ProjectType, { modrinthFacet: string; cfClass: number; labelKey: string; icon: any }> = {
+  mods:         { modrinthFacet: 'mod',        cfClass: 6,    labelKey: 'discover.types.mods',           icon: Package },
+  modpacks:     { modrinthFacet: 'modpack',     cfClass: 4471, labelKey: 'discover.types.modpacks',       icon: Layers },
+  resourcepacks:{ modrinthFacet: 'resourcepack', cfClass: 12,  labelKey: 'discover.types.resourcepacks', icon: ImageIcon },
+  shaders:      { modrinthFacet: 'shader',      cfClass: 6552, labelKey: 'discover.types.shaders',        icon: Sparkles },
+  datapacks:    { modrinthFacet: 'datapack',    cfClass: 5820, labelKey: 'discover.types.datapacks',     icon: Database },
 };
 
-const SORT_OPTIONS: { value: SortOrder; label: string }[] = [
-  { value:'relevance', label:'Релевантность' },
-  { value:'downloads', label:'Загрузки' },
-  { value:'follows',   label:'Подписки' },
-  { value:'newest',    label:'Новизна' },
-  { value:'updated',   label:'Обновлено' },
+const SORT_OPTIONS: { value: SortOrder; labelKey: string }[] = [
+  { value:'relevance', labelKey:'findProjects.sort.relevance' },
+  { value:'downloads', labelKey:'findProjects.sort.downloads' },
+  { value:'follows',   labelKey:'findProjects.sort.follows' },
+  { value:'newest',    labelKey:'findProjects.sort.newest' },
+  { value:'updated',   labelKey:'findProjects.sort.updated' },
 ];
 
 const CF_LOADER_MAP: Record<string, number> = { forge:1, fabric:4, quilt:5, neoforge:6, vanilla:0 };
@@ -175,10 +176,11 @@ function CurseForgeLogo({ size = 18 }: { size?: number }) {
 
 // Small platform toggle button (icon only, next to search)
 function PlatformToggleBtn({ platform, onToggle }: { platform: Platform; onToggle: () => void }) {
+  const { t } = useTranslation();
   return (
     <button
       onClick={onToggle}
-      title={`Switch to ${platform === 'modrinth' ? 'CurseForge' : 'Modrinth'}`}
+      title={t('discover.runtime.switchPlatform', { platform: platform === 'modrinth' ? 'CurseForge' : 'Modrinth' })}
       className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all hover:scale-105"
       style={{
         background: 'var(--color-surface-2)',
@@ -374,6 +376,7 @@ function FilterSidebar({
 }
 
 export function DiscoverPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const contextInstanceId = searchParams.get('instanceId');
@@ -485,7 +488,7 @@ export function DiscoverPage() {
       } else {
         if (!cfApiKey) {
           if (requestId !== searchRequestId.current) return;
-          setError('CurseForge API key not set. Add it in Settings → Advanced.');
+          setError(t('discover.runtime.missingApiKey'));
           setResults([]); setTotal(0); return;
         }
         const loaderNum = (pt === 'mods' || pt === 'modpacks') && ldrs.length > 0 ? (CF_LOADER_MAP[ldrs[0]] ?? undefined) : undefined;
@@ -510,17 +513,17 @@ export function DiscoverPage() {
       if (requestId === searchRequestId.current) {
         const lower = msg.toLowerCase();
         const message = lower.includes('timeout')
-          ? 'Modrinth не ответил вовремя. Проверьте интернет и повторите поиск.'
+          ? t('discover.runtime.timeout')
           : (!navigator.onLine || lower.includes('network') || lower.includes('fetch') || lower.includes('connection'))
-            ? 'Проверьте подключение к интернету.'
-            : msg || 'Не удалось выполнить поиск Modrinth.';
+            ? t('discover.runtime.network')
+            : msg || t('discover.runtime.searchFailed');
         setError(message);
         setResults([]); setTotal(0);
       }
     } finally {
       if (requestId === searchRequestId.current) setLoading(false);
     }
-  }, [cfApiKey]);
+  }, [cfApiKey, t]);
 
   const triggerSearch = useCallback((immediate = false) => {
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
@@ -576,19 +579,19 @@ export function DiscoverPage() {
 
         {/* Type tabs */}
         <div className="flex gap-1 flex-wrap">
-          {(Object.entries(PLATFORM_TYPES) as [ProjectType, typeof PLATFORM_TYPES[ProjectType]][]).map(([t, def]) => {
+          {(Object.entries(PLATFORM_TYPES) as [ProjectType, typeof PLATFORM_TYPES[ProjectType]][]).map(([projectTypeId, def]) => {
             const Icon = def.icon;
             return (
-              <button key={t} onClick={() => {
-                setProjectType(t);
+              <button key={projectTypeId} onClick={() => {
+                setProjectType(projectTypeId);
                 setSelectedCats([]);
-                if (t !== 'mods' && t !== 'modpacks') setSelectedLoaders([]);
+                if (projectTypeId !== 'mods' && projectTypeId !== 'modpacks') setSelectedLoaders([]);
               }}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
-                style={projectType===t
+                style={projectType===projectTypeId
                   ? { background:'var(--color-primary-dim)', color:'var(--color-primary)', border:'1px solid color-mix(in srgb, var(--color-primary) 46%, var(--color-border))', boxShadow:'0 5px 16px color-mix(in srgb, var(--color-primary) 12%, transparent)' }
                   : { color:'var(--color-text-secondary)', border:'1px solid transparent' }}>
-                <Icon className="w-3.5 h-3.5" />{def.label}
+                <Icon className="w-3.5 h-3.5" />{t(def.labelKey)}
               </button>
             );
           })}
@@ -600,7 +603,7 @@ export function DiscoverPage() {
           <select value={sort} onChange={e => setSort(e.target.value as SortOrder)}
             className="appearance-none pl-3 pr-7 py-1.5 rounded-xl text-xs font-semibold cursor-pointer"
             style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }}>
-            {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.labelKey)}</option>)}
           </select>
           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color:'var(--color-text-secondary)' }} />
         </div>
@@ -634,7 +637,7 @@ export function DiscoverPage() {
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder={`Поиск в ${platform === 'modrinth' ? 'Modrinth' : 'CurseForge'}…`}
+            placeholder={t('discover.search', { platform: platform === 'modrinth' ? 'Modrinth' : 'CurseForge' })}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm transition-colors"
             style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)', boxShadow:'inset 0 1px 0 color-mix(in srgb, var(--color-text) 4%, transparent)' }}
           />
@@ -661,7 +664,7 @@ export function DiscoverPage() {
             <Wifi className="w-3.5 h-3.5 shrink-0" />{error}
             {!cfApiKey && platform === 'curseforge' && (
               <button onClick={() => window.location.href = '/settings/advanced'}
-                className="ml-2 underline">Go to Settings</button>
+                className="ml-2 underline">{t('discover.runtime.goToSettings')}</button>
             )}
           </motion.div>
         )}
@@ -692,12 +695,12 @@ export function DiscoverPage() {
           {/* Stats bar */}
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs" style={{ color:'var(--color-text-tertiary)' }}>
-              {loading ? 'Обновляем каталог…' : `${total.toLocaleString()} результатов`}
-              {hasFilters && <span> · фильтры активны</span>}
+              {loading ? t('discover.runtime.refreshing') : t('discover.runtime.results', { count: total })}
+              {hasFilters && <span> · {t('discover.runtime.filtersActive')}</span>}
             </p>
             {hasFilters && (
               <button onClick={clearFilters} className="text-xs font-semibold hover:opacity-80"
-                style={{ color:'var(--color-error)' }}>Сбросить фильтры</button>
+                style={{ color:'var(--color-error)' }}>{t('discover.resetFilters')}</button>
             )}
           </div>
 
@@ -711,10 +714,10 @@ export function DiscoverPage() {
           ) : results.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <p className="text-sm font-semibold" style={{ color:'var(--color-text-secondary)' }}>
-                {platform === 'curseforge' && !cfApiKey ? 'Добавь ключ CurseForge в Настройки → Дополнительно' : 'Ничего не найдено'}
+                {platform === 'curseforge' && !cfApiKey ? t('discover.runtime.missingCurseforgeKey') : t('discover.noResults')}
               </p>
               <p className="text-xs" style={{ color:'var(--color-text-tertiary)' }}>
-                {query ? `По запросу «${query}» нет совпадений` : 'Измени запрос или настройки фильтров'}
+                {query ? t('discover.runtime.noQueryMatches', { query }) : t('discover.runtime.changeQuery')}
               </p>
             </div>
           ) : (
@@ -734,15 +737,15 @@ export function DiscoverPage() {
               <button onClick={() => setPage(p => Math.max(0,p-1))} disabled={page===0}
                 className="px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-40"
                 style={{ background:'var(--color-surface-2)', color:'var(--color-text)', border:'1px solid var(--color-border)' }}>
-                Previous
+                {t('discover.runtime.previous')}
               </button>
               <span className="text-xs px-3" style={{ color:'var(--color-text-secondary)' }}>
-                Page {page+1} / {totalPages}
+                {t('discover.runtime.page', { page: page + 1, total: totalPages })}
               </span>
               <button onClick={() => setPage(p => Math.min(totalPages-1,p+1))} disabled={page>=totalPages-1}
                 className="px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-40"
                 style={{ background:'var(--color-surface-2)', color:'var(--color-text)', border:'1px solid var(--color-border)' }}>
-                Next
+                {t('discover.runtime.next')}
               </button>
             </div>
           )}

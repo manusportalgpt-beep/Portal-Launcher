@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { invoke } from '@/lib/invoke-shim';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAuthorAvatar } from '@/lib/author-avatar';
@@ -38,11 +39,11 @@ type ScreenshotItem = { path: string; name: string; url: string };
 type MainTab = 'content' | 'files' | 'worlds' | 'screenshots';
 type ContentFilter = 'all' | 'mods' | 'resourcepacks' | 'shaders' | 'updates' | 'disabled' | 'deleted';
 
-const MAIN_TABS: { id: MainTab; label: string; icon: any }[] = [
-  { id: 'content', label: 'Моды', icon: Package },
-  { id: 'files', label: 'Files', icon: FolderTree },
-  { id: 'worlds', label: 'Worlds', icon: Globe },
-  { id: 'screenshots', label: 'Screenshots', icon: Camera },
+const MAIN_TABS: { id: MainTab; labelKey: string; icon: any }[] = [
+  { id: 'content', labelKey: 'instanceContent.tabs.mods', icon: Package },
+  { id: 'files', labelKey: 'instanceContent.tabs.files', icon: FolderTree },
+  { id: 'worlds', labelKey: 'instanceContent.tabs.worlds', icon: Globe },
+  { id: 'screenshots', labelKey: 'instanceContent.tabs.screenshots', icon: Camera },
 ];
 
 const CONTENT_FILTERS: { id: ContentFilter; label: string }[] = [
@@ -154,6 +155,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 }
 
 export function InstanceMods({ instanceId }: { instanceId: string }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [mods, setMods] = useState<ModEntry[]>([]);
   const [deletedMods, setDeletedMods] = useState<Array<{ id: string; timestamp: string; file_name: string; mod_type: string; was_disabled: boolean }>>([]);
@@ -570,7 +572,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   const cardStyle = { background: 'var(--color-surface)', border: '1px solid var(--color-border)' } as const;
   const filteredScreenshots = useMemo(() => search ? screenshots.filter(s => s.name.toLowerCase().includes(search.toLowerCase())) : screenshots, [screenshots, search]);
   const searchCount = mainTab === 'content' ? mods.length : mainTab === 'worlds' ? worlds.length : mainTab === 'screenshots' ? screenshots.length : files.length;
-  const searchLabel = mainTab === 'content' ? 'проектов' : mainTab === 'worlds' ? 'миров' : mainTab === 'screenshots' ? 'скриншотов' : 'файлов';
+  const searchLabelKey = mainTab === 'content' ? 'instanceContent.searchTypes.projects' : mainTab === 'worlds' ? 'instanceContent.searchTypes.worlds' : mainTab === 'screenshots' ? 'instanceContent.searchTypes.screenshots' : 'instanceContent.searchTypes.files';
 
   const isEmpty = mainTab === 'content' ? contentFilter === 'deleted' ? deletedMods.length === 0 : visibleMods.length === 0
     : mainTab === 'worlds' ? filteredWorlds.length === 0
@@ -587,11 +589,11 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
 
       {/* Main tabs */}
       <div className="flex items-center gap-4 px-4 pt-3 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        {MAIN_TABS.map(({ id, label, icon: Icon }) => (
+        {MAIN_TABS.map(({ id, labelKey, icon: Icon }) => (
           <button key={id} onClick={() => { setMainTab(id); setSearch(''); }}
             className="flex items-center gap-1.5 pb-2.5 px-1 text-sm font-semibold whitespace-nowrap transition-colors relative"
             style={{ color: mainTab === id ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
-            <Icon className="w-4 h-4" />{label}
+            <Icon className="w-4 h-4" />{t(labelKey)}
             {mainTab === id && (
               <span className="absolute left-0 right-0 -bottom-px h-0.5 rounded-full" style={{ background: 'var(--color-primary)' }} />
             )}
@@ -610,7 +612,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         <div className="flex-1 relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-text-tertiary)' }} />
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder={`Найти среди ${searchCount} ${searchLabel}…`}
+            placeholder={t('instanceContent.search', { count: searchCount, type: t(searchLabelKey) })}
             className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
             style={{ ...cardStyle, color: 'var(--color-text)' }} />
         </div>
@@ -619,21 +621,21 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
             <button onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap"
               style={cardStyle}>
-              <FolderPlus className="w-4 h-4" style={{ color: 'var(--color-text-secondary)' }} />Добавить файлы
+              <FolderPlus className="w-4 h-4" style={{ color: 'var(--color-text-secondary)' }} />{t('instanceContent.addFiles')}
             </button>
             <button onClick={() => navigate('/gallery', { state:{ instanceId } })}
               className="w-9 h-9 rounded-xl flex items-center justify-center"
-              title="Менеджер скриншотов" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><Camera className="w-4 h-4" /></button>
+              title={t('instanceContent.screenshotsManager')} style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><Camera className="w-4 h-4" /></button>
             <button onClick={() => { setShowHistory(v => !v); if (!showHistory) loadHistory(); }}
               className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap"
-              style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><History className="w-4 h-4" />История</button>
-            <button onClick={undoLastAction} title="Откатить последнее действие"
+              style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><History className="w-4 h-4" />{t('instanceContent.history')}</button>
+            <button onClick={undoLastAction} title={t('instanceContent.undo')}
               className="w-9 h-9 rounded-xl flex items-center justify-center"
               style={{ background:'var(--color-primary-dim)', color:'var(--color-primary)', border:'1px solid var(--color-border)' }}><Undo2 className="w-4 h-4" /></button>
             <button onClick={checkInstanceHealth} disabled={healthLoading}
               className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap disabled:opacity-60"
               style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-              <ShieldAlert className={`w-4 h-4 ${healthLoading ? 'animate-pulse' : ''}`} style={{ color:'var(--color-warning)' }} />Проверить сборку
+              <ShieldAlert className={`w-4 h-4 ${healthLoading ? 'animate-pulse' : ''}`} style={{ color:'var(--color-warning)' }} />{t('instanceContent.check')}
             </button>
             <button onClick={() => navigate(`/find-projects?instanceId=${instanceId}`)}
               className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap"

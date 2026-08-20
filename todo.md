@@ -803,3 +803,14 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the runtime regression repair to GitHub main.
 
 ---
+
+# i18n migration and text-bridge retirement
+
+- [x] Inventory the active translation resources, LocaleTextBridge attachment and user-visible hard-coded runtime strings in instance windows, Screenshot Editor, Discover and Settings.
+- [x] Add shared i18n keys for common user-facing actions, states, errors and navigation in Russian and English resources.
+- [x] Migrate the real instance windows and Screenshot Editor from hard-coded user-facing text to useTranslation keys.
+- [x] Migrate Discover and Settings from hard-coded user-facing text to useTranslation keys.
+- [x] Remove or disable LocaleTextBridge only after its active user-facing mappings are represented by normal i18n resources.
+- [x] Run TypeScript only and commit/push the i18n migration to GitHub main.
+
+---

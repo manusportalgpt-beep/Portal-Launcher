@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { invoke } from '@/lib/invoke-shim';
 import { Check, Droplet, Eraser, Image as ImageIcon, Layers3, Minus, Paintbrush, Redo2, Save, Undo2, X } from 'lucide-react';
 
@@ -43,6 +44,7 @@ function floodFill(ctx: CanvasRenderingContext2D, x: number, y: number, color: s
 }
 
 export function ScreenshotEditor({ instanceId, fileName, imageUrl, onClose, onSaved }: ScreenshotEditorProps) {
+  const { t } = useTranslation();
   const baseCanvasRef = useRef<HTMLCanvasElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
@@ -130,11 +132,11 @@ export function ScreenshotEditor({ instanceId, fileName, imageUrl, onClose, onSa
 
   return createPortal(<div data-portal-overlay="true" className="fixed inset-0 flex flex-col bg-[#09090b]/95 backdrop-blur-md" style={{ zIndex: 2147483647 }}>
     <div className="flex items-center gap-3 border-b px-4 py-3" style={{ borderColor:'var(--color-border)' }}>
-      <Paintbrush className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color:'var(--color-text)' }}>{fileName}{dirty ? ' · изменено' : ''}</p>
+      <Paintbrush className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color:'var(--color-text)' }}>{fileName}{dirty ? t('instanceUi.editor.modified') : ''}</p>
       <button onClick={undo} disabled={historyIndexRef.current <= 0} className="rounded-lg p-2 disabled:opacity-30" title="Отменить"><Undo2 className="h-4 w-4" /></button>
       <button onClick={redo} disabled={historyIndexRef.current >= historyRef.current.length - 1} className="rounded-lg p-2 disabled:opacity-30" title="Повторить"><Redo2 className="h-4 w-4" /></button>
-      <button onClick={save} disabled={saving || !dirty} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Save className="h-3.5 w-3.5" />{saving ? 'Сохраняю…' : 'Сохранить'}</button>
-      <button data-portal-close="true" onClick={onClose} className="rounded-lg p-2" title="Закрыть"><X className="h-4 w-4" /></button>
+      <button onClick={save} disabled={saving || !dirty} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-40" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Save className="h-3.5 w-3.5" />{saving ? t('instanceUi.editor.saving') : t('common.save')}</button>
+      <button data-portal-close="true" onClick={onClose} className="rounded-lg p-2" title={t('common.close')}><X className="h-4 w-4" /></button>
     </div>
     <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-6">
       <div className="relative rounded-xl p-3 shadow-2xl" style={{ background:'repeating-conic-gradient(#242424 0% 25%, #1b1b1b 0% 50%) 50% / 24px 24px' }}>
@@ -145,14 +147,14 @@ export function ScreenshotEditor({ instanceId, fileName, imageUrl, onClose, onSa
     <div className="flex flex-wrap items-center justify-center gap-2 border-t px-4 py-3" style={{ borderColor:'var(--color-border)', background:'var(--color-surface)' }}>
       <div className="flex items-center gap-1 rounded-xl px-2 py-1.5" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
         <Layers3 className="h-3.5 w-3.5" style={{ color:'var(--color-primary)' }} />
-        <span className="text-[10px] font-bold" style={{ color:'var(--color-text-secondary)' }}>Слои</span>
-        <span className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}><ImageIcon className="h-3 w-3" />Изображение</span>
-        <button onClick={() => setActiveLayer('drawing')} className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] font-bold" style={{ background:activeLayer === 'drawing' ? 'var(--color-primary-dim)' : 'transparent', color:activeLayer === 'drawing' ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}><Paintbrush className="h-3 w-3" />Рисунок</button>
+        <span className="text-[10px] font-bold" style={{ color:'var(--color-text-secondary)' }}>{t('instanceUi.editor.layers')}</span>
+        <span className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}><ImageIcon className="h-3 w-3" />{t('instanceUi.editor.image')}</span>
+        <button onClick={() => setActiveLayer('drawing')} className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[10px] font-bold" style={{ background:activeLayer === 'drawing' ? 'var(--color-primary-dim)' : 'transparent', color:activeLayer === 'drawing' ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}><Paintbrush className="h-3 w-3" />{t('instanceUi.editor.drawing')}</button>
       </div>
-      {([['brush','Кисть',Paintbrush],['fill','Заливка',Droplet],['eraser','Ластик',Eraser]] as const).map(([id,label,Icon]) => <button key={id} onClick={() => setTool(id)} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ background:tool === id ? 'var(--color-primary-dim)' : 'var(--color-surface-2)', color:tool === id ? 'var(--color-primary)' : 'var(--color-text-secondary)', border:`1px solid ${tool === id ? 'var(--color-primary)' : 'var(--color-border)'}` }}><Icon className="h-3.5 w-3.5" />{label}</button>)}
-      <label className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}>Цвет <input type="color" value={color} onChange={e => setColor(e.target.value)} className="h-6 w-8 cursor-pointer border-0 bg-transparent" /></label>
-      <label className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}><Minus className="h-3.5 w-3.5" />Размер <input type="range" min="1" max="120" value={size} onChange={e => setSize(Number(e.target.value))} /><span className="w-7 text-right tabular-nums">{size}</span></label>
-      <span className="hidden items-center gap-1 text-[10px] sm:flex" style={{ color:'var(--color-text-tertiary)' }}><Check className="h-3 w-3" /> PNG сохраняется в screenshots этой сборки</span>
+      {([['brush','instanceUi.editor.brush',Paintbrush],['fill','instanceUi.editor.fill',Droplet],['eraser','instanceUi.editor.eraser',Eraser]] as const).map(([id,labelKey,Icon]) => <button key={id} onClick={() => setTool(id)} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ background:tool === id ? 'var(--color-primary-dim)' : 'var(--color-surface-2)', color:tool === id ? 'var(--color-primary)' : 'var(--color-text-secondary)', border:`1px solid ${tool === id ? 'var(--color-primary)' : 'var(--color-border)'}` }}><Icon className="h-3.5 w-3.5" />{t(labelKey)}</button>)}
+      <label className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}>{t('instanceUi.editor.color')} <input type="color" value={color} onChange={e => setColor(e.target.value)} className="h-6 w-8 cursor-pointer border-0 bg-transparent" /></label>
+      <label className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}><Minus className="h-3.5 w-3.5" />{t('instanceUi.editor.size')} <input type="range" min="1" max="120" value={size} onChange={e => setSize(Number(e.target.value))} /><span className="w-7 text-right tabular-nums">{size}</span></label>
+      <span className="hidden items-center gap-1 text-[10px] sm:flex" style={{ color:'var(--color-text-tertiary)' }}><Check className="h-3 w-3" /> {t('instanceUi.editor.pngHint')}</span>
     </div>
   </div>, document.body);
 }

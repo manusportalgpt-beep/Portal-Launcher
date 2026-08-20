@@ -170,6 +170,7 @@ function SidebarNav() {
 
 /** Выезжающая минималистичная Notch-панель. Перетаскивание окна отключено. */
 function NotchNav() {
+  const { t } = useTranslation();
   const { notchPinned, notchSide, navItemScale, navItemOrder, panelVersion, uiMode, titlebarHeight, notchPanelAppearance: appearance, set } = useUiStore();
   const visualPanelVersion = uiMode === 'old' ? 'old' : panelVersion;
   const blurEnabled = useUiStore(state => state.blur);
@@ -262,7 +263,7 @@ function NotchNav() {
                 <DockButton item={{ to: '/settings', icon: Settings, labelKey: 'settings' }} vertical={vertical} scale={navItemScale} appearance={appearance} />
                 <button title="Назад" onClick={() => window.history.back()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronLeft size={13} /></button>
                 <button title="Вперёд" onClick={() => window.history.forward()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronRight size={13} /></button>
-                <button title="Закрепить панель" onClick={() => set('notchPinned', !notchPinned)}
+                <button title={t('notch.pin')} onClick={() => set('notchPinned', !notchPinned)}
                   className="flex items-center justify-center rounded-md"
                   style={{ width: 18, height: 18, color: notchPinned ? 'var(--color-primary)' : 'var(--color-text-tertiary)', background:'transparent' }}
                   onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}>

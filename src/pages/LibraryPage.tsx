@@ -1026,15 +1026,15 @@ function NewGroupModal({ onClose, onCreate }: { onClose: () => void; onCreate: (
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background:'rgba(0,0,0,0.5)' }} onClick={onClose}>
       <div className="w-80 rounded-2xl p-4" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }} onClick={e => e.stopPropagation()}>
-        <p className="text-sm font-bold mb-3" style={{ color:'var(--color-text)' }}>New group</p>
+        <p className="text-sm font-bold mb-3" style={{ color:'var(--color-text)' }}>Новая группа</p>
         <input autoFocus value={name} onChange={e => setName(e.target.value)}
-          placeholder="Group name" onKeyDown={e => e.key==='Enter' && name.trim() && onCreate(name.trim())}
+          placeholder="Название группы" onKeyDown={e => e.key==='Enter' && name.trim() && onCreate(name.trim())}
           className="w-full mb-3 px-3 py-2 rounded-xl text-sm outline-none"
           style={{ background:'var(--color-surface-2)', color:'var(--color-text)', border:'1px solid var(--color-border)' }} />
         <button disabled={!name.trim()} onClick={() => onCreate(name.trim())}
           className="w-full py-2 rounded-xl text-sm font-bold disabled:opacity-40"
           style={{ background:'var(--color-primary)', color:'#fff' }}>
-          Create group
+          Создать группу
         </button>
       </div>
     </div>

@@ -374,7 +374,7 @@ export function SkinSelectorPage() {
         capes = updated.capes.map(cape => ({ ...cape, active: false }));
       }
       setProfile({ ...updated, capes });
-      updateAccount(user!.uuid, { accessToken: requestToken, skinUrl: updated.skin_url });
+      updateAccount(user!.uuid, { accessToken: requestToken, skinUrl: updated.skin_url, faceCacheRevision: Date.now() });
       const selectedCape = capes.find(cape => cape.id === validCapeId) ?? null;
       const appliedSkinId = makeSkinId();
       rememberAppliedSkin({ id: appliedSkinId, name: pendingName.trim() || 'New skin', dataUrl: pending.dataUrl, textureHash: pending.textureHash, model: pendingModel, capeId: selectedCape?.id ?? null, capeUrl: selectedCape?.url ?? null, savedAt: Date.now() });

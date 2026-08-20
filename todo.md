@@ -956,3 +956,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the full import and recovery improvement to GitHub main.
 
 ---
+
+# Persistent player face, file scrolling and group localization
+
+- [x] Persist the active account face to the launcher assets folder and refresh it whenever the player changes the active skin.
+- [x] Use the cached local account face in both launcher UI locations, with a safe existing fallback while it is first downloaded.
+- [x] Fix wheel scrolling in the text file editor so content scrolls along with its scrollbar.
+- [x] Translate the New group dialog title, field hint and confirmation action to Russian.
+- [x] Run TypeScript-only verification and commit/push the profile cache, file scrolling and localization repair to GitHub main.
+
+---

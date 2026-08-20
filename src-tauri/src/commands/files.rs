@@ -2,6 +2,29 @@ use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
+fn player_face_assets_dir() -> PathBuf {
+    let path = launcher_base_dir().join("assets").join("player-faces");
+    std::fs::create_dir_all(&path).ok();
+    path
+}
+
+#[tauri::command]
+pub async fn cache_player_face(account_key: String, source_url: String) -> Result<String, String> {
+    if !source_url.starts_with("https://") && !source_url.starts_with("http://") { return Err("Источник лица должен быть сетевым изображением".to_string()); }
+    let safe_key: String = account_key.chars().filter(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_')).collect();
+    if safe_key.is_empty() { return Err("Некорректный идентификатор аккаунта".to_string()); }
+    let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(12)).build().map_err(|e| e.to_string())?;
+    let response = client.get(&source_url).send().await.map_err(|e| format!("Не удалось скачать лицо игрока: {e}"))?.error_for_status().map_err(|e| format!("Сервер лица игрока вернул ошибку: {e}"))?;
+    let content_type = response.headers().get(reqwest::header::CONTENT_TYPE).and_then(|value| value.to_str().ok()).unwrap_or("").to_string();
+    if !content_type.starts_with("image/") { return Err("Сервер вернул не изображение лица".to_string()); }
+    let bytes = response.bytes().await.map_err(|e| format!("Не удалось прочитать лицо игрока: {e}"))?;
+    if bytes.is_empty() || bytes.len() > 2_000_000 { return Err("Размер изображения лица некорректен".to_string()); }
+    let extension = if content_type.contains("jpeg") || content_type.contains("jpg") { "jpg" } else { "png" };
+    let target = player_face_assets_dir().join(format!("{safe_key}.{extension}"));
+    std::fs::write(&target, bytes).map_err(|e| format!("Не удалось сохранить лицо игрока: {e}"))?;
+    Ok(target.to_string_lossy().to_string())
+}
+
 fn launcher_base_dir() -> PathBuf {
     dirs_next::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))

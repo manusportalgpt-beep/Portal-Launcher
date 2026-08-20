@@ -5,6 +5,7 @@ export interface UserProfile {
   uuid: string;
   username: string;
   avatarUrl?: string;
+  faceCacheRevision?: number;
   skinUrl?: string;
   accessToken?: string;
   refreshToken?: string;

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { getAvatarFallbackUrl, getAvatarUrl } from '@/lib/avatar';
 import type { UserProfile } from '@/stores/authStore';
 import { useAuthStore } from '@/stores/authStore';
+import { invoke } from '@/lib/invoke-shim';
+import { toIconSrc } from '@/lib/icon-src';
 
 const CACHE_PREFIX = 'portal-player-face-v1:';
 
@@ -40,13 +42,13 @@ export function CachedPlayerFace({
   style,
   alt = '',
 }: {
-  user: Pick<UserProfile, 'uuid' | 'username' | 'provider' | 'avatarUrl'> | null | undefined;
+  user: Pick<UserProfile, 'uuid' | 'username' | 'provider' | 'avatarUrl' | 'faceCacheRevision'> | null | undefined;
   className?: string;
   style?: React.CSSProperties;
   alt?: string;
 }) {
   const updateAccount = useAuthStore(state => state.updateAccount);
-  const source = useMemo(() => getAvatarUrl(user), [user?.uuid, user?.username, user?.provider, user?.avatarUrl]);
+  const source = useMemo(() => getAvatarUrl(user), [user?.uuid, user?.username, user?.provider, user?.avatarUrl, user?.faceCacheRevision]);
   const fallback = useMemo(() => getAvatarFallbackUrl(user), [user?.uuid, user?.username, user?.provider]);
   const key = useMemo(() => user ? accountKey(user) : '', [user?.uuid, user?.username, user?.provider]);
   const [cached, setCached] = useState(() => key ? readCached(key) : '');
@@ -57,16 +59,28 @@ export function CachedPlayerFace({
     setFailed(false);
     setCached(key ? readCached(key) : '');
     if (!key || !source) return () => { active = false; };
-    void toDataUrl(source).then(dataUrl => {
+    const cacheLocalFace = async () => {
+      if (/^https?:/i.test(source)) {
+        try {
+          const localPath = await invoke<string>('cache_player_face', { accountKey: key, sourceUrl: source });
+          if (!active || !localPath) return;
+          saveCached(key, localPath);
+          setCached(localPath);
+          if (user?.uuid && user.avatarUrl !== localPath) updateAccount(user.uuid, { avatarUrl: localPath });
+          return;
+        } catch { /* Preserve the existing WebView fallback below. */ }
+      }
+      const dataUrl = await toDataUrl(source);
       if (!active || !dataUrl) return;
       saveCached(key, dataUrl);
       setCached(dataUrl);
       if (user?.uuid && user.avatarUrl !== dataUrl) updateAccount(user.uuid, { avatarUrl: dataUrl });
-    }).catch(() => undefined);
+    };
+    void cacheLocalFace().catch(() => undefined);
     return () => { active = false; };
   }, [key, source]);
 
-  const src = cached || source || fallback;
+  const src = toIconSrc(cached || source || fallback);
   if (!src || failed) {
     return <span className={className} style={style}>{user?.username?.[0]?.toUpperCase() || '?'}</span>;
   }

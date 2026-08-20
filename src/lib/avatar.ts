@@ -7,7 +7,7 @@ import { useUiStore } from '@/stores/uiStore';
  * проксируемых Premium-текстур; Microsoft продолжает использовать mc-heads.
  */
 export function getAvatarUrl(
-  user: Pick<UserProfile, 'uuid' | 'username' | 'provider' | 'avatarUrl'> | null | undefined,
+  user: Pick<UserProfile, 'uuid' | 'username' | 'provider' | 'avatarUrl' | 'faceCacheRevision'> | null | undefined,
 ): string | null {
   if (!user) return null;
   const provider = String(user.provider ?? '').toLowerCase();
@@ -17,9 +17,10 @@ export function getAvatarUrl(
   }
   if (isMicrosoft && user.uuid) {
     const style = useUiStore.getState().avatarStyle;
+    const revision = user.faceCacheRevision ? `&portal-face=${user.faceCacheRevision}` : '';
     return style === 'face'
-      ? `https://crafatar.com/avatars/${encodeURIComponent(user.uuid)}?size=64&overlay`
-      : `https://crafatar.com/renders/head/${encodeURIComponent(user.uuid)}?scale=4&overlay`;
+      ? `https://crafatar.com/avatars/${encodeURIComponent(user.uuid)}?size=64&overlay${revision}`
+      : `https://crafatar.com/renders/head/${encodeURIComponent(user.uuid)}?scale=4&overlay${revision}`;
   }
   if (user.avatarUrl) return user.avatarUrl;
   if (user.uuid) {

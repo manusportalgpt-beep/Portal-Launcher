@@ -168,6 +168,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   const [progressMap, setProgressMap] = useState<Record<string, { percent: number; message?: string }>>({});
   const [mainTab, setMainTab] = useState<MainTab>('content');
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
+  const [selectedModIds, setSelectedModIds] = useState<Set<string>>(() => new Set());
   const selectedScreenshotIndex = selectedScreenshot ? screenshots.findIndex(item => item.path === selectedScreenshot.path) : -1;
   const selectScreenshotOffset = (offset: number) => {
     if (selectedScreenshotIndex < 0 || screenshots.length < 2) return;
@@ -264,6 +265,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         });
       }
       setMods(list);
+      setSelectedModIds(previous => new Set([...previous].filter(id => list.some(mod => mod.id === id))));
       try { localStorage.setItem(cacheKey, JSON.stringify({ savedAt: Date.now(), mods: list })); } catch { /* cache is optional */ }
       void enrichMissingMetadata(list);
       setContentFilter(current => current === 'disabled' && !list.some(mod => mod.enabled === false) ? 'all' : current);
@@ -410,6 +412,56 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
     } catch (e: any) {
       setMods(prev => prev.map(m => m.id === mod.id ? { ...m, enabled: !nowEnabled } : m));
       setError(e?.toString() ?? 'Failed to toggle');
+    }
+  }
+
+  const toggleSelectedMod = (id: string) => {
+    setSelectedModIds(previous => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllVisibleMods = () => {
+    setSelectedModIds(previous => {
+      const next = new Set(previous);
+      const everyVisibleSelected = visibleMods.length > 0 && visibleMods.every(mod => next.has(mod.id));
+      visibleMods.forEach(mod => everyVisibleSelected ? next.delete(mod.id) : next.add(mod.id));
+      return next;
+    });
+  };
+
+  const selectedMods = useMemo(() => mods.filter(mod => selectedModIds.has(mod.id)), [mods, selectedModIds]);
+
+  async function setSelectedModsEnabled(enabled: boolean) {
+    const targets = selectedMods.filter(mod => (mod.enabled !== false) !== enabled);
+    if (!targets.length) return;
+    setMods(previous => previous.map(mod => selectedModIds.has(mod.id) ? { ...mod, enabled } : mod));
+    try {
+      await Promise.all(targets.map(mod => invoke('toggle_mod', {
+        instanceId,
+        fileName: mod.fileName,
+        modType: mod.mod_type || 'mod',
+        enabled,
+      })));
+    } catch (e: any) {
+      await loadMods(true);
+      setError(e?.toString() ?? 'Не удалось изменить состояние выбранных элементов');
+    }
+  }
+
+  async function removeSelectedMods() {
+    const targets = selectedMods.filter(mod => mod.fileName);
+    if (!targets.length) return;
+    try {
+      for (const mod of targets) {
+        await invoke('remove_mod', { instanceId, fileName: mod.fileName, modType: mod.mod_type || 'mod' });
+      }
+      setSelectedModIds(new Set());
+      await loadMods(true);
+    } catch (e: any) {
+      setError(e?.toString() ?? 'Не удалось удалить выбранные элементы');
     }
   }
 
@@ -663,13 +715,20 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         </div>
       )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto scroll-area px-4 pb-8">
+      <div className="flex-1 min-h-0 overflow-y-auto scroll-area px-4" style={{ paddingBottom: selectedModIds.size ? 104 : 32 }}>
         {/* ---------- Content ---------- */}
         {mainTab === 'content' && (
           <div className="rounded-2xl overflow-hidden" style={cardStyle}>
             <div className="flex items-center gap-3 px-3 py-2 text-[11px] font-bold uppercase tracking-wide"
               style={{ color: 'var(--color-text-tertiary)', borderBottom: '1px solid var(--color-border)' }}>
-              <span className="w-4 shrink-0" />
+              <input
+                type="checkbox"
+                aria-label="Выбрать все видимые элементы"
+                checked={visibleMods.length > 0 && visibleMods.every(mod => selectedModIds.has(mod.id))}
+                ref={node => { if (node) node.indeterminate = selectedModIds.size > 0 && !visibleMods.every(mod => selectedModIds.has(mod.id)); }}
+                onChange={toggleAllVisibleMods}
+                className="w-4 h-4 shrink-0 accent-[var(--color-primary)]"
+              />
               <span className="flex-1">Проект</span>
               <span className="w-24 shrink-0">Версия</span>
               <span className="w-24 shrink-0 text-right">Действия</span>
@@ -677,7 +736,13 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
             {visibleMods.map((m, i) => (
               <div key={m.id} className="flex items-center gap-3 px-3 py-2.5"
                 style={{ borderBottom: i < visibleMods.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
-                <input type="checkbox" className="w-4 h-4 shrink-0" />
+                <input
+                  type="checkbox"
+                  aria-label={`Выбрать ${m.name}`}
+                  checked={selectedModIds.has(m.id)}
+                  onChange={() => toggleSelectedMod(m.id)}
+                  className="w-4 h-4 shrink-0 accent-[var(--color-primary)]"
+                />
                 <div className="flex items-center gap-2.5 flex-1 min-w-0">
                   <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 flex items-center justify-center"
                     style={{ background: 'var(--color-surface-2)' }}>
@@ -884,6 +949,33 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {mainTab === 'content' && selectedMods.length > 0 && (
+        <div
+          className="absolute bottom-4 left-1/2 z-30 flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-1.5 rounded-2xl p-2 shadow-xl"
+          style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-lg)' }}
+          role="toolbar"
+          aria-label="Действия с выбранными элементами"
+        >
+          <span className="px-2.5 text-xs font-bold whitespace-nowrap" style={{ color:'var(--color-text)' }}>
+            Выбрано: {selectedMods.length}
+          </span>
+          <span className="h-5 w-px" style={{ background:'var(--color-border)' }} />
+          <button onClick={() => setSelectedModIds(new Set())} className="px-2.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap hover:bg-white/5" style={{ color:'var(--color-text-secondary)' }}>
+            Очистить
+          </button>
+          <button onClick={() => void setSelectedModsEnabled(true)} className="px-2.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap hover:bg-white/5" style={{ color:'var(--color-text-secondary)' }}>
+            Включить
+          </button>
+          <button onClick={() => void setSelectedModsEnabled(false)} className="px-2.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap hover:bg-white/5" style={{ color:'var(--color-text-secondary)' }}>
+            Отключить
+          </button>
+          <span className="h-5 w-px" style={{ background:'var(--color-border)' }} />
+          <button onClick={() => void removeSelectedMods()} className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap" style={{ color:'var(--color-error)', background:'rgba(231,76,60,0.10)' }}>
+            <Trash2 className="w-3.5 h-3.5" />Удалить
+          </button>
+        </div>
+      )}
 
       {selectedScreenshot && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setSelectedScreenshot(null)}>

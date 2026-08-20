@@ -3,11 +3,11 @@ import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Compass, Home, Libra
 import { useUiStore } from '@/stores/uiStore';
 
 const NAV_ITEMS = [
-  { id: 'home', label: 'Home', Icon: Home },
-  { id: 'discover', label: 'Discover', Icon: Compass },
-  { id: 'skins', label: 'Skins', Icon: User },
-  { id: 'library', label: 'Library', Icon: Library },
-  { id: 'hosting', label: 'Hosting', Icon: Server },
+  { id: 'home', label: 'Главная', Icon: Home },
+  { id: 'discover', label: 'Поиск', Icon: Compass },
+  { id: 'skins', label: 'Скины', Icon: User },
+  { id: 'library', label: 'Библиотека', Icon: Library },
+  { id: 'hosting', label: 'Хостинг', Icon: Server },
 ];
 
 type Draft = {
@@ -74,7 +74,7 @@ export function NavigationPanelEditor() {
       {open && (
         <div className="border-t p-3.5" style={{ borderColor: 'var(--color-border)' }}>
           <div className="mb-3 rounded-2xl p-3" style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}>
-            <div className="mb-2 flex items-center justify-between gap-2"><p className="text-[10px] font-black uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Live preview</p><div className="flex overflow-hidden rounded-lg" style={{ border: '1px solid var(--color-border)' }}>{(['old', 'new'] as const).map(version => <button key={version} onClick={() => setDraft(current => ({ ...current, panelVersion: version }))} className="px-2 py-1 text-[10px] font-bold" style={{ background: draft.panelVersion === version ? 'var(--color-primary)' : 'var(--color-surface-2)', color: draft.panelVersion === version ? 'var(--color-primary-text)' : 'var(--color-text-secondary)' }}>{version === 'old' ? 'Old UI' : 'New UI'}</button>)}</div></div>
+            <div className="mb-2 flex items-center justify-between gap-2"><p className="text-[10px] font-black uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Предпросмотр</p><div className="flex overflow-hidden rounded-lg" style={{ border: '1px solid var(--color-border)' }}>{(['old', 'new'] as const).map(version => <button key={version} onClick={() => setDraft(current => ({ ...current, panelVersion: version }))} className="px-2 py-1 text-[10px] font-bold" style={{ background: draft.panelVersion === version ? 'var(--color-primary)' : 'var(--color-surface-2)', color: draft.panelVersion === version ? 'var(--color-primary-text)' : 'var(--color-text-secondary)' }}>{version === 'old' ? 'Старый интерфейс' : 'Новый интерфейс'}</button>)}</div></div>
             {isNotch ? (
               <div className="mx-auto flex items-center justify-center gap-1 rounded-xl px-1.5 py-1" style={{ width: `${draft.notchWidth}%`, maxWidth: '100%', background: 'color-mix(in srgb, var(--color-surface) 92%, transparent)', border: '1px solid var(--color-border)', borderRadius: draft.panelVersion === 'new' ? 'var(--radius-modal)' : 'var(--radius-xl)', boxShadow: draft.panelVersion === 'new' ? 'var(--shadow-lg)' : 'var(--shadow-md)', backdropFilter: draft.panelVersion === 'new' ? 'blur(18px)' : 'none' }}>
                 {orderedItems.map(({ id, Icon }) => <span key={id} className="flex items-center justify-center rounded-lg" style={{ width: 30 * draft.navItemScale / 100, height: 28 * draft.navItemScale / 100, color: 'var(--color-primary)' }}><Icon size={14 * draft.navItemScale / 100} /></span>)}
@@ -88,12 +88,12 @@ export function NavigationPanelEditor() {
                 <div className="flex flex-col items-center gap-1 py-2" style={{ width: draft.sidebarWidth, borderRight: '1px solid var(--color-border)' }}>
                   {orderedItems.map(({ id, Icon }) => <span key={id} className="flex items-center justify-center rounded-lg" style={{ width: 30 * draft.navItemScale / 100, height: 28 * draft.navItemScale / 100, color: 'var(--color-primary)' }}><Icon size={14 * draft.navItemScale / 100} /></span>)}
                 </div>
-                <span className="p-3 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>Portal Launcher content</span>
+                <span className="p-3 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>Содержимое Portal Launcher</span>
               </div>
             )}
           </div>
 
-          <p className="mb-2 text-[10px] font-black uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Icon order</p>
+          <p className="mb-2 text-[10px] font-black uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Порядок иконок</p>
           <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {orderedItems.map(({ id, label, Icon }, index) => (
               <div key={id} className="flex items-center gap-1 rounded-xl p-1.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
@@ -108,18 +108,18 @@ export function NavigationPanelEditor() {
           </div>
 
           <div className="grid gap-2 sm:grid-cols-2">
-            <Range label="Hover animation" value={draft.navHoverMs} min={80} max={700} step={20} unit=" ms" onChange={value => setNumber('navHoverMs', value)} />
-            <Range label="Icon size" value={draft.navItemScale} min={75} max={155} step={5} unit="%" onChange={value => setNumber('navItemScale', value)} />
-            <Range label="Instance icons in panel" value={draft.navInstanceCount} min={0} max={14} step={1} unit="" onChange={value => setNumber('navInstanceCount', value)} />
+            <Range label="Анимация наведения" value={draft.navHoverMs} min={80} max={700} step={20} unit=" мс" onChange={value => setNumber('navHoverMs', value)} />
+            <Range label="Размер иконок" value={draft.navItemScale} min={75} max={155} step={5} unit="%" onChange={value => setNumber('navItemScale', value)} />
+            <Range label="Иконки сборок в панели" value={draft.navInstanceCount} min={0} max={14} step={1} unit="" onChange={value => setNumber('navInstanceCount', value)} />
             {isNotch
-              ? <Range label="Notch width" value={draft.notchWidth} min={38} max={100} step={2} unit="%" onChange={value => setNumber('notchWidth', value)} />
-              : <Range label="Sidebar width" value={draft.sidebarWidth} min={48} max={168} step={4} unit=" px" onChange={value => setNumber('sidebarWidth', value)} />}
+              ? <Range label="Ширина Notch-панели" value={draft.notchWidth} min={38} max={100} step={2} unit="%" onChange={value => setNumber('notchWidth', value)} />
+              : <Range label="Ширина боковой панели" value={draft.sidebarWidth} min={48} max={168} step={4} unit=" px" onChange={value => setNumber('sidebarWidth', value)} />}
           </div>
 
           <div className="mt-3 flex justify-end gap-2">
-            <button onClick={() => { setDraft(snapshot); setOpen(false); }} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}><X className="h-3.5 w-3.5" />Discard</button>
-            <button onClick={() => setDraft({ ...snapshot, navItemOrder: ['home', 'discover', 'skins', 'library', 'hosting'] })} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}><RotateCcw className="h-3.5 w-3.5" />Reset</button>
-            <button onClick={save} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}><Save className="h-3.5 w-3.5" />Save</button>
+            <button onClick={() => { setDraft(snapshot); setOpen(false); }} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}><X className="h-3.5 w-3.5" />Отменить</button>
+            <button onClick={() => setDraft({ ...snapshot, navItemOrder: ['home', 'discover', 'skins', 'library', 'hosting'] })} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}><RotateCcw className="h-3.5 w-3.5" />Сбросить</button>
+            <button onClick={save} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}><Save className="h-3.5 w-3.5" />Сохранить</button>
           </div>
         </div>
       )}

@@ -136,8 +136,8 @@ function AccountSection() {
 
   return (
     <div>
-      <h2 className="text-base font-bold mb-1" style={{ color:'var(--color-text)' }}>Microsoft Account</h2>
-      <p className="text-sm mb-5" style={{ color:'var(--color-text-secondary)' }}>Manage your Minecraft accounts</p>
+      <h2 className="text-base font-bold mb-1" style={{ color:'var(--color-text)' }}>Аккаунт Microsoft</h2>
+      <p className="text-sm mb-5" style={{ color:'var(--color-text-secondary)' }}>Управление игровыми аккаунтами Minecraft</p>
       {isAuth && user ? (
         <div className="p-4 rounded-2xl mb-4" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
           <div className="flex items-center gap-3">
@@ -148,9 +148,9 @@ function AccountSection() {
             <div className="flex-1 min-w-0">
               <p className="font-bold" style={{ color:'var(--color-text)' }}>{user.username}</p>
               <p className="text-xs" style={{ color:'var(--color-text-secondary)' }}>
-                {user.provider === 'elyby' ? 'Ely.by Account'
-                  : user.isDemo || user.provider === 'offline' ? 'Offline / без лицензии'
-                  : 'Microsoft Account · Minecraft: Java Edition'}
+                {user.provider === 'elyby' ? 'Аккаунт Ely.by'
+                  : user.isDemo || user.provider === 'offline' ? 'Оффлайн / без лицензии'
+                  : 'Аккаунт Microsoft · Minecraft Java Edition'}
               </p>
               <p className="text-xs font-mono mt-0.5" style={{ color:'var(--color-text-tertiary)' }}>{user.uuid}</p>
             </div>
@@ -159,12 +159,12 @@ function AccountSection() {
             <button onClick={() => setShowAuth(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold"
               style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}>
-              <RefreshCw className="w-3.5 h-3.5" />Add account
+              <RefreshCw className="w-3.5 h-3.5" />Добавить аккаунт
             </button>
             <button onClick={() => { logout(); invoke('msa_logout').catch(() => {}); }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold"
               style={{ background:'rgba(231,76,60,0.1)', color:'var(--color-error)' }}>
-              <X className="w-3.5 h-3.5" />Sign out
+              <X className="w-3.5 h-3.5" />Выйти
             </button>
           </div>
         </div>
@@ -176,8 +176,8 @@ function AccountSection() {
             <LogIn className="w-7 h-7 text-white" />
           </div>
           <div className="text-center">
-            <p className="font-bold" style={{ color:'var(--color-text)' }}>Not signed in</p>
-            <p className="text-sm mt-1" style={{ color:'var(--color-text-secondary)' }}>Sign in with a Microsoft account to play Minecraft</p>
+            <p className="font-bold" style={{ color:'var(--color-text)' }}>Вход не выполнен</p>
+            <p className="text-sm mt-1" style={{ color:'var(--color-text-secondary)' }}>Войдите через аккаунт Microsoft, чтобы играть в Minecraft</p>
           </div>
           <button onClick={() => setShowAuth(true)}
             className="px-5 py-2.5 rounded-xl text-sm font-bold"
@@ -189,7 +189,7 @@ function AccountSection() {
 
       {accounts.length > 1 && (
         <div className="mb-4">
-          <p className="text-xs font-bold mb-2" style={{ color:'var(--color-text-tertiary)' }}>Other accounts</p>
+          <p className="text-xs font-bold mb-2" style={{ color:'var(--color-text-tertiary)' }}>Другие аккаунты</p>
           <div className="space-y-1.5">
             {accounts.filter(a => a.uuid !== activeAccountUuid).map(a => (
               <button key={a.uuid} onClick={() => switchAccount(a.uuid)}
@@ -202,11 +202,11 @@ function AccountSection() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold truncate" style={{ color:'var(--color-text)' }}>{a.username}</p>
                   <p className="text-[11px]" style={{ color:'var(--color-text-tertiary)' }}>
-                    {a.provider === 'elyby' ? 'Ely.by' : a.isDemo || a.provider === 'offline' ? 'Offline' : 'Microsoft'}
+                    {a.provider === 'elyby' ? 'Ely.by' : a.isDemo || a.provider === 'offline' ? 'Оффлайн' : 'Microsoft'}
                   </p>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-1 rounded-lg" style={{ color:'var(--color-primary)', border:'1px solid var(--color-primary)' }}>
-                  Use
+                  Выбрать
                 </span>
               </button>
             ))}
@@ -240,23 +240,23 @@ function MinecraftSection() {
   const s = useSettingsStore();
   return (
     <div>
-      <h2 className="text-base font-bold mb-1" style={{ color:'var(--color-text)' }}>Java & Memory</h2>
-      <p className="text-sm mb-5" style={{ color:'var(--color-text-secondary)' }}>Configure Java and memory allocation</p>
-      <InputRow label="Java Path" desc="Leave empty to auto-detect" value={s.javaPath} onChange={v => s.setSetting('javaPath',v)} placeholder="Auto-detect" />
+      <h2 className="text-base font-bold mb-1" style={{ color:'var(--color-text)' }}>Java и память</h2>
+      <p className="text-sm mb-5" style={{ color:'var(--color-text-secondary)' }}>Настройка Java и выделяемой памяти</p>
+      <InputRow label="Путь к Java" desc="Оставьте пустым для автоматического определения" value={s.javaPath} onChange={v => s.setSetting('javaPath',v)} placeholder="Определять автоматически" />
       <JavaManager selectedPath={s.javaPath} onSelect={path => s.setSetting('javaPath', path)} />
-      <InputRow label="JVM Arguments" desc="Extra JVM arguments added before -jar" value={s.customJvmArgs} onChange={v => s.setSetting('customJvmArgs',v)} placeholder="-XX:+UseG1GC -XX:G1NewSizePercent=20" />
-      <RangeRow label="Minimum Memory" value={s.minRam} min={512} max={s.maxRam} unit=" MB" onChange={v => s.setSetting('minRam',v)} />
-      <RangeRow label="Maximum Memory" value={s.maxRam} min={s.minRam} max={32768} unit=" MB" onChange={v => s.setSetting('maxRam',v)} />
-      <Row label="Close launcher on game start" desc="Minimize Portal Launcher when Minecraft starts">
+      <InputRow label="Аргументы JVM" desc="Дополнительные аргументы JVM, добавляемые перед -jar" value={s.customJvmArgs} onChange={v => s.setSetting('customJvmArgs',v)} placeholder="-XX:+UseG1GC -XX:G1NewSizePercent=20" />
+      <RangeRow label="Минимум памяти" value={s.minRam} min={512} max={s.maxRam} unit=" МБ" onChange={v => s.setSetting('minRam',v)} />
+      <RangeRow label="Максимум памяти" value={s.maxRam} min={s.minRam} max={32768} unit=" МБ" onChange={v => s.setSetting('maxRam',v)} />
+      <Row label="Сворачивать лаунчер при запуске игры" desc="Сворачивать Portal Launcher при запуске Minecraft">
         <Toggle value={s.closeLauncherOnStart} onChange={v => s.setSetting('closeLauncherOnStart',v)} />
       </Row>
-      <Row label="Show snapshot versions" desc="Include pre-release and snapshot versions in version picker">
+      <Row label="Показывать snapshot-версии" desc="Добавлять предрелизы и snapshot-версии в выбор версии">
         <Toggle value={s.showSnapshots} onChange={v => s.setSetting('showSnapshots',v)} />
       </Row>
-      <Row label="Auto-install dependencies" desc="Automatically install Fabric API, Forge dependencies, etc.">
+      <Row label="Автоматически устанавливать зависимости" desc="Автоматически устанавливать Fabric API, зависимости Forge и другие нужные компоненты">
         <Toggle value={s.autoInstallDeps} onChange={v => s.setSetting('autoInstallDeps',v)} />
       </Row>
-      <Row label="Keep game logs" desc="Store Minecraft logs in the game directory">
+      <Row label="Сохранять логи игры" desc="Сохранять логи Minecraft в каталоге игры">
         <Toggle value={s.keepLogs} onChange={v => s.setSetting('keepLogs',v)} />
       </Row>
     </div>
@@ -365,10 +365,10 @@ function AppearanceSection() {
       {/* ===================== Typography ===================== */}
       <div className="flex items-center gap-2 mt-8 mb-1">
         <Palette className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-        <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>Typography</h3>
+        <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>Типографика</h3>
       </div>
       <p className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-        Choose the interface font. The choice is kept when you change themes.
+        Выберите шрифт интерфейса. Выбор сохраняется при смене темы.
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {FONT_OPTIONS.map(font => {
@@ -391,24 +391,24 @@ function AppearanceSection() {
       {/* ===================== Search ===================== */}
       <div className="flex items-center gap-2 mt-8 mb-1">
         <Search className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-        <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>Search</h3>
+        <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>Поиск</h3>
       </div>
       <p className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-        Choose an animation that appears after content is successfully installed from Search or a project page.
+        Выберите эффект, который появляется после успешной установки контента из поиска или со страницы проекта.
       </p>
-      <SegRow label="Install effect" desc="Show the project icon dropping down after a successful installation"
+      <SegRow label="Эффект установки" desc="Показывать эффект с иконкой проекта после успешной установки"
         value={ui.installEffect}
-        options={[{ id:'icon-drop', label:'Icon drop' }, { id:'zoom-bounce', label:'Zoom bounce' }, { id:'orbit', label:'Orbit' }, { id:'shimmer', label:'Shimmer' }, { id:'none', label:'Off' }]}
+        options={[{ id:'icon-drop', label:'Падение иконки' }, { id:'zoom-bounce', label:'Увеличение' }, { id:'orbit', label:'Орбита' }, { id:'shimmer', label:'Блик' }, { id:'none', label:'Выключено' }]}
         onChange={v => ui.set('installEffect', v as any)} />
-      <Row label="Content source icon" desc="Show the non-clickable Modrinth or CurseForge icon beside controls in content rows">
+      <Row label="Иконка источника контента" desc="Показывать некликабельную иконку Modrinth или CurseForge рядом с действиями в строках контента">
         <Toggle value={ui.showContentSourceIcon} onChange={value => ui.set('showContentSourceIcon', value)} />
       </Row>
-      <Row label="Skin stand player name" desc="Show the account or preset name above the large 3D skin model">
+      <Row label="Имя игрока над стендом" desc="Показывать имя аккаунта или пресета над большой 3D-моделью скина">
         <Toggle value={ui.showSkinStandName} onChange={value => ui.set('showSkinStandName', value)} />
       </Row>
-      <SegRow label="Return from project" desc="Choose where Discover and Find Projects return after closing a Modrinth or CurseForge page"
+      <SegRow label="Возврат со страницы проекта" desc="Выберите положение для Discover и «Найти проекты» после закрытия страницы Modrinth или CurseForge"
         value={ui.searchDetailReturnPosition}
-        options={[{ id:'remember', label:'Previous place' }, { id:'top', label:'Top' }, { id:'bottom', label:'Bottom' }]}
+        options={[{ id:'remember', label:'Предыдущее место' }, { id:'top', label:'Верх' }, { id:'bottom', label:'Низ' }]}
         onChange={v => ui.set('searchDetailReturnPosition', v as any)} />
 
       {/* ===================== More ===================== */}
@@ -420,9 +420,9 @@ function AppearanceSection() {
         {t('settings.appearanceUi.moreDescription')}
       </p>
 
-      <SegRow label="Navigation" desc="Side panel or floating Notch panel"
+      <SegRow label="Навигация" desc="Постоянная боковая панель или плавающая Notch-панель"
         value={ui.navMode}
-        options={[{ id: 'sidebar', label: 'Sidebar' }, { id: 'notch', label: 'Notch panel' }]}
+        options={[{ id: 'sidebar', label: 'Боковая панель' }, { id: 'notch', label: 'Notch-панель' }]}
         onChange={v => ui.set('navMode', v as any)} />
 
       <SegRow label="Стиль интерфейса" desc="Классический сохраняет более строгие поверхности, новый использует мягкие акценты и расширенные скругления — для Notch и Sidebar одинаково"
@@ -432,14 +432,14 @@ function AppearanceSection() {
 
       {ui.navMode === 'notch' && (
         <>
-          <SegRow label="Notch position" desc="Which screen edge the panel is docked to"
+          <SegRow label="Положение Notch-панели" desc="К какому краю окна прикреплена панель"
             value={ui.notchSide}
-            options={[{ id: 'top', label: 'Top' }, { id: 'bottom', label: 'Bottom' }, { id: 'left', label: 'Left' }, { id: 'right', label: 'Right' }]}
+            options={[{ id: 'top', label: 'Сверху' }, { id: 'bottom', label: 'Снизу' }, { id: 'left', label: 'Слева' }, { id: 'right', label: 'Справа' }]}
             onChange={v => ui.set('notchSide', v as any)} />
-          <RangeRow label="Hover zone" desc="How large the area is that opens the Notch panel"
+          <RangeRow label="Зона наведения" desc="Размер области, которая открывает Notch-панель"
             value={ui.notchHotzone} min={18} max={96} unit=" px" onChange={v => ui.set('notchHotzone', v)} />
-          <RangeRow label="Close delay" desc="Keep Notch open briefly when moving between its controls" value={ui.notchCloseDelay} min={0} max={800} unit=" ms" onChange={v => ui.set('notchCloseDelay', v)} />
-          <Row label="Always visible" desc="Keep the Notch panel pinned open">
+          <RangeRow label="Задержка закрытия" desc="Кратко удерживать Notch-панель открытой при переходе между её кнопками" value={ui.notchCloseDelay} min={0} max={800} unit=" мс" onChange={v => ui.set('notchCloseDelay', v)} />
+          <Row label="Всегда показывать" desc="Закрепить Notch-панель в открытом состоянии">
             <Toggle value={ui.notchPinned} onChange={v => ui.set('notchPinned', v)} />
           </Row>
         </>
@@ -474,7 +474,7 @@ function AppearanceSection() {
       </div>
       <p className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>{t('settings.appearanceUi.panelPolishDescription')}</p>
       <div className="mb-3 rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-primary-dim)', color:'var(--color-primary)' }}>
-        Редактор: {ui.navMode === 'notch' ? 'Notch Panel' : 'Sidebar'} · изменения не влияют на другой режим
+        Редактор: {ui.navMode === 'notch' ? 'Notch-панель' : 'Боковая панель'} · изменения не влияют на другой режим
       </div>
       <SegRow label={t('settings.appearanceUi.panelAlignment')} desc={t('settings.appearanceUi.panelAlignmentDescription')}
         value={panelAppearance.alignment}
@@ -506,45 +506,45 @@ function AppearanceSection() {
 
       <RangeRow label={t('settings.appearanceUi.interfaceScale')} desc={t('settings.appearanceUi.interfaceScaleDescription')}
         value={ui.uiScale} min={60} max={180} unit="%" onChange={v => ui.set('uiScale', v)} />
-      <RangeRow label="Corner radius" desc="Roundness of cards, buttons and modals"
+      <RangeRow label="Скругление углов" desc="Скругление карточек, кнопок и окон"
         value={ui.cornerRadius} min={0} max={26} unit="px" onChange={v => ui.set('cornerRadius', v)} />
-      <Row label="Animations" desc="Interface transitions and motion">
+      <Row label="Анимации" desc="Переходы и движение элементов интерфейса">
         <Toggle value={ui.animations} onChange={v => ui.set('animations', v)} />
       </Row>
-      <Row label="Blur / glass" desc="Frosted glass effects on panels">
+      <Row label="Размытие / стекло" desc="Эффекты матового стекла на панелях">
         <Toggle value={ui.blur} onChange={v => ui.set('blur', v)} />
       </Row>
-      <Row label="Compact mode" desc="Denser lists and cards">
+      <Row label="Компактный режим" desc="Более плотные списки и карточки">
         <Toggle value={ui.compact} onChange={v => ui.set('compact', v)} />
       </Row>
       <div className="flex items-center gap-2 mt-6 mb-1">
         <Palette className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-        <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>Visual material</h3>
+        <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>Визуальный материал</h3>
       </div>
-      <RangeRow label="Interface opacity" desc="Transparency of the launcher interface over your background" value={ui.interfaceOpacity} min={35} max={100} unit="%" onChange={v => ui.set('interfaceOpacity', v)} />
-      <RangeRow label="Surface opacity" desc="Density of floating cards and interface surfaces" value={ui.surfaceOpacity} min={55} max={100} unit="%" onChange={v => ui.set('surfaceOpacity', v)} />
-      <RangeRow label="Border contrast" desc="How visible outlines are across the selected theme" value={ui.borderStrength} min={45} max={150} unit="%" onChange={v => ui.set('borderStrength', v)} />
-      <RangeRow label="Shadow depth" desc="Strength of elevation shadows on panels and modals" value={ui.shadowStrength} min={0} max={150} unit="%" onChange={v => ui.set('shadowStrength', v)} />
-      <RangeRow label="Motion tempo" desc="Speed multiplier for non-essential interface movement" value={ui.motionSpeed} min={50} max={150} unit="%" onChange={v => ui.set('motionSpeed', v)} />
-      <Row label="Accent glow" desc="Show subtle theme-colored light in the application background">
+      <RangeRow label="Прозрачность интерфейса" desc="Прозрачность интерфейса лаунчера поверх выбранного фона" value={ui.interfaceOpacity} min={35} max={100} unit="%" onChange={v => ui.set('interfaceOpacity', v)} />
+      <RangeRow label="Прозрачность поверхностей" desc="Плотность плавающих карточек и поверхностей интерфейса" value={ui.surfaceOpacity} min={55} max={100} unit="%" onChange={v => ui.set('surfaceOpacity', v)} />
+      <RangeRow label="Контраст границ" desc="Насколько заметны контуры в выбранной теме" value={ui.borderStrength} min={45} max={150} unit="%" onChange={v => ui.set('borderStrength', v)} />
+      <RangeRow label="Глубина теней" desc="Сила теней у панелей и окон" value={ui.shadowStrength} min={0} max={150} unit="%" onChange={v => ui.set('shadowStrength', v)} />
+      <RangeRow label="Скорость движения" desc="Множитель скорости необязательного движения интерфейса" value={ui.motionSpeed} min={50} max={150} unit="%" onChange={v => ui.set('motionSpeed', v)} />
+      <Row label="Свечение акцента" desc="Показывать мягкий цветной свет темы на фоне приложения">
         <Toggle value={ui.accentGlow} onChange={v => ui.set('accentGlow', v)} />
       </Row>
-      {ui.accentGlow && <RangeRow label="Accent glow strength" desc="Intensity of the background accent light" value={ui.accentGlowStrength} min={0} max={150} unit="%" onChange={v => ui.set('accentGlowStrength', v)} />}
-      <SegRow label="Text color" desc="Force black or white text over the theme (RedStone: black/white)"
+      {ui.accentGlow && <RangeRow label="Сила свечения акцента" desc="Интенсивность фонового акцентного света" value={ui.accentGlowStrength} min={0} max={150} unit="%" onChange={v => ui.set('accentGlowStrength', v)} />}
+      <SegRow label="Цвет текста" desc="Принудительно выбрать чёрный или белый текст поверх темы"
         value={ui.textColorOverride}
-        options={[{ id: 'auto', label: 'Auto' }, { id: 'black', label: 'Black' }, { id: 'white', label: 'White' }]}
+        options={[{ id: 'auto', label: 'Авто' }, { id: 'black', label: 'Чёрный' }, { id: 'white', label: 'Белый' }]}
         onChange={v => ui.set('textColorOverride', v as any)} />
-      <RangeRow label="Background opacity" value={ui.backgroundOpacity} min={0} max={100} unit="%"
+      <RangeRow label="Прозрачность фона" value={ui.backgroundOpacity} min={0} max={100} unit="%"
         onChange={v => ui.set('backgroundOpacity', v)} />
-      <RangeRow label="Background readability" desc="Dark protective layer behind cards, text and buttons on your image" value={ui.backgroundReadability} min={0} max={90} unit="%" onChange={v => ui.set('backgroundReadability', v)} />
-      <SegRow label="Background fit" desc="How the selected background image fills the launcher" value={ui.backgroundFit}
-        options={[{ id:'cover', label:'Cover' }, { id:'contain', label:'Contain' }, { id:'stretch', label:'Stretch' }, { id:'tile', label:'Tile' }]}
+      <RangeRow label="Читаемость фона" desc="Тёмный защитный слой за карточками, текстом и кнопками на вашем изображении" value={ui.backgroundReadability} min={0} max={90} unit="%" onChange={v => ui.set('backgroundReadability', v)} />
+      <SegRow label="Заполнение фона" desc="Как выбранное фоновое изображение заполняет лаунчер" value={ui.backgroundFit}
+        options={[{ id:'cover', label:'Заполнить' }, { id:'contain', label:'Вписать' }, { id:'stretch', label:'Растянуть' }, { id:'tile', label:'Плитка' }]}
         onChange={v => ui.set('backgroundFit', v as any)} />
-      <SegRow label="Background position" desc="Which part of the image stays visible in the launcher" value={ui.backgroundPosition}
-        options={[{ id:'center', label:'Center' }, { id:'top', label:'Top' }, { id:'bottom', label:'Bottom' }, { id:'left', label:'Left' }, { id:'right', label:'Right' }]}
+      <SegRow label="Положение фона" desc="Какая часть изображения остаётся видимой в лаунчере" value={ui.backgroundPosition}
+        options={[{ id:'center', label:'По центру' }, { id:'top', label:'Сверху' }, { id:'bottom', label:'Снизу' }, { id:'left', label:'Слева' }, { id:'right', label:'Справа' }]}
         onChange={v => ui.set('backgroundPosition', v as any)} />
-      <RangeRow label="Background blur" desc="Soft blur applied only to the custom background image" value={ui.backgroundBlur} min={0} max={30} unit="px" onChange={v => ui.set('backgroundBlur', v)} />
-      <RangeRow label="Background saturation" desc="Color intensity of the custom background image" value={ui.backgroundSaturation} min={0} max={180} unit="%" onChange={v => ui.set('backgroundSaturation', v)} />
+      <RangeRow label="Размытие фона" desc="Мягкое размытие только пользовательского фонового изображения" value={ui.backgroundBlur} min={0} max={30} unit="px" onChange={v => ui.set('backgroundBlur', v)} />
+      <RangeRow label="Насыщенность фона" desc="Интенсивность цветов пользовательского фонового изображения" value={ui.backgroundSaturation} min={0} max={180} unit="%" onChange={v => ui.set('backgroundSaturation', v)} />
       <Row label={t('settings.appearanceUi.videoBackground')} desc={t('settings.appearanceUi.videoBackgroundDescription')}>
         <div className="flex items-center gap-2">
           <input ref={backgroundVideoFileRef} type="file" accept="video/mp4,video/webm,video/ogg" hidden onChange={event => void importVideo(event.target.files?.[0])} />
@@ -562,11 +562,10 @@ function AppearanceSection() {
       {/* ===================== CSS / .prtheme ===================== */}
       <div className="flex items-center gap-2 mt-8 mb-1">
         <Code className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-        <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>Custom CSS (.prtheme)</h3>
+        <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>Пользовательский CSS (.prtheme)</h3>
       </div>
       <p className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-        Import a <span style={{ color: 'var(--color-primary)' }}>.prtheme</span> file (plain CSS) and rewrite absolutely anything —
-        colors, spacing, positions of the whole UI.
+        Импортируйте файл <span style={{ color: 'var(--color-primary)' }}>.prtheme</span> (обычный CSS), чтобы изменить цвета, отступы и расположение элементов интерфейса.
       </p>
 
       <div className="flex items-center gap-2 mb-3">
@@ -575,7 +574,7 @@ function AppearanceSection() {
         <button onClick={() => fileRef.current?.click()}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold"
           style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
-          <Upload className="w-3.5 h-3.5" />Import .prtheme
+          <Upload className="w-3.5 h-3.5" />Импортировать .prtheme
         </button>
         {ui.customCssName && (
           <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{ui.customCssName}</span>
@@ -596,18 +595,18 @@ function AppearanceSection() {
         <button onClick={() => { ui.set('customCss', cssDraft); setCssSaved(true); setTimeout(() => setCssSaved(false), 1800); }}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold"
           style={{ background: cssSaved ? 'rgba(46,204,113,0.15)' : 'var(--color-primary)', color: cssSaved ? '#2ECC71' : 'var(--color-primary-text)' }}>
-          {cssSaved ? <><Check className="w-3.5 h-3.5" />Applied</> : <><Save className="w-3.5 h-3.5" />Apply CSS</>}
+          {cssSaved ? <><Check className="w-3.5 h-3.5" />Применено</> : <><Save className="w-3.5 h-3.5" />Применить CSS</>}
         </button>
         <button onClick={() => { ui.set('customCss', ''); ui.set('customCssName', ''); setCssDraft(''); }}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold"
           style={{ background: 'rgba(231,76,60,0.1)', color: 'var(--color-error)' }}>
-          <Trash2 className="w-3.5 h-3.5" />Clear
+          <Trash2 className="w-3.5 h-3.5" />Очистить
         </button>
         <div className="flex-1" />
         <button onClick={() => ui.reset()}
           className="px-4 py-2 rounded-xl text-xs font-bold"
           style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
-          Reset appearance
+          Сбросить оформление
         </button>
       </div>
 
@@ -645,7 +644,7 @@ function ControlsSection() {
     <section className="rounded-2xl p-5" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
       <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-primary)' }}>Горячие клавиши</p>
       <h2 className="mt-1 text-lg font-black" style={{ color:'var(--color-text)' }}>Быстрые действия лаунчера</h2>
-      <p className="mt-1 text-xs leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>Сочетания работают на обычных страницах. В поле ввода они не мешают печатать, а Escape сначала закрывает открытый редактор, preview или диалог.</p>
+      <p className="mt-1 text-xs leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>Сочетания работают на обычных страницах. В поле ввода они не мешают печатать, а Escape сначала закрывает открытый редактор, предпросмотр или диалог.</p>
     </section>
     <section className="overflow-hidden rounded-2xl" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
       {(Object.keys(HOTKEY_LABELS) as HotkeyAction[]).map(action => <div key={action} className="flex items-center gap-4 px-4 py-3" style={{ borderBottom:'1px solid var(--color-border)' }}><div className="min-w-0 flex-1"><p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>{HOTKEY_LABELS[action].label}</p><p className="mt-0.5 text-[11px]" style={{ color:'var(--color-text-secondary)' }}>{HOTKEY_LABELS[action].description}</p></div><button onClick={() => setCapturing(action)} className="min-w-28 rounded-xl px-3 py-2 text-xs font-black" style={{ background:capturing === action ? 'var(--color-primary)' : 'var(--color-surface-2)', color:capturing === action ? 'var(--color-primary-text)' : 'var(--color-text)', border:`1px solid ${capturing === action ? 'var(--color-primary)' : 'var(--color-border)'}` }}>{capturing === action ? 'Нажмите…' : bindings[action]}</button></div>)}
@@ -660,32 +659,32 @@ function AudioSection() {
   const [musicError, setMusicError] = useState('');
   const chooseMusic = async (file?: File | null) => {
     if (!file) return;
-    if (!file.type.startsWith('audio/') || file.size > 12 * 1024 * 1024) { setMusicError('Choose an MP3, WAV or OGG file up to 12 MB.'); return; }
-    const data = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result ?? '')); reader.onerror = () => reject(new Error('Unable to read audio file')); reader.readAsDataURL(file); });
+    if (!file.type.startsWith('audio/') || file.size > 12 * 1024 * 1024) { setMusicError('Выберите файл MP3, WAV или OGG размером до 12 МБ.'); return; }
+    const data = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result ?? '')); reader.onerror = () => reject(new Error('Не удалось прочитать аудиофайл')); reader.readAsDataURL(file); });
     s.update({ backgroundMusic: data, backgroundMusicName: file.name }); setMusicError('');
   };
   return (
     <div>
-      <h2 className="text-base font-bold mb-1" style={{ color:'var(--color-text)' }}>Audio</h2>
-      <p className="text-sm mb-5" style={{ color:'var(--color-text-secondary)' }}>Sound and volume settings</p>
-      <RangeRow label="Master Volume" value={s.masterVolume} min={0} max={100} unit="%" onChange={v => s.setSetting('masterVolume',v)} />
-      <Row label="UI Sounds" desc="Play sounds for interactions like button clicks">
+      <h2 className="text-base font-bold mb-1" style={{ color:'var(--color-text)' }}>Аудио</h2>
+      <p className="text-sm mb-5" style={{ color:'var(--color-text-secondary)' }}>Настройки звука и громкости</p>
+      <RangeRow label="Общая громкость" value={s.masterVolume} min={0} max={100} unit="%" onChange={v => s.setSetting('masterVolume',v)} />
+      <Row label="Звуки интерфейса" desc="Воспроизводить звуки при взаимодействии, например при нажатии кнопок">
         <Toggle value={s.uiSounds} onChange={v => s.setSetting('uiSounds',v)} />
       </Row>
-      <SegRow label="Sound profile" desc="Soft is subtle; Arcade has more pronounced feedback; Minimal disables synthesized effects" value={s.uiSoundStyle} options={[{ id:'soft', label:'Soft' }, { id:'arcade', label:'Arcade' }, { id:'minimal', label:'Minimal' }]} onChange={v => s.setSetting('uiSoundStyle', v as any)} />
-      <Row label="Install success sound" desc="Play a positive sound after a successful install"><Toggle value={s.playInstallSound} onChange={v => s.setSetting('playInstallSound',v)} /></Row>
-      <Row label="Error sound" desc="Play an attention sound when an action fails"><Toggle value={s.playErrorSound} onChange={v => s.setSetting('playErrorSound',v)} /></Row>
-      <Row label="Navigation sound" desc="Play a short sound when opening navigation panels"><Toggle value={s.playNavigationSound} onChange={v => s.setSetting('playNavigationSound',v)} /></Row>
-      <Row label="Test UI sounds" desc="Preview click, success, navigation and error feedback">
-        <div className="flex gap-1"><button onClick={playClick} className="rounded-lg px-2 py-1 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Click</button><button onClick={playSuccess} className="rounded-lg px-2 py-1 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Success</button><button onClick={playNav} className="rounded-lg px-2 py-1 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Nav</button><button onClick={playError} className="rounded-lg px-2 py-1 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Error</button></div>
+      <SegRow label="Звуковой профиль" desc="«Мягкий» даёт спокойную обратную связь, «Аркада» — более заметную, «Минимальный» отключает синтезированные эффекты" value={s.uiSoundStyle} options={[{ id:'soft', label:'Мягкий' }, { id:'arcade', label:'Аркада' }, { id:'minimal', label:'Минимальный' }]} onChange={v => s.setSetting('uiSoundStyle', v as any)} />
+      <Row label="Звук успешной установки" desc="Воспроизводить позитивный звук после успешной установки"><Toggle value={s.playInstallSound} onChange={v => s.setSetting('playInstallSound',v)} /></Row>
+      <Row label="Звук ошибки" desc="Воспроизводить предупреждающий звук при сбое действия"><Toggle value={s.playErrorSound} onChange={v => s.setSetting('playErrorSound',v)} /></Row>
+      <Row label="Звук навигации" desc="Воспроизводить короткий звук при открытии навигационных панелей"><Toggle value={s.playNavigationSound} onChange={v => s.setSetting('playNavigationSound',v)} /></Row>
+      <Row label="Проверить звуки интерфейса" desc="Прослушать звук нажатия, успеха, навигации и ошибки">
+        <div className="flex gap-1"><button onClick={playClick} className="rounded-lg px-2 py-1 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Клик</button><button onClick={playSuccess} className="rounded-lg px-2 py-1 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Успех</button><button onClick={playNav} className="rounded-lg px-2 py-1 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Навигация</button><button onClick={playError} className="rounded-lg px-2 py-1 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Ошибка</button></div>
       </Row>
       <div className="mt-6 rounded-2xl p-4" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
-        <p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Background music</p><p className="mt-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>Choose your own local MP3, WAV or OGG. A compact player appears in the upper-left corner only while a file is selected.</p>
-        <div className="mt-3 flex flex-wrap items-center gap-2"><input ref={musicFileRef} type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4" hidden onChange={event => void chooseMusic(event.target.files?.[0])} /><button onClick={() => musicFileRef.current?.click()} className="rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>Choose music file</button>{s.backgroundMusic && <><span className="max-w-[180px] truncate text-[11px]" style={{ color:'var(--color-text-secondary)' }}>{s.backgroundMusicName}</span><button onClick={() => s.update({ backgroundMusic:'', backgroundMusicName:'' })} className="rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background:'var(--color-surface)', color:'var(--color-error)', border:'1px solid var(--color-border)' }}>Remove</button></>}</div>
+        <p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Фоновая музыка</p><p className="mt-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>Выберите свой локальный MP3, WAV или OGG. Компактный плеер появится в левом верхнем углу, пока выбран файл.</p>
+        <div className="mt-3 flex flex-wrap items-center gap-2"><input ref={musicFileRef} type="file" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4" hidden onChange={event => void chooseMusic(event.target.files?.[0])} /><button onClick={() => musicFileRef.current?.click()} className="rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>Выбрать музыкальный файл</button>{s.backgroundMusic && <><span className="max-w-[180px] truncate text-[11px]" style={{ color:'var(--color-text-secondary)' }}>{s.backgroundMusicName}</span><button onClick={() => s.update({ backgroundMusic:'', backgroundMusicName:'' })} className="rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background:'var(--color-surface)', color:'var(--color-error)', border:'1px solid var(--color-border)' }}>Удалить</button></>}</div>
         {musicError && <p className="mt-2 text-xs" style={{ color:'var(--color-error)' }}>{musicError}</p>}
-        <RangeRow label="Music volume" value={s.musicVolume} min={0} max={100} unit="%" onChange={v => s.setSetting('musicVolume',v)} />
-        <SegRow label="Music start" desc="Start automatically when Portal Launcher opens, or wait for Play" value={s.musicAutoplay} options={[{ id:'manual', label:'Manual' }, { id:'startup', label:'On startup' }]} onChange={v => s.setSetting('musicAutoplay', v as any)} />
-        <Row label="Loop background music" desc="Repeat the selected track when it ends"><Toggle value={s.musicLoop} onChange={v => s.setSetting('musicLoop',v)} /></Row>
+        <RangeRow label="Громкость музыки" value={s.musicVolume} min={0} max={100} unit="%" onChange={v => s.setSetting('musicVolume',v)} />
+        <SegRow label="Запуск музыки" desc="Запускать автоматически при открытии Portal Launcher или ждать нажатия «Играть»" value={s.musicAutoplay} options={[{ id:'manual', label:'Вручную' }, { id:'startup', label:'При запуске' }]} onChange={v => s.setSetting('musicAutoplay', v as any)} />
+        <Row label="Повторять фоновую музыку" desc="Повторять выбранный трек после завершения"><Toggle value={s.musicLoop} onChange={v => s.setSetting('musicLoop',v)} /></Row>
       </div>
     </div>
   );
@@ -696,7 +695,7 @@ function LanguageSection() {
   const LANGS: Lang[] = ['en','ru'];
   return (
     <div className="space-y-1">
-      <Row label="Interface Language" desc="Choose Russian or English for the launcher interface">
+      <Row label="Язык интерфейса" desc="Выберите русский или английский язык для интерфейса лаунчера">
         <div className="flex flex-wrap rounded-xl overflow-hidden gap-0.5" style={{ border:'1px solid var(--color-border)' }}>
           {LANGS.map(l => (
             <button key={l} onClick={() => setLang(l)}
@@ -729,13 +728,13 @@ function AdvancedSection() {
   }
   async function testModrinthProxy() {
     const url = proxyUrl.trim().replace(/\/$/, '');
-    if (!url) { setProxyStatus('error'); setProxyMessage('Укажи адрес proxy-сервера.'); return; }
+    if (!url) { setProxyStatus('error'); setProxyMessage('Укажите адрес прокси-сервера.'); return; }
     setProxyStatus('checking'); setProxyMessage('Проверяю подключение…');
     try {
       const response = await fetch(`${url}/v2/search?query=sodium&limit=1`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
       const contentType = response.headers.get('content-type') || '';
-      if (!response.ok || !contentType.includes('application/json')) throw new Error(`endpoint вернул ${response.status || 'не-JSON ответ'}`);
-      setProxyStatus('ok'); setProxyMessage('Transport вернул совместимый JSON. Он включён для поиска и карточек Modrinth.');
+      if (!response.ok || !contentType.includes('application/json')) throw new Error(`сервер вернул ${response.status || 'ответ не в формате JSON'}`);
+      setProxyStatus('ok'); setProxyMessage('Прокси-сервер вернул совместимый JSON. Он включён для поиска и карточек Modrinth.');
     } catch (error) {
       setProxyStatus('error'); setProxyMessage(`Подключение не удалось: ${error instanceof Error ? error.message : 'неизвестная ошибка'}`);
     }
@@ -747,18 +746,18 @@ function AdvancedSection() {
       <p className="text-sm mb-5" style={{ color:'var(--color-text-secondary)' }}>Сервисы каталога и расширенные параметры запуска.</p>
 
       <div className="mb-5 rounded-2xl p-4" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
-        <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Транспорт Modrinth</p><p className="mt-1 text-xs leading-5" style={{ color:'var(--color-text-secondary)' }}>Дополнительный endpoint проверяется по реальному поисковому JSON. Если сервис показывает HTML-защиту, ошибки или задержку, лаунчер сразу использует кэш и официальный API — без бесконечного поиска.</p></div><Toggle value={s.modrinthProxyEnabled} onChange={v => s.setSetting('modrinthProxyEnabled', v)} /></div>
+        <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Транспорт Modrinth</p><p className="mt-1 text-xs leading-5" style={{ color:'var(--color-text-secondary)' }}>Дополнительный адрес проверяется по реальному поисковому JSON. Если сервис показывает HTML-защиту, ошибки или задержку, лаунчер сразу использует кэш и официальный API — без бесконечного поиска.</p></div><Toggle value={s.modrinthProxyEnabled} onChange={v => s.setSetting('modrinthProxyEnabled', v)} /></div>
         <div className="mt-3 flex gap-2"><input value={proxyUrl} onChange={e => { setProxyUrl(e.target.value); setProxyStatus('idle'); }} placeholder="https://modrinth.black" className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', color:'var(--color-text)' }} /><button onClick={() => void testModrinthProxy()} disabled={proxyStatus === 'checking'} className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)', opacity: proxyStatus === 'checking' ? .6 : 1 }}>{proxyStatus === 'checking' ? 'Проверяем…' : 'Проверить JSON'}</button></div>
-        <button onClick={() => s.update({ modrinthProxyUrl: proxyUrl.trim().replace(/\/$/, '') })} className="mt-2 rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background:'var(--color-surface)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Сохранить endpoint</button>
-        <Row label="Официальный fallback" desc="Использовать официальный Modrinth API, если дополнительный endpoint недоступен"><Toggle value={s.modrinthProxyAllowOfficialFallback} onChange={v => s.setSetting('modrinthProxyAllowOfficialFallback', v)} /></Row>
+        <button onClick={() => s.update({ modrinthProxyUrl: proxyUrl.trim().replace(/\/$/, '') })} className="mt-2 rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background:'var(--color-surface)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Сохранить адрес</button>
+        <Row label="Официальный запасной источник" desc="Использовать официальный Modrinth API, если дополнительный адрес недоступен"><Toggle value={s.modrinthProxyAllowOfficialFallback} onChange={v => s.setSetting('modrinthProxyAllowOfficialFallback', v)} /></Row>
         {proxyMessage && <p className="mt-2 text-xs" style={{ color: proxyStatus === 'error' ? 'var(--color-error)' : proxyStatus === 'ok' ? 'var(--color-success)' : 'var(--color-text-secondary)' }}>{proxyMessage}</p>}
       </div>
 
       {/* CurseForge API Key — editable */}
       <div className="py-3.5" style={{ borderBottom:'1px solid var(--color-border)' }}>
-        <p className="text-sm font-semibold mb-1" style={{ color:'var(--color-text)' }}>CurseForge API Key</p>
+        <p className="text-sm font-semibold mb-1" style={{ color:'var(--color-text)' }}>API-ключ CurseForge</p>
         <p className="text-xs mb-2" style={{ color:'var(--color-text-secondary)' }}>
-          Required for CurseForge mod search. Get your key at{' '}
+          Нужен для поиска модов CurseForge. Получите ключ на{' '}
           <span style={{ color:'var(--color-primary)' }}>console.curseforge.com</span>
         </p>
         <div className="flex gap-2">
@@ -778,17 +777,17 @@ function AdvancedSection() {
               color: saved ? '#2ECC71' : 'var(--color-primary-text)',
               border: saved ? '1px solid #2ECC7144' : 'none',
             }}>
-            {saved ? <><Check className="w-4 h-4" />Saved!</> : <><Save className="w-4 h-4" />Save</>}
+            {saved ? <><Check className="w-4 h-4" />Сохранено</> : <><Save className="w-4 h-4" />Сохранить</>}
           </button>
         </div>
         {cfKey && (
           <p className="text-[11px] mt-1.5" style={{ color:'var(--color-text-tertiary)' }}>
-            ● Key configured ({cfKey.length} chars)
+            ● Ключ настроен ({cfKey.length} символов)
           </p>
         )}
       </div>
 
-      <Row label="Default Platform" desc="Which platform to use by default in Discover">
+      <Row label="Платформа по умолчанию" desc="Какую платформу использовать по умолчанию в Discover">
         <div className="flex rounded-xl overflow-hidden" style={{ border:'1px solid var(--color-border)' }}>
           {(['modrinth','curseforge'] as const).map(p => (
             <button key={p} onClick={() => s.setSetting('defaultPlatform', p)}
@@ -806,7 +805,7 @@ function AdvancedSection() {
         <button onClick={() => s.reset()}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
           style={{ background:'rgba(231,76,60,0.1)', color:'var(--color-error)', border:'1px solid rgba(231,76,60,0.2)' }}>
-          <Trash2 className="w-4 h-4" />Reset all settings to default
+          <Trash2 className="w-4 h-4" />Сбросить все настройки
         </button>
       </div>
     </div>
@@ -853,8 +852,8 @@ function AboutSection() {
 
   return (
     <div>
-      <h2 className="text-base font-bold mb-1" style={{ color:'var(--color-text)' }}>About Portal Launcher</h2>
-      <p className="text-sm mb-5" style={{ color:'var(--color-text-secondary)' }}>Version and license information</p>
+      <h2 className="text-base font-bold mb-1" style={{ color:'var(--color-text)' }}>О Portal Launcher</h2>
+      <p className="text-sm mb-5" style={{ color:'var(--color-text-secondary)' }}>Сведения о версии и лицензии</p>
       <div className="p-5 rounded-2xl mb-4 flex flex-col items-center gap-3"
         style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
         <button onClick={handleLogoClick} className={`relative w-20 h-20 rounded-3xl overflow-hidden transition-transform ${burst ? 'scale-110' : 'hover:scale-[1.03]'}`} style={{ boxShadow:`0 8px 24px ${rarityColor}55`, border:`1px solid ${rarityColor}88` }} title="Portal Launcher">
@@ -863,8 +862,8 @@ function AboutSection() {
         </button>
         <div className="text-center">
           <p className="font-black text-xl" style={{ color:'var(--color-text)' }}>Portal Launcher</p>
-          <p className="text-sm mt-0.5" style={{ color:'var(--color-text-secondary)' }}>Version 1.0.0</p>
-          <p className="text-xs mt-1" style={{ color:'var(--color-text-tertiary)' }}>Built with Tauri v2 · React · TypeScript</p>
+          <p className="text-sm mt-0.5" style={{ color:'var(--color-text-secondary)' }}>Версия 1.0.0</p>
+          <p className="text-xs mt-1" style={{ color:'var(--color-text-tertiary)' }}>Создано с Tauri v2 · React · TypeScript</p>
           <p className="mt-2 text-[11px] font-black uppercase tracking-wider" style={{ color:rarityColor }}>{rarityLabel} · {clicks} {language === 'ru' ? 'кликов' : 'clicks'}</p>
           {clicks >= 5 && <p className="mt-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{language === 'ru' ? 'Иконка лаунчера перешла в альтернативную редкость.' : 'The launcher icon has entered an alternate rarity.'}</p>}
         </div>
@@ -873,20 +872,20 @@ function AboutSection() {
         {manusReveal && (
           <motion.div className="mb-4 flex items-center gap-3 p-3.5" initial={{ opacity:0, y:8, scale:0.98 }} animate={{ opacity:1, y:0, scale:1 }} exit={{ opacity:0, y:8, scale:0.98 }} style={{ borderRadius:'var(--radius-card)', background:'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 18%, var(--color-surface)), var(--color-surface-2))', border:'1px solid var(--color-primary)', boxShadow:'var(--shadow-md)' }}>
             <img src={manusAchievement} alt="Manus" className="h-10 w-[102px] rounded-lg object-contain" style={{ background:'#202020' }} />
-            <div className="min-w-0"><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Who are you?</p><p className="mt-0.5 text-[11px]" style={{ color:'var(--color-text-secondary)' }}>Manus — the collaborator who helped Portalrolls build Portal Launcher.</p></div>
+            <div className="min-w-0"><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Кто ты?</p><p className="mt-0.5 text-[11px]" style={{ color:'var(--color-text-secondary)' }}>Manus — помощник, который участвовал в создании Portal Launcher вместе с Portalrolls.</p></div>
           </motion.div>
         )}
       </AnimatePresence>
       {verityUnlocked && <div className="mb-4 flex items-center gap-3 p-3" style={{ borderRadius:'var(--radius-card)', background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><p className="text-[11px] font-bold" style={{ color:'var(--color-text-secondary)' }}>Verity · Что-то случиться через 3 дня...</p></div>}
       {[
-        { label:'Made By', value:'Portalrolls' },
-        { label:'Tauri Version', value:'2.x' },
-        { label:'React Version', value:'18.x' },
-        { label:'License', value:'MIT' },
+        { label:'Создатель', value:'Portalrolls' },
+        { label:'Версия Tauri', value:'2.x' },
+        { label:'Версия React', value:'18.x' },
+        { label:'Лицензия', value:'MIT' },
       ].map(r => (
         <div key={r.label} className="flex items-center justify-between py-3" style={{ borderBottom:'1px solid var(--color-border)' }}>
           <p className="text-sm" style={{ color:'var(--color-text-secondary)' }}>{r.label}</p>
-          <p className="text-sm font-semibold" style={{ color: r.label === 'Made By' ? 'var(--color-primary)' : 'var(--color-text)' }}>{r.value}</p>
+          <p className="text-sm font-semibold" style={{ color: r.label === 'Создатель' ? 'var(--color-primary)' : 'var(--color-text)' }}>{r.value}</p>
         </div>
       ))}
     </div>

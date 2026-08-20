@@ -764,3 +764,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the compact Title Bar refinement to GitHub main.
 
 ---
+
+# Instance content actions, Notch Panel and Settings localization
+
+- [x] Add selection checkboxes and a bottom action bar for real multi-select actions in the instance content list.
+- [x] Restore independent Notch Panel appearance settings so changes apply immediately without modifying Sidebar settings.
+- [x] Translate all user-facing English function labels in Settings to Russian while preserving technical identifiers, file names, providers and mod names.
+- [x] Run TypeScript only and commit/push the instance-content, Notch Panel and Settings localization work to GitHub main.
+
+---

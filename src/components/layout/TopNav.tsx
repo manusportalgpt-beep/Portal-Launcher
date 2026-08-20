@@ -34,10 +34,12 @@ function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem
   const Icon = item.icon;
   const { t } = useTranslation();
   const uiMode = useUiStore(s => s.uiMode);
+  const navHoverMs = useUiStore(s => s.navHoverMs);
   const { activeIndicator, labels, hoverIndicator, interactionShape } = appearance;
   const interactionRadius = interactionShape === 'circle' ? '999px' : 'var(--radius-sm)';
   const label = t(`nav.${item.labelKey}`);
   const showLabel = labels === 'always';
+  const revealLabelOnHover = labels === 'hover';
   return (
     <NavLink
       to={item.to}
@@ -52,7 +54,7 @@ function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem
           <span className="pointer-events-none absolute inset-0"
             style={{ zIndex:-1, border:`1px solid ${isActive ? 'var(--color-primary)' : 'transparent'}`, borderRadius: interactionRadius, background: isActive ? activeIndicator === 'pill' ? 'var(--color-primary)' : uiMode === 'old' ? 'var(--color-surface-2)' : 'var(--color-primary-dim)' : 'transparent' }} />
           {!isActive && <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100"
-            style={{ zIndex:-1, border: hoverIndicator === 'none' ? '0 solid transparent' : '1px solid color-mix(in srgb, var(--color-primary) 72%, transparent)', borderRadius: hoverIndicator === 'circle' ? '999px' : 'var(--radius-sm)', background: hoverIndicator === 'none' ? 'transparent' : 'color-mix(in srgb, var(--color-primary) 7%, transparent)', willChange:'opacity' }} />}
+            style={{ zIndex:-1, transitionDuration:`${navHoverMs}ms`, border: hoverIndicator === 'none' ? '0 solid transparent' : '1px solid color-mix(in srgb, var(--color-primary) 72%, transparent)', borderRadius: hoverIndicator === 'circle' ? '999px' : 'var(--radius-sm)', background: hoverIndicator === 'none' ? 'transparent' : 'color-mix(in srgb, var(--color-primary) 7%, transparent)', willChange:'opacity' }} />}
           <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-100 group-active:opacity-100"
             style={{ zIndex:-1, border:'1px solid var(--color-primary)', borderRadius: interactionRadius, background:'transparent', willChange:'opacity' }} />
           <Icon size={16} strokeWidth={2} shapeRendering="geometricPrecision" vectorEffect="non-scaling-stroke" className="relative shrink-0" style={{
@@ -64,7 +66,7 @@ function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem
             backfaceVisibility: 'hidden',
             WebkitFontSmoothing: 'antialiased',
           }} />
-          {showLabel && <span className="relative flex-1 whitespace-nowrap text-xs font-bold" style={{ color: isActive && activeIndicator === 'pill' ? 'var(--color-primary-text)' : 'var(--color-text-secondary)', transform: 'translateZ(0)', backfaceVisibility: 'hidden', WebkitFontSmoothing: 'antialiased' }}>{label}</span>}
+          {(showLabel || revealLabelOnHover) && <span className={`relative whitespace-nowrap text-xs font-bold ${showLabel ? 'flex-1' : 'max-w-0 overflow-hidden opacity-0 transition-[max-width,opacity] group-hover:max-w-28 group-hover:opacity-100'}`} style={{ transitionDuration: revealLabelOnHover ? `${navHoverMs}ms` : undefined, color: isActive && activeIndicator === 'pill' ? 'var(--color-primary-text)' : 'var(--color-text-secondary)', transform: 'translateZ(0)', backfaceVisibility: 'hidden', WebkitFontSmoothing: 'antialiased' }}>{label}</span>}
           {isActive && activeIndicator !== 'pill' && (
             <span className="absolute rounded-full" style={{
               ...(activeIndicator === 'dot'
@@ -147,13 +149,14 @@ function SidebarNav() {
   const scale = useUiStore(s => s.navItemScale);
   const appearance = useUiStore(s => s.sidebarPanelAppearance);
   const uiMode = useUiStore(s => s.uiMode);
+  const blurEnabled = useUiStore(s => s.blur);
   const items = orderedNav(order);
   const justifyContent = appearance.alignment === 'start' ? 'flex-start' : appearance.alignment === 'end' ? 'flex-end' : 'center';
   const borderColor = appearance.border === 'none' ? 'transparent' : appearance.border === 'strong' ? 'var(--color-border-strong)' : 'var(--color-border)';
   const shadowValue = appearance.shadow === 'none' ? 'none' : appearance.shadow === 'strong' ? '12px 0 38px rgba(0,0,0,0.28)' : '8px 0 24px rgba(0,0,0,0.14)';
   return (
     <aside className="shrink-0 flex flex-col z-40"
-      style={{ width: sidebarWidth, gap:appearance.gap, padding: `${appearance.edgePadding}px 10px`, justifyContent, background: uiMode === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${Math.max(appearance.opacity, 99)}%, transparent)`, borderRight: `1px solid ${borderColor}`, boxShadow: uiMode === 'old' ? 'none' : shadowValue, backdropFilter: 'none', WebkitBackdropFilter: 'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease, background calc(180ms * var(--portal-motion-multiplier, 1)) ease, box-shadow calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
+      style={{ width: sidebarWidth, gap:appearance.gap, padding: `${appearance.edgePadding}px 10px`, justifyContent, background: uiMode === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${appearance.opacity}%, transparent)`, borderRight: `1px solid ${borderColor}`, boxShadow: uiMode === 'old' ? 'none' : shadowValue, backdropFilter: blurEnabled && appearance.blur ? `blur(${appearance.blur}px)` : 'none', WebkitBackdropFilter: blurEnabled && appearance.blur ? `blur(${appearance.blur}px)` : 'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease, background calc(180ms * var(--portal-motion-multiplier, 1)) ease, box-shadow calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
       <div className="px-2 pb-3 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-text-tertiary)' }}>Portal Launcher</div>
       {items.map(item => <DockButton key={item.to} item={item} vertical scale={scale} appearance={appearance} />)}
       <div className="h-px my-2" style={{ background: 'var(--color-border)' }} />
@@ -169,6 +172,7 @@ function SidebarNav() {
 function NotchNav() {
   const { notchHotzone, notchPinned, notchCloseDelay, notchWidth, notchSide, navHoverMs, navItemScale, navItemOrder, panelVersion, uiMode, titlebarHeight, notchPanelAppearance: appearance, set } = useUiStore();
   const visualPanelVersion = uiMode === 'old' ? 'old' : panelVersion;
+  const blurEnabled = useUiStore(state => state.blur);
   const items = orderedNav(navItemOrder);
   const [hover, setHover] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(() => Boolean(document.body.dataset.portalOverlay));
@@ -242,11 +246,11 @@ function NotchNav() {
               style={{
                 padding: Math.max(visualPanelVersion === 'new' ? 7 : 5, appearance.edgePadding / 2),
                 gap: appearance.gap,
-                background: visualPanelVersion === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${Math.max(appearance.opacity, 99)}%, transparent)`,
+                background: visualPanelVersion === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${appearance.opacity}%, transparent)`,
                 border: `1px solid ${borderColor}`,
                 borderRadius: visualPanelVersion === 'new' ? 'var(--radius-modal)' : 'var(--radius-xl)',
-                backdropFilter: 'none',
-                WebkitBackdropFilter: 'none',
+                backdropFilter: blurEnabled && appearance.blur ? `blur(${appearance.blur}px)` : 'none',
+                WebkitBackdropFilter: blurEnabled && appearance.blur ? `blur(${appearance.blur}px)` : 'none',
                 boxShadow: visualPanelVersion === 'old' ? 'none' : shadowValue,
               }}>
               {items.map(item => <DockButton key={item.to} item={item} vertical={vertical} scale={navItemScale} appearance={appearance} />)}

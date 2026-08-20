@@ -209,7 +209,7 @@ const defaults = {
   },
   contentWidth: 100,
   contentInset: 0,
-  titlebarHeight: 32,
+  titlebarHeight: 28,
   adaptiveTitlebarColor: true,
 };
 
@@ -220,6 +220,14 @@ export const useUiStore = create<UiState>()(
       set: (key, value) => set({ [key]: value } as any),
       reset: () => set({ ...defaults }),
     }),
-    { name: 'portal-launcher-ui' },
+    {
+      name: 'portal-launcher-ui',
+      version: 2,
+      migrate: (persisted: any, version) => {
+        // Only migrate the old stock 32px height; custom heights remain the user's choice.
+        if (version < 2 && persisted?.titlebarHeight === 32) persisted.titlebarHeight = 28;
+        return persisted;
+      },
+    },
   ),
 );

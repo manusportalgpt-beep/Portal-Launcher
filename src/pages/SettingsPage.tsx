@@ -323,10 +323,10 @@ function AppearanceSection() {
 
   const applyWorkspacePreset = (preset: 'focused' | 'balanced' | 'roomy') => {
     const values = preset === 'focused'
-      ? { titlebarHeight: 32, uiScale: 92, compact: true, cornerRadius: 10 }
+      ? { titlebarHeight: 28, uiScale: 92, compact: true, cornerRadius: 10 }
       : preset === 'roomy'
         ? { titlebarHeight: 40, uiScale: 108, compact: false, cornerRadius: 18 }
-        : { titlebarHeight: 34, uiScale: 100, compact: false, cornerRadius: 12 };
+        : { titlebarHeight: 30, uiScale: 100, compact: false, cornerRadius: 12 };
     (Object.entries(values) as Array<[keyof typeof values, number | boolean]>).forEach(([key, value]) => ui.set(key as any, value as any));
   };
 
@@ -463,7 +463,7 @@ function AppearanceSection() {
           </button>
         ))}
       </div>
-      <RangeRow label={t('settings.appearanceUi.titlebarHeight')} desc={t('settings.appearanceUi.titlebarHeightDescription')} value={ui.titlebarHeight} min={32} max={52} unit="px" onChange={v => ui.set('titlebarHeight', v)} />
+      <RangeRow label={t('settings.appearanceUi.titlebarHeight')} desc={t('settings.appearanceUi.titlebarHeightDescription')} value={ui.titlebarHeight} min={28} max={52} unit="px" onChange={v => ui.set('titlebarHeight', v)} />
       <Row label="Адаптивный цвет верхней панели" desc="Верхняя панель мягко подстраивается под поверхность открытой страницы, как Adaptive Tab Color.">
         <Toggle value={ui.adaptiveTitlebarColor} onChange={value => ui.set('adaptiveTitlebarColor', value)} />
       </Row>

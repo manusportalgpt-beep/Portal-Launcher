@@ -756,3 +756,11 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the Skin Studio refinement to GitHub main.
 
 ---
+
+# Compact Title Bar refinement
+
+- [x] Reduce the default Title Bar height while preserving a usable drag zone, small app icon, concise title and compact window controls.
+- [x] Keep window controls excluded from dragging and avoid changing navigation/content layout dimensions.
+- [x] Run TypeScript only and commit/push the compact Title Bar refinement to GitHub main.
+
+---

@@ -610,38 +610,18 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
   };
 
   const pickFile = () => {
-    const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = '.zip,.mrpack';
-    inp.onchange = async (e: any) => {
-      const f = e.target.files?.[0]; if (!f) return;
-      let dataUrl = '';
+    void (async () => {
       try {
-        // В Tauri `File.path` — это путь к именно выбранному пользователем
-        // архиву. Передаём его напрямую, чтобы большой .mrpack не был усечён
-        // при сериализации в base64 через IPC. Для браузерного fallback
-        // сохраняем прежнее чтение в data URL.
-        const nativePath = typeof (f as { path?: unknown }).path === 'string' && (f as { path: string }).path.trim()
-          ? (f as { path: string }).path
-          : null;
-        dataUrl = nativePath ?? await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result ?? ''));
-          reader.onerror = () => reject(new Error('Не удалось прочитать архив'));
-          reader.readAsDataURL(f);
-        });
-        const source = f.name.toLowerCase().endsWith('.mrpack') ? 'modrinth' : 'curseforge';
-        const preview = await invoke<ModpackPreview>('preview_remote_modpack', { downloadUrl: dataUrl, fileName: f.name, source, apiKey: null, projectName: null, projectAuthor: null, projectAuthorUrl: null, projectAuthorAvatarUrl: null, projectIconUrl: null });
-        setLocalPreview({ preview, dataUrl, fileName: f.name });
+        const nativePath = await invoke<string | null>('pick_local_modpack');
+        if (!nativePath) return;
+        const fileName = nativePath.split(/[\\/]/).pop() || 'сборка.mrpack';
+        const source = fileName.toLowerCase().endsWith('.mrpack') ? 'modrinth' : 'curseforge';
+        const preview = await invoke<ModpackPreview>('preview_remote_modpack', { downloadUrl: nativePath, fileName, source, apiKey: null, projectName: null, projectAuthor: null, projectAuthorUrl: null, projectAuthorAvatarUrl: null, projectIconUrl: null });
+        setLocalPreview({ preview, dataUrl: nativePath, fileName });
       } catch (e) {
-        if (f.name.toLowerCase().endsWith('.mrpack')) {
-          dialog.alert(`Не удалось прочитать .mrpack: ${String(e)}. Файл не был изменён. Проверьте, что экспорт завершился полностью, и выберите исходный .mrpack ещё раз.`, { title: 'Импорт .mrpack', danger: true });
-          return;
-        }
-        dialog.alert('В этом ZIP-архиве не найден совместимый manifest. Его можно импортировать как обычную сборку.', { title: 'Импорт без manifest', danger: false });
-        void importPreparedArchive(dataUrl, f.name);
+        dialog.alert(`Не удалось прочитать выбранный .mrpack: ${String(e)}. Файл не был изменён.`, { title: 'Импорт .mrpack', danger: true });
       }
-    };
-    inp.click();
+    })();
   };
 
   return (

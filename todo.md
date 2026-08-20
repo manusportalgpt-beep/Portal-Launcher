@@ -927,3 +927,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the seamless Notch Panel edge to GitHub main.
 
 ---
+
+# Native local `.mrpack` selection repair
+
+- [x] Replace browser file-input path guessing with the real native Tauri `.mrpack` file selection API.
+- [x] Ensure local archive preview never invokes HTTP/reqwest when a local selection is intended.
+- [x] Keep the source archive untouched and show a specific Russian validation error only for a genuinely unreadable archive.
+- [x] Run TypeScript-only verification and commit/push the local `.mrpack` selection repair to GitHub main.
+
+---

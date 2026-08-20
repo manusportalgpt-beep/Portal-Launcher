@@ -230,6 +230,7 @@ fn main() {
             commands::files::open_folder,
             commands::files::open_minecraft_folder,
             commands::files::get_minecraft_folder_path,
+            commands::files::pick_local_modpack,
             commands::files::read_file_bytes,
             commands::files::write_file_bytes,
             commands::files::open_url,

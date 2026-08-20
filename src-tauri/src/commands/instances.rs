@@ -793,6 +793,8 @@ pub async fn preview_remote_modpack(
             .map_err(|e| format!("Read local pack preview: {e}"))?
     } else if Path::new(&download_url).is_file() {
         std::fs::read(&download_url).map_err(|e| format!("Read local pack preview: {e}"))?
+    } else if !download_url.contains("://") {
+        return Err("Локальный путь к выбранному архиву недоступен. Выберите .mrpack через системное окно ещё раз.".to_string());
     } else {
         client.get(&download_url).send().await
             .map_err(|e| format!("Download pack preview: {e}"))?

@@ -50,11 +50,12 @@ pub async fn open_folder(path: String) -> Result<(), String> {
 pub struct FileFilter { pub name: String, pub extensions: Vec<String> }
 
 #[tauri::command]
-pub async fn pick_file(_filters: Option<Vec<FileFilter>>) -> Result<Option<String>, String> {
-    // File picking is handled by Tauri's dialog plugin on the frontend.
-    // This stub exists for completeness; the actual call goes through
-    // @tauri-apps/plugin-dialog on the JS side.
-    Ok(None)
+pub fn pick_local_modpack() -> Result<Option<String>, String> {
+    let selected = rfd::FileDialog::new()
+        .set_title("Выберите сборку Minecraft")
+        .add_filter("Сборки Minecraft", &["mrpack", "zip"])
+        .pick_file();
+    Ok(selected.map(|path| path.to_string_lossy().to_string()))
 }
 
 #[tauri::command]

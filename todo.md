@@ -1059,7 +1059,7 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 
 # Revert unified workspace redesign
 
-- [ ] Revert commit 9cd0fd2 only, returning to stable commit c245236 while preserving prior Home, theme-editor, performance and launch repairs.
-- [ ] Verify the restored revision and GitHub main synchronization.
+- [x] Revert commit 9cd0fd2 only, returning to stable commit c245236 while preserving prior Home, theme-editor, performance and launch repairs.
+- [x] Verify the restored revision and GitHub main synchronization.
 
 ---

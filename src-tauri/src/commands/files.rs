@@ -90,6 +90,23 @@ pub fn pick_local_files() -> Result<Vec<String>, String> {
     Ok(selected.into_iter().map(|path| path.to_string_lossy().to_string()).collect())
 }
 
+/// Open the native system picker for a Java executable and return it only if
+/// it can be launched and inspected by the launcher.
+#[tauri::command]
+pub fn pick_java_executable() -> Result<Option<crate::commands::jvm::JavaInfo>, String> {
+    let mut dialog = rfd::FileDialog::new().set_title("Выберите исполняемый файл Java");
+    #[cfg(target_os = "windows")]
+    { dialog = dialog.add_filter("Java", &["exe"]); }
+    let Some(path) = dialog.pick_file() else { return Ok(None); };
+    let path = path.to_string_lossy().to_string();
+    let info = crate::commands::jvm::run_java(&path)
+        .ok_or_else(|| "Выбранный файл не является работающей Java".to_string())?;
+    if info.architecture.eq_ignore_ascii_case("x86") {
+        return Err("Нужна 64-битная Java: 32-битная Java не подходит для Minecraft и модпаков".to_string());
+    }
+    Ok(Some(info))
+}
+
 #[tauri::command]
 pub async fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
     std::fs::read(&path).map_err(|e| format!("Read error: {e}"))

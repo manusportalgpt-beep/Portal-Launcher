@@ -229,6 +229,7 @@ fn main() {
             commands::audio::list_audio_devices,
             // JVM
             commands::jvm::get_java_info,
+            commands::jvm::detect_java_for_version,
             commands::jvm::download_java,
             commands::jvm::get_managed_java_versions,
             commands::jvm::download_java_zulu,
@@ -240,6 +241,7 @@ fn main() {
             commands::files::cache_player_face,
             commands::files::pick_local_modpack,
             commands::files::pick_local_files,
+            commands::files::pick_java_executable,
             commands::files::read_file_bytes,
             commands::files::write_file_bytes,
             commands::files::open_url,

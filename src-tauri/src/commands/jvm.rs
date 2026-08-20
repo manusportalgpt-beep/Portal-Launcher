@@ -196,6 +196,20 @@ pub async fn get_java_info(java_path: String) -> Result<JavaInfo, String> {
     run_java(&path).ok_or_else(|| format!("Could not run Java at '{}'", path))
 }
 
+/// Detect a validated, 64-bit Java runtime of one exact major version.
+/// The strict version match prevents a newer system Java from silently being
+/// used for an older Minecraft generation.
+#[tauri::command]
+pub async fn detect_java_for_version(major_version: u32) -> Result<Option<JavaInfo>, String> {
+    let path = find_java(major_version);
+    let Some(info) = run_java(&path) else { return Ok(None); };
+    if info.major_version == major_version && !info.architecture.eq_ignore_ascii_case("x86") {
+        Ok(Some(info))
+    } else {
+        Ok(None)
+    }
+}
+
 #[tauri::command]
 pub async fn get_managed_java_versions() -> Result<Vec<JavaInfo>, String> {
     let base = java_base_dir();

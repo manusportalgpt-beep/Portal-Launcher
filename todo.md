@@ -1105,3 +1105,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the Modrinth App parity fix to GitHub main.
 
 ---
+
+# Java runtime management refresh
+
+- [x] Audit existing managed Java discovery, download, validation and native file-picker commands for Java 8, 17, 21 and 25.
+- [x] Preserve or extend safe version-specific Java detection and installation actions without changing current Minecraft launch compatibility.
+- [x] Redesign the Java settings area as version cards with path, status, «Установить рекомендуемую», «Найти» and «Выбрать файл» actions.
+- [x] Run TypeScript-only verification and commit/push the Java runtime management refresh to GitHub main.
+
+---

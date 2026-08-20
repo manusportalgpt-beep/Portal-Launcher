@@ -1114,3 +1114,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the Java runtime management refresh to GitHub main.
 
 ---
+
+# Per-mod update repair
+
+- [x] Trace the individual update button from the Content interface to the update procedure and compatibility lookup.
+- [x] Fix file-name/project matching and version/loader compatibility for updating one mod without touching other content.
+- [x] Localize the button as «Обновить» / «Обновляю…» and refresh the item after a successful update.
+- [x] Run TypeScript-only verification and commit/push the per-mod update repair to GitHub main.
+
+---

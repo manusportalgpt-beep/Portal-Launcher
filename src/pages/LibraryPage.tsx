@@ -1247,7 +1247,7 @@ function ContentSourceBadge({ source }: { source?: string }) {
   );
 }
 
-function ContentRow({ item, onToggle, onDelete, onShowInFolder }: { item:any; onToggle:()=>void; onDelete:()=>void; onShowInFolder:()=>void }) {
+function ContentRow({ item, onToggle, onDelete, onShowInFolder, onUpdate, updating }: { item:any; onToggle:()=>void; onDelete:()=>void; onShowInFolder:()=>void; onUpdate:()=>void; updating:boolean }) {
   const navigate = useNavigate();
   const [menu, setMenu] = useState(false);
   return (
@@ -1292,8 +1292,8 @@ function ContentRow({ item, onToggle, onDelete, onShowInFolder }: { item:any; on
       <td className="py-2.5 px-4">
         <div className="flex items-center justify-end gap-1.5">
           {item.updateAvailable && (
-            <button className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold" style={{ background:'rgba(46,204,113,0.15)',color:'#2ECC71' }}>
-              <Download className="w-3 h-3" />Update
+            <button type="button" disabled={updating} onClick={onUpdate} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold disabled:opacity-55" style={{ background:'rgba(46,204,113,0.15)',color:'#2ECC71' }} title={`Обновить «${item.name}»`}>
+              {updating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}{updating ? 'Обновляю…' : 'Обновить'}
             </button>
           )}
           <ContentSourceBadge source={item.source} />
@@ -1520,6 +1520,7 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
   const [worlds, setWorlds] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [updatingAll, setUpdatingAll] = useState(false);
+  const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
   const [updateProgress, setUpdateProgress] = useState<{ percent: number; message: string } | null>(null);
   const [seenUpdateSignature, setSeenUpdateSignature] = useState(() => localStorage.getItem(`portal-updates-seen-${inst.id}`) ?? '');
 
@@ -1793,6 +1794,31 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
     try {
       await invoke('remove_mod', { instanceId: inst.id, fileName: item.file_name, modType: item.mod_type||'mod' });
     } catch (e) { console.warn('remove_mod failed:', e); loadContent(); }
+  };
+  const updateOne = async (id: string) => {
+    const item = [...mods, ...shaders, ...resourcepacks].find((entry: any) => entry.id === id);
+    if (!item || updatingItemId || updatingAll) return;
+    const identifier = item.file_name || item.filename || item.id;
+    if (!identifier) return;
+    setUpdatingItemId(id);
+    setUpdateProgress({ percent: 0, message: `Проверяю обновление «${item.name}»…` });
+    try {
+      const result = await invoke<Array<{ success: boolean; error?: string }>>('update_all_mods', { instanceId: inst.id, modId: identifier });
+      const failed = (result || []).find(entry => !entry.success);
+      if (!result?.length) {
+        await dialog.alert(`Для «${item.name}» не найдено совместимое обновление для версии Minecraft и текущего loader.`, { title:'Обновление мода', danger:true });
+      } else if (failed) {
+        await dialog.alert(`Не удалось обновить «${item.name}»: ${failed.error || 'неизвестная ошибка'}`, { title:'Обновление мода', danger:true });
+      } else {
+        setUpdateProgress({ percent: 100, message: `«${item.name}» обновлён` });
+      }
+    } catch (error) {
+      await dialog.alert(`Не удалось обновить «${item.name}»: ${String(error)}`, { title:'Обновление мода', danger:true });
+    } finally {
+      await loadContent();
+      setUpdatingItemId(null);
+      window.setTimeout(() => setUpdateProgress(null), 900);
+    }
   };
 
   return (
@@ -2109,7 +2135,7 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
                   </div>
                 </td></tr>
               ) : items.map(item => (
-                <ContentRow key={item.id} item={item} onToggle={() => toggle(item.id)} onDelete={() => del(item.id)}
+                <ContentRow key={item.id} item={item} onToggle={() => toggle(item.id)} onDelete={() => del(item.id)} onUpdate={() => void updateOne(item.id)} updating={updatingItemId === item.id}
                   onShowInFolder={() => invoke('instance_open_dir', {
                     instanceId: inst.id,
                     path: item.mod_type==='shaderpack' ? 'shaderpacks' : item.mod_type==='resourcepack' ? 'resourcepacks' : item.mod_type==='datapack' ? 'datapacks' : 'mods',

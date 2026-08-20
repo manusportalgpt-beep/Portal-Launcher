@@ -1107,7 +1107,11 @@ pub async fn check_mod_updates(instance_id: String) -> Result<Vec<InstalledMod>,
             continue;
         }
 
-        let stored_entry = stored.iter().find(|s| s["file_name"].as_str() == Some(&m.file_name) || s["name"].as_str() == Some(&m.name));
+        let normalized_file_name = m.file_name.trim_end_matches(".disabled").to_ascii_lowercase();
+        let stored_entry = stored.iter()
+            .find(|s| s["file_name"].as_str().map(|name| name.trim_end_matches(".disabled").eq_ignore_ascii_case(&normalized_file_name)).unwrap_or(false))
+            .or_else(|| stored.iter().find(|s| s["id"].as_str() == Some(&m.id)))
+            .or_else(|| stored.iter().find(|s| s["name"].as_str() == Some(&m.name)));
         let project_id = stored_entry.and_then(|s| s["id"].as_str()).unwrap_or("").to_string();
         let current_vid = stored_entry.and_then(|s| s["version_id"].as_str()).unwrap_or("").to_string();
         if project_id.is_empty() { continue; }
@@ -1289,9 +1293,15 @@ pub async fn update_all_mods(app: tauri::AppHandle, instance_id: String, mod_id:
     let client = reqwest::Client::builder().user_agent("PortalLauncher/1.1").build().map_err(|e| e.to_string())?;
     let mods = check_mod_updates(instance_id.clone()).await?;
     let updatable: Vec<_> = mods.iter().filter(|m| {
+        let file_name = m.file_name.trim_end_matches(".disabled");
         m.update_available
             && m.source == "modrinth"
-            && mod_id.as_deref().map(|requested| requested == m.id || requested == m.name || requested == m.file_name).unwrap_or(true)
+            && mod_id.as_deref().map(|requested| {
+                requested == m.id
+                    || requested == m.name
+                    || requested.eq_ignore_ascii_case(&m.file_name)
+                    || requested.trim_end_matches(".disabled").eq_ignore_ascii_case(file_name)
+            }).unwrap_or(true)
     }).collect();
     let total = updatable.len();
     let mut results = vec![];

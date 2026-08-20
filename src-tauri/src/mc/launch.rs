@@ -732,40 +732,57 @@ fn latest_crash_report(game_dir: &Path) -> Option<String> {
     Some(content.chars().take(24_000).collect())
 }
 
-#[tauri::command]
-pub fn kill_instance(instance_id: String) -> Result<(), String> {
+fn request_stop(app: tauri::AppHandle, instance_id: String) -> Result<(), String> {
     let pid = RUNNING
         .lock()
         .unwrap()
         .get(&instance_id)
         .copied()
         .ok_or("Сборка не запущена")?;
-    #[cfg(windows)]
-    {
-        crate::utils::create_hidden_command("taskkill")
+    let app2 = app.clone();
+    let id2 = instance_id.clone();
+    std::thread::spawn(move || {
+        #[cfg(windows)]
+        let result = crate::utils::create_hidden_command("taskkill")
             .args(["/PID", &pid.to_string(), "/F", "/T"])
             .output()
-            .map_err(|e| e.to_string())?;
-    }
-    #[cfg(not(windows))]
-    {
-        crate::utils::create_hidden_command("kill")
+            .map(|_| ());
+        #[cfg(not(windows))]
+        let result = crate::utils::create_hidden_command("kill")
             .args(["-9", &pid.to_string()])
             .output()
-            .map_err(|e| e.to_string())?;
-    }
-    RUNNING.lock().unwrap().remove(&instance_id);
+            .map(|_| ());
+
+        RUNNING.lock().unwrap().remove(&id2);
+        let (status, message) = match result {
+            Ok(()) => ("stopped", "Игра остановлена".to_string()),
+            Err(error) => ("error", format!("Не удалось остановить игру: {error}")),
+        };
+        app2.emit(
+            "launch-status",
+            serde_json::json!({ "instance_id": &id2, "status": status, "message": message }),
+        ).ok();
+        app2.emit(
+            "game-exited",
+            serde_json::json!({ "instance_id": &id2, "code": -1, "stopped_by_launcher": true }),
+        ).ok();
+    });
     Ok(())
+}
+
+#[tauri::command]
+pub fn kill_instance(app: tauri::AppHandle, instance_id: String) -> Result<(), String> {
+    request_stop(app, instance_id)
 }
 
 /// Прерывает запуск, который ещё не успел создать реальный процесс
 /// (идёт скачивание/подготовка) — kill_instance тут не поможет, PID ещё
 /// не существует. Если процесс уже есть, попутно убиваем и его.
 #[tauri::command]
-pub fn cancel_launch(instance_id: String) -> Result<(), String> {
+pub fn cancel_launch(app: tauri::AppHandle, instance_id: String) -> Result<(), String> {
     CANCELLED.lock().unwrap().insert(instance_id.clone());
     if RUNNING.lock().unwrap().contains_key(&instance_id) {
-        let _ = kill_instance(instance_id);
+        let _ = request_stop(app, instance_id);
     }
     Ok(())
 }

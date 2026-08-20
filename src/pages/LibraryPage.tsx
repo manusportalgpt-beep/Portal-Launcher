@@ -1722,10 +1722,16 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
   }, [launchStatus, user, inst, navigate, update]);
 
   const stop = useCallback(async () => {
-    setLaunchStatus('idle');
-    invoke('cancel_launch', { instanceId: inst.id }).catch(() => {});
-    if (launchStatus === 'running') {
-      invoke('kill_instance', { instance_id: inst.id }).catch(() => {});
+    // Stop must never wait for taskkill or a child process tree in the UI.
+    // The backend returns immediately and emits terminal launch-status later.
+    setLaunchError('');
+    try {
+      await invoke('cancel_launch', { instanceId: inst.id });
+      setLaunchStatus('idle');
+    } catch (error) {
+      setLaunchStatus('idle');
+      setLaunchError(String(error));
+      setTimeout(() => setLaunchError(''), 5000);
     }
   }, [inst.id, launchStatus]);
 

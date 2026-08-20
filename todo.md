@@ -833,3 +833,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the final CurseForge/Modrinth compatibility repair to GitHub main.
 
 ---
+
+# Minecraft launch and Stop runtime lifecycle regression
+
+- [x] Trace the active launch, Stop and game-exited paths that leave the launcher unresponsive after Minecraft starts or is stopped.
+- [x] Make Stop return promptly while process cleanup continues safely and always emits a terminal lifecycle status.
+- [x] Prevent launch-state from blocking normal tabs, search, Notch Panel or page interaction, and recover UI state on exit/error.
+- [x] Run TypeScript only and commit/push the runtime lifecycle repair to GitHub main.
+
+---

@@ -32,6 +32,7 @@ import { FirstLaunchExperience } from '@/components/FirstLaunchExperience';
 import { useNotifStore } from '@/stores/notificationStore';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useLaunchStore } from '@/stores/launchStore';
 import { invoke } from '@/lib/invoke-shim';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -45,11 +46,22 @@ function App() {
   const textColorOverride = useUiStore(s => s.textColorOverride);
   const fontFamily = useUiStore(s => s.fontFamily);
   const language = useLanguageStore(s => s.lang);
+  const setLaunchStatus = useLaunchStore(s => s.setStatus);
   useTheme(themeId, textColorOverride, fontFamily, customThemes);
   useEffect(() => {
     void i18n.changeLanguage(language);
     document.documentElement.lang = language;
   }, [language]);
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void listen<any>('launch-status', event => {
+      const id = String(event.payload?.instance_id ?? '');
+      const status = String(event.payload?.status ?? '');
+      if (!id) return;
+      setLaunchStatus(id, status === 'running' ? 'running' : ['stopped', 'error', 'crashed', 'prepared'].includes(status) ? 'idle' : 'launching');
+    }).then(fn => { unlisten = fn; });
+    return () => { unlisten?.(); };
+  }, [setLaunchStatus]);
 
   // A desktop shortcut starts the packaged app with an instance id. Hide the
   // launcher shell while that instance is starting so the shortcut behaves as

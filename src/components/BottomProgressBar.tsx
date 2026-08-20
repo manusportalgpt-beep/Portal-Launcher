@@ -62,6 +62,7 @@ function stageLabel(event: ProgressEvent): string {
       case 'java': return 'Java';
       case 'natives': return 'Нативные библиотеки';
       case 'starting': return 'Запуск игры';
+      case 'running': return 'Готово';
       default: return 'Подготовка Minecraft';
     }
   }
@@ -84,6 +85,7 @@ export function BottomProgressBar() {
   const [event, setEvent] = useState<ProgressEvent | null>(null);
   const [launching, setLaunching] = useState<string | null>(null);
   const launchingRef = useRef<string | null>(null);
+  const suppressLaunchDownloadsRef = useRef(false);
   const [collapsed, setCollapsed] = useState(true);
   const instance = useInstanceStore(state => state.instances.find(item => item.id === (event?.instanceId || launching)));
   const instanceIcon = toIconSrc(instance?.iconPath);
@@ -145,6 +147,11 @@ export function BottomProgressBar() {
 
     // Keep support for other byte-based downloads used by the launcher.
     listen<any>('download-progress', e => {
+      // Minecraft can emit trailing byte-progress events even after the
+      // process is running. Those events are not an active download card and
+      // must never replace the definitive launch-status state or leave the
+      // card indefinitely at an old percentage.
+      if (launchingRef.current || suppressLaunchDownloadsRef.current) return;
       const p = e.payload ?? {};
       const current = Number(p.current ?? p.downloaded ?? 0);
       const total = Number(p.total ?? 0);
@@ -169,7 +176,6 @@ export function BottomProgressBar() {
         instanceName: String(p.instance_name ?? p.instanceName ?? ''),
         iconPath: String(p.icon ?? p.icon_path ?? ''),
       });
-      if (launchingRef.current) setCollapsed(false);
       const isFinished = Number(p.percent ?? 0) >= 100 || /^(?:done|complete|completed|error|cancelled|canceled)$/i.test(String(p.stage ?? ''));
       if (isFinished) clearLater(1200);
     }).then(unsub => unsubs.push(unsub));
@@ -182,6 +188,7 @@ export function BottomProgressBar() {
       if (['auth', 'resolve', 'install', 'java', 'natives', 'starting'].includes(status)) {
         if (hideTimer.current) clearTimeout(hideTimer.current);
         launchingRef.current = instanceId;
+        suppressLaunchDownloadsRef.current = true;
         setLaunching(instanceId);
         if (['install', 'java', 'natives'].includes(status)) setCollapsed(false);
         // A launch status owns the global card until the process is running;
@@ -196,9 +203,20 @@ export function BottomProgressBar() {
             });
       } else if (status === 'running') {
         launchingRef.current = null;
-        clearLater(1100);
+        suppressLaunchDownloadsRef.current = true;
+        setEvent({
+          source: 'launch',
+          stage: 'running',
+          message: p.message ?? 'Minecraft запущен',
+          current: 100,
+          total: 100,
+          percent: 100,
+          instanceId: instanceId ?? undefined,
+        });
+        clearLater(950);
       } else if (status === 'stopped' || status === 'error') {
         launchingRef.current = null;
+        suppressLaunchDownloadsRef.current = false;
         clearLater(450);
       }
     }).then(unsub => unsubs.push(unsub));
@@ -217,17 +235,17 @@ export function BottomProgressBar() {
   const isByteProgress = event?.source === 'download' && total > 1024 * 1024;
   const itemCounter = total > 0 && !isByteProgress ? `${Math.min(current, total)}/${total} files` : null;
   const cancelTarget = event?.source === 'instance' ? event.instanceId : launching;
-  const canCancelInstallation = Boolean(cancelTarget) && (event?.source === 'instance' || (event?.source === 'launch' && event.stage === 'install'));
+  const canCancelInstallation = Boolean(cancelTarget) && event?.source === 'instance';
 
   if (collapsed) {
     return (
-      <div className="fixed right-4 top-12 z-[150]">
+      <div className="fixed bottom-4 right-4 z-[150]">
         <button
           type="button"
           onClick={() => setCollapsed(false)}
-          title="Show installation progress"
-          className="flex items-center gap-2 rounded-xl px-2 py-1.5 shadow-xl transition-transform hover:scale-[1.03]"
-          style={{ background: 'color-mix(in srgb, var(--color-surface) 96%, transparent)', border: '1px solid var(--color-border)', backdropFilter: 'blur(18px)' }}
+          title="Показать прогресс запуска"
+          className="flex items-center gap-2 rounded-xl px-2.5 py-2 shadow-xl transition-transform duration-150 hover:scale-[1.03] active:scale-[0.98]"
+          style={{ background: 'color-mix(in srgb, var(--color-surface) 97%, transparent)', border: '1px solid color-mix(in srgb, var(--color-border) 88%, var(--color-primary))', backdropFilter: 'blur(20px)' }}
         >
           <span className="relative h-7 w-7 overflow-hidden rounded-lg flex items-center justify-center" style={{ background: 'color-mix(in srgb, var(--color-primary) 14%, transparent)', color: 'var(--color-primary)' }}>
             {progressIcon ? <img src={progressIcon} alt="" className="h-full w-full object-cover" /> : <FolderDown className="h-3.5 w-3.5" />}
@@ -240,10 +258,10 @@ export function BottomProgressBar() {
   }
 
   return (
-    <div className="fixed right-4 top-12 z-[150] w-[min(420px,calc(100vw-2rem))] rounded-2xl px-3.5 py-3 shadow-2xl"
-      style={{ background: 'color-mix(in srgb, var(--color-surface) 94%, transparent)', border: '1px solid var(--color-border)', backdropFilter: 'blur(18px)' }}>
-      <div className="flex items-center gap-3">
-        <div className="relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+    <div className="fixed bottom-4 right-4 z-[150] w-[min(352px,calc(100vw-2rem))] rounded-2xl px-3 py-2.5 shadow-2xl"
+      style={{ background: 'color-mix(in srgb, var(--color-surface) 96%, transparent)', border: '1px solid color-mix(in srgb, var(--color-border) 88%, var(--color-primary))', backdropFilter: 'blur(20px)' }}>
+      <div className="flex items-center gap-2.5">
+        <div className="relative w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
           style={{ background: 'color-mix(in srgb, var(--color-primary) 14%, transparent)', color: 'var(--color-primary)' }}>
           {progressIcon ? <img src={progressIcon} alt="" className="h-full w-full object-cover" /> : event?.source === 'java' ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <FolderDown className="w-4 h-4" />}
         </div>
@@ -251,18 +269,18 @@ export function BottomProgressBar() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-3 mb-1.5">
             <div className="min-w-0">
-              <p className="text-[11px] font-bold truncate" style={{ color: 'var(--color-text)' }}>
+              <p className="text-[11px] leading-none font-bold truncate" style={{ color: 'var(--color-text)' }}>
                 {instance?.name || event?.instanceName || event?.message || 'Preparing Minecraft…'}
               </p>
-              <p className="text-[10px] truncate" style={{ color: 'var(--color-text-secondary)' }}>
+              <p className="mt-1 text-[10px] leading-none truncate" style={{ color: 'var(--color-text-secondary)' }}>
                 {event ? `${stageLabel(event)} · ${event.message || 'Подготавливаю…'}${itemCounter ? ` · ${itemCounter}` : ''}` : 'Подготавливаю запуск'}
               </p>
             </div>
-            <span className="text-[11px] font-black tabular-nums shrink-0" style={{ color: 'var(--color-primary)' }}>{percent}%</span>
+            <span className="text-[11px] font-black tabular-nums shrink-0" style={{ color: percent >= 100 ? 'var(--color-success, var(--color-primary))' : 'var(--color-primary)' }}>{percent}%</span>
           </div>
           <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-2)' }}>
             <div className="h-full rounded-full transition-all duration-300"
-              style={{ width: `${percent}%`, background: 'linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 60%, black), var(--color-primary))' }} />
+              style={{ width: `${percent}%`, background: percent >= 100 ? 'var(--color-success, var(--color-primary))' : 'linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 60%, black), var(--color-primary))' }} />
           </div>
         </div>
 
@@ -272,14 +290,14 @@ export function BottomProgressBar() {
             : speed > 0 ? `${(speed / 1024 / 1024).toFixed(2)} MB/s` : ''}
         </span>
 
-        <button type="button" onClick={() => setCollapsed(true)} title="Collapse installation progress" className="flex items-center justify-center rounded-lg p-1" style={{ color: 'var(--color-text-secondary)' }}>
+        <button type="button" onClick={() => setCollapsed(true)} title="Свернуть прогресс запуска" className="flex items-center justify-center rounded-lg p-1 transition-colors hover:bg-white/5" style={{ color: 'var(--color-text-secondary)' }}>
           <ChevronUp className="h-3.5 w-3.5" />
         </button>
 
         {canCancelInstallation && cancelTarget && (
           <button
             onClick={() => {
-              invoke(event?.source === 'instance' ? 'cancel_instance_install' : 'cancel_launch', { instanceId: cancelTarget })
+              invoke('cancel_instance_install', { instanceId: cancelTarget })
                 .catch(() => undefined)
                 .finally(() => { setEvent(null); setLaunching(null); setCollapsed(true); });
             }}

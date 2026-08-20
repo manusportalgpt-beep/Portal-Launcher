@@ -1030,3 +1030,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the shared runtime-cache repair to GitHub main.
 
 ---
+
+# Launch-card completion and placement
+
+- [x] Trace why the global launch card stays in a download state after Minecraft reports that it is running.
+- [x] Finish or replace stale progress on the definitive running/stopped/error launch events.
+- [x] Redesign the compact launch card for a readable lower-right placement across themes.
+- [x] Run TypeScript-only verification and commit/push the launch-card repair to GitHub main.
+
+---

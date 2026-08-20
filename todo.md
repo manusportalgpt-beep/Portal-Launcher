@@ -1123,3 +1123,10 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the per-mod update repair to GitHub main.
 
 ---
+
+# Clickable CurseForge API portal link
+
+- [x] Make the console.curseforge.com guidance link clickable in the CurseForge API-key settings without exposing or changing the key.
+- [x] Run TypeScript-only verification and commit/push the clickable CurseForge portal link to GitHub main.
+
+---

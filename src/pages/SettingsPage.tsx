@@ -795,7 +795,7 @@ function AdvancedSection() {
         <p className="text-sm font-semibold mb-1" style={{ color:'var(--color-text)' }}>API-ключ CurseForge</p>
         <p className="text-xs mb-2" style={{ color:'var(--color-text-secondary)' }}>
           Нужен для поиска модов CurseForge. Получите ключ на{' '}
-          <span style={{ color:'var(--color-primary)' }}>console.curseforge.com</span>
+          <a href="https://console.curseforge.com/" target="_blank" rel="noreferrer" className="font-semibold underline underline-offset-2 transition-opacity hover:opacity-80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ color:'var(--color-primary)' }}>console.curseforge.com</a>
         </p>
         <div className="flex gap-2">
           <input

@@ -43,6 +43,14 @@ pub struct Instance {
     pub mods: Vec<InstanceMod>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DeletedInstance {
+    pub recovery_id: String,
+    pub instance: Instance,
+    pub deleted_at: String,
+    pub size_bytes: u64,
+}
+
 fn mc_base_dir() -> PathBuf {
     crate::commands::version_manager::mc_base_dir()
 }
@@ -61,6 +69,20 @@ fn instances_dir() -> PathBuf {
     p
 }
 
+fn deleted_instances_dir() -> PathBuf {
+    let path = instances_dir().join(".portal-recovery");
+    std::fs::create_dir_all(&path).ok();
+    path
+}
+
+fn deleted_instance_meta_path(recovery_id: &str) -> PathBuf {
+    deleted_instances_dir().join(recovery_id).join("deleted-instance.json")
+}
+
+fn safe_recovery_id(value: &str) -> bool {
+    !value.is_empty() && !value.contains(&['/', '\\', ':'][..]) && !value.contains("..")
+}
+
 fn directory_size(path: &Path) -> u64 {
     let mut total = 0u64;
     if let Ok(entries) = std::fs::read_dir(path) {
@@ -71,6 +93,24 @@ fn directory_size(path: &Path) -> u64 {
         }
     }
     total
+}
+
+fn purge_deleted_instances(retention_minutes: u64) {
+    let safe_minutes = retention_minutes.clamp(15, 525_600);
+    let cutoff = chrono::Utc::now() - chrono::Duration::minutes(safe_minutes as i64);
+    let Ok(entries) = std::fs::read_dir(deleted_instances_dir()) else { return; };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() { continue; }
+        let metadata = std::fs::read_to_string(path.join("deleted-instance.json"))
+            .ok()
+            .and_then(|raw| serde_json::from_str::<DeletedInstance>(&raw).ok());
+        let expired = metadata
+            .and_then(|item| chrono::DateTime::parse_from_rfc3339(&item.deleted_at).ok())
+            .map(|time| time.with_timezone(&chrono::Utc) < cutoff)
+            .unwrap_or(false);
+        if expired { let _ = std::fs::remove_dir_all(path); }
+    }
 }
 
 #[tauri::command]
@@ -287,7 +327,49 @@ pub async fn update_instance(id: String, updates: serde_json::Value) -> Result<I
 pub async fn delete_instance(id: String) -> Result<(), String> {
     let dir = instances_dir().join(&id);
     if !dir.exists() { return Ok(()); }
-    std::fs::remove_dir_all(&dir).map_err(|e| format!("Delete: {e}"))
+    let instance = load_instance(&id).ok_or("Сборка не найдена или её instance.json повреждён")?;
+    let recovery_id = format!("{}-{}", id, uuid::Uuid::new_v4());
+    let recovery_dir = deleted_instances_dir().join(&recovery_id);
+    std::fs::rename(&dir, &recovery_dir).map_err(|e| format!("Не удалось переместить сборку в удалённые: {e}"))?;
+    let deleted = DeletedInstance { recovery_id: recovery_id.clone(), instance, deleted_at: chrono::Utc::now().to_rfc3339(), size_bytes: directory_size(&recovery_dir) };
+    std::fs::write(deleted_instance_meta_path(&recovery_id), serde_json::to_string_pretty(&deleted).map_err(|e| e.to_string())?)
+        .map_err(|e| format!("Не удалось сохранить запись удалённой сборки: {e}"))
+}
+
+#[tauri::command]
+pub fn list_deleted_instances(retention_minutes: Option<u64>) -> Result<Vec<DeletedInstance>, String> {
+    purge_deleted_instances(retention_minutes.unwrap_or(10_080));
+    let mut items = Vec::new();
+    let entries = std::fs::read_dir(deleted_instances_dir()).map_err(|e| e.to_string())?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() { continue; }
+        if let Ok(raw) = std::fs::read_to_string(path.join("deleted-instance.json")) {
+            if let Ok(item) = serde_json::from_str::<DeletedInstance>(&raw) { items.push(item); }
+        }
+    }
+    items.sort_by(|a, b| b.deleted_at.cmp(&a.deleted_at));
+    Ok(items)
+}
+
+#[tauri::command]
+pub fn restore_deleted_instance(recovery_id: String) -> Result<Instance, String> {
+    if !safe_recovery_id(&recovery_id) { return Err("Некорректный идентификатор удалённой сборки".to_string()); }
+    let metadata: DeletedInstance = serde_json::from_str(&std::fs::read_to_string(deleted_instance_meta_path(&recovery_id)).map_err(|_| "Запись удалённой сборки не найдена")?)
+        .map_err(|_| "Запись удалённой сборки повреждена")?;
+    let destination = instances_dir().join(&metadata.instance.id);
+    if destination.exists() { return Err("Нельзя восстановить: сборка с таким идентификатором уже существует".to_string()); }
+    std::fs::rename(deleted_instances_dir().join(&recovery_id), destination)
+        .map_err(|e| format!("Не удалось восстановить сборку: {e}"))?;
+    Ok(metadata.instance)
+}
+
+#[tauri::command]
+pub fn permanently_delete_instance(recovery_id: String) -> Result<(), String> {
+    if !safe_recovery_id(&recovery_id) { return Err("Некорректный идентификатор удалённой сборки".to_string()); }
+    let path = deleted_instances_dir().join(&recovery_id);
+    if !path.exists() { return Ok(()); }
+    std::fs::remove_dir_all(path).map_err(|e| format!("Не удалось удалить сборку окончательно: {e}"))
 }
 
 /// Make sure an instance.json exists on disk for the given id.
@@ -768,6 +850,18 @@ async fn hydrate_modrinth_instance_mods(client: &reqwest::Client, mods: &mut [In
     }
 }
 
+async fn resolve_modrinth_pack_icon_url(client: &reqwest::Client, version_id: &str) -> Option<String> {
+    if version_id.trim().is_empty() { return None; }
+    tokio::time::timeout(std::time::Duration::from_secs(6), async {
+        let version = client.get(format!("https://api.modrinth.com/v2/version/{version_id}"))
+            .send().await.ok()?.error_for_status().ok()?.json::<serde_json::Value>().await.ok()?;
+        let project_id = version["project_id"].as_str()?;
+        let project = client.get(format!("https://api.modrinth.com/v2/project/{project_id}"))
+            .send().await.ok()?.error_for_status().ok()?.json::<serde_json::Value>().await.ok()?;
+        project["icon_url"].as_str().filter(|url| !url.trim().is_empty()).map(String::from)
+    }).await.ok().flatten()
+}
+
 /// Reads a Modrinth pack before installation. The archive is downloaded only once;
 /// nothing is created in the instances directory until the user confirms installation.
 #[tauri::command]
@@ -1015,7 +1109,7 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, ex
 
     // ── Pack icon ──────────────────────────────────────────────────────────────
     // Try common icon filenames inside the mrpack archive.
-    let icon_b64: Option<String> = {
+    let mut icon_b64: Option<String> = {
         let mut found: Option<String> = None;
         for candidate in &["portal-launcher/icon.png", "icon.png", "pack.png", "icon.jpg"] {
             if let Ok(mut f) = archive.by_name(candidate) {
@@ -1032,6 +1126,12 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, ex
         }
         found
     };
+    // Standard Modrinth .mrpack archives normally do not embed their cover.
+    // Resolve it with a short timeout and never make metadata block the install.
+    if icon_b64.is_none() {
+        let pack_version_id = index["versionId"].as_str().or_else(|| index["version_id"].as_str()).unwrap_or("");
+        icon_b64 = resolve_modrinth_pack_icon_url(&client, pack_version_id).await;
+    }
     // Save icon to disk as well so it persists between sessions
     if let Some(ref b64) = icon_b64 {
         let icon_path = dest_dir.join("icon.png");
@@ -1132,8 +1232,6 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, ex
         app.emit("instance-progress", serde_json::json!({"stage":"downloading","instance_id":new_id,"name":pack_name,"icon":icon_b64.as_deref(),"percent":pct,"message":format!("Downloaded {}/{}", i+1, total_files)})).ok();
     }
 
-    hydrate_modrinth_instance_mods(&client, &mut mods).await;
-
     // Пакет может состоять только из resourcepacks, shaders или datapacks.
     // Отсутствие JAR-модов не означает неудачный импорт, если файлы скачались.
     if downloaded == 0 && total_files > 0 {
@@ -1153,6 +1251,22 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, ex
     save_instance(&instance)?;
     clear_cancel(&instance.id);
     app.emit("instance-progress", serde_json::json!({"stage":"done","instance_id":instance.id,"name":instance.name,"icon":instance.icon.as_deref(),"percent":100,"message":"Pack imported!"})).ok();
+    // Metadata requests for a large pack can be slow or blocked. The game-ready
+    // instance is saved first; names/authors refresh later without holding the
+    // progress panel at 94%.
+    let metadata_instance = instance.clone();
+    let metadata_app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let Ok(metadata_client) = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(8))
+            .user_agent("PortalLauncher/1.3")
+            .build() else { return; };
+        let mut refreshed = metadata_instance;
+        hydrate_modrinth_instance_mods(&metadata_client, &mut refreshed.mods).await;
+        if save_instance(&refreshed).is_ok() {
+            let _ = metadata_app.emit("instance-metadata-ready", serde_json::json!({"instance_id": refreshed.id}));
+        }
+    });
     Ok(instance)
 }
 

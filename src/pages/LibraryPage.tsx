@@ -62,6 +62,7 @@ type ContentFilter = 'all' | 'mods' | 'resourcepacks' | 'shaders' | 'updates' | 
 type LaunchStatus = 'idle' | 'launching' | 'running';
 type CreateStep = 'type' | 'custom' | 'install' | 'import';
 type LoaderVersionOption = { value: string; recommended: boolean; unreliable: boolean };
+type DeletedInstanceRecord = { recovery_id: string; instance: any; deleted_at: string; size_bytes: number };
 
 const LOADERS = ['vanilla', 'fabric', 'neoforge', 'forge', 'quilt', 'optifine', 'labymod', 'bedrock'] as const;
 
@@ -370,10 +371,10 @@ function LogsBody({ filtered, logs, filter, containerRef, bottomRef, setAutoScro
 }
 
 // ── Create Instance Modal ─────────────────────────────────────────────────────
-function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (i: any) => void }) {
+function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: () => void; onCreated: (i: any) => void; initialStep?: CreateStep }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [step, setStep] = useState<CreateStep>('type');
+  const [step, setStep] = useState<CreateStep>(initialStep);
   const [creating, setCreating] = useState(false);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [externalInstances, setExternalInstances] = useState<any[]>([]);
@@ -438,7 +439,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
     } finally { setExternalLoading(false); }
   }, []);
 
-  useEffect(() => { if (step === 'import') void loadExternalInstances(); }, [step, loadExternalInstances]);
+  useEffect(() => { if (step === 'install' || step === 'import') void loadExternalInstances(); }, [step, loadExternalInstances]);
 
   useEffect(() => {
     let alive = true;
@@ -638,15 +639,14 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-primary)' }}>{t('libraryRuntime.instanceStudio')}</p>
-              <h2 className="font-black text-lg mt-0.5" style={{ color:'var(--color-text)' }}>{step==='type'?t('libraryRuntime.create'):step==='custom'?t('libraryRuntime.customSetup'):step==='install'?t('libraryRuntime.installModpack'):t('libraryRuntime.importInstance')}</h2>
+              <h2 className="font-black text-lg mt-0.5" style={{ color:'var(--color-text)' }}>{step==='type'?t('libraryRuntime.create'):step==='custom'?t('libraryRuntime.customSetup'):step==='install'?'Установить или импортировать сборку':t('libraryRuntime.importInstance')}</h2>
             </div>
             <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/5" style={{ border:'1px solid var(--color-border)' }}><X className="w-4 h-4" style={{ color:'var(--color-text-secondary)' }} /></button>
           </div>
-          <div className="grid grid-cols-3 gap-1.5 mt-4">
+          <div className="grid grid-cols-2 gap-1.5 mt-4">
             {[
               { id:'custom', label:t('libraryRuntime.createStep'), Icon:Wrench },
-              { id:'install', label:t('libraryRuntime.installStep'), Icon:Download },
-              { id:'import', label:t('libraryRuntime.importStep'), Icon:Upload },
+              { id:'install', label:'Установить / импортировать', Icon:Download },
             ].map(item => {
               const active = step === item.id || (step === 'type' && item.id === 'custom');
               return <div key={item.id} className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold" style={{ background:active?'var(--color-primary-dim)':'var(--color-surface)', color:active?'var(--color-primary)':'var(--color-text-tertiary)', border:`1px solid ${active?'var(--color-primary)':'var(--color-border)'}` }}><item.Icon className="w-3 h-3" />{item.label}</div>;
@@ -661,8 +661,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                 <p className="text-sm font-medium mb-4" style={{ color:'var(--color-text)' }}>{t('libraryRuntime.chooseCreation')}</p>
                 {[
                   { id:'custom', Icon:Wrench, title:t('libraryRuntime.customSetup'), desc:'Выберите Minecraft, ядро, версию ядра и свою иконку.' },
-                  { id:'install', Icon:Download, title:t('libraryRuntime.installModpack'), desc:'Откройте модпак из Discover или импортируйте .mrpack / .zip.' },
-                  { id:'import', Icon:Upload, title:t('libraryRuntime.importInstance'), desc:'Перенесите сборку из Prism, CurseForge, MultiMC и других лаунчеров.' },
+                  { id:'install', Icon:Download, title:'Установить или импортировать сборку', desc:'Найдите модпак в Discover, откройте .mrpack / .zip или перенесите сборку из другого лаунчера.' },
                 ].map(opt => (
                   <button key={opt.id} onClick={() => setStep(opt.id as CreateStep)}
                     className="w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-colors group hover:bg-white/[0.035]"
@@ -853,7 +852,14 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
                   style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>
                   <Search className="w-4 h-4" />{t('libraryRuntime.findModpacks')}
                 </button>
-                <p className="text-center text-[11px]" style={{ color:'var(--color-text-tertiary)' }}>Локальные файлы .mrpack и .zip импортируются на отдельной вкладке «Импорт».</p>
+                <button onClick={pickFile} className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }}><Upload className="w-4 h-4" />Открыть .mrpack / .zip</button>
+                <div className="rounded-xl p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+                  <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black" style={{ color:'var(--color-text)' }}>Сборки из других лаунчеров</p><p className="mt-0.5 text-[10px]" style={{ color:'var(--color-text-secondary)' }}>Prism Launcher, Modrinth App, XMCL и CurseForge App.</p></div><button onClick={() => void loadExternalInstances()} className="shrink-0 rounded-lg p-1.5" style={{ color:'var(--color-text-secondary)' }}><RefreshCw className={externalLoading ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} /></button></div>
+                  <div className="mt-2 max-h-36 space-y-1.5 overflow-y-auto">
+                    {externalInstances.map(item => <div key={item.path} className="flex items-center gap-2 rounded-lg px-2.5 py-2" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}><p className="min-w-0 flex-1 truncate text-[10px] font-bold" style={{ color:'var(--color-text)' }}>{item.name} · {item.mc_version} · {item.loader}</p><button disabled={creating} onClick={async () => { setCreating(true); try { const raw = await invoke<any>('import_supported_launcher_instance', { sourcePath:item.path, sourceKind:item.source, name:item.name, mcVersion:item.mc_version, loader:item.loader, loaderVersion:item.loader_version || '' }); onCreated(raw); onClose(); } catch (e) { dialog.alert('Не удалось перенести сборку: ' + String(e), { title:'Импорт', danger:true }); } finally { setCreating(false); } }} className="shrink-0 rounded-md px-2 py-1 text-[9px] font-bold disabled:opacity-40" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>Перенести</button></div>)}
+                    {!externalLoading && externalInstances.length === 0 && <p className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>Доступных сборок пока не найдено.</p>}
+                  </div>
+                </div>
               </motion.div>
             )}
 
@@ -1035,8 +1041,8 @@ function NewGroupModal({ onClose, onCreate }: { onClose: () => void; onCreate: (
   );
 }
 
-function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported, onImportStarted, onImportFailed }: {
-  instances: Instance[]; onSelect:(id:string)=>void; onNew:()=>void; onExtraGroups: string[]; onImported:(raw:any)=>void;
+function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted, onExtraGroups, onImported, onImportStarted, onImportFailed }: {
+  instances: Instance[]; onSelect:(id:string)=>void; onNew:()=>void; onOpenInstall:()=>void; onOpenDeleted:()=>void; onExtraGroups: string[]; onImported:(raw:any)=>void;
   onImportStarted: (fileName: string) => void; onImportFailed: () => void;
 }) {
   const navigate = useNavigate();
@@ -1135,7 +1141,7 @@ function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported, on
           style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
           <Download className="w-4 h-4" />{t('libraryRuntime.download')}
         </button>
-        <button onClick={onNew}
+        <button onClick={onOpenInstall}
           className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold"
           style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
           <Upload className="w-4 h-4" />{t('libraryRuntime.upload')}
@@ -1144,6 +1150,11 @@ function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported, on
           className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold"
           style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
           <FolderPlus className="w-4 h-4" />{t('libraryRuntime.newGroup')}
+        </button>
+        <button onClick={onOpenDeleted}
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold"
+          style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
+          <Trash className="w-4 h-4" />Удалённые
         </button>
         <div className="flex-1 min-w-[140px] flex items-center gap-1.5 px-3 py-2.5 rounded-xl ml-auto"
           style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', maxWidth: 260 }}>
@@ -2132,13 +2143,42 @@ function LibraryImportState({ fileName }: { fileName: string }) {
       <div className="flex h-16 w-16 items-center justify-center rounded-3xl" style={{ background:'var(--color-primary-dim)', border:'1px solid var(--color-primary)', color:'var(--color-primary)' }}>
         <Upload className="h-7 w-7 animate-pulse" />
       </div>
-      <p className="mt-5 text-base font-black" style={{ color:'var(--color-text)' }}>Импортирую сборку</p>
+      <p className="mt-5 text-base font-black" style={{ color:'var(--color-text)' }}>Пожалуйста, подождите…</p>
       <p className="mt-1 max-w-md text-sm leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>
-        «{fileName}» читается и проверяется. Исходный файл остаётся без изменений; после чтения manifest откроется импортируемая сборка.
+        «{fileName}» передан лаунчеру и читается. Исходный файл остаётся без изменений; затем откроется manifest и начнётся установка.
       </p>
       <div className="mt-5 h-1.5 w-52 overflow-hidden rounded-full" style={{ background:'var(--color-surface-2)' }}>
         <div className="h-full w-2/5 rounded-full animate-pulse" style={{ background:'var(--color-primary)' }} />
       </div>
+    </div>
+  );
+}
+
+function DeletedInstancesPanel({ onBack, onRestore }: { onBack: () => void; onRestore: (raw: any) => void }) {
+  const retentionMinutes = useSettingsStore(s => s.deletedInstanceRetentionMinutes);
+  const [items, setItems] = useState<DeletedInstanceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setItems(await invoke<DeletedInstanceRecord[]>('list_deleted_instances', { retentionMinutes })); }
+    catch { setItems([]); }
+    finally { setLoading(false); }
+  }, [retentionMinutes]);
+  useEffect(() => { void load(); }, [load]);
+  const removePermanently = async (item: DeletedInstanceRecord) => {
+    const accepted = await dialog.confirm(`Сборка «${item.instance.name}» и её файлы будут удалены без возможности восстановления.`, { title:'Удалить навсегда?', danger:true, confirmLabel:'Удалить навсегда' });
+    if (!accepted) return;
+    await invoke('permanently_delete_instance', { recoveryId: item.recovery_id });
+    await load();
+  };
+  const restore = async (item: DeletedInstanceRecord) => {
+    try { onRestore(await invoke<any>('restore_deleted_instance', { recoveryId: item.recovery_id })); }
+    catch (error) { dialog.alert(`Не удалось восстановить сборку: ${String(error)}`, { title:'Восстановление', danger:true }); }
+  };
+  return (
+    <div className="h-full overflow-y-auto p-6">
+      <div className="mb-6 flex items-center gap-3"><button onClick={onBack} className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><ArrowLeft className="h-4 w-4" /></button><div className="min-w-0 flex-1"><h1 className="font-display text-lg font-black" style={{ color:'var(--color-text)' }}>Удалённые сборки</h1><p className="mt-0.5 text-xs" style={{ color:'var(--color-text-secondary)' }}>Здесь хранятся только реально удалённые сборки. Срок восстановления настраивается в Настройки → Дополнительно.</p></div><button onClick={() => void load()} className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button></div>
+      {loading ? <div className="py-20 text-center text-sm" style={{ color:'var(--color-text-secondary)' }}>Проверяю удалённые сборки…</div> : items.length === 0 ? <div className="flex flex-col items-center justify-center gap-3 py-24 text-center"><div className="flex h-16 w-16 items-center justify-center rounded-3xl" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><Trash className="h-7 w-7" style={{ color:'var(--color-text-tertiary)' }} /></div><p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>Удалённых сборок нет</p><p className="max-w-sm text-xs leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>Когда вы удалите сборку из библиотеки, она появится здесь и будет доступна для восстановления до срока автоочистки.</p></div> : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{items.map(item => <div key={item.recovery_id} className="rounded-2xl p-4" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><div className="flex items-start gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl text-sm font-black" style={{ background:`${item.instance.color || '#6C5CE7'}1A`, color:item.instance.color || 'var(--color-primary)' }}>{item.instance.icon ? <img src={toIconSrc(item.instance.icon)} className="h-full w-full object-cover" alt="" /> : item.instance.name?.[0]?.toUpperCase()}</div><div className="min-w-0 flex-1"><p className="truncate text-sm font-black" style={{ color:'var(--color-text)' }}>{item.instance.name}</p><p className="mt-0.5 text-[10px]" style={{ color:'var(--color-text-secondary)' }}>{item.instance.mc_version} · {item.instance.loader}</p><p className="mt-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>Удалена: {new Date(item.deleted_at).toLocaleString()} · {Math.max(1, Math.round(item.size_bytes / 1024 / 1024))} МБ</p></div></div><div className="mt-4 flex gap-2"><button onClick={() => void restore(item)} className="flex-1 rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>Восстановить</button><button onClick={() => void removePermanently(item)} className="rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'rgba(231,76,60,0.12)', color:'var(--color-error)', border:'1px solid rgba(231,76,60,0.25)' }} title="Удалить навсегда"><Trash2 className="h-3.5 w-3.5" /></button></div></div>)}</div>}
     </div>
   );
 }
@@ -2149,7 +2189,9 @@ export function LibraryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { instances, add, remove, selectedId, select: setSelectedId } = useInstanceStore();
   const [showCreate, setShowCreate] = useState(false);
+  const [createInitialStep, setCreateInitialStep] = useState<CreateStep>('type');
   const [pendingImportName, setPendingImportName] = useState<string | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   useEffect(() => {
     if (searchParams.get('create') === '1') {
@@ -2215,7 +2257,9 @@ export function LibraryPage() {
   return (
     <div className="h-full flex overflow-hidden">
       <div className="flex-1 min-w-0 overflow-hidden">
-        {pendingImportName ? (
+        {showDeleted ? (
+          <DeletedInstancesPanel onBack={() => setShowDeleted(false)} onRestore={handleCreated} />
+        ) : pendingImportName ? (
           <LibraryImportState fileName={pendingImportName} />
         ) : selectedId && instances.find(i => i.id===selectedId) ? (
           <InstanceDetail
@@ -2227,7 +2271,9 @@ export function LibraryPage() {
           <LibraryGrid
             instances={instances}
             onSelect={(id) => { setSelectedId(id); navigate(`/library/${id}`); }}
-            onNew={() => setShowCreate(true)}
+            onNew={() => { setCreateInitialStep('type'); setShowCreate(true); }}
+            onOpenInstall={() => { setCreateInitialStep('install'); setShowCreate(true); }}
+            onOpenDeleted={() => setShowDeleted(true)}
             onExtraGroups={[]}
             onImported={handleCreated}
             onImportStarted={setPendingImportName}
@@ -2236,7 +2282,7 @@ export function LibraryPage() {
         )}
       </div>
       <AnimatePresence>
-        {showCreate && <CreateModal onClose={() => setShowCreate(false)} onCreated={handleCreated} />}
+        {showCreate && <CreateModal initialStep={createInitialStep} onClose={() => setShowCreate(false)} onCreated={handleCreated} />}
       </AnimatePresence>
     </div>
   );

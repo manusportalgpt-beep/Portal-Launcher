@@ -804,6 +804,17 @@ function AdvancedSection() {
         )}
       </div>
 
+      <Row label="Автоочистка удалённых сборок" desc="Удалённые сборки можно восстановить до окончания выбранного срока.">
+        <select value={s.deletedInstanceRetentionMinutes} onChange={event => s.setSetting('deletedInstanceRetentionMinutes', Number(event.target.value))} className="rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }}>
+          <option value={15}>15 минут</option>
+          <option value={60}>1 час</option>
+          <option value={1440}>1 день</option>
+          <option value={10080}>7 дней</option>
+          <option value={43200}>30 дней</option>
+          <option value={525600}>1 год</option>
+        </select>
+      </Row>
+
       <Row label="Платформа по умолчанию" desc="Какую платформу использовать по умолчанию в Discover">
         <div className="flex rounded-xl overflow-hidden" style={{ border:'1px solid var(--color-border)' }}>
           {(['modrinth','curseforge'] as const).map(p => (

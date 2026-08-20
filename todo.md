@@ -944,3 +944,15 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the file popover readability repair to GitHub main.
 
 ---
+
+# Fast modpack import and deleted instance recovery
+
+- [x] Trace and remove the long finalization stall after all modpack files are downloaded.
+- [x] Persist and render the imported pack icon, Minecraft version and loader from available manifest/project metadata.
+- [x] Show an immediate «Пожалуйста, подождите…» state after the first archive drop or upload action.
+- [x] Merge the separate Install and Import choices into one user-facing modpack install/import entry.
+- [x] Add a Deleted instances view with restore, permanent delete and no fabricated entries.
+- [x] Add an Advanced setting for automatic deleted-instance cleanup from 15 minutes through 1 year.
+- [x] Run TypeScript-only verification and commit/push the full import and recovery improvement to GitHub main.
+
+---

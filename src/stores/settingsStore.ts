@@ -27,6 +27,7 @@ interface Settings {
   showSnapshots: boolean;
   keepLogs: boolean;
   autoInstallDeps: boolean;
+  deletedInstanceRetentionMinutes: number;
   language: 'ru' | 'en';
 }
 
@@ -63,6 +64,7 @@ const defaults: Settings = {
   showSnapshots: false,
   keepLogs: true,
   autoInstallDeps: true,
+  deletedInstanceRetentionMinutes: 10080,
   language: 'ru',
 };
 

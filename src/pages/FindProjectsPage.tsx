@@ -112,6 +112,27 @@ const SORT_OPTIONS = [
 ];
 const CF_LOADER_MAP: Record<string, number> = { forge:1, fabric:4, quilt:5, neoforge:6, vanilla:0 };
 
+function normalizeMinecraftVersion(value: string): string {
+  const match = value.trim().match(/^(\d+)\.(\d+)(?:\.(\d+))?$/);
+  if (!match) return value.trim();
+  return [match[1], match[2], match[3]].filter(Boolean).join('.');
+}
+
+function minecraftReleaseLine(value: string): string | null {
+  const match = normalizeMinecraftVersion(value).match(/^(\d+)\.(\d+)/);
+  return match ? `${match[1]}.${match[2]}` : null;
+}
+
+function hasCompatibleMinecraftTag(tags: string[], requested: string, allowReleaseLineFallback = false): boolean {
+  const normalizedRequested = normalizeMinecraftVersion(requested);
+  if (!normalizedRequested) return true;
+  const normalizedTags = tags.map(normalizeMinecraftVersion);
+  if (normalizedTags.includes(normalizedRequested)) return true;
+  if (!allowReleaseLineFallback) return false;
+  const line = minecraftReleaseLine(normalizedRequested);
+  return Boolean(line && normalizedTags.some(tag => minecraftReleaseLine(tag) === line));
+}
+
 const MODRINTH_CATS: Record<ProjectType, string[]> = {
   mods:          ['Adventure','Cursed','Decoration','Economy','Equipment','Food','Game Mechanics','Library','Magic','Mobs','Optimization','Storage','Technology','Transportation','Utility','World Generation'],
   resourcepacks: ['8x – 16x','32x','64x','128x and above','Alternate','Animated','Realistic','Themed','Vanilla-like'],
@@ -182,6 +203,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
   project: Project; instanceId: string; mcVersion: string; loader: string;
 }) {
   const { t } = useTranslation();
+  const normalizedMcVersion = normalizeMinecraftVersion(mcVersion);
   const [state, setState] = useState<'idle'|'busy'|'done'|'err'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmRunningInstall, setConfirmRunningInstall] = useState(false);
@@ -215,7 +237,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         const versionParams = {
           projectId: project.id,
           loader: isModType && loader && loader !== 'vanilla' ? loader : undefined,
-          gameVersion: mcVersion || undefined,
+          gameVersion: normalizedMcVersion || undefined,
         };
         let vers = await getModrinthVersionsGateway(
           versionParams.projectId,
@@ -239,7 +261,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         // Для resourcepack/shader сначала выбираем точное совпадение MC, а при
         // отсутствии такого тега ставим новейшую версию — как в деталях проекта.
         const compatible = vers.filter((v: any) => {
-          const mcOk = !mcVersion || (v.game_versions ?? []).includes(mcVersion);
+          const mcOk = !normalizedMcVersion || hasCompatibleMinecraftTag(v.game_versions ?? [], normalizedMcVersion, true);
           const loaderOk = !isModType || !loader || loader === 'vanilla' || (v.loaders ?? []).includes(loader);
           return mcOk && loaderOk;
         });
@@ -291,18 +313,30 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
           : undefined;
         const filesResp = await invoke<any>('get_curseforge_mod_files', {
           modId: numericProjectId,
-          gameVersion: mcVersion || undefined,
+          gameVersion: normalizedMcVersion || undefined,
           modLoaderType: loaderNum,
           apiKey: cfApiKey,
         });
-        const rawFiles = Array.isArray(filesResp?.data) ? filesResp.data : [];
+        let rawFiles = Array.isArray(filesResp?.data) ? filesResp.data : [];
+        // CurseForge can omit the newest patch tag even when the compatible
+        // file exists. Retry only inside the same loader, then retain only a
+        // same-release-line candidate; never cross loaders or major releases.
+        if (rawFiles.length === 0 && normalizedMcVersion) {
+          const broadResp = await invoke<any>('get_curseforge_mod_files', {
+            modId: numericProjectId,
+            gameVersion: undefined,
+            modLoaderType: loaderNum,
+            apiKey: cfApiKey,
+          });
+          rawFiles = Array.isArray(broadResp?.data) ? broadResp.data : [];
+        }
         const candidates = rawFiles
           .filter((file: any) => Number(file?.id) > 0 && Boolean(file?.fileName))
           .sort((a: any, b: any) => new Date(b.fileDate ?? 0).getTime() - new Date(a.fileDate ?? 0).getTime());
         const isMod = project.projectType === 'mods';
         const compatible = candidates.filter((file: any) => {
           const tags = Array.isArray(file.gameVersions) ? file.gameVersions.map((tag: unknown) => String(tag).toLowerCase()) : [];
-          const versionOk = !mcVersion || tags.includes(mcVersion.toLowerCase());
+          const versionOk = hasCompatibleMinecraftTag(tags, normalizedMcVersion, true);
           const loaderOk = !isMod || !loader || loader === 'vanilla' || Number(file?.modLoaderType ?? 0) === Number(loaderNum ?? 0);
           return versionOk && loaderOk;
         });

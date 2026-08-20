@@ -825,3 +825,11 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the active search and metadata repair to GitHub main.
 
 ---
+
+# Final CurseForge and Modrinth compatibility regression
+
+- [x] Trace and normalize malformed Minecraft version values such as 1.21.11 before platform requests.
+- [x] Keep exact Fabric and Minecraft-version compatibility checks after normalization, without installing an unrelated fallback mod file.
+- [x] Run TypeScript only and commit/push the final CurseForge/Modrinth compatibility repair to GitHub main.
+
+---

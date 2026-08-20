@@ -73,6 +73,18 @@ fn neoforge_versions_for_mc(xml: &str, mc_version: &str) -> Vec<String> {
     versions
 }
 
+async fn latest_forge_version(client: &reqwest::Client, mc_version: &str) -> Result<String, String> {
+    let xml = client
+        .get("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml")
+        .send().await.map_err(|error| format!("Forge metadata: {error}"))?
+        .text().await.map_err(|error| format!("Forge metadata: {error}"))?;
+    let prefix = format!("{mc_version}-");
+    maven_versions(&xml).into_iter()
+        .filter_map(|full| full.strip_prefix(&prefix).map(str::to_string))
+        .last()
+        .ok_or_else(|| format!("Для Forge нет совместимой версии под Minecraft {mc_version}"))
+}
+
 /// Install Fabric loader – 1.14+ to latest snapshots.
 #[tauri::command]
 pub async fn install_fabric(mc_version: String, loader_version: String, instance_dir: String) -> Result<LoaderInstallResult, String> {
@@ -138,7 +150,7 @@ pub async fn install_fabric(mc_version: String, loader_version: String, instance
 #[tauri::command]
 pub async fn install_forge(mc_version: String, forge_version: String, instance_dir: String) -> Result<LoaderInstallResult, String> {
     // Prefer lighty-launcher if available
-    if which("lighty-launcher").is_ok() || which("npx").is_ok() {
+    if !forge_version.trim().is_empty() && (which("lighty-launcher").is_ok() || which("npx").is_ok()) {
         let mut cmd_opt = None;
         if which("lighty-launcher").is_ok() {
             let mut c = crate::utils::create_hidden_command("lighty-launcher");
@@ -167,8 +179,11 @@ pub async fn install_forge(mc_version: String, forge_version: String, instance_d
         });
     }
 
-    let full_ver = if forge_version.contains('-') { forge_version.clone() }
-                   else { format!("{}-{}", mc_version, forge_version) };
+    let selected_version = if forge_version.trim().is_empty() {
+        latest_forge_version(&client, &mc_version).await?
+    } else { forge_version };
+    let full_ver = if selected_version.starts_with(&format!("{mc_version}-")) { selected_version }
+                   else { format!("{}-{}", mc_version, selected_version) };
 
     let installer_url = format!(
         "https://maven.minecraftforge.net/net/minecraftforge/forge/{v}/forge-{v}-installer.jar",
@@ -256,7 +271,7 @@ pub async fn install_quilt(mc_version: String, loader_version: String, instance_
 #[tauri::command]
 pub async fn install_neoforge(mc_version: String, neoforge_version: String, instance_dir: String) -> Result<LoaderInstallResult, String> {
     // Prefer lighty-launcher if available
-    if which("lighty-launcher").is_ok() || which("npx").is_ok() {
+    if !neoforge_version.trim().is_empty() && (which("lighty-launcher").is_ok() || which("npx").is_ok()) {
         let mut cmd_opt = None;
         if which("lighty-launcher").is_ok() {
             let mut c = crate::utils::create_hidden_command("lighty-launcher");

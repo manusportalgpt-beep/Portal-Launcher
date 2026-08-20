@@ -238,16 +238,26 @@ pub async fn resolve_version(
     loader_version: &str,
 ) -> Result<(serde_json::Value, String), String> {
     let vanilla = ensure_version_json(client, version_id).await?;
-    let loader = loader.trim().to_lowercase();
+    let requested_loader = loader.trim().to_lowercase();
+    // An OptiFine setup created by Portal Launcher is technically a Forge
+    // instance with the official OptiFine JAR in mods. Resolve the Forge
+    // profile, not a fictional optifine-loader profile.
+    let loader = if requested_loader == "optifine" { "forge".to_string() } else { requested_loader };
     if loader.is_empty() || loader == "vanilla" {
         return Ok((vanilla, version_id.to_string()));
+    }
+    // LabyMod is an independently licensed client, not a standard Minecraft
+    // loader profile. Launching it as vanilla would be misleading, so explain
+    // the official route instead of a false missing-profile error.
+    if loader == "labymod" {
+        return Err("LabyMod запускается только через официальный Laby Launcher с лицензированным Microsoft-аккаунтом. Portal Launcher не создаёт поддельный loader-профиль LabyMod.".to_string());
     }
 
     // 1. Локально установленный профиль (Forge / NeoForge / ручная установка).
     // A blank Fabric/Quilt version means "latest", so it must not reuse an
     // arbitrary old profile from the shared cache. An exact loader version can
     // reuse only a profile that explicitly inherits from this Minecraft version.
-    if !loader_version.trim().is_empty() {
+    if !loader_version.trim().is_empty() || loader == "forge" || loader == "neoforge" {
         if let Some(profile_id) = find_local_loader_profile(&loader, version_id, loader_version) {
             let raw = std::fs::read_to_string(version_json_path(&profile_id))
                 .map_err(|e| format!("Профиль {profile_id}: {e}"))?;
@@ -293,6 +303,31 @@ pub async fn resolve_version(
         return Ok((merge_inherited(&child, &vanilla), profile_id));
     }
 
+    // Forge and NeoForge installers create profile JSON in the shared versions
+    // directory. Older instances can lose that profile after cleanup or may
+    // have been created with a blank recommended version, so recover it before
+    // reporting a launch error. This leaves worlds, mods and instance files
+    // untouched.
+    if loader == "forge" || loader == "neoforge" {
+        let target_dir = crate::commands::version_manager::mc_base_dir().to_string_lossy().to_string();
+        let result = if loader == "forge" {
+            crate::commands::loader_installer::install_forge(version_id.to_string(), loader_version.to_string(), target_dir).await?
+        } else {
+            crate::commands::loader_installer::install_neoforge(version_id.to_string(), loader_version.to_string(), target_dir).await?
+        };
+        if !result.success {
+            return Err(format!("Не удалось автоматически установить {loader} для {version_id}: {}", result.message));
+        }
+        if let Some(profile_id) = find_local_loader_profile(&loader, version_id, "") {
+            let raw = std::fs::read_to_string(version_json_path(&profile_id))
+                .map_err(|e| format!("Профиль {profile_id}: {e}"))?;
+            let child: serde_json::Value = serde_json::from_str(&raw)
+                .map_err(|e| format!("Разбор {profile_id}: {e}"))?;
+            return Ok((merge_inherited(&child, &vanilla), profile_id));
+        }
+        return Err(format!("{loader} установлен, но не создал профиль запуска для {version_id}. Повторите запуск."));
+    }
+
     Err(format!(
         "Профиль загрузчика {loader} {loader_version} не установлен для {version_id}. \
 Установите загрузчик в настройках сборки."
@@ -321,15 +356,12 @@ async fn fetch_latest_loader(
 }
 
 fn find_local_loader_profile(loader: &str, mc: &str, loader_version: &str) -> Option<String> {
-    if loader_version.trim().is_empty() {
-        return None;
-    }
     let dir = versions_dir();
     let entries = std::fs::read_dir(dir).ok()?;
     for e in entries.flatten() {
         let name = e.file_name().to_string_lossy().to_string();
         let lower = name.to_lowercase();
-        if !lower.contains(loader) || !name.contains(loader_version) {
+        if !lower.contains(loader) || (!loader_version.trim().is_empty() && !name.contains(loader_version)) {
             continue;
         }
         let path = version_json_path(&name);

@@ -1130,3 +1130,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the clickable CurseForge portal link to GitHub main.
 
 ---
+
+# Smooth platform switch and missing loader profiles
+
+- [x] Trace the default-platform switch animation and remove visual artifacts without changing Discover platform selection.
+- [x] Trace why existing NeoForge, Forge, Quilt, LabyMod and OptiFine instances report a missing loader profile at launch.
+- [x] Repair exact loader-profile detection and automatic installation for the affected loader/version combinations.
+- [x] Run TypeScript-only verification and commit/push the platform-switch and loader-profile repairs to GitHub main.
+
+---

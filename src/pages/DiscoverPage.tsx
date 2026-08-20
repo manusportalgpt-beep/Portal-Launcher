@@ -181,7 +181,7 @@ function PlatformToggleBtn({ platform, onToggle }: { platform: Platform; onToggl
     <button
       onClick={onToggle}
       title={t('discover.runtime.switchPlatform', { platform: platform === 'modrinth' ? 'CurseForge' : 'Modrinth' })}
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all hover:scale-105"
+      className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-colors duration-150 hover:bg-white/5 active:scale-[0.98]"
       style={{
         background: 'var(--color-surface-2)',
         border: '1px solid var(--color-border)',

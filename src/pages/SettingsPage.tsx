@@ -836,12 +836,13 @@ function AdvancedSection() {
       </Row>
 
       <Row label="Платформа по умолчанию" desc="Какую платформу использовать по умолчанию в Discover">
-        <div className="flex rounded-xl overflow-hidden" style={{ border:'1px solid var(--color-border)' }}>
+        <div className="relative isolate flex rounded-xl p-0.5" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+          <span aria-hidden className="pointer-events-none absolute inset-y-0.5 left-0.5 w-[calc(50%-2px)] rounded-[9px] transition-transform duration-200" style={{ transform: s.defaultPlatform === 'modrinth' ? 'translateX(0)' : 'translateX(100%)', background:'var(--color-primary-dim)', border:'1px solid color-mix(in srgb, var(--color-primary) 72%, transparent)', boxShadow:'0 3px 12px color-mix(in srgb, var(--color-primary) 18%, transparent)' }} />
           {(['modrinth','curseforge'] as const).map(p => (
-            <button key={p} onClick={() => s.setSetting('defaultPlatform', p)}
-              className="px-3 py-1.5 text-xs font-bold capitalize transition-all"
+            <button key={p} type="button" aria-pressed={s.defaultPlatform===p} onClick={() => s.setSetting('defaultPlatform', p)}
+              className="relative z-10 min-w-[82px] rounded-[9px] px-3 py-1.5 text-xs font-bold capitalize transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
               style={s.defaultPlatform===p
-                ? { background:'var(--color-primary-dim)', color:'var(--color-primary)', border:'1px solid var(--color-primary)' }
+                ? { color:'var(--color-primary)' }
                 : { color:'var(--color-text-secondary)' }}>
               {p==='modrinth'?'Modrinth':'CurseForge'}
             </button>

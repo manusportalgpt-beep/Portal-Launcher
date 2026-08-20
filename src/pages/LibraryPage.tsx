@@ -581,7 +581,11 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
         description: '',
         mcVersion: form.mcVersion,
         loader: form.loader,
-        loaderVersion: form.loaderVersionType === 'custom' ? form.customLoaderVersion : '',
+        loaderVersion: form.loaderVersionType === 'custom'
+          ? form.customLoaderVersion
+          : form.loaderVersionType === 'latest'
+            ? (loaderVersions[0]?.value ?? '')
+            : (recommendedLoaderVersion?.value ?? ''),
         minRam: 1024,
         maxRam: 4096,
         javaPath: '',

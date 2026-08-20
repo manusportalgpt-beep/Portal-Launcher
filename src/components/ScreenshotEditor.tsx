@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { invoke } from '@/lib/invoke-shim';
 import { Check, Droplet, Eraser, Image as ImageIcon, Layers3, Minus, Paintbrush, Redo2, Save, Undo2, X } from 'lucide-react';
 
@@ -127,7 +128,7 @@ export function ScreenshotEditor({ instanceId, fileName, imageUrl, onClose, onSa
     } catch (e) { console.error(e); } finally { setSaving(false); }
   };
 
-  return <div data-portal-overlay="true" className="fixed inset-0 z-[230] flex flex-col bg-[#09090b]/95 backdrop-blur-md">
+  return createPortal(<div data-portal-overlay="true" className="fixed inset-0 flex flex-col bg-[#09090b]/95 backdrop-blur-md" style={{ zIndex: 2147483647 }}>
     <div className="flex items-center gap-3 border-b px-4 py-3" style={{ borderColor:'var(--color-border)' }}>
       <Paintbrush className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color:'var(--color-text)' }}>{fileName}{dirty ? ' · изменено' : ''}</p>
       <button onClick={undo} disabled={historyIndexRef.current <= 0} className="rounded-lg p-2 disabled:opacity-30" title="Отменить"><Undo2 className="h-4 w-4" /></button>
@@ -153,5 +154,5 @@ export function ScreenshotEditor({ instanceId, fileName, imageUrl, onClose, onSa
       <label className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}><Minus className="h-3.5 w-3.5" />Размер <input type="range" min="1" max="120" value={size} onChange={e => setSize(Number(e.target.value))} /><span className="w-7 text-right tabular-nums">{size}</span></label>
       <span className="hidden items-center gap-1 text-[10px] sm:flex" style={{ color:'var(--color-text-tertiary)' }}><Check className="h-3 w-3" /> PNG сохраняется в screenshots этой сборки</span>
     </div>
-  </div>;
+  </div>, document.body);
 }

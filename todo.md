@@ -793,3 +793,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the Title Bar Drag zone fix to GitHub main.
 
 ---
+
+# Runtime screenshot, Notch Panel and localization regressions
+
+- [x] Identify the components used by the screenshot editor and instance windows shown in the runtime screenshots instead of relying on stale or unused page variants.
+- [x] Keep the screenshot editor fully above all application chrome with clickable back/save controls and no Title Bar overlap.
+- [x] Replace delayed Notch Panel hover behaviour with immediate opening from the visible panel tab and remove the oversized empty hitbox.
+- [x] Translate the user-facing Instance content tab and actual instance-settings Content panel shown at runtime to Russian.
+- [x] Run TypeScript only and commit/push the runtime regression repair to GitHub main.
+
+---

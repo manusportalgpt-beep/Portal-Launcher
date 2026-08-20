@@ -170,7 +170,7 @@ function SidebarNav() {
 
 /** Выезжающая минималистичная Notch-панель. Перетаскивание окна отключено. */
 function NotchNav() {
-  const { notchHotzone, notchPinned, notchCloseDelay, notchWidth, notchSide, navHoverMs, navItemScale, navItemOrder, panelVersion, uiMode, titlebarHeight, notchPanelAppearance: appearance, set } = useUiStore();
+  const { notchPinned, notchSide, navItemScale, navItemOrder, panelVersion, uiMode, titlebarHeight, notchPanelAppearance: appearance, set } = useUiStore();
   const visualPanelVersion = uiMode === 'old' ? 'old' : panelVersion;
   const blurEnabled = useUiStore(state => state.blur);
   const items = orderedNav(navItemOrder);
@@ -178,7 +178,7 @@ function NotchNav() {
   const [overlayOpen, setOverlayOpen] = useState(() => Boolean(document.body.dataset.portalOverlay));
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openNotch = () => { if (overlayOpen) return; if (closeTimer.current) clearTimeout(closeTimer.current); setHover(true); };
-  const scheduleClose = () => { if (closeTimer.current) clearTimeout(closeTimer.current); closeTimer.current = setTimeout(() => setHover(false), notchCloseDelay); };
+  const scheduleClose = () => { if (closeTimer.current) clearTimeout(closeTimer.current); closeTimer.current = setTimeout(() => setHover(false), 110); };
   useEffect(() => {
     const syncOverlay = () => setOverlayOpen(Boolean(document.body.dataset.portalOverlay));
     window.addEventListener('portal-overlay-change', syncOverlay);
@@ -205,8 +205,8 @@ function NotchNav() {
     pointerEvents: 'none',
     ...crossAxisPosition,
     ...(vertical
-      ? { [notchSide]: 0, width: notchHotzone, height: 44 }
-      : { [notchSide]: notchSide === 'top' ? titlebarHeight : 0, width: 44, height: notchHotzone }),
+      ? { [notchSide]: 0, width: 18, height: 44 }
+      : { [notchSide]: notchSide === 'top' ? titlebarHeight : 0, width: 44, height: 18 }),
   };
 
   const offset = vertical ? { x: isStart ? -14 : 14 } : { y: isStart ? -14 : 14 };
@@ -220,8 +220,8 @@ function NotchNav() {
         className="flex items-center justify-center"
         style={{
           pointerEvents: 'auto',
-          height: vertical ? '100%' : notchHotzone,
-          width: vertical ? notchHotzone : '100%',
+          height: vertical ? '100%' : 18,
+          width: vertical ? 18 : '100%',
           flexDirection: vertical ? 'row' : 'column',
           alignSelf: vertical ? align : 'auto',
         }}
@@ -232,7 +232,7 @@ function NotchNav() {
               className="rounded-full"
               style={{
                 background: 'var(--color-border-strong)',
-                ...(vertical ? { width: 3, height: 40 } : { width: 40, height: 3 }),
+                ...(vertical ? { width: 8, height: 40 } : { width: 40, height: 8 }),
               }} />
           )}
         </AnimatePresence>
@@ -241,7 +241,7 @@ function NotchNav() {
           {open && (
             <motion.nav key="dock"
               initial={{ opacity: 0, ...offset }} animate={{ opacity: 1, x: 0, y: 0 }} exit={{ opacity: 0, ...offset }}
-              transition={{ duration: Math.max(0.12, navHoverMs / 1000), ease: [0.22, 0.78, 0.24, 1] }}
+              transition={{ duration: 0.12, ease: [0.22, 0.78, 0.24, 1] }}
               className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1 rounded-xl`}
               style={{
                 padding: Math.max(visualPanelVersion === 'new' ? 7 : 5, appearance.edgePadding / 2),
@@ -262,7 +262,7 @@ function NotchNav() {
                 <DockButton item={{ to: '/settings', icon: Settings, labelKey: 'settings' }} vertical={vertical} scale={navItemScale} appearance={appearance} />
                 <button title="Назад" onClick={() => window.history.back()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronLeft size={13} /></button>
                 <button title="Вперёд" onClick={() => window.history.forward()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronRight size={13} /></button>
-                <button title="Pin panel" onClick={() => set('notchPinned', !notchPinned)}
+                <button title="Закрепить панель" onClick={() => set('notchPinned', !notchPinned)}
                   className="flex items-center justify-center rounded-md"
                   style={{ width: 18, height: 18, color: notchPinned ? 'var(--color-primary)' : 'var(--color-text-tertiary)', background:'transparent' }}
                   onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}>

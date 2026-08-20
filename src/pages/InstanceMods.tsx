@@ -39,7 +39,7 @@ type MainTab = 'content' | 'files' | 'worlds' | 'screenshots';
 type ContentFilter = 'all' | 'mods' | 'resourcepacks' | 'shaders' | 'updates' | 'disabled' | 'deleted';
 
 const MAIN_TABS: { id: MainTab; label: string; icon: any }[] = [
-  { id: 'content', label: 'Модификации', icon: Package },
+  { id: 'content', label: 'Моды', icon: Package },
   { id: 'files', label: 'Files', icon: FolderTree },
   { id: 'worlds', label: 'Worlds', icon: Globe },
   { id: 'screenshots', label: 'Screenshots', icon: Camera },

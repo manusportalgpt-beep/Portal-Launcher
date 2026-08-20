@@ -785,3 +785,11 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the refinement work to GitHub main.
 
 ---
+
+# Title Bar Drag zone regression
+
+- [x] Replace the broad native drag-region with a compact explicit Drag zone beside the title to eliminate the black native-window artifact while dragging.
+- [x] Increase and precisely align the Title Bar app icon and Portal Launcher title while keeping compact window controls.
+- [x] Run TypeScript only and commit/push the Title Bar Drag zone fix to GitHub main.
+
+---

@@ -39,7 +39,7 @@ export function WindowControls() {
   );
 }
 
-/** Тонкая полоса заголовка: drag только на названии и чистой центральной области. */
+/** Тонкая полоса заголовка: drag только в компактной области рядом с брендом. */
 export function TitleBar({ title = 'Portal Launcher' }: { title?: string }) {
   const titlebarHeight = useUiStore(state => state.titlebarHeight);
   const adaptiveTitlebarColor = useUiStore(state => state.adaptiveTitlebarColor);
@@ -52,19 +52,18 @@ export function TitleBar({ title = 'Portal Launcher' }: { title?: string }) {
   const pageColor = `color-mix(in srgb, var(--color-surface) ${100 - routeTone}%, var(--color-primary) ${routeTone}%)`;
   return (
     <div
-      className="relative z-[200] flex shrink-0 items-center justify-between pl-1.5 pr-0"
+      className="relative z-[200] flex shrink-0 items-center justify-between pl-2 pr-0"
       style={{ height: titlebarHeight, backgroundColor: adaptiveTitlebarColor ? pageColor : 'var(--color-surface)', backgroundImage:'none', isolation:'isolate', borderBottom: `1px solid ${adaptiveTitlebarColor ? `color-mix(in srgb, var(--color-primary) ${routeTone * 4}%, var(--color-border))` : 'var(--color-border)'}`, transition:'background-color 180ms var(--ease-out, ease), border-color 180ms var(--ease-out, ease)' }}
     >
       <div
-        data-tauri-drag-region
-        className="flex h-full min-w-0 flex-1 cursor-move items-center gap-1.5 text-[10px] font-semibold leading-none tracking-[0.01em]"
-        style={{ color: 'var(--color-text-tertiary)' }}
+        className="flex h-full w-[188px] shrink-0 cursor-grab items-center gap-1.5 rounded-sm px-1.5 text-[11px] font-semibold leading-none tracking-[0.01em] active:cursor-grabbing"
+        style={{ color: 'var(--color-text-secondary)' }}
         onPointerDown={event => {
           if (event.button === 0) void getCurrentWindow().startDragging();
         }}
       >
-        <img src={portalIcon} width={12} height={12} draggable={false} className="block shrink-0 rounded-[3px] object-cover" alt="" />
-        <span>{title}</span>
+        <img src={portalIcon} width={16} height={16} draggable={false} className="block shrink-0 rounded-[4px] object-cover" alt="" />
+        <span className="truncate">{title}</span>
       </div>
       <WindowControls />
     </div>

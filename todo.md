@@ -1079,3 +1079,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the empty-library background correction to GitHub main.
 
 ---
+
+# Per-instance RAM settings persistence
+
+- [x] Trace why the memory shown in instance settings is not persisted or passed to Java for every Minecraft profile.
+- [x] Persist per-instance minimum RAM, maximum RAM and custom JVM arguments through the settings save path.
+- [x] Ensure launch diagnostics and Java Xmx/Xms use the saved values rather than stale 4096 MB defaults.
+- [x] Run TypeScript-only verification and commit/push the per-instance RAM repair to GitHub main.
+
+---

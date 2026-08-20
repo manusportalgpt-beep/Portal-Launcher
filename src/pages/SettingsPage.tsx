@@ -255,15 +255,25 @@ function AccountSection() {
 
 function MinecraftSection() {
   const s = useSettingsStore();
+  const applyGlobalRuntimeSetting = (key: 'javaPath' | 'customJvmArgs' | 'minRam' | 'maxRam', value: string | number) => {
+    s.setSetting(key as never, value as never);
+    const current = useSettingsStore.getState();
+    void invoke('apply_global_runtime_settings', {
+      minRam: Number(current.minRam),
+      maxRam: Number(current.maxRam),
+      javaPath: String(current.javaPath || ''),
+      customJvmArgs: String(current.customJvmArgs || ''),
+    }).catch(error => console.warn('Не удалось применить общие Java-настройки к сборкам:', error));
+  };
   return (
     <div>
       <h2 className="text-base font-bold mb-1" style={{ color:'var(--color-text)' }}>Java и память</h2>
-      <p className="text-sm mb-5" style={{ color:'var(--color-text-secondary)' }}>Настройка Java и выделяемой памяти</p>
-      <InputRow label="Путь к Java" desc="Оставьте пустым для автоматического определения" value={s.javaPath} onChange={v => s.setSetting('javaPath',v)} placeholder="Определять автоматически" />
-      <JavaManager selectedPath={s.javaPath} onSelect={path => s.setSetting('javaPath', path)} />
-      <InputRow label="Аргументы JVM" desc="Дополнительные аргументы JVM, добавляемые перед -jar" value={s.customJvmArgs} onChange={v => s.setSetting('customJvmArgs',v)} placeholder="-XX:+UseG1GC -XX:G1NewSizePercent=20" />
-      <RangeRow label="Минимум памяти" value={s.minRam} min={512} max={s.maxRam} unit=" МБ" onChange={v => s.setSetting('minRam',v)} />
-      <RangeRow label="Максимум памяти" value={s.maxRam} min={s.minRam} max={32768} unit=" МБ" onChange={v => s.setSetting('maxRam',v)} />
+      <p className="text-sm mb-5" style={{ color:'var(--color-text-secondary)' }}>Настройка Java и выделяемой памяти для всех сборок. При изменении значения сразу сохраняются в профили и применяются к следующему запуску.</p>
+      <InputRow label="Путь к Java" desc="Оставьте пустым для автоматического определения во всех сборках" value={s.javaPath} onChange={v => applyGlobalRuntimeSetting('javaPath',v)} placeholder="Определять автоматически" />
+      <JavaManager selectedPath={s.javaPath} onSelect={path => applyGlobalRuntimeSetting('javaPath', path)} />
+      <InputRow label="Аргументы JVM" desc="Дополнительные аргументы JVM для всех сборок. -Xms и -Xmx задаются ползунками памяти ниже и не могут их переопределить." value={s.customJvmArgs} onChange={v => applyGlobalRuntimeSetting('customJvmArgs',v)} placeholder="-XX:+UseG1GC -XX:G1NewSizePercent=20" />
+      <RangeRow label="Минимум памяти" value={s.minRam} min={512} max={s.maxRam} unit=" МБ" onChange={v => applyGlobalRuntimeSetting('minRam',v)} />
+      <RangeRow label="Максимум памяти" value={s.maxRam} min={s.minRam} max={32768} unit=" МБ" onChange={v => applyGlobalRuntimeSetting('maxRam',v)} />
       <Row label="Сворачивать лаунчер при запуске игры" desc="Сворачивать Portal Launcher при запуске Minecraft">
         <Toggle value={s.closeLauncherOnStart} onChange={v => s.setSetting('closeLauncherOnStart',v)} />
       </Row>

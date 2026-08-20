@@ -84,6 +84,7 @@ fn main() {
             commands::instances::restore_deleted_instance,
             commands::instances::permanently_delete_instance,
             commands::instances::ensure_instance,
+            commands::instances::apply_global_runtime_settings,
             commands::instances::duplicate_instance,
             commands::instances::open_instance_folder,
             commands::instances::export_instance_zip,

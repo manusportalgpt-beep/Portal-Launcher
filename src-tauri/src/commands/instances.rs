@@ -405,7 +405,17 @@ pub async fn ensure_instance(
     color: Option<String>,
     icon: Option<String>,
 ) -> Result<Instance, String> {
-    if let Some(existing) = load_instance(&id) {
+    if let Some(mut existing) = load_instance(&id) {
+        // Java and RAM from Settings → Minecraft are global runtime defaults.
+        // Refresh these fields before every launch so an old on-disk 4096 MB
+        // profile cannot silently override the current launcher setting.
+        let safe_min_ram = min_ram.unwrap_or(existing.min_ram).clamp(512, 32_768);
+        let safe_max_ram = max_ram.unwrap_or(existing.max_ram).clamp(safe_min_ram, 32_768);
+        existing.min_ram = safe_min_ram;
+        existing.max_ram = safe_max_ram;
+        if let Some(value) = java_path { existing.java_path = value; }
+        if let Some(value) = custom_jvm_args { existing.custom_jvm_args = value; }
+        save_instance(&existing)?;
         return Ok(existing);
     }
     let instance = Instance {
@@ -430,6 +440,36 @@ pub async fn ensure_instance(
     create_instance_folders(&dir)?;
     save_instance(&instance)?;
     Ok(instance)
+}
+
+/// Apply Settings → Minecraft runtime values to every persisted instance.
+/// This changes only launch configuration; worlds, mods, files and metadata
+/// are left untouched. It keeps the global controls honest for all profiles.
+#[tauri::command]
+pub async fn apply_global_runtime_settings(
+    min_ram: u32,
+    max_ram: u32,
+    java_path: String,
+    custom_jvm_args: String,
+) -> Result<usize, String> {
+    let safe_min_ram = min_ram.clamp(512, 32_768);
+    let safe_max_ram = max_ram.clamp(safe_min_ram, 32_768);
+    let mut changed = 0usize;
+
+    let entries = std::fs::read_dir(instances_dir()).map_err(|error| error.to_string())?;
+    for entry in entries.flatten() {
+        if !entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false) { continue; }
+        let id = entry.file_name().to_string_lossy().to_string();
+        let Some(mut instance) = load_instance(&id) else { continue; };
+        instance.min_ram = safe_min_ram;
+        instance.max_ram = safe_max_ram;
+        instance.java_path = java_path.clone();
+        instance.custom_jvm_args = custom_jvm_args.clone();
+        save_instance(&instance)?;
+        changed += 1;
+    }
+
+    Ok(changed)
 }
 
 #[tauri::command]

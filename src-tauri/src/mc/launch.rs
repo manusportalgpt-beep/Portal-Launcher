@@ -459,8 +459,6 @@ pub async fn launch_instance(
     let min_ram = instance.min_ram.max(512);
     let max_ram = instance.max_ram.max(min_ram);
     let mut jvm_args: Vec<String> = vec![
-        format!("-Xms{min_ram}m"),
-        format!("-Xmx{max_ram}m"),
         "-Dfile.encoding=UTF-8".into(),
         "-Dstdout.encoding=UTF-8".into(),
         "-Dstderr.encoding=UTF-8".into(),
@@ -497,8 +495,36 @@ pub async fn launch_instance(
         }
     }
     if !instance.custom_jvm_args.trim().is_empty() {
-        jvm_args.extend(instance.custom_jvm_args.split_whitespace().map(String::from));
+        let mut ignored_heap_flags = Vec::new();
+        let custom_args = instance.custom_jvm_args.split_whitespace().filter_map(|arg| {
+            let normalized = arg.to_ascii_lowercase();
+            let overrides_heap = normalized.starts_with("-xms")
+                || normalized.starts_with("-xmx")
+                || normalized.starts_with("-xx:initialheapsize=")
+                || normalized.starts_with("-xx:minheapsize=")
+                || normalized.starts_with("-xx:maxheapsize=");
+            if overrides_heap {
+                ignored_heap_flags.push(arg.to_string());
+                None
+            } else {
+                Some(arg.to_string())
+            }
+        });
+        jvm_args.extend(custom_args);
+        if !ignored_heap_flags.is_empty() {
+            log::warn!(
+                "Игнорирую JVM-параметры памяти из поля аргументов ({:?}); используется значение из Настройки → Minecraft: Xms={} MiB, Xmx={} MiB",
+                ignored_heap_flags,
+                min_ram,
+                max_ram,
+            );
+        }
     }
+    // These flags must be last among JVM options: Java accepts the last heap
+    // switch, and an old custom/profile argument such as -Xmx4096M otherwise
+    // silently wins over the value selected in Settings → Minecraft.
+    jvm_args.push(format!("-Xms{min_ram}m"));
+    jvm_args.push(format!("-Xmx{max_ram}m"));
 
     let main_class = version["mainClass"]
         .as_str()

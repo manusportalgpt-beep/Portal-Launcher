@@ -717,3 +717,9 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the Find Projects build fix to GitHub main.
 
 ---
+
+# Revert of incorrect screenshot-based change
+
+- [x] Revert only the unnecessary FindProjectsPage type mapping change from b89abbc after the user confirmed the screenshot was unrelated.
+
+---

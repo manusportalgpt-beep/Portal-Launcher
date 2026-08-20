@@ -141,12 +141,6 @@ const MODRINTH_CATEGORY_SLUGS: Record<ProjectType, Record<string, string>> = {
 function modrinthCategorySlug(projectType: ProjectType, label: string): string {
   return MODRINTH_CATEGORY_SLUGS[projectType][label] ?? label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
-
-function installContentType(projectType: ProjectType): 'mod' | 'resourcepack' | 'shaderpack' {
-  if (projectType === 'resourcepacks') return 'resourcepack';
-  if (projectType === 'shaders') return 'shaderpack';
-  return 'mod';
-}
 const LOADERS = ['fabric','forge','quilt','neoforge','vanilla'];
 const CATEGORY_ICONS: Record<string, any> = {
   Adventure: Compass, Technology: Wrench, Magic: Sparkles, Storage: Archive,
@@ -258,7 +252,10 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         }
         const file = ver.files?.find((f: any) => f.primary && f.url) ?? ver.files?.find((f: any) => f.url) ?? ver.files?.[0];
         if (!file) { setState('err'); setTimeout(() => setState('idle'), 2500); return; }
-        const contentType = installContentType(project.projectType);
+        const contentType =
+          project.projectType === 'resourcepacks' ? 'resourcepack'
+            : project.projectType === 'shaders' ? 'shaderpack'
+              : 'mod';
         await invoke('install_mod', {
           instanceId,
           downloadUrl: file.url,
@@ -284,7 +281,10 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
           throw new Error('CurseForge project ID is missing or invalid. Refresh the results and try again.');
         }
 
-        const contentType = installContentType(project.projectType);
+        const contentType =
+          project.projectType === 'resourcepacks' ? 'resourcepack'
+            : project.projectType === 'shaders' ? 'shaderpack'
+              : 'mod';
         const loaderNum = project.projectType === 'mods' && loader && loader !== 'vanilla'
           ? CF_LOADER_MAP[loader]
           : undefined;

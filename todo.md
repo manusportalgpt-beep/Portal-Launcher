@@ -920,3 +920,10 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the zero-gap geometry refinement to GitHub main.
 
 ---
+
+# Notch Panel seamless top-edge refinement
+
+- [x] Remove the remaining black separation line so the opened Notch Panel meets the top UI with no visible gap.
+- [x] Run TypeScript-only verification and commit/push the seamless Notch Panel edge to GitHub main.
+
+---

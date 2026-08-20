@@ -9,6 +9,7 @@ import { useInstanceStore } from '@/stores/instanceStore';
 import { getAvatarUrl, getAvatarFallbackUrl } from '@/lib/avatar';
 import { toIconSrc } from '@/lib/icon-src';
 import { CachedPlayerFace } from '@/components/CachedPlayerFace';
+import { invoke } from '@/lib/invoke-shim';
 
 interface NavItem {
   to: string;
@@ -144,8 +145,26 @@ function NotifDropdown({ onClose }: { onClose: () => void }) {
 function AccountDropdown({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const user = useCurrentUser();
-  const { logout } = useAuthStore();
+  const { logout, accounts, activeAccountUuid } = useAuthStore();
   const [confirm, setConfirm] = useState(false);
+  const signOutActiveAccount = () => {
+    const next = accounts.find(account => account.uuid !== activeAccountUuid) ?? null;
+    logout();
+    if (!next) {
+      void invoke('msa_logout').catch(() => {});
+    } else {
+      void invoke('save_frontend_account', {
+        uuid: next.uuid,
+        username: next.username,
+        skinUrl: next.skinUrl ?? null,
+        accessToken: next.accessToken ?? '',
+        refreshToken: next.refreshToken ?? '',
+        expiresAt: Math.floor((next.tokenExpiry ?? 0) / 1000),
+        provider: next.provider ?? 'microsoft',
+      }).catch(() => {});
+    }
+    onClose();
+  };
   return (
     <motion.div
       className="absolute left-full bottom-0 ml-2 z-50 w-56 rounded-2xl overflow-hidden"
@@ -204,7 +223,7 @@ function AccountDropdown({ onClose }: { onClose: () => void }) {
               <div className="px-3 py-2">
                 <p className="text-xs mb-2 font-semibold" style={{ color:'var(--color-error)' }}>Confirm sign out?</p>
                 <div className="flex gap-2">
-                  <button onClick={() => { logout(); onClose(); }}
+                  <button onClick={signOutActiveAccount}
                     className="flex-1 py-1.5 rounded-lg text-xs font-bold"
                     style={{ background:'var(--color-error)', color:'#fff' }}>Sign Out</button>
                   <button onClick={() => setConfirm(false)}

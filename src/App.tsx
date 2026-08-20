@@ -174,6 +174,7 @@ function App() {
             <Route path="/find-projects" element={<FindProjectsPage />} />
             <Route path="/author/:source/:name" element={<AuthorPage />} />
             <Route path="/library" element={<LibraryPage />} />
+            <Route path="/library/:id" element={<LibraryPage />} />
             <Route path="/instances" element={<InstancesPage />} />
             <Route path="/instances/:id/settings" element={<InstanceSettings />} />
             <Route path="/skins" element={<SkinSelectorPage />} />

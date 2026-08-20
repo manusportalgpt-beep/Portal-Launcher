@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getAvatarFallbackUrl, getAvatarUrl } from '@/lib/avatar';
 import type { UserProfile } from '@/stores/authStore';
+import { useAuthStore } from '@/stores/authStore';
 
 const CACHE_PREFIX = 'portal-player-face-v1:';
 
@@ -44,6 +45,7 @@ export function CachedPlayerFace({
   style?: React.CSSProperties;
   alt?: string;
 }) {
+  const updateAccount = useAuthStore(state => state.updateAccount);
   const source = useMemo(() => getAvatarUrl(user), [user?.uuid, user?.username, user?.provider, user?.avatarUrl]);
   const fallback = useMemo(() => getAvatarFallbackUrl(user), [user?.uuid, user?.username, user?.provider]);
   const key = useMemo(() => user ? accountKey(user) : '', [user?.uuid, user?.username, user?.provider]);
@@ -59,6 +61,7 @@ export function CachedPlayerFace({
       if (!active || !dataUrl) return;
       saveCached(key, dataUrl);
       setCached(dataUrl);
+      if (user?.uuid && user.avatarUrl !== dataUrl) updateAccount(user.uuid, { avatarUrl: dataUrl });
     }).catch(() => undefined);
     return () => { active = false; };
   }, [key, source]);

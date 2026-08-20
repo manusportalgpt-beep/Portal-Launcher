@@ -445,7 +445,7 @@ export function SkinSelectorPage() {
           <div className="flex flex-col gap-4">
             <div className="overflow-hidden" style={{ ...card, borderRadius: 'var(--radius-modal)' }}>
               <div className="relative" style={{ background: 'radial-gradient(ellipse at 50% 15%, color-mix(in srgb, var(--color-primary) 18%, var(--color-surface-2)) 0%, var(--color-bg) 78%)' }}>
-                {ui.showSkinStandName && <div className="pointer-events-none absolute inset-x-0 top-5 z-10 text-center"><span className="inline-flex px-3 py-1.5 text-xs font-bold" style={{ borderRadius: 999, color: 'var(--color-text)', background: 'color-mix(in srgb, var(--color-surface) 84%, transparent)', border: '1px solid var(--color-border)', backdropFilter: 'blur(12px)' }}>{profile?.name || user?.username || 'Steve'}</span></div>}
+                {ui.showSkinStandName && <div className="pointer-events-none absolute inset-x-0 top-5 z-10 flex justify-center"><span className="inline-flex max-w-[78%] items-center truncate px-3 py-1 text-[11px] font-bold tracking-[0.01em]" style={{ borderRadius: 5, color: '#fff', background: 'rgba(8, 10, 16, 0.46)', border: '1px solid rgba(255,255,255,0.18)', boxShadow: '0 2px 0 rgba(0,0,0,0.38), 0 5px 16px rgba(0,0,0,0.24)', backdropFilter: 'blur(4px)', textShadow: '0 1px 2px rgba(0,0,0,0.95)' }}>{profile?.name || user?.username || 'Steve'}</span></div>}
                 <SkinStand3D skinUrl={liveSkinUrl} capeUrl={activeCape?.url ?? null} model={model} height={440} cameraDistance={70} autoRotate={false} applySequence={applySequence} trackCursor />
               </div>
               <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid var(--color-border)' }}>

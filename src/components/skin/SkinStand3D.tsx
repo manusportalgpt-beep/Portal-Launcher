@@ -174,12 +174,12 @@ export function SkinStand3D({
         const rect = renderer.domElement.getBoundingClientRect();
         const nx = Math.max(-1, Math.min(1, ((e.clientX - rect.left) / Math.max(rect.width, 1) - 0.5) * 2));
         const ny = Math.max(-1, Math.min(1, ((e.clientY - rect.top) / Math.max(rect.height, 1) - 0.5) * 2));
-        // Positive X points to the preview's right; positive Three.js X pitch looks down,
-        // therefore vertical tracking needs the opposite sign to follow the cursor naturally.
+        // Three.js positive X rotation turns the face down for this model;
+        // map screen Y directly so top looks up and bottom looks down.
         st.headTargetYaw = nx * 0.38;
-        st.headTargetPitch = -ny * 0.22;
+        st.headTargetPitch = ny * 0.22;
         st.bodyTargetYaw = nx * 0.058;
-        st.bodyTargetPitch = -ny * 0.018;
+        st.bodyTargetPitch = ny * 0.018;
       }
       if (!st.drag) return;
       st.yaw += (e.clientX - st.drag.x) * 0.01;

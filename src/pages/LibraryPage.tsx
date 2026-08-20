@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Play, Plus, Settings, Square, Package, Image, Sparkles, Database, Shield,
   Search, RefreshCw, Download, Trash2, ChevronDown, MoreVertical, X,
@@ -249,13 +250,14 @@ function LogsToolbar({ logs, filter, setFilter, autoScroll, setAutoScroll, copie
   logs: LogLine[]; filter: string; setFilter: (v: string) => void; autoScroll: boolean;
   setAutoScroll: (v: boolean) => void; copied: boolean; copyAll: () => void; clearLogs: () => void; onClose?: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-wrap items-center gap-2.5 px-4 py-3.5 shrink-0" style={{ background:'linear-gradient(180deg, color-mix(in srgb, var(--color-surface-2) 55%, transparent), transparent)', borderBottom: '1px solid var(--color-border)' }}>
       <Terminal className="w-4 h-4 shrink-0" style={{ color: 'var(--color-primary)' }} />
       <h2 className="font-bold text-sm flex-1" style={{ color: 'var(--color-text)' }}>
-        Game Logs
+        {t('libraryRuntime.logs')}
         <span className="ml-2 text-xs font-normal" style={{ color: 'var(--color-text-tertiary)' }}>
-          {logs.length} lines
+          {logs.length} {t('libraryRuntime.lines')}
         </span>
       </h2>
 
@@ -263,7 +265,7 @@ function LogsToolbar({ logs, filter, setFilter, autoScroll, setAutoScroll, copie
         style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
         <Search className="w-3 h-3 shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />
         <input
-          placeholder="Filter logs…"
+          placeholder={t('libraryRuntime.filterLogs')}
           value={filter}
           onChange={e => setFilter(e.target.value)}
           className="bg-transparent text-xs w-36 outline-none"
@@ -281,7 +283,7 @@ function LogsToolbar({ logs, filter, setFilter, autoScroll, setAutoScroll, copie
         style={autoScroll
           ? { background: 'rgba(108,92,231,0.15)', color: 'var(--color-primary)', border: '1px solid rgba(108,92,231,0.3)' }
           : { background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
-        Auto-scroll
+        {t('libraryRuntime.autoScroll')}
       </button>
 
       <button
@@ -289,14 +291,14 @@ function LogsToolbar({ logs, filter, setFilter, autoScroll, setAutoScroll, copie
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all"
         style={{ background: 'var(--color-surface-2)', color: copied ? '#2ECC71' : 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
         {copied ? <Check className="w-3.5 h-3.5" /> : <ClipboardCopy className="w-3.5 h-3.5" />}
-        {copied ? 'Copied!' : 'Copy all'}
+        {copied ? t('libraryRuntime.copied') : t('libraryRuntime.copyAll')}
       </button>
 
       <button
         onClick={clearLogs}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all"
         style={{ background: 'rgba(231,76,60,0.08)', color: 'var(--color-error)', border: '1px solid rgba(231,76,60,0.2)' }}>
-        <Trash className="w-3.5 h-3.5" />Clear
+        <Trash className="w-3.5 h-3.5" />{t('libraryRuntime.clear')}
       </button>
 
       {onClose && (
@@ -370,6 +372,7 @@ function LogsBody({ filtered, logs, filter, containerRef, bottomRef, setAutoScro
 // ── Create Instance Modal ─────────────────────────────────────────────────────
 function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (i: any) => void }) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [step, setStep] = useState<CreateStep>('type');
   const [creating, setCreating] = useState(false);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
@@ -645,16 +648,16 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
         <div className="px-6 pt-5 pb-4" style={{ borderBottom:'1px solid var(--color-border)', background:'linear-gradient(135deg, var(--color-surface), var(--color-surface-2))' }}>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-primary)' }}>Instance studio</p>
-              <h2 className="font-black text-lg mt-0.5" style={{ color:'var(--color-text)' }}>{step==='type'?'Create Instance':step==='custom'?'Custom Setup':step==='install'?'Install Modpack':'Import Instance'}</h2>
+              <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-primary)' }}>{t('libraryRuntime.instanceStudio')}</p>
+              <h2 className="font-black text-lg mt-0.5" style={{ color:'var(--color-text)' }}>{step==='type'?t('libraryRuntime.create'):step==='custom'?t('libraryRuntime.customSetup'):step==='install'?t('libraryRuntime.installModpack'):t('libraryRuntime.importInstance')}</h2>
             </div>
             <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/5" style={{ border:'1px solid var(--color-border)' }}><X className="w-4 h-4" style={{ color:'var(--color-text-secondary)' }} /></button>
           </div>
           <div className="grid grid-cols-3 gap-1.5 mt-4">
             {[
-              { id:'custom', label:'Create', Icon:Wrench },
-              { id:'install', label:'Install', Icon:Download },
-              { id:'import', label:'Import', Icon:Upload },
+              { id:'custom', label:t('libraryRuntime.createStep'), Icon:Wrench },
+              { id:'install', label:t('libraryRuntime.installStep'), Icon:Download },
+              { id:'import', label:t('libraryRuntime.importStep'), Icon:Upload },
             ].map(item => {
               const active = step === item.id || (step === 'type' && item.id === 'custom');
               return <div key={item.id} className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold" style={{ background:active?'var(--color-primary-dim)':'var(--color-surface)', color:active?'var(--color-primary)':'var(--color-text-tertiary)', border:`1px solid ${active?'var(--color-primary)':'var(--color-border)'}` }}><item.Icon className="w-3 h-3" />{item.label}</div>;
@@ -666,11 +669,11 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
           <AnimatePresence mode="wait">
             {step==='type' && (
               <motion.div key="type" initial={{ opacity:0,x:12 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-12 }} className="space-y-3">
-                <p className="text-sm font-medium mb-4" style={{ color:'var(--color-text)' }}>Choose how to create your instance</p>
+                <p className="text-sm font-medium mb-4" style={{ color:'var(--color-text)' }}>{t('libraryRuntime.chooseCreation')}</p>
                 {[
-                  { id:'custom', Icon:Wrench, title:'Custom Setup', desc:'Выберите Minecraft, ядро, версию ядра и свою иконку.' },
-                  { id:'install', Icon:Download, title:'Install Modpack', desc:'Откройте модпак из Discover или импортируйте .mrpack / .zip.' },
-                  { id:'import', Icon:Upload, title:'Import from Launcher', desc:'Перенесите сборку из Prism, CurseForge, MultiMC и других лаунчеров.' },
+                  { id:'custom', Icon:Wrench, title:t('libraryRuntime.customSetup'), desc:'Выберите Minecraft, ядро, версию ядра и свою иконку.' },
+                  { id:'install', Icon:Download, title:t('libraryRuntime.installModpack'), desc:'Откройте модпак из Discover или импортируйте .mrpack / .zip.' },
+                  { id:'import', Icon:Upload, title:t('libraryRuntime.importInstance'), desc:'Перенесите сборку из Prism, CurseForge, MultiMC и других лаунчеров.' },
                 ].map(opt => (
                   <button key={opt.id} onClick={() => setStep(opt.id as CreateStep)}
                     className="w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-colors group hover:bg-white/[0.035]"
@@ -854,12 +857,12 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
               <motion.div key="install" initial={{ opacity:0,x:12 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-12 }} className="space-y-4">
                 <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                   <Search className="w-4 h-4 shrink-0" style={{ color:'var(--color-text-tertiary)' }} />
-                  <input autoFocus value={installQuery} onChange={event => setInstallQuery(event.target.value)} placeholder="Найти модпаки на Modrinth…" className="flex-1 bg-transparent text-sm" style={{ color:'var(--color-text)' }} />
+                  <input autoFocus value={installQuery} onChange={event => setInstallQuery(event.target.value)} placeholder={t('libraryRuntime.modpackSearch')} className="flex-1 bg-transparent text-sm" style={{ color:'var(--color-text)' }} />
                 </div>
                 <button onClick={() => { navigate(`/discover?projectType=modpacks&query=${encodeURIComponent(installQuery.trim())}`); onClose(); }}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold"
                   style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>
-                  <Search className="w-4 h-4" />Найти модпаки
+                  <Search className="w-4 h-4" />{t('libraryRuntime.findModpacks')}
                 </button>
                 <p className="text-center text-[11px]" style={{ color:'var(--color-text-tertiary)' }}>Локальные файлы .mrpack и .zip импортируются на отдельной вкладке «Импорт».</p>
               </motion.div>
@@ -885,7 +888,7 @@ function CreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
             <button onClick={doCreate} disabled={creating || (form.loader !== 'bedrock' && !form.mcVersion)}
               className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:cursor-not-allowed disabled:opacity-40"
               style={{ background:'var(--color-primary)', color:'#fff', opacity:creating?0.55:1 }}>
-              {creating ? <><div className="w-4 h-4 border border-white/40 border-t-white rounded-full animate-spin" />Creating...</> : '+ Create Instance'}
+              {creating ? <><div className="w-4 h-4 border border-white/40 border-t-white rounded-full animate-spin" />{t('libraryRuntime.creating')}</> : `+ ${t('libraryRuntime.create')}`}
             </button>
           )}
         </div>
@@ -902,6 +905,7 @@ function InstanceItem({
   inst: Instance; selected: boolean;
   onSelect: () => void; onDelete: () => void; onOpenSettings: () => void;
 }) {
+  const { t } = useTranslation();
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -950,14 +954,14 @@ function InstanceItem({
                 onClick={() => { onOpenSettings(); setMenu(false); }}
                 className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5"
                 style={{ color:'var(--color-text-secondary)' }}>
-                <Settings className="w-3.5 h-3.5 shrink-0" />Settings
+                <Settings className="w-3.5 h-3.5 shrink-0" />{t('libraryRuntime.settings')}
               </button>
               <div style={{ borderTop:'1px solid var(--color-border)' }} />
               <button
                 onClick={() => { onDelete(); setMenu(false); }}
                 className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-red-500/10"
                 style={{ color:'var(--color-error)' }}>
-                <Trash2 className="w-3.5 h-3.5 shrink-0" />Delete
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />{t('libraryRuntime.delete')}
               </button>
             </motion.div>
           )}
@@ -1046,6 +1050,7 @@ function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported }: 
   instances: Instance[]; onSelect:(id:string)=>void; onNew:()=>void; onExtraGroups: string[]; onImported:(raw:any)=>void;
 }) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const update = useInstanceStore(s => s.update);
   const [filter, setFilter] = useState('');
   const [showNewGroup, setShowNewGroup] = useState(false);
@@ -1117,33 +1122,33 @@ function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported }: 
       onDragOver={event => { if (Array.from(event.dataTransfer.types).includes('Files')) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; setDragOver(true); } }}
       onDragLeave={event => { if (event.currentTarget === event.target) setDragOver(false); }}
       onDrop={event => { event.preventDefault(); void importDroppedArchives(event.dataTransfer.files); }}>
-      {dragOver && <motion.div initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.985 }} transition={{ duration: 0.16 }} className="pointer-events-none absolute inset-4 z-[140] flex items-center justify-center rounded-3xl border-2 border-dashed" style={{ background:'color-mix(in srgb, var(--color-primary) 14%, transparent)', borderColor:'var(--color-primary)', color:'var(--color-primary)', boxShadow:'0 0 0 6px color-mix(in srgb, var(--color-primary) 8%, transparent)' }}><div className="rounded-2xl px-6 py-5 text-center" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-lg)' }}><Upload className="mx-auto mb-2 h-8 w-8" /><p className="text-sm font-black">{importing ? 'Импортируется…' : 'Перетащите сборку сюда'}</p><p className="mt-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>.mrpack или .zip</p></div></motion.div>}
+      {dragOver && <motion.div initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.985 }} transition={{ duration: 0.16 }} className="pointer-events-none absolute inset-4 z-[140] flex items-center justify-center rounded-3xl border-2 border-dashed" style={{ background:'color-mix(in srgb, var(--color-primary) 14%, transparent)', borderColor:'var(--color-primary)', color:'var(--color-primary)', boxShadow:'0 0 0 6px color-mix(in srgb, var(--color-primary) 8%, transparent)' }}><div className="rounded-2xl px-6 py-5 text-center" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-lg)' }}><Upload className="mx-auto mb-2 h-8 w-8" /><p className="text-sm font-black">{importing ? t('libraryRuntime.creating') : 'Перетащите сборку сюда'}</p><p className="mt-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>.mrpack или .zip</p></div></motion.div>}
       {/* Toolbar */}
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         <button onClick={onNew}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold hover:opacity-90"
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-bold hover:opacity-90"
           style={{ background:'var(--color-primary)', color:'#fff' }}>
-          <Plus className="w-4 h-4" />Create Instance
+          <Plus className="w-4 h-4" />{t('libraryRuntime.create')}
         </button>
         <button onClick={() => navigate('/discover')}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold"
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold"
           style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-          <Download className="w-4 h-4" />Download
+          <Download className="w-4 h-4" />{t('libraryRuntime.download')}
         </button>
         <button onClick={onNew}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold"
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold"
           style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-          <Upload className="w-4 h-4" />Upload
+          <Upload className="w-4 h-4" />{t('libraryRuntime.upload')}
         </button>
         <button onClick={() => setShowNewGroup(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold"
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold"
           style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-          <FolderPlus className="w-4 h-4" />New Group
+          <FolderPlus className="w-4 h-4" />{t('libraryRuntime.newGroup')}
         </button>
         <div className="flex-1 min-w-[140px] flex items-center gap-1.5 px-3 py-2.5 rounded-xl ml-auto"
           style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', maxWidth: 260 }}>
           <Search className="w-3.5 h-3.5 shrink-0" style={{ color:'var(--color-text-tertiary)' }} />
-          <input data-library-search="true" className="flex-1 min-w-0 bg-transparent text-sm" placeholder="Умный поиск: сборка, мод, автор, версия…"
+          <input data-library-search="true" className="flex-1 min-w-0 bg-transparent text-sm" placeholder={t('libraryRuntime.smartSearch')}
             value={filter} onChange={e => setFilter(e.target.value)} style={{ color:'var(--color-text)' }} />
         </div>
       </div>
@@ -1154,13 +1159,13 @@ function LibraryGrid({ instances, onSelect, onNew, onExtraGroups, onImported }: 
             <Package className="w-10 h-10" style={{ color:'var(--color-text-tertiary)' }} />
           </div>
           <div className="text-center">
-            <p className="font-black text-lg font-display" style={{ color:'var(--color-text)' }}>No instances</p>
-            <p className="text-sm mt-1" style={{ color:'var(--color-text-secondary)' }}>Create your first instance to start playing.</p>
+            <p className="font-black text-lg font-display" style={{ color:'var(--color-text)' }}>{t('libraryRuntime.noInstances')}</p>
+            <p className="text-sm mt-1" style={{ color:'var(--color-text-secondary)' }}>{t('libraryRuntime.emptyDescription')}</p>
           </div>
           <button onClick={onNew}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold hover:opacity-90 transition-all"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold hover:opacity-90 transition-all"
             style={{ background:'var(--color-primary)', color:'#fff' }}>
-            <Plus className="w-4 h-4" />Create Instance
+            <Plus className="w-4 h-4" />{t('libraryRuntime.create')}
           </button>
         </div>
       ) : (
@@ -2126,6 +2131,7 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
 // ── Main ──────────────────────────────────────────────────────────────────────
 export function LibraryPage() {
   const navigate = useNavigate();
+  const { id: routeInstanceId } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const { instances, add, remove, selectedId, select: setSelectedId } = useInstanceStore();
   const [showCreate, setShowCreate] = useState(false);
@@ -2154,6 +2160,14 @@ export function LibraryPage() {
     }
   }, [instances, selectedId, setSelectedId]);
 
+  useEffect(() => {
+    if (routeInstanceId && instances.some(instance => instance.id === routeInstanceId)) {
+      setSelectedId(routeInstanceId);
+    } else if (!routeInstanceId) {
+      setSelectedId(null);
+    }
+  }, [instances, routeInstanceId, setSelectedId]);
+
   const handleCreated = (raw: any) => {
     const inst: Instance = {
       id: raw.id,
@@ -2170,7 +2184,7 @@ export function LibraryPage() {
       totalPlayTime: 0,
       color: ['#6C5CE7','#E74C3C','#2ECC71','#3498DB','#F39C12'][Math.floor(Math.random()*5)],
     };
-    add(inst); setSelectedId(inst.id);
+    add(inst); setSelectedId(inst.id); navigate(`/library/${inst.id}`);
   };
 
   const handleDelete = async (id: string) => {
@@ -2189,12 +2203,12 @@ export function LibraryPage() {
           <InstanceDetail
             inst={instances.find(i => i.id===selectedId)!}
             onDelete={() => handleDelete(selectedId!)}
-            onBack={() => setSelectedId(null)}
+            onBack={() => { setSelectedId(null); navigate('/library'); }}
           />
         ) : (
           <LibraryGrid
             instances={instances}
-            onSelect={setSelectedId}
+            onSelect={(id) => { setSelectedId(id); navigate(`/library/${id}`); }}
             onNew={() => setShowCreate(true)}
             onExtraGroups={[]}
             onImported={handleCreated}

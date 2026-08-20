@@ -14,7 +14,7 @@ import { useInstanceStore } from '@/stores/instanceStore';
 import { invoke } from '@/lib/invoke-shim';
 import { searchModrinthGateway } from '@/lib/modrinth-gateway';
 import curseforgeAnvil from '@/assets/curseforge-anvil.png';
-import modrinthWrench from '@/assets/modrinth-wrench.png';
+import modrinthWrench from '@/assets/modrinth-wrench-clean.png';
 
 type ProjectType = 'mods' | 'modpacks' | 'resourcepacks' | 'shaders' | 'datapacks';
 type SortOrder = 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated';

@@ -133,6 +133,23 @@ function AccountSection() {
   const isAuth = useIsAuthenticated();
   const { logout, switchAccount, accounts, activeAccountUuid } = useAuthStore();
   const [showAuth, setShowAuth] = useState(false);
+  const signOutActiveAccount = () => {
+    const next = accounts.find(account => account.uuid !== activeAccountUuid) ?? null;
+    logout();
+    if (!next) {
+      void invoke('msa_logout').catch(() => {});
+      return;
+    }
+    void invoke('save_frontend_account', {
+      uuid: next.uuid,
+      username: next.username,
+      skinUrl: next.skinUrl ?? null,
+      accessToken: next.accessToken ?? '',
+      refreshToken: next.refreshToken ?? '',
+      expiresAt: Math.floor((next.tokenExpiry ?? 0) / 1000),
+      provider: next.provider ?? 'microsoft',
+    }).catch(() => {});
+  };
 
   return (
     <div>
@@ -161,7 +178,7 @@ function AccountSection() {
               style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}>
               <RefreshCw className="w-3.5 h-3.5" />Добавить аккаунт
             </button>
-            <button onClick={() => { logout(); invoke('msa_logout').catch(() => {}); }}
+            <button onClick={signOutActiveAccount}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold"
               style={{ background:'rgba(231,76,60,0.1)', color:'var(--color-error)' }}>
               <X className="w-3.5 h-3.5" />Выйти

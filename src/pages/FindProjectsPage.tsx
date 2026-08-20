@@ -334,12 +334,32 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
           .filter((file: any) => Number(file?.id) > 0 && Boolean(file?.fileName))
           .sort((a: any, b: any) => new Date(b.fileDate ?? 0).getTime() - new Date(a.fileDate ?? 0).getTime());
         const isMod = project.projectType === 'mods';
-        const compatible = candidates.filter((file: any) => {
+        let compatible = candidates.filter((file: any) => {
           const tags = Array.isArray(file.gameVersions) ? file.gameVersions.map((tag: unknown) => String(tag).toLowerCase()) : [];
           const versionOk = hasCompatibleMinecraftTag(tags, normalizedMcVersion, true);
-          const loaderOk = !isMod || !loader || loader === 'vanilla' || Number(file?.modLoaderType ?? 0) === Number(loaderNum ?? 0);
+          const loaderOk = !isMod || !loader || loader === 'vanilla'
+            || Number(file?.modLoaderType ?? 0) === Number(loaderNum ?? 0)
+            || tags.includes(loader.toLowerCase());
           return versionOk && loaderOk;
         });
+        if (compatible.length === 0 && normalizedMcVersion && rawFiles.length > 0) {
+          const broadResp = await invoke<any>('get_curseforge_mod_files', {
+            modId: numericProjectId,
+            gameVersion: undefined,
+            modLoaderType: loaderNum,
+            apiKey: cfApiKey,
+          });
+          const broadCandidates = (Array.isArray(broadResp?.data) ? broadResp.data : [])
+            .filter((file: any) => Number(file?.id) > 0 && Boolean(file?.fileName));
+          compatible = broadCandidates.filter((file: any) => {
+            const tags = Array.isArray(file.gameVersions) ? file.gameVersions.map((tag: unknown) => String(tag).toLowerCase()) : [];
+            const versionOk = hasCompatibleMinecraftTag(tags, normalizedMcVersion, true);
+            const loaderOk = !isMod || !loader || loader === 'vanilla'
+              || Number(file?.modLoaderType ?? 0) === Number(loaderNum ?? 0)
+              || tags.includes(loader.toLowerCase());
+            return versionOk && loaderOk;
+          });
+        }
         // Resource packs and shader packs may omit an exact patch-version tag, so they
         // can use a non-mod fallback. Mods never fall back across loader boundaries.
         const selectedFile = compatible[0] ?? (!isMod ? candidates[0] : null);

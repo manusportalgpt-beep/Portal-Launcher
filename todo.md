@@ -842,3 +842,18 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript only and commit/push the runtime lifecycle repair to GitHub main.
 
 ---
+
+# Final runtime UI, account and navigation refinement
+
+- [x] Migrate the actual LibraryPage runtime labels and controls to i18n and match buttons to the compact Title Bar/tab visual language.
+- [x] Translate active Instance Studio and instance page panels, including Content, Files, Worlds, Screenshots and Logs; replace the requested instance settings Mods panel entry with Deleted.
+- [x] Correct screenshot search type labels so Screenshots never use the Worlds term and expand visible screenshot controls with translated states.
+- [x] Reinvestigate the active CurseForge failure path and expose a concrete localized failure reason instead of a generic error badge.
+- [x] Preserve more than one Ely.by account, allow switching, and prevent sign-out of one account from deleting unrelated saved accounts.
+- [x] Hydrate and persist player head/profile information at first use so it renders reliably rather than reporting placeholder launcher metadata.
+- [x] Default hover/pressed interactions to circular styling, repair the requested instance-vs-library selection semantics, and use the consistent Modrinth icon in Discover.
+- [x] Refine the skin nameplate to a Minecraft-like translucent platform label and correct cursor tracking axes/smoothing.
+- [x] Apply coherent theme-aware page polish without replacing functional layouts or inventing data.
+- [x] Run TypeScript only and commit/push the final runtime refinement to GitHub main.
+
+---

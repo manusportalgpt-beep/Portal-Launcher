@@ -237,7 +237,7 @@ pub async fn get_curseforge_mod_files(
     }
     let client = cf_client(&api_key)?;
     let mut req = client.get(&format!("https://api.curseforge.com/v1/mods/{}/files", mod_id))
-        .query(&[("pageSize", "20"), ("sortOrder", "desc")]);
+        .query(&[("pageSize", "50"), ("sortOrder", "desc")]);
     if let Some(v) = &game_version { req = req.query(&[("gameVersion", v.as_str())]); }
     if let Some(l) = mod_loader_type { req = req.query(&[("modLoaderType", l.to_string())]); }
     let resp = cf_json_response(req, "file lookup").await?;

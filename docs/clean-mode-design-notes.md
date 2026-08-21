@@ -18,3 +18,15 @@ The Clean mode direction is informed by the design-principle catalogue at `killa
 ## Portal Launcher application plan
 
 The first Clean mode increment will define flat surface tokens, thin utility borders, modest radius levels, a high-contrast action hierarchy, plain navigation icons, and an onboarding layout based on one primary action plus direct secondary paths. It must not modify Java selection, loader installers, Modrinth, CurseForge, instance files, or network behavior.
+
+## Full skill audit (2026-08-21)
+
+Source: `https://github.com/yetone/kill-ai-slop/tree/main/skill` and its dependency-free scanner.
+
+The scanner reviewed 88 active project files and reported 20 tell groups / 957 code-level hits. The count is intentionally treated as a triage map, not a literal backlog: it includes legitimate progress indicators, real links, code editors, theme customization controls, and the optional pixel theme.
+
+The confirmed system-level problems to remove from the active Portal Launcher UI are atmospheric and surface gradients, glass/backdrop-blur panels, colored glow shadows, oversized and nested rounded cards, same-hue alert boxes, decorative icon tiles, all-caps kickers, decorative badges, default Inter/Space Grotesk hierarchy, and transform-heavy hover treatment. The retained intentional elements are functional progress bars, real source links, status information, code typography inside actual file/log editors, the user-selected pixel theme, and original Minecraft/project artwork.
+
+The redesign follows the skill's six principles: decide before decorating; one accent and one voice; hierarchy through scale and space; subtract first; specific copy; and decoration only when it communicates state or action. Existing themes remain the source of colors, but their surfaces must follow the same flat, hairline, small-radius composition.
+
+The post-change scanner reported 19 groups / 937 raw hits. Remaining code-level hits are largely intentional or need component-by-component visual judgment: genuine progress/status indicators, real text links, file/log code typography, user-selectable Pixel mode, original project art and a legacy sidebar that is not mounted by the active shell. The active shared system no longer uses gradient headline text, global glow, glass panes, large elevation, decorative shell orbs, transform hover, or the stock Inter/Space Grotesk pairing.

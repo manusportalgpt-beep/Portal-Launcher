@@ -1252,3 +1252,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Study killaislop.com and define Portal Launcher Clean mode as a full UI and first-run visual system.
 - [x] Implement the first Clean mode increment across global surfaces, navigation, home and first-run UI without touching launcher systems.
 - [x] Run TypeScript-only verification and push the completed fixes and Clean mode changes to GitHub main.
+
+---
+
+# Full Kill AI Slop interface redesign
+
+- [x] Apply the complete Kill AI Slop skill rules to the active Portal Launcher UI, not only the optional Clean theme.
+- [x] Preserve all themes as palette/token sources while removing decorative gradients, glassmorphism, unnecessary icon tiles, card nesting, badge clutter and springy motion from every theme.
+- [x] Rebuild the shared shell, navigation, home, library/discovery/detail surfaces, settings and first launch around one restrained hierarchy and spacing system.
+- [x] Preserve Java, installers, Modrinth, CurseForge, accounts, instance data and all non-visual behavior unchanged.
+- [x] Run TypeScript-only verification and push the complete Kill AI Slop redesign to GitHub main.

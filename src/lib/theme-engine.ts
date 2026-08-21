@@ -24,7 +24,10 @@ const accents = {
   success:'#2ECC71', warning:'#F39C12', error:'#E74C3C', info:'#3498DB',
   curseforge:'#F16436', modrinth:'#1BD96A', primaryText:'#FFFFFF',
 };
-const radii = { xs:'4px', sm:'6px', md:'8px', lg:'12px', xl:'16px', full:'9999px', button:'10px', card:'14px', modal:'20px' };
+const radii = { xs:'2px', sm:'3px', md:'4px', lg:'6px', xl:'8px', full:'9999px', button:'5px', card:'8px', modal:'10px' };
+const cleanRadii = { xs:'2px', sm:'3px', md:'4px', lg:'6px', xl:'8px', full:'9999px', button:'5px', card:'8px', modal:'10px' };
+const cleanShadows = { sm:'0 1px 1px rgba(15,23,42,0.04)', md:'0 2px 8px rgba(15,23,42,0.06)', lg:'0 10px 24px rgba(15,23,42,0.10)', glow:'none' };
+const cleanFont = "'Segoe UI Variable','Segoe UI',system-ui,-apple-system,sans-serif";
 
 export const themes: Record<Exclude<ThemeId,'system'>, ThemeDefinition> = {
   clean: {
@@ -233,22 +236,23 @@ export function applyTheme(
   r.setProperty('--color-info', t.colors.info);
   r.setProperty('--color-curseforge', t.colors.curseforge);
   r.setProperty('--color-modrinth', t.colors.modrinth);
-  r.setProperty('--radius-xs', t.radii.xs);
-  r.setProperty('--radius-sm', t.radii.sm);
-  r.setProperty('--radius-md', t.radii.md);
-  r.setProperty('--radius-lg', t.radii.lg);
-  r.setProperty('--radius-xl', t.radii.xl);
-  r.setProperty('--radius-full', t.radii.full);
-  r.setProperty('--radius-button', t.radii.button);
-  r.setProperty('--radius-card', t.radii.card);
-  r.setProperty('--radius-modal', t.radii.modal);
-  r.setProperty('--shadow-sm', t.shadows.sm);
-  r.setProperty('--shadow-md', t.shadows.md);
-  r.setProperty('--shadow-lg', t.shadows.lg);
-  r.setProperty('--shadow-glow', t.shadows.glow);
-  r.setProperty('--font-ui', fontFamily === 'theme' ? t.font : FONT_STACKS[fontFamily]);
+  r.setProperty('--radius-xs', cleanRadii.xs);
+  r.setProperty('--radius-sm', cleanRadii.sm);
+  r.setProperty('--radius-md', cleanRadii.md);
+  r.setProperty('--radius-lg', cleanRadii.lg);
+  r.setProperty('--radius-xl', cleanRadii.xl);
+  r.setProperty('--radius-full', cleanRadii.full);
+  r.setProperty('--radius-button', cleanRadii.button);
+  r.setProperty('--radius-card', cleanRadii.card);
+  r.setProperty('--radius-modal', cleanRadii.modal);
+  r.setProperty('--shadow-sm', cleanShadows.sm);
+  r.setProperty('--shadow-md', cleanShadows.md);
+  r.setProperty('--shadow-lg', cleanShadows.lg);
+  r.setProperty('--shadow-glow', cleanShadows.glow);
+  r.setProperty('--font-ui', fontFamily === 'theme' ? (resolved === 'pixel' ? t.font : cleanFont) : FONT_STACKS[fontFamily]);
   document.documentElement.classList.toggle('dark', t.isDark);
   document.documentElement.dataset.theme = resolved;
+  document.documentElement.dataset.designSystem = 'clean';
 }
 
 export function useTheme(

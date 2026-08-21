@@ -11,7 +11,7 @@ export interface UserProfile {
   refreshToken?: string;
   tokenExpiry?: number;
   isDemo?: boolean;
-  provider?: 'microsoft' | 'elyby' | 'offline';
+  provider?: 'microsoft' | 'elyby' | 'offline' | 'nickname';
 }
 
 interface AuthState {

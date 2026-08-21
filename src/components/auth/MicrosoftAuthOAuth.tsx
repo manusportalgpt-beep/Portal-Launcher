@@ -1,19 +1,24 @@
 import { invoke } from '@/lib/invoke-shim';
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ExternalLink, X, Shield, Loader2, Copy } from 'lucide-react';
+import { Check, ExternalLink, X, Shield, Loader2, Copy, Shirt } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 
 function MicrosoftMark({ className = '' }: { className?: string }) {
   return <span aria-hidden="true" className={`grid grid-cols-2 gap-[2px] ${className}`}><i className="block bg-current" /><i className="block bg-current" /><i className="block bg-current" /><i className="block bg-current" /></span>;
 }
 
-export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
+function ElybyMark({ className = '' }: { className?: string }) {
+  return <span aria-hidden="true" className={`grid place-items-center border text-[10px] font-black leading-none ${className}`} style={{ borderColor: 'currentColor' }}>E</span>;
+}
+
+export function MicrosoftAuthOAuth({ onSuccess, onCancel, preview = false }: {
   onSuccess?: () => void;
   onCancel?: () => void;
+  preview?: boolean;
 }) {
   const { addAccount, setLoading } = useAuthStore();
-  const [step, setStep] = useState<'idle' | 'enter_code' | 'polling' | 'success' | 'error' | 'offline_form' | 'elyby_form'>('idle');
+  const [step, setStep] = useState<'idle' | 'enter_code' | 'polling' | 'success' | 'error' | 'offline_form' | 'elyby_form' | 'nickname_form'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [userCode, setUserCode] = useState('');
   const [verificationUri, setVerificationUri] = useState('');
@@ -22,9 +27,15 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
   const [offlineName, setOfflineName] = useState('');
   const [elybyUser, setElybyUser] = useState('');
   const [elybyPass, setElybyPass] = useState('');
+  const [nickname, setNickname] = useState('');
   const [altBusy, setAltBusy] = useState(false);
 
-  const addProfile = useCallback((profile: any, provider: 'elyby' | 'offline') => {
+  const blockPreview = useCallback(() => {
+    setErrorMsg('Это предпросмотр');
+    setStep('error');
+  }, []);
+
+  const addProfile = useCallback((profile: any, provider: 'elyby' | 'offline' | 'nickname') => {
     addAccount({
       uuid: profile.uuid,
       username: profile.username,
@@ -35,7 +46,7 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
       accessToken: profile.access_token,
       refreshToken: profile.refresh_token,
       tokenExpiry: Date.now() + (profile.expires_in ?? 86400) * 1000,
-      isDemo: !profile.access_token,
+      isDemo: provider !== 'elyby' && !profile.access_token,
       provider,
     });
     setStep('success');
@@ -43,6 +54,7 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
   }, [addAccount, onSuccess]);
 
   const doOfflineLogin = useCallback(async () => {
+    if (preview) { blockPreview(); return; }
     if (!offlineName.trim()) return;
     setAltBusy(true); setErrorMsg('');
     try {
@@ -52,9 +64,10 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
       setErrorMsg(e?.message || (typeof e === 'string' ? e : String(e)));
       setStep('error');
     } finally { setAltBusy(false); }
-  }, [offlineName, addProfile]);
+  }, [offlineName, addProfile, blockPreview, preview]);
 
   const doElybyLogin = useCallback(async () => {
+    if (preview) { blockPreview(); return; }
     if (!elybyUser.trim() || !elybyPass) return;
     setAltBusy(true); setErrorMsg('');
     try {
@@ -73,10 +86,32 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
       setErrorMsg(e?.message || (typeof e === 'string' ? e : String(e)));
       setStep('error');
     } finally { setAltBusy(false); }
-  }, [elybyUser, elybyPass, addProfile]);
+  }, [elybyUser, elybyPass, addProfile, blockPreview, preview]);
+
+  const doNicknameLogin = useCallback(async () => {
+    if (preview) { blockPreview(); return; }
+    const username = nickname.trim();
+    if (!username) return;
+    setAltBusy(true); setErrorMsg('');
+    try {
+      const skin = await invoke<any>('lookup_public_skin', { username });
+      addProfile({
+        uuid: skin.uuid,
+        username: skin.name,
+        skin_url: skin.skin_url,
+        access_token: '',
+        refresh_token: '',
+        expires_in: 0,
+      }, 'nickname');
+    } catch (e: any) {
+      setErrorMsg(e?.message || (typeof e === 'string' ? e : String(e)));
+      setStep('error');
+    } finally { setAltBusy(false); }
+  }, [nickname, addProfile, blockPreview, preview]);
 
   // Start Device Code Flow
   const startOAuthFlow = useCallback(async () => {
+    if (preview) { blockPreview(); return; }
     setLoading(true);
     setStep('enter_code');
     setErrorMsg('');
@@ -104,7 +139,7 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
       setErrorMsg(e?.message || String(e) || 'Failed to start authentication');
       setLoading(false);
     }
-  }, [setLoading]);
+  }, [setLoading, blockPreview, preview]);
 
   // Poll for token
   const pollForToken = async (deviceCode: string, interval: number, expiresIn: number) => {
@@ -239,11 +274,20 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
               Войти через Microsoft
             </button>
             <button
-              onClick={() => setStep('elyby_form')}
+              onClick={() => preview ? blockPreview() : setStep('elyby_form')}
               className="w-full py-3 font-semibold text-sm flex items-center justify-center gap-2"
               style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius:2 }}
             >
+              <ElybyMark className="h-4 w-4" />
               Войти через Ely.by
+            </button>
+            <button
+              onClick={() => preview ? blockPreview() : setStep('nickname_form')}
+              className="w-full py-3 font-semibold text-sm flex items-center justify-center gap-2"
+              style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius:2 }}
+            >
+              <Shirt className="h-4 w-4" />
+              Войти по нику
             </button>
             {!navigator.onLine && (
               <>
@@ -288,6 +332,25 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
               {altBusy ? 'Вход...' : 'Войти'}
             </button>
             <button onClick={() => setStep('idle')} className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>Назад</button>
+          </motion.div>
+        )}
+
+        {/* NICKNAME: public Mojang profile lookup, with no account token and no skin-write permission. */}
+        {step === 'nickname_form' && (
+          <motion.div key="nickname_form" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            className="flex flex-col items-center gap-4 w-full">
+            <div className="w-10 h-10 flex items-center justify-center" style={{ background:'transparent', border:'1px solid var(--color-border)', borderRadius:2 }}><Shirt className="w-5 h-5" /></div>
+            <div>
+              <p className="font-bold text-base text-center" style={{ color:'var(--color-text)' }}>Вход по нику</p>
+              <p className="text-sm mt-1 text-center" style={{ color:'var(--color-text-secondary)' }}>Подгружает существующий публичный скин. Редактирование скина и Bedrock Edition требуют Microsoft-лицензию.</p>
+            </div>
+            <input autoFocus value={nickname} onChange={event => setNickname(event.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+              placeholder="Ник Minecraft (до 16 символов)" maxLength={16} onKeyDown={event => event.key === 'Enter' && doNicknameLogin()}
+              className="w-full px-3 py-2.5 rounded-sm text-sm text-center font-semibold"
+              style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }} />
+            <button onClick={doNicknameLogin} disabled={altBusy || !nickname.trim()} className="w-full py-3 rounded-sm font-semibold text-sm disabled:opacity-50"
+              style={{ background:'var(--color-surface)', color:'var(--color-text)', border:'1px solid var(--color-border)' }}>{altBusy ? 'Загружаю скин...' : 'Продолжить'}</button>
+            <button onClick={() => setStep('idle')} className="text-sm" style={{ color:'var(--color-text-tertiary)' }}>Назад</button>
           </motion.div>
         )}
 

@@ -167,6 +167,7 @@ function AccountSection() {
               <p className="font-bold" style={{ color:'var(--color-text)' }}>{user.username}</p>
               <p className="text-xs" style={{ color:'var(--color-text-secondary)' }}>
                 {user.provider === 'elyby' ? 'Аккаунт Ely.by'
+                  : user.provider === 'nickname' ? 'По нику · Java без Bedrock'
                   : user.isDemo || user.provider === 'offline' ? 'Оффлайн / без лицензии'
                   : 'Аккаунт Microsoft · Minecraft Java Edition'}
               </p>
@@ -220,7 +221,7 @@ function AccountSection() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold truncate" style={{ color:'var(--color-text)' }}>{a.username}</p>
                   <p className="text-[11px]" style={{ color:'var(--color-text-tertiary)' }}>
-                    {a.provider === 'elyby' ? 'Ely.by' : a.isDemo || a.provider === 'offline' ? 'Оффлайн' : 'Microsoft'}
+                    {a.provider === 'elyby' ? 'Ely.by' : a.provider === 'nickname' ? 'По нику' : a.isDemo || a.provider === 'offline' ? 'Оффлайн' : 'Microsoft'}
                   </p>
                 </div>
                 <span className="text-[10px] font-bold px-2 py-1 rounded-lg" style={{ color:'var(--color-primary)', border:'1px solid var(--color-primary)' }}>
@@ -371,9 +372,10 @@ function AppearanceSection() {
             style={{
               background:'var(--color-surface)',
               border: `${themeId === t.id ? 2 : 1}px solid ${themeId === t.id ? t.accent : 'var(--color-border)'}`,
-              borderTop:`3px solid ${t.accent}`,
+              overflow:'hidden',
               boxShadow:'none',
             }}>
+            <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px]" style={{ background:t.accent }} />
             <p className="text-[11px] font-bold truncate" style={{ color: themeId === t.id ? t.accent : 'var(--color-text)' }}>{t.name}</p>
             <p className="mt-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{themeId === t.id ? 'Активна' : 'Палитра'}</p>
           </button>
@@ -441,7 +443,7 @@ function AppearanceSection() {
         options={[{ id: 'sidebar', label: 'Боковая панель' }, { id: 'notch', label: 'Notch-панель' }]}
         onChange={v => ui.set('navMode', v as any)} />
       <Row label="Туториал лаунчера" desc="Коротко объясняет Главную, Обзор, Скины, Библиотеку и Настройки">
-        <button onClick={() => window.dispatchEvent(new Event('portal:open-tutorial'))} className="px-3 py-2 text-xs font-bold" style={{ background:'var(--color-surface)', color:'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:2 }}>Открыть</button>
+        <button onClick={() => window.dispatchEvent(new Event('portal:open-onboarding-preview'))} className="px-3 py-2 text-xs font-bold" style={{ background:'var(--color-surface)', color:'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:2 }}>Открыть</button>
       </Row>
 
       <SegRow label="Стиль интерфейса" desc="Классический сохраняет более строгие поверхности, новый использует мягкие акценты и расширенные скругления — для Notch и Sidebar одинаково"

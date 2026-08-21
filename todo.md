@@ -1409,3 +1409,15 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Regenerate all Tauri native icon sizes and ensure the desktop shortcut points to the newly bundled application icon rather than a stale copied resource.
 - [x] Document the required replacement/rebuild and Windows icon-cache refresh behavior for already-existing desktop shortcuts.
 - [x] Run TypeScript-only verification and push the desktop shortcut icon correction to GitHub main.
+
+---
+
+# Preview tutorial, offline skin identity and Forge 404 correction
+
+- [x] Make the Appearance tutorial action reopen the first onboarding screen in preview mode; block account mutations inside preview with a clear localized "Это предпросмотр" message.
+- [x] Remove the Notch/Sidebar quick-instance plus action from the UI and replace the navigation account glyph with a shirt icon.
+- [x] Add a square Ely.by sign and a separate nickname sign to the account picker without reintroducing coloured button tiles.
+- [x] Add nickname-based Java Edition identity: fetch and cache the player head/skin by nickname, keep skin editing unavailable, allow Vanilla/Forge/NeoForge/Quilt/Fabric launches, and block Bedrock with a Microsoft-license explanation.
+- [x] Restore theme-card colour top strips after selection and preserve the selected state without a disappearing palette marker.
+- [x] Verify the exact Forge installer artifact URL/version in the reported 404 and add a safe official fallback/version-mapping path without changing Modrinth, CurseForge, Bedrock or performance settings.
+- [x] Run TypeScript-only verification and push the preview, identity, interface and Forge correction to GitHub main.

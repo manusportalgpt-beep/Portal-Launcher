@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  House, Search, Boxes, CircleUserRound, SlidersHorizontal, PanelsTopLeft, LogIn, Pin, ChevronLeft, ChevronRight, Plus,
+  House, Search, Boxes, Shirt, SlidersHorizontal, PanelsTopLeft, LogIn, Pin, ChevronLeft, ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -18,7 +18,7 @@ interface NavItem { to: string; icon: LucideIcon; labelKey: 'home' | 'discover' 
 const NAV: NavItem[] = [
   { to: '/home', icon: House, labelKey: 'home', end: true },
   { to: '/discover', icon: Search, labelKey: 'discover' },
-  { to: '/skins', icon: CircleUserRound, labelKey: 'skins' },
+  { to: '/skins', icon: Shirt, labelKey: 'skins' },
   { to: '/library', icon: Boxes, labelKey: 'library' },
 ];
 
@@ -93,11 +93,6 @@ function InstanceQuickAccess({ vertical }: { vertical: boolean }) {
             : inst.name[0]?.toUpperCase()}
         </button>
       ))}
-      <button type="button" title="Создать сборку" onClick={(event) => { event.preventDefault(); event.stopPropagation(); navigate('/library?create=1'); }}
-        className="rounded-sm shrink-0 flex items-center justify-center"
-        style={{ width:vertical ? 40 : 32, height:vertical ? 40 : 32, background:'transparent', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-        <Plus size={15} />
-      </button>
     </div>
   );
 }
@@ -113,6 +108,7 @@ function AccountButton({ vertical = false }: { vertical?: boolean }) {
 
   const providerLabel = !user ? ''
     : user.provider === 'elyby' ? 'Ely.by'
+    : user.provider === 'nickname' ? 'По нику'
     : user.provider === 'offline' || user.isDemo ? 'Offline'
     : 'Microsoft';
 

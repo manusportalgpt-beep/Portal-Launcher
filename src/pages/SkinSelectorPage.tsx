@@ -190,11 +190,12 @@ export function SkinSelectorPage() {
   const token = user?.accessToken;
   const isMicrosoft = user?.provider === 'microsoft' || (!!user && !user.provider && !user.isDemo);
   const isElyby = user?.provider === 'elyby';
+  const isNickname = user?.provider === 'nickname';
   // Загрузка скина работает только для настоящих Microsoft-аккаунтов — у
   // Ely.by нет задокументированного авторизованного эндпоинта для записи,
   // а офлайн-аккаунт вообще ни к какому серверу не привязан.
   const canEdit = isMicrosoft && !!token;
-  const canView = (isMicrosoft && !!token) || (isElyby && !!user?.username);
+  const canView = (isMicrosoft && !!token) || ((isElyby || isNickname) && !!user?.username);
 
   // The UI store can keep a token longer than the Rust account cache. Ask the
   // backend for a refreshed Minecraft token before any write operation.
@@ -291,7 +292,12 @@ export function SkinSelectorPage() {
       const profileToken = isMicrosoft ? await getFreshMicrosoftToken() : '';
       const p = isMicrosoft
         ? await invoke<ProfileTextures>('get_profile_textures', { access_token: profileToken })
-        : await invoke<ProfileTextures>('get_elyby_textures', { username: user!.username });
+        : isElyby
+          ? await invoke<ProfileTextures>('get_elyby_textures', { username: user!.username })
+          : await invoke<PublicSkinTexture>('lookup_public_skin', { username: user!.username }).then(publicSkin => ({
+              ...publicSkin,
+              capes: [],
+            }));
       setProfile(p);
       setModel(p.skin_variant === 'slim' ? 'slim' : 'classic');
     } catch (e: any) {
@@ -456,12 +462,15 @@ export function SkinSelectorPage() {
                   : <User className="w-5 h-5 shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />}
                 <div className="min-w-0">
                   <p className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
-                    {user?.isDemo ? 'Оффлайн-аккаунт не привязан ни к какому серверу'
+                    {isNickname ? 'Скин загружен по нику и доступен только для просмотра'
+                      : user?.isDemo ? 'Оффлайн-аккаунт не привязан ни к какому серверу'
                       : isElyby ? 'Ely.by: текстуры читаются из профиля'
                       : 'Войдите через Microsoft'}
                   </p>
                   <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                    {isElyby
+                    {isNickname
+                      ? 'Это публичный скин Minecraft. Изменить его в Portal Launcher нельзя; для Bedrock Edition требуется Microsoft-лицензия.'
+                      : isElyby
                       ? 'Официальный skins system Ely.by документирует только чтение текстур; безопасной API-загрузки в нём нет. Откройте официальный менеджер Ely.by, затем нажмите «Обновить» здесь.'
                       : 'Стенд работает в режиме просмотра, применение недоступно.'}
                   </p>

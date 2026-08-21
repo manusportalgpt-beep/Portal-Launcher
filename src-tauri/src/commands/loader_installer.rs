@@ -183,6 +183,31 @@ fn maven_versions(xml: &str) -> Vec<String> {
     versions
 }
 
+/// Forge build numbers are scoped to the complete Minecraft version. Comparing
+/// split coordinates prevents 1.21.1 from accepting a build for 1.21.11.
+fn forge_builds_for_mc(xml: &str, mc_version: &str) -> Vec<String> {
+    maven_versions(xml)
+        .into_iter()
+        .filter_map(|coordinate| {
+            let (candidate_mc, build) = coordinate.split_once('-')?;
+            (candidate_mc == mc_version && !build.is_empty()).then(|| build.to_string())
+        })
+        .collect()
+}
+
+async fn forge_builds_for_mc_from_maven(client: &reqwest::Client, mc_version: &str) -> Result<Vec<String>, String> {
+    let response = client
+        .get("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml")
+        .send().await.map_err(|error| format!("Forge metadata: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("Forge metadata: HTTP {}", response.status()));
+    }
+    let xml = response.text().await.map_err(|error| format!("Forge metadata: {error}"))?;
+    let builds = forge_builds_for_mc(&xml, mc_version);
+    if builds.is_empty() { Err(format!("Для Forge нет совместимой версии под Minecraft {mc_version}")) }
+    else { Ok(builds) }
+}
+
 fn neoforge_versions_for_mc(xml: &str, mc_version: &str) -> Vec<String> {
     let prefix = format!("{}.", mc_version.trim_start_matches("1."));
     let mut versions: Vec<String> = maven_versions(xml).into_iter().filter(|version| version.starts_with(&prefix)).collect();
@@ -192,13 +217,8 @@ fn neoforge_versions_for_mc(xml: &str, mc_version: &str) -> Vec<String> {
 }
 
 async fn latest_forge_version(client: &reqwest::Client, mc_version: &str) -> Result<String, String> {
-    let xml = client
-        .get("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml")
-        .send().await.map_err(|error| format!("Forge metadata: {error}"))?
-        .text().await.map_err(|error| format!("Forge metadata: {error}"))?;
-    let prefix = format!("{mc_version}-");
-    maven_versions(&xml).into_iter()
-        .filter_map(|full| full.strip_prefix(&prefix).map(str::to_string))
+    forge_builds_for_mc_from_maven(client, mc_version).await?
+        .into_iter()
         .last()
         .ok_or_else(|| format!("Для Forge нет совместимой версии под Minecraft {mc_version}"))
 }
@@ -265,9 +285,22 @@ pub async fn install_forge(mc_version: String, forge_version: String, _instance_
         });
     }
 
-    let selected_version = if forge_version.trim().is_empty() {
-        latest_forge_version(&client, &mc_version).await?
-    } else { forge_version };
+    let available_builds = forge_builds_for_mc_from_maven(&client, &mc_version).await?;
+    let requested_version = forge_version.trim().to_string();
+    let requested_build = requested_version
+        .strip_prefix(&format!("{mc_version}-"))
+        .unwrap_or(&requested_version)
+        .to_string();
+    let fallback_notice = !requested_build.is_empty() && !available_builds.contains(&requested_build);
+    let selected_version = if requested_build.is_empty() {
+        available_builds.last().cloned().ok_or_else(|| format!("Для Forge нет совместимой версии под Minecraft {mc_version}"))?
+    } else if available_builds.contains(&requested_build) {
+        requested_build
+    } else {
+        // Stale instances may retain a build from another Minecraft branch.
+        // Use the latest exact build rather than requesting a guaranteed-404 URL.
+        available_builds.last().cloned().ok_or_else(|| format!("Для Forge нет совместимой версии под Minecraft {mc_version}"))?
+    };
     let full_ver = if selected_version.starts_with(&format!("{mc_version}-")) { selected_version }
                    else { format!("{}-{}", mc_version, selected_version) };
 
@@ -305,7 +338,11 @@ pub async fn install_forge(mc_version: String, forge_version: String, _instance_
     std::fs::remove_file(&jar_path).ok();
     Ok(LoaderInstallResult {
         success: output.status.success(), loader: "forge".into(), version: full_ver,
-        message: if output.status.success() { "Forge installed".into() }
+        message: if output.status.success() {
+            if fallback_notice {
+                format!("Запрошенная Forge {} несовместима с Minecraft {}; установлена совместимая {}", requested_version, mc_version, full_ver)
+            } else { "Forge installed".into() }
+        }
                  else { format!("Не удалось установить Forge: {}", installer_failure_with_network_hint(&output)) },
     })
 }
@@ -434,8 +471,6 @@ pub async fn get_forge_versions(mc_version: String) -> Result<Vec<String>, Strin
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
-    let prefix = format!("{}-", mc_version);
-
     // 1. All builds from Maven metadata XML
     let mut versions: Vec<String> =
         match client.get("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml")
@@ -444,15 +479,7 @@ pub async fn get_forge_versions(mc_version: String) -> Result<Vec<String>, Strin
             Ok(resp) => {
                 match resp.text().await {
                     Ok(xml) => {
-                        let mut vs: Vec<String> = xml.lines()
-                            .filter(|l| l.contains("<version>"))
-                            .filter_map(|l| {
-                                let s = l.find("<version>")? + 9;
-                                let e = l.find("</version>")?;
-                                let v = l[s..e].trim().to_string();
-                                if v.starts_with(&prefix) { Some(v[prefix.len()..].to_string()) } else { None }
-                            })
-                            .collect();
+                        let mut vs = forge_builds_for_mc(&xml, &mc_version);
                         vs.dedup();
                         vs.reverse(); // newest first
                         vs
@@ -468,7 +495,7 @@ pub async fn get_forge_versions(mc_version: String) -> Result<Vec<String>, Strin
         if let Ok(data) = resp.json::<serde_json::Value>().await {
             if let Some(promos) = data["promos"].as_object() {
                 for (key, val) in promos {
-                    if key.starts_with(&mc_version) {
+                    if key.rsplit_once('-').map(|(promo_mc, _)| promo_mc == mc_version).unwrap_or(false) {
                         if let Some(v) = val.as_str() {
                             let fv = v.to_string();
                             if !versions.contains(&fv) { versions.insert(0, fv); }

@@ -184,8 +184,8 @@ function DependencyGroup({ title, tone, entries, depInfo, navigate, contextInsta
   contextLoader: string;
 }) {
   const fixed = tone === 'required'
-    ? { border: '#F1C40F', background: 'rgba(241,196,15,0.10)', label: 'Required' }
-    : { border: '#E74C3C', background: 'rgba(231,76,60,0.10)', label: 'Incompatible' };
+    ? { border: '#F1C40F', background: 'rgba(241,196,15,0.10)', label: 'Обязательно' }
+    : { border: '#E74C3C', background: 'rgba(231,76,60,0.10)', label: 'Несовместимо' };
   return (
     <section>
       <div className="mb-2 flex items-center justify-between">
@@ -201,11 +201,11 @@ function DependencyGroup({ title, tone, entries, depInfo, navigate, contextInsta
                 {info?.icon_url ? <img src={info.icon_url} alt="" className="h-full w-full object-cover" onError={event => { (event.target as HTMLImageElement).style.display = 'none'; }} /> : <Code className="h-4 w-4" style={{ color: fixed.border }} />}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold" style={{ color: 'var(--color-text)' }}>{info?.name ?? dependency.project_id ?? 'Unknown mod'}</p>
-                <p className="flex items-center gap-1.5 truncate text-[11px]" style={{ color: 'var(--color-text-secondary)' }}><DependencyAuthorAvatar author={info?.author} source="modrinth" /><span className="truncate">{info?.author ?? 'Author unavailable'}</span></p>
+                <p className="truncate text-sm font-bold" style={{ color: 'var(--color-text)' }}>{info?.name ?? dependency.project_id ?? 'Неизвестная модификация'}</p>
+                <p className="flex items-center gap-1.5 truncate text-[11px]" style={{ color: 'var(--color-text-secondary)' }}><DependencyAuthorAvatar author={info?.author} source="modrinth" /><span className="truncate">{info?.author ?? 'Автор не указан'}</span></p>
                 <p className="mt-0.5 text-[10px] font-bold" style={{ color: fixed.border }}>{fixed.label}</p>
               </div>
-              {dependency.project_id && <button onClick={() => navigate(`/discover/modrinth/${dependency.project_id}`, { state: contextInstanceId ? { contextInstanceId, contextMcVersion, contextLoader } : undefined })} className="flex shrink-0 items-center gap-1 text-xs font-bold" style={{ color: fixed.border }}><ExternalLink className="h-3 w-3" />View</button>}
+              {dependency.project_id && <button onClick={() => navigate(`/discover/modrinth/${dependency.project_id}`, { state: contextInstanceId ? { contextInstanceId, contextMcVersion, contextLoader } : undefined })} className="flex shrink-0 items-center gap-1 text-xs font-bold" style={{ color: fixed.border }}><ExternalLink className="h-3 w-3" />Открыть</button>}
             </div>
           );
         })}
@@ -217,14 +217,14 @@ function DependencyGroup({ title, tone, entries, depInfo, navigate, contextInsta
 function ModpackPreviewModal({ preview, onClose, onInstall }: { preview: ModpackPreview; onClose: () => void; onInstall: () => void }) {
   const grouped = ['mod', 'resourcepack', 'shaderpack', 'datapack'].map(kind => ({
     kind,
-    label: kind === 'mod' ? 'Mods' : kind === 'resourcepack' ? 'Resource Packs' : kind === 'shaderpack' ? 'Shaders' : 'Data Packs',
+    label: kind === 'mod' ? 'Моды' : kind === 'resourcepack' ? 'Ресурс-паки' : kind === 'shaderpack' ? 'Шейдеры' : 'Дата-паки',
     entries: preview.entries.filter(entry => entry.kind === kind),
   })).filter(group => group.entries.length > 0);
   return (
     <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background:'rgba(0,0,0,0.75)', backdropFilter:'blur(6px)' }} initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }} onClick={e => { if (e.target===e.currentTarget) onClose(); }}>
       <motion.div className="w-full max-w-2xl rounded-2xl overflow-hidden" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-lg)' }} initial={{ opacity:0, y:12, scale:0.97 }} animate={{ opacity:1, y:0, scale:1 }} exit={{ opacity:0, y:12, scale:0.97 }}>
         <div className="px-5 py-4 flex items-start justify-between" style={{ borderBottom:'1px solid var(--color-border)' }}>
-          <div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-wider" style={{ color:'var(--color-primary)' }}>Install preview</p><div className="mt-1 flex items-center gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ background:'var(--color-surface-2)' }}>{preview.icon_url ? <img src={preview.icon_url} alt="" className="h-full w-full object-cover" /> : <Code className="h-4 w-4" style={{ color:'var(--color-primary)' }} />}</div><div className="min-w-0"><h2 className="truncate font-black text-lg" style={{ color:'var(--color-text)' }}>{preview.name}</h2>{preview.author && <div className="flex items-center gap-1.5 text-[11px]" style={{ color:'var(--color-text-secondary)' }}><span className="flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full" style={{ background:'var(--color-surface-2)' }}>{preview.author_avatar_url ? <img src={preview.author_avatar_url} alt="" className="h-full w-full object-cover" /> : preview.author.trim().slice(0, 1).toUpperCase()}</span>{preview.author_url ? <a href={preview.author_url} target="_blank" rel="noreferrer" className="font-semibold hover:underline" style={{ color:'var(--color-primary)' }}>{preview.author}</a> : <span>{preview.author}</span>}</div>}</div></div><p className="text-xs mt-2" style={{ color:'var(--color-text-secondary)' }}>{preview.minecraft_version} · {preview.loader} · {preview.entries.length} files from manifest</p></div>
+          <div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-wider" style={{ color:'var(--color-primary)' }}>Предпросмотр установки</p><div className="mt-1 flex items-center gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ background:'var(--color-surface-2)' }}>{preview.icon_url ? <img src={preview.icon_url} alt="" className="h-full w-full object-cover" /> : <Code className="h-4 w-4" style={{ color:'var(--color-primary)' }} />}</div><div className="min-w-0"><h2 className="truncate font-black text-lg" style={{ color:'var(--color-text)' }}>{preview.name}</h2>{preview.author && <div className="flex items-center gap-1.5 text-[11px]" style={{ color:'var(--color-text-secondary)' }}><span className="flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full" style={{ background:'var(--color-surface-2)' }}>{preview.author_avatar_url ? <img src={preview.author_avatar_url} alt="" className="h-full w-full object-cover" /> : preview.author.trim().slice(0, 1).toUpperCase()}</span>{preview.author_url ? <a href={preview.author_url} target="_blank" rel="noreferrer" className="font-semibold hover:underline" style={{ color:'var(--color-primary)' }}>{preview.author}</a> : <span>{preview.author}</span>}</div>}</div></div><p className="text-xs mt-2" style={{ color:'var(--color-text-secondary)' }}>{preview.minecraft_version} · {preview.loader} · {preview.entries.length} файлов из манифеста</p></div>
           <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}><X className="w-4 h-4" /></button>
         </div>
         <div className="max-h-[52vh] overflow-y-auto p-3 space-y-4">
@@ -235,15 +235,15 @@ function ModpackPreviewModal({ preview, onClose, onInstall }: { preview: Modpack
                 {group.entries.map((entry, index) => (
                   <div key={`${entry.path}-${index}`} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                     <div className="w-9 h-9 rounded-lg overflow-hidden flex items-center justify-center shrink-0" style={{ background:'var(--color-surface)' }}>{entry.icon_url ? <img src={entry.icon_url} className="w-full h-full object-cover" alt="" /> : <Code className="w-4 h-4" style={{ color:'var(--color-primary)' }} />}</div>
-                    <div className="flex-1 min-w-0"><p className="text-sm font-bold truncate" style={{ color:'var(--color-text)' }}>{entry.name}</p><div className="flex min-w-0 items-center gap-1.5 text-[10px]" style={{ color:'var(--color-text-secondary)' }}><span className="flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full" style={{ background:'var(--color-surface)' }}>{entry.author_avatar_url ? <img src={entry.author_avatar_url} alt="" className="h-full w-full object-cover" onError={event => { (event.target as HTMLImageElement).style.display = 'none'; }} /> : <span className="text-[8px] font-black">{entry.author?.trim().slice(0, 1).toUpperCase() || '?'}</span>}</span>{entry.author_url ? <a href={entry.author_url} target="_blank" rel="noreferrer" className="truncate font-semibold hover:underline" style={{ color:'var(--color-primary)' }}>{entry.author}</a> : <span className="truncate">{entry.author || 'Author unavailable'}</span>}<span>· {entry.version}</span></div></div>
-                    {!entry.required && <span className="text-[9px] font-bold px-1.5 py-1 rounded-md" style={{ color:'var(--color-warning)', background:'rgba(243,156,18,0.12)' }}>OPTIONAL</span>}
+                    <div className="flex-1 min-w-0"><p className="text-sm font-bold truncate" style={{ color:'var(--color-text)' }}>{entry.name}</p><div className="flex min-w-0 items-center gap-1.5 text-[10px]" style={{ color:'var(--color-text-secondary)' }}><span className="flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full" style={{ background:'var(--color-surface)' }}>{entry.author_avatar_url ? <img src={entry.author_avatar_url} alt="" className="h-full w-full object-cover" onError={event => { (event.target as HTMLImageElement).style.display = 'none'; }} /> : <span className="text-[8px] font-black">{entry.author?.trim().slice(0, 1).toUpperCase() || '?'}</span>}</span>{entry.author_url ? <a href={entry.author_url} target="_blank" rel="noreferrer" className="truncate font-semibold hover:underline" style={{ color:'var(--color-primary)' }}>{entry.author}</a> : <span className="truncate">{entry.author || 'Автор не указан'}</span>}<span>· {entry.version}</span></div></div>
+                    {!entry.required && <span className="text-[9px] font-bold px-1.5 py-1 rounded-md" style={{ color:'var(--color-warning)', background:'rgba(243,156,18,0.12)' }}>НЕОБЯЗАТЕЛЬНО</span>}
                   </div>
                 ))}
               </div>
             </section>
           ))}
         </div>
-        <div className="px-5 py-4 flex justify-end gap-2" style={{ borderTop:'1px solid var(--color-border)' }}><button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Back</button><button onClick={onInstall} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Download className="w-4 h-4" />Install this modpack</button></div>
+        <div className="px-5 py-4 flex justify-end gap-2" style={{ borderTop:'1px solid var(--color-border)' }}><button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Назад</button><button onClick={onInstall} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Download className="w-4 h-4" />Установить модпак</button></div>
       </motion.div>
     </motion.div>
   );
@@ -481,7 +481,7 @@ export function ModDetail() {
   const openModpackPreview = async () => {
     const packVersion = pendingVersion ?? versions[0];
     const packFile = packVersion?.files?.find(file => file.primary) ?? packVersion?.files?.[0];
-    if (!packFile) { setInstallError('No downloadable archive found for this modpack.'); return; }
+    if (!packFile) { setInstallError('Для этого модпака не найден архив для скачивания.'); return; }
     setPreviewLoading(true); setInstallError('');
     try {
       const preview = await invoke<ModpackPreview>('preview_remote_modpack', { downloadUrl: packFile.url, fileName: packFile.filename, source: source ?? 'modrinth', apiKey: cfApiKey || null, projectName: project?.title ?? null, projectAuthor: project?.author ?? null, projectAuthorUrl: project?.author_url ?? null, projectAuthorAvatarUrl: project?.author_avatar_url ?? null, projectIconUrl: project?.icon_url ?? null });
@@ -499,7 +499,7 @@ export function ModDetail() {
     try {
       const packVersion = pendingVersion ?? versions[0];
       const packFile = packVersion?.files?.find(f => f.primary) ?? packVersion?.files?.[0];
-      if (!packFile) throw new Error('No downloadable archive found for this modpack.');
+      if (!packFile) throw new Error('Для этого модпака не найден архив для скачивания.');
 
       // Модпак — это не один мод. Нативный импортёр скачивает архив,
       // читает manifest/modrinth.index.json, создаёт сборку и ставит всё
@@ -577,7 +577,7 @@ export function ModDetail() {
   // вкладке "Versions" и как финальный шаг подбора новейшей версии).
   const runInstall = async (instanceId: string, bestVersion: ModVersion) => {
     if (!bestVersion?.files?.length) {
-      throw new Error('No downloadable file for this version.');
+      throw new Error('Для этой версии не найден файл для скачивания.');
     }
     const primaryFile = bestVersion.files.find(f => f.primary) ?? bestVersion.files[0];
     const rawType = project?.project_type ?? 'mod';
@@ -612,7 +612,7 @@ export function ModDetail() {
       contentType: modType,
     });
     setInstallProgress(100);
-    setInstallMessage('Installed!');
+    setInstallMessage('Установлено');
   };
 
   const doInstall = async (instanceId: string, mcVersion: string, loader: string, confirmedWhileRunning = false) => {
@@ -827,13 +827,17 @@ export function ModDetail() {
       try {
         if (source === 'curseforge') {
           const p = await invoke<any>('get_curseforge_mod', { projectId: Number(d.project_id), apiKey: cfApiKey });
-          setDepInfo(prev => ({ ...prev, [d.project_id!]: { name: p.name || d.project_id!, author: p.authors?.[0]?.name || 'Author unavailable', icon_url: p.logo?.thumbnail_url } }));
+          const author = p.authors?.find((entry: any) => entry?.name)?.name
+            || p.authors?.find((entry: any) => entry?.user?.name)?.user?.name
+            || p.authors?.[0]?.username;
+          setDepInfo(prev => ({ ...prev, [d.project_id!]: { name: p.name || d.project_id!, author, icon_url: p.logo?.thumbnail_url } }));
         } else {
           const p = await getModrinthProjectGateway(d.project_id);
-          setDepInfo(prev => ({ ...prev, [d.project_id!]: { name: p.title || d.project_id!, author: p.author || p.owner || 'Author unavailable', icon_url: p.icon_url, game_versions: p.game_versions ?? [], loaders: p.loaders ?? [] } }));
+          const author = p.author || p.owner || p.team_name || p.organization?.name || p.team?.name;
+          setDepInfo(prev => ({ ...prev, [d.project_id!]: { name: p.title || d.project_id!, author, icon_url: p.icon_url, game_versions: p.game_versions ?? [], loaders: p.loaders ?? [] } }));
         }
       } catch {
-        setDepInfo(prev => ({ ...prev, [d.project_id!]: { name: d.project_id!, author: 'Author unavailable' } }));
+        setDepInfo(prev => ({ ...prev, [d.project_id!]: { name: d.project_id! } }));
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -845,7 +849,7 @@ export function ModDetail() {
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 rounded-full animate-spin"
             style={{ borderColor: 'var(--color-border)', borderTopColor: 'var(--color-primary)' }} />
-          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Loading project…</p>
+          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Загружаю страницу модификации…</p>
         </div>
       </div>
     );
@@ -856,12 +860,12 @@ export function ModDetail() {
       <div className="h-full flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 max-w-sm text-center px-6">
           <AlertCircle className="w-8 h-8" style={{ color: 'var(--color-error)' }} />
-          <p className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Failed to load project</p>
+          <p className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Не удалось загрузить модификацию</p>
           <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{error}</p>
           <button onClick={goBack}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold mt-2"
             style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
-            <ChevronLeft className="w-4 h-4" />Back
+            <ChevronLeft className="w-4 h-4" />Назад
           </button>
         </div>
       </div>
@@ -875,7 +879,7 @@ export function ModDetail() {
           className="flex items-center gap-2 text-sm mb-6 transition-colors hover:opacity-80"
           style={{ color: 'var(--color-text-secondary)' }}>
           <ChevronLeft className="w-4 h-4" />
-          {location.state?.fromFindProjects ? 'Back to Projects' : 'Back to Discover'}
+          {location.state?.fromFindProjects ? 'К проектам' : 'Назад к поиску'}
         </button>
 
         <motion.div className="rounded-2xl p-6 mb-4 flex items-start gap-5"
@@ -899,7 +903,7 @@ export function ModDetail() {
                   <button
                     onClick={() => navigate(`/author/${source === 'curseforge' ? 'curseforge' : 'modrinth'}/${encodeURIComponent(project.author!)}`)}
                     className="mt-2 inline-flex items-center gap-2 rounded-full pr-3 transition-colors hover:bg-white/5"
-                    title={`Open ${project.author} profile`}
+                    title={`Открыть профиль ${project.author}`}
                   >
                     <span className="h-6 w-6 overflow-hidden rounded-full" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
                       {authorAvatar ? <img src={authorAvatar} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[10px] font-black" style={{ color: 'var(--color-primary)' }}>{project.author[0]?.toUpperCase()}</span>}
@@ -933,10 +937,10 @@ export function ModDetail() {
                     ? { background: 'rgba(46,204,113,0.15)', color: '#2ECC71', border: '1px solid rgba(46,204,113,0.4)' }
                     : { background: 'var(--color-primary)', color: '#fff', opacity: installing ? 0.75 : 1 }}>
                   {installing || previewLoading
-                    ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />{previewLoading ? 'Reading manifest…' : (installMessage || 'Installing…')}</>
+                    ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />{previewLoading ? 'Читаю манифест…' : (installMessage || 'Устанавливаю…')}</>
                     : installed
-                    ? <><Check className="w-4 h-4" />Installed</>
-                    : <><Zap className="w-4 h-4" />Install</>}
+                    ? <><Check className="w-4 h-4" />Установлено</>
+                    : <><Zap className="w-4 h-4" />Установить</>}
                 </button>
                 {installing && (
                   <div className="w-32 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-border)' }}>
@@ -952,15 +956,15 @@ export function ModDetail() {
 
             <div className="flex items-center gap-4 mt-3 flex-wrap">
               <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                <Download className="w-4 h-4" />{(project?.downloads ?? 0).toLocaleString()} downloads
+                <Download className="w-4 h-4" />{(project?.downloads ?? 0).toLocaleString('ru-RU')} загрузок
               </span>
               <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 <Star className="w-4 h-4 fill-current" style={{ color: '#f59e0b' }} />
-                {(project?.follows ?? 0).toLocaleString()} followers
+                {(project?.follows ?? 0).toLocaleString('ru-RU')} подписчиков
               </span>
               {project?.date_modified && (
                 <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  <Calendar className="w-4 h-4" />Updated {new Date(project.date_modified).toLocaleDateString()}
+                  <Calendar className="w-4 h-4" />Обновлено {new Date(project.date_modified).toLocaleDateString('ru-RU')}
                 </span>
               )}
               <span className="text-xs font-bold px-2.5 py-1 rounded-full"
@@ -972,7 +976,7 @@ export function ModDetail() {
               {project?.source_url && (
                 <a href={project.source_url} target="_blank" rel="noreferrer"
                   className="flex items-center gap-1 text-xs" style={{ color: 'var(--color-primary)' }}>
-                  <ExternalLink className="w-3 h-3" />Source
+                  <ExternalLink className="w-3 h-3" />Исходный код
                 </a>
               )}
             </div>
@@ -993,7 +997,7 @@ export function ModDetail() {
               {(project?.game_versions?.length ?? 0) > 6 && (
                 <span className="text-xs px-2.5 py-1 rounded-lg font-medium"
                   style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>
-                  +{(project?.game_versions?.length ?? 0) - 6} more
+                  +{(project?.game_versions?.length ?? 0) - 6} ещё
                 </span>
               )}
             </div>
@@ -1003,10 +1007,10 @@ export function ModDetail() {
         <div className="flex gap-1 mb-4 p-1 rounded-xl"
           style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
           {([
-            ['desc', 'Description'],
-            ['versions', `Versions (${versions.length})`],
-            ['deps', `Dependencies (${allDeps.length})`],
-            ['screenshots', `Screenshots (${project?.gallery?.length ?? 0})`],
+            ['desc', 'Описание'],
+            ['versions', `Версии (${versions.length})`],
+            ['deps', `Зависимости (${allDeps.length})`],
+            ['screenshots', `Скриншоты (${project?.gallery?.length ?? 0})`],
           ] as const).map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
               className="flex-1 py-2 rounded-lg text-sm font-medium transition-all"
@@ -1026,7 +1030,7 @@ export function ModDetail() {
               {project?.body ? (
                 <div dangerouslySetInnerHTML={{ __html: renderBody(project.body) }} />
               ) : (
-                <p>{project?.description ?? 'No description available.'}</p>
+                <p>{project?.description ?? 'Описание отсутствует.'}</p>
               )}
             </div>
           )}
@@ -1035,14 +1039,14 @@ export function ModDetail() {
             <div className="space-y-3">
               {uniqueMcVersions.length > 1 && (
                 <div className="flex items-center gap-2 flex-wrap pb-1">
-                  <span className="text-xs font-semibold shrink-0" style={{ color: 'var(--color-text-secondary)' }}>Filter:</span>
+                  <span className="text-xs font-semibold shrink-0" style={{ color: 'var(--color-text-secondary)' }}>Версия:</span>
                   <button
                     onClick={() => setVersionFilter('')}
                     className="text-[11px] px-2.5 py-1 rounded-lg font-semibold transition-all"
                     style={!versionFilter
                       ? { background: 'var(--color-primary)', color: '#fff' }
                       : { background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
-                    All ({versions.length})
+                    Все ({versions.length})
                   </button>
                   {uniqueMcVersions.slice(0, 12).map(mcv => (
                     <button key={mcv}
@@ -1058,14 +1062,14 @@ export function ModDetail() {
               )}
               {uniqueLoaders.length > 1 && (
                 <div className="flex items-center gap-2 flex-wrap pb-1">
-                  <span className="text-xs font-semibold shrink-0" style={{ color: 'var(--color-text-secondary)' }}>Loader:</span>
+                  <span className="text-xs font-semibold shrink-0" style={{ color: 'var(--color-text-secondary)' }}>Ядро:</span>
                   <button
                     onClick={() => setLoaderFilter('')}
                     className="text-[11px] px-2.5 py-1 rounded-lg font-semibold transition-all capitalize"
                     style={!loaderFilter
                       ? { background: 'var(--color-primary)', color: '#fff' }
                       : { background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
-                    All
+                    Все
                   </button>
                   {uniqueLoaders.map(ld => (
                     <button key={ld}
@@ -1081,7 +1085,7 @@ export function ModDetail() {
               )}
               {filteredVersions.length === 0 ? (
                 <p className="text-sm text-center py-6" style={{ color: 'var(--color-text-secondary)' }}>
-                  No versions match the selected filters
+                  Нет версий, соответствующих выбранным фильтрам
                 </p>
               ) : filteredVersions.map(v => (
                 <div key={v.id} className="flex items-center gap-3 p-3 rounded-xl"
@@ -1100,14 +1104,14 @@ export function ModDetail() {
                       {v.game_versions?.slice(0, 4).join(', ')}
                       {(v.game_versions?.length ?? 0) > 4 && ` +${v.game_versions.length - 4}`}
                       {' · '}{new Date(v.date_published).toLocaleDateString()}
-                      {v.downloads > 0 && <> · {v.downloads.toLocaleString()} dl</>}
+                      {v.downloads > 0 && <> · {v.downloads.toLocaleString('ru-RU')} загрузок</>}
                     </p>
                   </div>
                   <button onClick={() => installSpecificVersion(v)}
                     disabled={installing}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0"
                     style={{ background: 'var(--color-primary)', color: '#fff', opacity: installing ? 0.6 : 1 }}>
-                    <Download className="w-3 h-3" />Install
+                    <Download className="w-3 h-3" />Установить
                   </button>
                 </div>
               ))}
@@ -1119,13 +1123,13 @@ export function ModDetail() {
               {allDeps.length === 0 ? (
                 <div className="flex flex-col items-center py-8 gap-2">
                   <Check className="w-8 h-8" style={{ color: '#2ECC71' }} />
-                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>No required dependencies</p>
+                  <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Обязательные зависимости отсутствуют</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {requiredDeps.length > 0 && <DependencyGroup title="Required dependencies" tone="required" entries={requiredDeps} depInfo={depInfo} navigate={navigate} contextInstanceId={contextInstanceId} contextMcVersion={contextMcVersion} contextLoader={contextLoader} />}
-                  {incompatibleDeps.length > 0 && <DependencyGroup title="Incompatible mods" tone="incompatible" entries={incompatibleDeps} depInfo={depInfo} navigate={navigate} contextInstanceId={contextInstanceId} contextMcVersion={contextMcVersion} contextLoader={contextLoader} />}
-                  {requiredDeps.length === 0 && incompatibleDeps.length === 0 && <p className="text-sm" style={{ color:'var(--color-text-secondary)' }}>No dependency information is available for this version.</p>}
+                  {requiredDeps.length > 0 && <DependencyGroup title="Обязательные зависимости" tone="required" entries={requiredDeps} depInfo={depInfo} navigate={navigate} contextInstanceId={contextInstanceId} contextMcVersion={contextMcVersion} contextLoader={contextLoader} />}
+                  {incompatibleDeps.length > 0 && <DependencyGroup title="Несовместимые модификации" tone="incompatible" entries={incompatibleDeps} depInfo={depInfo} navigate={navigate} contextInstanceId={contextInstanceId} contextMcVersion={contextMcVersion} contextLoader={contextLoader} />}
+                  {requiredDeps.length === 0 && incompatibleDeps.length === 0 && <p className="text-sm" style={{ color:'var(--color-text-secondary)' }}>Для этой версии нет сведений о зависимостях.</p>}
                 </div>
               )}
             </div>
@@ -1143,8 +1147,8 @@ export function ModDetail() {
         {runningInstallTarget && (
           <motion.div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/45 p-5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <motion.div className="w-full max-w-md p-5" initial={{ opacity: 0, scale: 0.96, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 10 }} style={{ background: 'var(--color-surface)', border: '1px solid rgba(241,196,15,0.5)', borderRadius: 'var(--radius-modal)', boxShadow: 'var(--shadow-lg)' }}>
-              <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: 'rgba(241,196,15,0.16)', color: 'var(--color-warning)' }}><TriangleAlert className="h-5 w-5" /></span><div><h2 className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>Minecraft is running</h2><p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>Restart Minecraft after installing this content for the changes to apply.</p></div></div>
-              <div className="mt-5 flex justify-end gap-2"><button onClick={() => setRunningInstallTarget(null)} className="rounded-xl px-3 py-2 text-xs font-semibold" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>Cancel</button><button onClick={() => { const target = runningInstallTarget; setRunningInstallTarget(null); void doInstall(target.instanceId, target.mcVersion, target.loader, true); }} className="rounded-xl px-3 py-2 text-xs font-bold" style={{ background: 'var(--color-warning)', color: '#211b00' }}>Install anyway</button></div>
+              <div className="flex items-start gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: 'rgba(241,196,15,0.16)', color: 'var(--color-warning)' }}><TriangleAlert className="h-5 w-5" /></span><div><h2 className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>Minecraft запущен</h2><p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>После установки перезапустите Minecraft, чтобы изменения применились.</p></div></div>
+              <div className="mt-5 flex justify-end gap-2"><button onClick={() => setRunningInstallTarget(null)} className="rounded-xl px-3 py-2 text-xs font-semibold" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>Отмена</button><button onClick={() => { const target = runningInstallTarget; setRunningInstallTarget(null); void doInstall(target.instanceId, target.mcVersion, target.loader, true); }} className="rounded-xl px-3 py-2 text-xs font-bold" style={{ background: 'var(--color-warning)', color: '#211b00' }}>Установить всё равно</button></div>
             </motion.div>
           </motion.div>
         )}

@@ -165,20 +165,25 @@ fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
     cp
 }
 
+fn required_java_for_mc_id(id: &str) -> u32 {
+    let parts: Vec<u64> = id.split('.').filter_map(|part| part.parse::<u64>().ok()).collect();
+    if parts.first().copied().unwrap_or(1) >= 26 {
+        25
+    } else {
+        let minor = parts.get(1).copied().unwrap_or(20);
+        let patch = parts.get(2).copied().unwrap_or(0);
+        if minor <= 16 { 8 }
+        else if minor == 17 { 16 }
+        else if minor == 20 && patch < 5 { 17 }
+        else { 21 }
+    }
+}
+
 fn required_java(version: &serde_json::Value) -> u32 {
     version["javaVersion"]["majorVersion"]
         .as_u64()
-        .unwrap_or_else(|| {
-            let id = version["id"].as_str().unwrap_or("1.20");
-            let parts: Vec<u64> = id.split('.').filter_map(|part| part.parse::<u64>().ok()).collect();
-            // Minecraft 26.x uses Java 25 (class-file major version 69).
-            if parts.first().copied().unwrap_or(1) >= 26 {
-                25
-            } else {
-                let minor = parts.get(1).copied().unwrap_or(20);
-                if minor <= 16 { 8 } else if minor == 17 { 16 } else if minor <= 20 { 17 } else { 21 }
-            }
-        }) as u32
+        .map(|major| major as u32)
+        .unwrap_or_else(|| required_java_for_mc_id(version["id"].as_str().unwrap_or("1.20")))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -258,7 +263,25 @@ pub async fn launch_instance(
     );
     let xuid = String::new();
 
-    // 2. Разрешаем версию (с загрузчиком) и ставим всё нужное.
+    // 2. Prepare the exact Temurin runtime before resolving a loader. Forge
+    // and NeoForge installers execute Java while their profile is recovered.
+    let expected_java_major = required_java_for_mc_id(&instance.mc_version);
+    status("java", "Проверяю Java для установки Minecraft и загрузчика…");
+    let candidate = crate::commands::jvm::find_java(expected_java_major);
+    let candidate_ok = crate::commands::jvm::run_java(&candidate)
+        .map(|info| info.major_version == expected_java_major && !info.architecture.eq_ignore_ascii_case("x86"))
+        .unwrap_or(false);
+    let (prepared_java_path, downloaded_java) = if candidate_ok {
+        (candidate, false)
+    } else {
+        status("java", &format!("Скачиваю Temurin JDK {expected_java_major}…"));
+        let path = crate::commands::jvm::download_java(app.clone(), expected_java_major)
+            .await
+            .map_err(|error| format!("Не удалось подготовить Temurin JDK {expected_java_major}: {error}"))?;
+        (path, true)
+    };
+
+    // 3. Разрешаем версию (с загрузчиком) и ставим всё нужное.
     // Если обязательных файлов ещё нет, первый вызов только подготавливает
     // окружение. Пользователь запускает Minecraft отдельной кнопкой после
     // завершения загрузки.
@@ -267,7 +290,8 @@ pub async fn launch_instance(
     // while per-instance mods, worlds and settings stay untouched.
     status("resolve", "Проверяю Minecraft и совместимость загрузчика…");
     let client = http();
-    let mut prepared_only = !version_jar_path(&instance.mc_version).exists()
+    let mut prepared_only = downloaded_java
+        || !version_jar_path(&instance.mc_version).exists()
         || !natives_dir(&instance.mc_version).exists();
     let (version, profile_id) = resolve_version(
         &client,
@@ -287,7 +311,7 @@ pub async fn launch_instance(
     check_cancelled()?;
     install_version(&app, &version, &profile_id, &instance.mc_version).await?;
 
-    // 3. Java
+    // 4. Java
     status("java", "Ищу Java…");
     let java_major = required_java(&version);
     let java_path = if !instance.java_path.is_empty() && Path::new(&instance.java_path).exists()
@@ -295,6 +319,8 @@ pub async fn launch_instance(
             .map(|info| info.major_version == java_major && !info.architecture.eq_ignore_ascii_case("x86"))
             .unwrap_or(false) {
         instance.java_path.clone()
+    } else if java_major == expected_java_major {
+        prepared_java_path
     } else {
         let found = crate::commands::jvm::find_java(java_major);
         let found_ok = crate::commands::jvm::run_java(&found)

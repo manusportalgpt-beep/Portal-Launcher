@@ -155,7 +155,7 @@ function SidebarNav() {
   const borderColor = appearance.border === 'none' ? 'transparent' : appearance.border === 'strong' ? 'var(--color-border-strong)' : 'var(--color-border)';
   const shadowValue = appearance.shadow === 'none' ? 'none' : appearance.shadow === 'strong' ? '12px 0 38px rgba(0,0,0,0.28)' : '8px 0 24px rgba(0,0,0,0.14)';
   return (
-    <aside className="shrink-0 flex flex-col z-40"
+    <aside className="clean-nav shrink-0 flex flex-col z-40"
       style={{ width: sidebarWidth, gap:appearance.gap, padding: `${appearance.edgePadding}px 10px`, justifyContent, background: uiMode === 'old' ? 'var(--color-surface)' : `color-mix(in srgb, var(--color-surface) ${appearance.opacity}%, transparent)`, borderRight: `1px solid ${borderColor}`, boxShadow: uiMode === 'old' ? 'none' : shadowValue, backdropFilter: blurEnabled && appearance.blur ? `blur(${appearance.blur}px)` : 'none', WebkitBackdropFilter: blurEnabled && appearance.blur ? `blur(${appearance.blur}px)` : 'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease, background calc(180ms * var(--portal-motion-multiplier, 1)) ease, box-shadow calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
       <div className="px-2 pb-3 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-text-tertiary)' }}>Portal Launcher</div>
       {items.map(item => <DockButton key={item.to} item={item} vertical scale={scale} appearance={appearance} />)}
@@ -248,7 +248,7 @@ function NotchNav() {
             <motion.nav key="dock"
               initial={{ opacity: 0, scale: dockScale * 0.96, ...offset }} animate={{ opacity: 1, scale: dockScale, x: 0, y: 0 }} exit={{ opacity: 0, scale: dockScale * 0.96, ...offset }}
               transition={{ duration: 0.12, ease: [0.22, 0.78, 0.24, 1] }}
-              className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1 rounded-xl`}
+              className={`clean-nav flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1 rounded-xl`}
               style={{
                 position: 'absolute',
                 zIndex: 1,

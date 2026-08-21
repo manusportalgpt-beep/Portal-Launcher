@@ -21,8 +21,33 @@ fn java_major_for_mc(mc_version: &str) -> u32 {
         25
     } else {
         let minor = parts.get(1).copied().unwrap_or(0);
-        if minor <= 16 { 8 } else if minor == 17 { 16 } else if minor <= 20 { 17 } else { 21 }
+        if minor <= 16 { 8 }
+        else if minor == 17 { 16 }
+        else if minor == 20 && parts.get(2).copied().unwrap_or(0) < 5 { 17 }
+        else { 21 }
     }
+}
+
+fn installer_failure(output: &std::process::Output) -> String {
+    let details = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    let tail = details
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .rev()
+        .take(8)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>()
+        .join("\n");
+    let code = output.status.code().map(|value| value.to_string()).unwrap_or_else(|| "неизвестен".to_string());
+    if tail.is_empty() { format!("установщик завершился с кодом {code} без вывода") }
+    else { format!("код {code}: {tail}") }
 }
 
 /// Return only a verified, exact and 64-bit Java. Running a loader installer
@@ -130,7 +155,7 @@ pub async fn install_fabric(mc_version: String, loader_version: String, instance
     Ok(LoaderInstallResult {
         success: output.status.success(), loader: "fabric".into(), version: lv,
         message: if output.status.success() { "Fabric installed successfully".into() }
-                 else { format!("Не удалось установить Fabric: {}", String::from_utf8_lossy(&output.stderr).lines().last().unwrap_or("установщик завершился с ошибкой")) },
+                 else { format!("Не удалось установить Fabric: {}", installer_failure(&output)) },
     })
 }
 
@@ -184,7 +209,7 @@ pub async fn install_forge(mc_version: String, forge_version: String, instance_d
     Ok(LoaderInstallResult {
         success: output.status.success(), loader: "forge".into(), version: full_ver,
         message: if output.status.success() { "Forge installed".into() }
-                 else { format!("Не удалось установить Forge: {}", String::from_utf8_lossy(&output.stderr).lines().last().unwrap_or("установщик завершился с ошибкой")) },
+                 else { format!("Не удалось установить Forge: {}", installer_failure(&output)) },
     })
 }
 
@@ -233,7 +258,7 @@ pub async fn install_quilt(mc_version: String, loader_version: String, instance_
     Ok(LoaderInstallResult {
         success: output.status.success(), loader: "quilt".into(), version: lv,
         message: if output.status.success() { "Quilt installed".into() }
-                 else { format!("Не удалось установить Quilt: {}", String::from_utf8_lossy(&output.stderr).lines().last().unwrap_or("установщик завершился с ошибкой")) },
+                 else { format!("Не удалось установить Quilt: {}", installer_failure(&output)) },
     })
 }
 
@@ -284,7 +309,7 @@ pub async fn install_neoforge(mc_version: String, neoforge_version: String, inst
     Ok(LoaderInstallResult {
         success: output.status.success(), loader: "neoforge".into(), version: nfv,
         message: if output.status.success() { "NeoForge installed successfully".into() }
-                 else { format!("Не удалось установить NeoForge: {}", String::from_utf8_lossy(&output.stderr).lines().last().unwrap_or("установщик завершился с ошибкой")) },
+                 else { format!("Не удалось установить NeoForge: {}", installer_failure(&output)) },
     })
 }
 

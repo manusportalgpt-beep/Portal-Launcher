@@ -1229,3 +1229,26 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Remove inherited JVM environment overrides before Portal starts Minecraft, while preserving explicit Portal Java settings.
 - [x] Apply only a confirmed performance-path repair without changing Modrinth, CurseForge, instances, loader installation or mod files.
 - [x] Run TypeScript-only verification and push the performance repair to GitHub main.
+
+---
+
+# Chunk-loading stutter and loader profile compatibility
+
+- [ ] Compare Portal Launcher and Modrinth App GC/heap behavior for the reported severe chunk-loading freezes after game launch.
+- [ ] Verify managed Temurin selection and profile resolution for Vanilla, Forge, Fabric, Quilt and NeoForge across their supported Minecraft versions.
+- [ ] Repair only confirmed chunk-loading or profile/Java-path defects without changing Modrinth, CurseForge, mod files or existing worlds.
+- [ ] Run TypeScript-only verification and push the chunk-loading/profile repair to GitHub main.
+
+---
+
+# Content reliability, installer repair and Clean mode redesign
+
+- [x] Translate every remaining English label on the modification detail page into Russian.
+- [x] Resolve and display the real author metadata for each dependency instead of showing «Author unavailable».
+- [x] Diagnose and repair the reported NeoForge 1.21.1 installer failure without changing Modrinth, CurseForge or existing instances.
+- [x] Download the required Temurin runtime before resolving a loader profile, including the Java 21 requirement for Minecraft 1.20.5+.
+- [x] Return the real installer stdout/stderr tail instead of a generic installer failure message.
+- [x] Reconcile the supplied Fabric 1.21.11 log: Java 21 and GTX 1080 are active; C2ME reports incompatible optional worldgen bindings with Tectonic/Lithostitched that can still slow chunk generation.
+- [x] Study killaislop.com and define Portal Launcher Clean mode as a full UI and first-run visual system.
+- [x] Implement the first Clean mode increment across global surfaces, navigation, home and first-run UI without touching launcher systems.
+- [x] Run TypeScript-only verification and push the completed fixes and Clean mode changes to GitHub main.

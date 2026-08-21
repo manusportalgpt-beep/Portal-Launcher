@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import type { FontFamily } from '@/stores/uiStore';
 
-export type ThemeId = 'system' | 'light' | 'dark' | 'redstone' | 'red-dark' | 'green-dark' | 'purple-dark' | 'pink-dark' | 'pixel' | 'monochrome' | 'glass-white' | (string & {});
+export type ThemeId = 'system' | 'light' | 'dark' | 'clean' | 'redstone' | 'red-dark' | 'green-dark' | 'purple-dark' | 'pink-dark' | 'pixel' | 'monochrome' | 'glass-white' | (string & {});
 
 export interface ThemeDefinition {
   id: ThemeId;
@@ -27,6 +27,20 @@ const accents = {
 const radii = { xs:'4px', sm:'6px', md:'8px', lg:'12px', xl:'16px', full:'9999px', button:'10px', card:'14px', modal:'20px' };
 
 export const themes: Record<Exclude<ThemeId,'system'>, ThemeDefinition> = {
+  clean: {
+    id:'clean', name:'Clean mode', isDark:false,
+    colors:{
+      background:'#F5F5F2', surface:'#FFFFFF', surfaceHover:'#F0F0EC', surfaceActive:'#E9E9E4',
+      border:'#D7D7D0', borderStrong:'#B9B9B1',
+      text:'#181817', textSecondary:'#5B5B55', textTertiary:'#85857D',
+      primary:'#C23345', primaryHover:'#A72335', primaryText:'#FFFFFF',
+      success:'#4D7554', warning:'#96701A', error:'#B43A3A', info:'#5E6872',
+      curseforge:'#B64B2C', modrinth:'#397246',
+    },
+    radii:{ xs:'3px', sm:'4px', md:'6px', lg:'8px', xl:'10px', full:'9999px', button:'6px', card:'8px', modal:'12px' },
+    shadows:{ sm:'0 1px 1px rgba(24,24,23,0.04)', md:'0 2px 8px rgba(24,24,23,0.06)', lg:'0 10px 24px rgba(24,24,23,0.10)', glow:'none' },
+    font:"'Inter',system-ui,sans-serif",
+  },
   light: {
     id:'light', name:'Light', isDark:false,
     colors:{

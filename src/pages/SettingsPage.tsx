@@ -43,6 +43,7 @@ const SECTIONS: SectionDef[] = [
 ];
 
 const THEMES: { id: ThemeId; name: string; preview: string; accent: string }[] = [
+  { id:'clean',        name:'Clean mode',  preview:'#F5F5F2',                                   accent:'#C23345' },
   { id:'redstone',     name:'RedStone',    preview:'linear-gradient(135deg,#080000,#280707)',          accent:'#E60000' },
   { id:'system',       name:'System',      preview:'linear-gradient(135deg,#0D1117 50%,#FFFFFF 50%)', accent:'#64748B' },
   { id:'dark',         name:'Dark',        preview:'linear-gradient(135deg,#0D1117,#1C2333)',          accent:'#4299E1' },

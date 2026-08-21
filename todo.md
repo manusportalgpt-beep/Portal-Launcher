@@ -1408,4 +1408,4 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Prepare a transparent Portal Launcher desktop-icon composition with a larger central circular portal mark and enough clear padding for Windows small icon sizes.
 - [x] Regenerate all Tauri native icon sizes and ensure the desktop shortcut points to the newly bundled application icon rather than a stale copied resource.
 - [x] Document the required replacement/rebuild and Windows icon-cache refresh behavior for already-existing desktop shortcuts.
-- [ ] Run TypeScript-only verification and push the desktop shortcut icon correction to GitHub main.
+- [x] Run TypeScript-only verification and push the desktop shortcut icon correction to GitHub main.

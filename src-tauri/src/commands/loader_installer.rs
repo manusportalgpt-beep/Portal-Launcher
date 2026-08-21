@@ -312,7 +312,7 @@ pub async fn install_forge(mc_version: String, forge_version: String, _instance_
 
 /// Install Quilt loader – 1.14+ to latest.
 #[tauri::command]
-pub async fn install_quilt(mc_version: String, loader_version: String, instance_dir: String) -> Result<LoaderInstallResult, String> {
+pub async fn install_quilt(mc_version: String, loader_version: String, _instance_dir: String) -> Result<LoaderInstallResult, String> {
     // Quilt is installed through the official installer below. Do not route it
     // through lighty/npx: that path can reuse a stale loader version and does
     // not guarantee the release-specific Quilt metadata or gameDir arguments.
@@ -350,10 +350,12 @@ pub async fn install_quilt(mc_version: String, loader_version: String, instance_
         });
     }
 
+    let shared_base = mc_base_dir();
+    ensure_launcher_profile_store(&shared_base)?;
     let java = find_java_for_mc(&mc_version)?;
     let output = crate::utils::create_hidden_command(&java)
         .args(&["-jar", &jar_path.to_string_lossy(), "install", "client",
-            &mc_version, &lv, "--install-dir", &instance_dir])
+            &mc_version, &lv, "--install-dir", &shared_base.to_string_lossy()])
         .output().map_err(|e| format!("Run Quilt ({java}): {e}"))?;
 
     std::fs::remove_file(&jar_path).ok();

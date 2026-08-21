@@ -293,6 +293,21 @@ pub async fn launch_instance(
     let mut prepared_only = downloaded_java
         || !version_jar_path(&instance.mc_version).exists()
         || !natives_dir(&instance.mc_version).exists();
+
+    // Forge-family installers expect the shared launcher metadata and vanilla
+    // files to exist before they generate their profile. On a clean Portal
+    // installation the previous order invoked the installer first, which made
+    // it reach Mojang directly and then report a secondary missing-profile
+    // error. Prepare only the shared vanilla layer here; worlds, mods and the
+    // per-instance game directory remain untouched.
+    let requested_loader = instance.loader.trim().to_ascii_lowercase();
+    if requested_loader == "forge" || requested_loader == "neoforge" {
+        let vanilla = crate::mc::install::ensure_version_json(&client, &instance.mc_version)
+            .await
+            .map_err(|error| format!("Не удалось подготовить Vanilla {} до установки {}: {error}", instance.mc_version, instance.loader))?;
+        status("install", "Подготавливаю Vanilla-файлы для установщика загрузчика…");
+        install_version(&app, &vanilla, &instance.mc_version, &instance.mc_version).await?;
+    }
     let (version, profile_id) = match resolve_version(
         &client,
         &instance.mc_version,

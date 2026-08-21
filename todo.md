@@ -1389,3 +1389,14 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Ensure a failed installation card surfaces the localized reason, changes out of progress state and auto-dismisses after the error is readable.
 - [x] Verify native taskbar icon packaging points to the new icon and document any cache/rebuild requirement outside the launcher process.
 - [x] Run TypeScript-only verification and push the account, tutorial, UI and loader correction to GitHub main.
+
+---
+
+# Shared launcher-path audit without unrelated regressions
+
+- [x] Research and document the official Vanilla, Forge, NeoForge and Quilt client preparation/installation requirements, including Java, launcher metadata/profile and game-directory boundaries.
+- [x] Map those requirements to Portal Launcher’s shared vanilla cache, managed Temurin runtime, per-instance game directories and installer invocation paths.
+- [x] Fix only common Vanilla, Forge, NeoForge and Quilt path/preflight failures that can prevent launcher profile resolution or first launch; leave Fabric and Bedrock behaviour untouched.
+- [x] Preserve Modrinth, CurseForge, performance/JVM heap behavior, content workflows and unrelated UI code without edits.
+- [x] Add localized terminal errors for each validated preflight failure rather than allowing a secondary missing-profile or generic installer failure.
+- [ ] Run TypeScript-only verification and push the scoped loader-path correction to GitHub main.

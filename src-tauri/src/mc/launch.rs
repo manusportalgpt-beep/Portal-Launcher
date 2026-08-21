@@ -128,6 +128,18 @@ fn expand_args(
     out
 }
 
+fn neoforge_profile_owns_client_jar(version: &serde_json::Value) -> bool {
+    version["libraries"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|library| library["name"].as_str())
+        .any(|name| {
+            let normalized = name.to_ascii_lowercase();
+            normalized.starts_with("net.neoforged:neoforge:") && normalized.ends_with(":client")
+        })
+}
+
 fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
     let mut cp: Vec<String> = Vec::new();
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -159,10 +171,45 @@ fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
         }
     }
     let jar = version_jar_path(mc_id);
-    if jar.exists() {
+    // NeoForge 1.21+ profiles ship `net.neoforged:neoforge:<build>:client`.
+    // That artifact already contains the Minecraft client module (named like
+    // `_1._21._1`). Adding the vanilla client JAR as well introduces a second
+    // module named `minecraft`, and Java aborts with ResolutionException before
+    // mods are even inspected. Forge and Fabric/Quilt do not use this artifact,
+    // so their established classpath remains unchanged.
+    if jar.exists() && !neoforge_profile_owns_client_jar(version) {
         cp.push(jar.to_string_lossy().to_string());
     }
     cp
+}
+
+#[cfg(test)]
+mod classpath_tests {
+    use super::neoforge_profile_owns_client_jar;
+    use serde_json::json;
+
+    #[test]
+    fn detects_the_neoforge_client_artifact() {
+        let profile = json!({
+            "libraries": [
+                { "name": "net.neoforged:neoforge:21.1.99:client" }
+            ]
+        });
+
+        assert!(neoforge_profile_owns_client_jar(&profile));
+    }
+
+    #[test]
+    fn leaves_forge_and_quilt_client_jars_unchanged() {
+        let profile = json!({
+            "libraries": [
+                { "name": "net.minecraftforge:forge:1.21.1-52.1.16" },
+                { "name": "org.quiltmc:quilt-loader:0.28.0" }
+            ]
+        });
+
+        assert!(!neoforge_profile_owns_client_jar(&profile));
+    }
 }
 
 fn required_java_for_mc_id(id: &str) -> u32 {
@@ -209,6 +256,7 @@ pub async fn launch_instance(
 
     let instance = crate::minecraft_lib::load_instance_config(&instance_id)
         .ok_or_else(|| format!("Сборка {instance_id} не найдена."))?;
+    let configured_max_ram = instance.max_ram.max(512);
 
     // Сбрасываем возможный "хвост" отмены от предыдущей попытки запуска.
     CANCELLED.lock().unwrap().remove(&instance_id);
@@ -361,10 +409,11 @@ pub async fn launch_instance(
         status(
             "java",
             &format!(
-                "Java {} · {} · {}",
+                "Java {} · {} · {} · Xmx {} МБ",
                 info.major_version,
                 if info.vendor.is_empty() { "совместимый runtime" } else { &info.vendor },
                 info.architecture,
+                configured_max_ram,
             ),
         );
     }
@@ -518,7 +567,7 @@ pub async fn launch_instance(
     // configured maximum. Forcing a large Xms makes the JVM eagerly commit
     // memory on both desktops and laptops instead of adapting its heap to the
     // current world, modpack and available system memory.
-    let max_ram = instance.max_ram.max(512);
+    let max_ram = configured_max_ram;
     let mut jvm_args: Vec<String> = vec![
         "-Dfile.encoding=UTF-8".into(),
         "-Dstdout.encoding=UTF-8".into(),

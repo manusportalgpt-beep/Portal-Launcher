@@ -1431,3 +1431,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Reduce the heavy gray Settings account and section surfaces to black-background outlined objects with concise grouping.
 - [x] Audit the instance settings page and replace remaining visible English strings with Russian i18n-backed text without altering its behavior.
 - [x] Run TypeScript-only verification and push the scoped ModDetail, settings and localization repair to GitHub main.
+
+---
+
+# Forge, NeoForge, build and performance repair
+
+- [x] Fix the Rust E0382 moved `full_ver` error in the Forge installer fallback so the Windows Tauri build compiles.
+- [x] Trace the NeoForge 1.21.1 module-resolution collision reported by the log and prevent duplicate Minecraft modules from entering its launch layer.
+- [x] Recheck Forge and NeoForge profile/version handoff without changing the working Quilt path or content providers.
+- [x] Audit only launcher-owned Java, JVM, game-directory and graphics-launch settings that can explain the reported performance regression; preserve explicit user settings.
+- [x] Run TypeScript-only verification, perform available Rust source validation, and push the scoped repair to GitHub main.

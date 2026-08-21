@@ -337,7 +337,7 @@ pub async fn install_forge(mc_version: String, forge_version: String, _instance_
 
     std::fs::remove_file(&jar_path).ok();
     Ok(LoaderInstallResult {
-        success: output.status.success(), loader: "forge".into(), version: full_ver,
+        success: output.status.success(), loader: "forge".into(), version: full_ver.clone(),
         message: if output.status.success() {
             if fallback_notice {
                 format!("Запрошенная Forge {} несовместима с Minecraft {}; установлена совместимая {}", requested_version, mc_version, full_ver)

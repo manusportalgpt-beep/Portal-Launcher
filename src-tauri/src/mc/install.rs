@@ -318,14 +318,26 @@ pub async fn resolve_version(
         if !result.success {
             return Err(format!("Не удалось автоматически установить {loader} для {version_id}: {}", result.message));
         }
-        if let Some(profile_id) = find_local_loader_profile(&loader, version_id, "") {
+        // Re-open precisely the profile produced by this installer run. A blank
+        // lookup can otherwise select an older Forge/NeoForge profile with the
+        // same Minecraft parent, which leaves the instance on stale launch
+        // metadata after a fallback or installer repair.
+        let installed_loader_version = if loader == "forge" {
+            result
+                .version
+                .strip_prefix(&format!("{version_id}-"))
+                .unwrap_or(&result.version)
+        } else {
+            result.version.as_str()
+        };
+        if let Some(profile_id) = find_local_loader_profile(&loader, version_id, installed_loader_version) {
             let raw = std::fs::read_to_string(version_json_path(&profile_id))
                 .map_err(|e| format!("Профиль {profile_id}: {e}"))?;
             let child: serde_json::Value = serde_json::from_str(&raw)
                 .map_err(|e| format!("Разбор {profile_id}: {e}"))?;
             return Ok((merge_inherited(&child, &vanilla), profile_id));
         }
-        return Err(format!("{loader} установлен, но не создал профиль запуска для {version_id}. Повторите запуск."));
+        return Err(format!("{loader} {} установлен, но не создал профиль запуска для {version_id}. Повторите запуск.", result.version));
     }
 
     Err(format!(

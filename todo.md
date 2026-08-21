@@ -1210,3 +1210,22 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Prefer managed Temurin over legacy managed runtimes for automatic resolution, while keeping manually chosen paths intact.
 - [ ] Preserve existing Java selections, instances, Modrinth, CurseForge and loader-install paths.
 - [x] Run TypeScript-only verification and push the isolated Temurin visibility update to GitHub main.
+
+---
+
+# Vanilla and loader launch-path verification
+
+- [x] Confirm that Vanilla, Forge, Fabric, Quilt and NeoForge share the same Java runtime and GPU-preference launch path.
+- [x] No launch-path divergence was found, so no changes were made to mods, instances, Modrinth or CurseForge.
+- [x] Report the software guarantees separately from hardware-, driver- and modpack-dependent FPS results.
+
+---
+
+# Measured performance regression against Modrinth App
+
+- [x] Compare Portal Launcher and Modrinth App launch configuration against the reported baseline: Vanilla 100–140 vs 300–400 FPS; modded 1–80 vs 60–180 FPS.
+- [x] Audit exact Temurin build, JVM flags, process GPU selection, game directory and power/GPU environment for desktop and laptop launch paths.
+- [x] Match Modrinth App's adaptive-heap behavior by keeping only the configured Xmx limit for normal Portal launches.
+- [x] Remove inherited JVM environment overrides before Portal starts Minecraft, while preserving explicit Portal Java settings.
+- [x] Apply only a confirmed performance-path repair without changing Modrinth, CurseForge, instances, loader installation or mod files.
+- [x] Run TypeScript-only verification and push the performance repair to GitHub main.

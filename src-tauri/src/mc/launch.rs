@@ -467,8 +467,11 @@ pub async fn launch_instance(
     // stack. That can throttle chunk work or trigger severe stutter in modpacks
     // which were previously smooth, especially on hardware with a different
     // core layout. Let the JVM detect the real processor count instead.
-    let min_ram = instance.min_ram.max(512);
-    let max_ram = instance.max_ram.max(min_ram);
+    // Match the adaptive heap behavior used by Modrinth App: reserve only the
+    // configured maximum. Forcing a large Xms makes the JVM eagerly commit
+    // memory on both desktops and laptops instead of adapting its heap to the
+    // current world, modpack and available system memory.
+    let max_ram = instance.max_ram.max(512);
     let mut jvm_args: Vec<String> = vec![
         "-Dfile.encoding=UTF-8".into(),
         "-Dstdout.encoding=UTF-8".into(),
@@ -524,17 +527,14 @@ pub async fn launch_instance(
         jvm_args.extend(custom_args);
         if !ignored_heap_flags.is_empty() {
             log::warn!(
-                "Игнорирую JVM-параметры памяти из поля аргументов ({:?}); используется значение из Настройки → Minecraft: Xms={} MiB, Xmx={} MiB",
+                "Игнорирую JVM-параметры памяти из поля аргументов ({:?}); используется значение из Настройки → Minecraft: адаптивный heap, Xmx={} MiB",
                 ignored_heap_flags,
-                min_ram,
                 max_ram,
             );
         }
     }
-    // These flags must be last among JVM options: Java accepts the last heap
-    // switch, and an old custom/profile argument such as -Xmx4096M otherwise
-    // silently wins over the value selected in Settings → Minecraft.
-    jvm_args.push(format!("-Xms{min_ram}m"));
+    // Keep only Xmx, as Modrinth App does. It is last among JVM options so an
+    // old custom/profile argument cannot silently override Settings → Minecraft.
     jvm_args.push(format!("-Xmx{max_ram}m"));
 
     let main_class = version["mainClass"]
@@ -597,6 +597,13 @@ pub async fn launch_instance(
     check_cancelled()?;
     let mut cmd = crate::utils::create_hidden_command(&java_path);
     cmd.current_dir(&game_dir);
+    // Do not inherit global JVM switches from another launcher, IDE or Java
+    // installation. Those environment variables can inject a second heap size,
+    // software rendering or stale CPU options after Portal has built the exact
+    // Temurin command for this Minecraft profile.
+    for variable in ["_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS"] {
+        cmd.env_remove(variable);
+    }
     // Windows stores GPU preference per executable. Modrinth documents this
     // as the way to prevent Minecraft from silently using an integrated GPU.
     // Register the actual managed/custom Java used by this profile, then also
@@ -652,12 +659,11 @@ pub async fn launch_instance(
         .unwrap_or(0);
     let java_info = crate::commands::jvm::run_java(&java_path);
     log::info!(
-        "Конфигурация производительности Minecraft: Java {} (требуется {}), vendor={}, arch={}, Xms={} MiB, Xmx={} MiB, CPU={} (автоопределение JVM)",
+        "Конфигурация производительности Minecraft: Java {} (требуется {}), vendor={}, arch={}, adaptive heap, Xmx={} MiB, CPU={} (автоопределение JVM)",
         java_info.as_ref().map(|info| info.major_version).unwrap_or(0),
         java_major,
         java_info.as_ref().map(|info| info.vendor.as_str()).unwrap_or("неизвестно"),
         java_info.as_ref().map(|info| info.architecture.as_str()).unwrap_or("неизвестно"),
-        min_ram,
         max_ram,
         if detected_threads > 0 { detected_threads.to_string() } else { "неизвестно".to_string() },
     );

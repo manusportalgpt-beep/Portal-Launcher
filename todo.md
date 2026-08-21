@@ -1322,4 +1322,4 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Add a direct `+` action beside Notch Panel instance shortcuts and raise the default visible instance shortcut limit from four to eight.
 - [x] Rebuild Mod Detail around concise project facts, direct actions, dependencies, screenshots and files; show calm neutral-gray separators under text/card groups rather than colour decoration.
 - [x] Extend the same thin, information-first hierarchy to remaining content cards without changing launcher, Java, loader, Modrinth or CurseForge behaviours.
-- [ ] Run TypeScript-only verification and commit/push the installer parity and thin UI revision to GitHub main.
+- [x] Run TypeScript-only verification and commit/push the installer parity and thin UI revision to GitHub main.

@@ -1374,4 +1374,4 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Make the Notch/Sidebar quick-instance `+` action navigate directly to Instance Studio creation instead of the theme creation surface.
 - [x] Rebuild Mod Detail as a continuous content page with fewer nested panels, full-width neutral metadata and tab strips, and a Modrinth glyph instead of the literal source word.
 - [x] Add paired screenshot ribbons when screenshots exist: the left ribbon loops top-to-bottom, while the right shows the same images looping in the reverse direction.
-- [ ] Run TypeScript-only verification and push the Sidebar, Notch and Mod Detail correction to GitHub main.
+- [x] Run TypeScript-only verification and push the Sidebar, Notch and Mod Detail correction to GitHub main.

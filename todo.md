@@ -1336,3 +1336,23 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Create a refined transparent Portal Launcher mark with a slightly rounder spiral, no outer background and reliable legibility at small native icon sizes.
 - [x] Replace shell, favicon, taskbar and installer resources with the refined transparency-corrected icon.
 - [x] Run TypeScript-only verification and push the black surface and icon refinement revision to GitHub main.
+
+---
+
+# Square portal mark refinement
+
+- [x] Redraw the transparent Portal Launcher sign as a more geometric square spiral while preserving the black inner field and black outline.
+- [x] Replace shell, favicon, taskbar and installer resources with the square transparent mark.
+- [ ] Run TypeScript-only verification and push the square icon refinement to GitHub main.
+
+---
+
+# Account entry and guided first launch
+
+- [x] Add a monochrome four-pane Microsoft mark to the Microsoft account action while retaining its accessible label and real OAuth flow.
+- [x] Make ordinary action buttons neutral black/gray outlined objects; reserve the selected/enabled state as the sole accent treatment.
+- [x] Rebuild first launch as a short Russian guided flow that explains Home, Discover, Skins, Library and Settings in practical language.
+- [x] Add first-launch navigation choice between the default Sidebar and Notch Panel, with compact static previews and instructions for how each is opened and used.
+- [x] Keep the tutorial accessible after setup and make every tutorial step brief, navigable and focused on a concrete launcher action.
+- [x] Integrate the completed transparent square Portal Launcher mark into the shell, favicon, taskbar and installer resources.
+- [ ] Run TypeScript-only verification and push the account/onboarding and square-icon revision to GitHub main.

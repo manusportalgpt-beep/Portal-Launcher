@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Portal Launcher square spiral mark">
+  <!-- Transparent exterior. The black under-stroke belongs only to the symbol. -->
+  <path d="M180 180H844V844H270V270H754V754H360V360H664V664H450V450H574V574"
+        fill="none" stroke="#050506" stroke-width="156" stroke-linecap="square" stroke-linejoin="round"/>
+  <path d="M180 180H844V844H270V270H754V754H360V360H664V664H450V450H574V574"
+        fill="none" stroke="#e52b3f" stroke-width="104" stroke-linecap="square" stroke-linejoin="round"/>
+</svg>

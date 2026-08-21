@@ -440,6 +440,9 @@ function AppearanceSection() {
         value={ui.navMode}
         options={[{ id: 'sidebar', label: 'Боковая панель' }, { id: 'notch', label: 'Notch-панель' }]}
         onChange={v => ui.set('navMode', v as any)} />
+      <Row label="Туториал лаунчера" desc="Коротко объясняет Главную, Обзор, Скины, Библиотеку и Настройки">
+        <button onClick={() => window.dispatchEvent(new Event('portal:open-tutorial'))} className="px-3 py-2 text-xs font-bold" style={{ background:'var(--color-surface)', color:'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:2 }}>Открыть</button>
+      </Row>
 
       <SegRow label="Стиль интерфейса" desc="Классический сохраняет более строгие поверхности, новый использует мягкие акценты и расширенные скругления — для Notch и Sidebar одинаково"
         value={ui.uiMode}

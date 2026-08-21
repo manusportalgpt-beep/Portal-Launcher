@@ -4,6 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ExternalLink, X, Shield, Loader2, Copy } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 
+function MicrosoftMark({ className = '' }: { className?: string }) {
+  return <span aria-hidden="true" className={`grid grid-cols-2 gap-[2px] ${className}`}><i className="block bg-current" /><i className="block bg-current" /><i className="block bg-current" /><i className="block bg-current" /></span>;
+}
+
 export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
   onSuccess?: () => void;
   onCancel?: () => void;
@@ -214,9 +218,9 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
             exit={{ opacity: 0, y: -8 }}
             className="flex flex-col items-center gap-4 w-full"
           >
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #0078D4, #00BCF2)' }}>
-              <Shield className="w-8 h-8 text-white" />
+            <div className="w-12 h-12 flex items-center justify-center"
+              style={{ background: 'transparent', border:'1px solid var(--color-border)', borderRadius:2, color:'var(--color-text)' }}>
+              <MicrosoftMark className="h-5 w-5" />
             </div>
             <div>
               <p className="font-bold text-base" style={{ color: 'var(--color-text)' }}>
@@ -228,15 +232,10 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
             </div>
             <button
               onClick={startOAuthFlow}
-              className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
-              style={{ background: '#0078D4', color: 'white' }}
+              className="w-full py-3 font-semibold text-sm flex items-center justify-center gap-2"
+              style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:2 }}
             >
-              <svg viewBox="0 0 21 21" className="w-4 h-4 fill-white">
-                <rect x="1" y="1" width="9" height="9" />
-                <rect x="11" y="1" width="9" height="9" />
-                <rect x="1" y="11" width="9" height="9" />
-                <rect x="11" y="11" width="9" height="9" />
-              </svg>
+              <MicrosoftMark className="h-4 w-4" />
               Войти через Microsoft
             </button>
             <button
@@ -285,7 +284,7 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
               style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
             <button onClick={doOfflineLogin} disabled={altBusy || !offlineName.trim()}
               className="w-full py-3 rounded-xl font-semibold text-sm disabled:opacity-50"
-              style={{ background: '#0078D4', color: 'white' }}>
+              style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:2 }}>
               {altBusy ? 'Вход...' : 'Войти'}
             </button>
             <button onClick={() => setStep('idle')} className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>Назад</button>
@@ -311,7 +310,7 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
               style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
             <button onClick={doElybyLogin} disabled={altBusy || !elybyUser.trim() || !elybyPass}
               className="w-full py-3 rounded-xl font-semibold text-sm disabled:opacity-50"
-              style={{ background: '#0078D4', color: 'white' }}>
+              style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:2 }}>
               {altBusy ? 'Вход...' : 'Войти'}
             </button>
             <button onClick={() => setStep('idle')} className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>Назад</button>
@@ -381,7 +380,7 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
               </a>
               <button onClick={() => invoke('open_url', { url: verificationUri })}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold w-full"
-                style={{ background: 'var(--color-primary)', color: '#fff' }}>
+                style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:2 }}>
                 <ExternalLink className="w-3 h-3" />
                 Открыть в браузере
               </button>
@@ -461,7 +460,7 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
               <button
                 onClick={() => { setStep('idle'); setErrorMsg(''); }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-                style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text, #fff)' }}
+                style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:2 }}
               >
                 Попробовать снова
               </button>

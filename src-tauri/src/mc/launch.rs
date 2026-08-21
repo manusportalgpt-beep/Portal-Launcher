@@ -129,6 +129,20 @@ fn expand_args(
 }
 
 fn neoforge_profile_owns_client_jar(version: &serde_json::Value) -> bool {
+    // NeoForge 1.21+ creates its client JAR through installer processors. The
+    // generated JAR is not guaranteed to be listed in version.json libraries,
+    // so inspecting only Maven coordinates misses the exact 21.1.99 profile
+    // reported by Portal users. Its child profile id survives merge_inherited.
+    let generated_client_profile = version["id"]
+        .as_str()
+        .and_then(|id| id.strip_prefix("neoforge-"))
+        .and_then(|build| build.split('.').next())
+        .and_then(|major| major.parse::<u32>().ok())
+        .is_some_and(|major| major >= 21);
+    if generated_client_profile {
+        return true;
+    }
+
     version["libraries"]
         .as_array()
         .into_iter()
@@ -178,12 +192,10 @@ fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
         }
     }
     let jar = version_jar_path(mc_id);
-    // NeoForge 1.21+ profiles ship `net.neoforged:neoforge:<build>:client`.
-    // That artifact already contains the Minecraft client module (named like
-    // `_1._21._1`). Adding the vanilla client JAR as well introduces a second
-    // module named `minecraft`, and Java aborts with ResolutionException before
-    // mods are even inspected. Forge and Fabric/Quilt do not use this artifact,
-    // so their established classpath remains unchanged.
+    // NeoForge 1.21+ generates its own client artifact (named like `_1._21._1`)
+    // during installation. Adding the vanilla client JAR too introduces a
+    // second module named `minecraft`, and Java aborts before mod discovery.
+    // Forge and Fabric/Quilt keep their established classpaths unchanged.
     if jar.exists() && !neoforge_profile_owns_client_jar(version) {
         cp.push(jar.to_string_lossy().to_string());
     }
@@ -200,6 +212,18 @@ mod classpath_tests {
         let profile = json!({
             "libraries": [
                 { "name": "net.neoforged:neoforge:21.1.99:client" }
+            ]
+        });
+
+        assert!(neoforge_profile_owns_client_jar(&profile));
+    }
+
+    #[test]
+    fn detects_neoforge_21_profile_when_client_jar_is_generated() {
+        let profile = json!({
+            "id": "neoforge-21.1.99",
+            "libraries": [
+                { "name": "net.neoforged:neoforge:21.1.99:universal" }
             ]
         });
 

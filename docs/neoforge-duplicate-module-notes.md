@@ -6,4 +6,6 @@ An independent launcher report records the same NeoForge 21.1.x symptom: a launc
 
 Source: https://github.com/ZalithLauncher/ZalithLauncher2/issues/1325
 
-Scope of the repair: preserve the vanilla client JAR for Forge, Fabric and Quilt; exclude it only when the resolved NeoForge launch profile already explicitly supplies `net.neoforged:neoforge:<build>:client`.
+The official NeoForge 21.1.99 `version.json` has the profile id `neoforge-21.1.99`, inherits from `1.21.1`, and uses the bootstrap launcher. Its 1.21+ installer processors generate the patched client artifact, so that artifact is not required to appear as a normal `libraries` Maven coordinate in the resolved profile.
+
+Scope of the repair: preserve the vanilla client JAR for Forge, Fabric and Quilt; exclude it for resolved NeoForge 21.x profile ids, and retain the explicit Maven-coordinate check as a fallback for other NeoForge profile layouts.

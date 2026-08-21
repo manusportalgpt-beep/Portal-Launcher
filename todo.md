@@ -1459,3 +1459,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Rebuild ModDetails tabs as one outlined square row with a clear active state, without animation ribbons or detached grey card surfaces.
 - [x] Render the description as one readable black outlined content object; retain working versions, dependencies and screenshots tabs.
 - [x] Run TypeScript-only verification and push the scoped compact ModDetails layout to GitHub main.
+
+---
+
+# Isolated NeoForge 1.21.1 module collision repair
+
+- [x] Preserve the newly verified working Forge 1.21.1 client/universal classpath and leave Quilt, interface, content providers and performance settings untouched.
+- [x] Trace the fresh NeoForge 21.1.99 `minecraft` / `_1._21._1` conflict in the installed launch profile rather than changing generic classpath behavior.
+- [x] Apply a NeoForge-only classpath/module repair with a narrow source-level guard for the 1.21.x client artifact.
+- [x] Run TypeScript-only verification, inspect the source diff and push the isolated NeoForge repair to GitHub main.

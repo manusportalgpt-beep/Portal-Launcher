@@ -1295,3 +1295,6 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Replace the current Portal Launcher visual icon in the app shell, native window/taskbar resources and installer resources.
 - [x] Preserve all game, Java, loader and platform functionality while integrating the new icon.
 - [x] Run TypeScript-only verification and push the new icon integration to GitHub main.
+- [x] Regenerate the icon with transparent pixels outside the mark, a black inner symbol field and a visible black outline around the red spiral.
+- [x] Replace every native and shell icon resource with the transparency-corrected asset and verify the small-size result.
+- [x] Run TypeScript-only verification and push the corrected transparency asset to GitHub main.

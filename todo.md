@@ -1388,4 +1388,4 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Diagnose the reported NeoForge 1.21.1 failure, including installer profile resolution and managed Java handoff, and correct the implementation without changing Fabric behaviour.
 - [x] Ensure a failed installation card surfaces the localized reason, changes out of progress state and auto-dismisses after the error is readable.
 - [x] Verify native taskbar icon packaging points to the new icon and document any cache/rebuild requirement outside the launcher process.
-- [ ] Run TypeScript-only verification and push the account, tutorial, UI and loader correction to GitHub main.
+- [x] Run TypeScript-only verification and push the account, tutorial, UI and loader correction to GitHub main.

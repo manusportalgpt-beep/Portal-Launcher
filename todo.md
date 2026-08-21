@@ -1399,4 +1399,4 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Fix only common Vanilla, Forge, NeoForge and Quilt path/preflight failures that can prevent launcher profile resolution or first launch; leave Fabric and Bedrock behaviour untouched.
 - [x] Preserve Modrinth, CurseForge, performance/JVM heap behavior, content workflows and unrelated UI code without edits.
 - [x] Add localized terminal errors for each validated preflight failure rather than allowing a secondary missing-profile or generic installer failure.
-- [ ] Run TypeScript-only verification and push the scoped loader-path correction to GitHub main.
+- [x] Run TypeScript-only verification and push the scoped loader-path correction to GitHub main.

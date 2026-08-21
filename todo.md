@@ -1298,3 +1298,14 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Regenerate the icon with transparent pixels outside the mark, a black inner symbol field and a visible black outline around the red spiral.
 - [x] Replace every native and shell icon resource with the transparency-corrected asset and verify the small-size result.
 - [x] Run TypeScript-only verification and push the corrected transparency asset to GitHub main.
+
+---
+
+# Minimal interface and editor simplification
+
+- [x] Remove vertical lift/jump transforms from ordinary hover states; retain only clear colour, outline and cursor feedback.
+- [x] Reduce non-semantic grey dividers, card borders, floating surface layers and repeated section frames across shared layout styles.
+- [x] Rebuild Settings as a calm dark page with compact, low-contrast content grouping instead of the heavy grey panel; use square sliders and tracks.
+- [x] Simplify theme, navigation-panel and screenshot-editor controls into thin, functional groups without decorative cards, colour bars or duplicated separators.
+- [x] Refine Instance Studio and content/discovery lists to use a single low-noise surface hierarchy while keeping all creation, filtering and editing capabilities.
+- [x] Run TypeScript-only verification, inspect the requested desktop and compact layouts, then commit and push the minimal-interface revision to GitHub main.

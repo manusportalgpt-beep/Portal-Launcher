@@ -569,22 +569,21 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
 
   return (
     <motion.div className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background:'rgba(0,0,0,0.72)', backdropFilter:'blur(4px)' }}
+      style={{ background:'rgba(0,0,0,0.78)', backdropFilter:'none' }}
       initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <motion.div className="flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-[30px]"
-        style={{ background:'color-mix(in srgb, var(--color-surface) 96%, transparent)', border:'1px solid color-mix(in srgb, var(--color-border) 76%, var(--color-primary))', boxShadow:'var(--shadow-lg)' }}
+      <motion.div className="flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-md"
+        style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-sm)' }}
         initial={{ scale:0.93,opacity:0,y:14 }} animate={{ scale:1,opacity:1,y:0 }} exit={{ scale:0.93,opacity:0,y:14 }}
         transition={{ type:'spring', stiffness:480, damping:34 }}>
 
-        <div className="relative shrink-0 overflow-hidden px-6 pt-5 pb-4" style={{ borderBottom:'1px solid var(--color-border)', background:'linear-gradient(125deg, color-mix(in srgb, var(--color-surface-2) 88%, var(--color-primary) 12%), var(--color-surface))' }}>
-          <span aria-hidden className="pointer-events-none absolute -right-8 -top-10 h-32 w-32 rounded-full" style={{ background:'radial-gradient(circle, color-mix(in srgb, var(--color-primary) 22%, transparent), transparent 70%)' }} />
+        <div className="relative shrink-0 px-5 pt-5 pb-3" style={{ borderBottom:'0', background:'transparent' }}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-primary)' }}>{t('libraryRuntime.instanceStudio')}</p>
               <h2 className="font-black text-lg mt-0.5" style={{ color:'var(--color-text)' }}>{step==='type'?t('libraryRuntime.create'):step==='custom'?t('libraryRuntime.customSetup'):step==='install'?'Установить или импортировать сборку':t('libraryRuntime.importInstance')}</h2>
             </div>
-            <button type="button" onClick={onClose} aria-label="Закрыть студию сборок" className="relative w-9 h-9 flex items-center justify-center rounded-full outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ border:'1px solid var(--color-border)' }}><X className="w-4 h-4" style={{ color:'var(--color-text-secondary)' }} /></button>
+            <button type="button" onClick={onClose} aria-label="Закрыть студию сборок" className="relative w-8 h-8 flex items-center justify-center rounded-md outline-none transition-colors hover:bg-[var(--color-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ border:'1px solid var(--color-border)' }}><X className="w-4 h-4" style={{ color:'var(--color-text-secondary)' }} /></button>
           </div>
           <div className="grid grid-cols-2 gap-1.5 mt-4">
             {[
@@ -592,7 +591,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
               { id:'install', label:'Установить / импортировать', Icon:Download },
             ].map(item => {
               const active = step === item.id || (step === 'type' && item.id === 'custom');
-              return <button type="button" key={item.id} onClick={() => setStep(item.id as CreateStep)} className="flex items-center justify-center gap-1.5 py-2 rounded-full text-[10px] font-bold outline-none transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ background:active?'var(--color-primary-dim)':'var(--color-surface)', color:active?'var(--color-primary)':'var(--color-text-tertiary)', border:`1px solid ${active?'var(--color-primary)':'var(--color-border)'}` }}><item.Icon className="w-3 h-3" />{item.label}</button>;
+              return <button type="button" key={item.id} onClick={() => setStep(item.id as CreateStep)} className="flex items-center justify-center gap-1.5 py-2 rounded-sm text-[10px] font-bold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ background:active?'transparent':'var(--color-surface)', color:active?'var(--color-primary)':'var(--color-text-tertiary)', border:`1px solid ${active?'var(--color-primary)':'var(--color-border)'}` }}><item.Icon className="w-3 h-3" />{item.label}</button>;
             })}
           </div>
         </div>
@@ -607,9 +606,9 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                   { id:'install', Icon:Download, title:'Установить или импортировать сборку', desc:'Найдите модпак в Discover, откройте .mrpack / .zip или перенесите сборку из другого лаунчера.' },
                 ].map(opt => (
                   <button type="button" key={opt.id} onClick={() => setStep(opt.id as CreateStep)}
-                    className="w-full flex items-center gap-4 p-4 rounded-[22px] text-left outline-none transition-transform duration-150 group hover:-translate-y-0.5 active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
-                    style={{ background:'linear-gradient(135deg, color-mix(in srgb, var(--color-surface-2) 92%, var(--color-primary) 5%), var(--color-surface-2))', border:'1px solid var(--color-border)' }}>
-                    <span className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background:'var(--color-primary-dim)', color:'var(--color-primary)', border:'1px solid color-mix(in srgb, var(--color-primary) 36%, transparent)' }}><opt.Icon className="w-5 h-5" /></span>
+                    className="w-full flex items-center gap-4 p-3 rounded-md text-left outline-none transition-colors group focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                    style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+                    <span className="w-9 h-9 rounded-sm flex items-center justify-center shrink-0" style={{ background:'transparent', color:'var(--color-primary)', border:'1px solid var(--color-border)' }}><opt.Icon className="w-4 h-4" /></span>
                     <div className="flex-1 min-w-0"><p className="font-black text-sm" style={{ color:'var(--color-text)' }}>{opt.title}</p><p className="text-xs mt-0.5 leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>{opt.desc}</p></div>
                     <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color:'var(--color-primary)' }} />
                   </button>
@@ -621,8 +620,8 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
               <motion.div key="custom" initial={{ opacity:0,x:12 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-12 }} className="space-y-5">
                 <div className="flex items-start gap-4">
                   <button onClick={pickIcon}
-                    className="w-16 h-16 rounded-[22px] overflow-hidden flex flex-col items-center justify-center gap-1 shrink-0 outline-none transition-colors hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
-                    style={{ background:'var(--color-surface-2)', border:'2px dashed var(--color-border)' }}>
+                    className="w-16 h-16 rounded-md overflow-hidden flex flex-col items-center justify-center gap-1 shrink-0 outline-none transition-colors hover:bg-[var(--color-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                    style={{ background:'var(--color-surface-2)', border:'1px dashed var(--color-border)' }}>
                     {iconPreview
                       ? <img src={iconPreview} className="w-full h-full object-cover" alt="" />
                       : <><Package className="w-6 h-6" style={{ color:'var(--color-text-tertiary)' }} /><span className="text-[9px] font-bold" style={{ color:'var(--color-text-tertiary)' }}>ICON</span></>}
@@ -631,7 +630,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                     <label className="block text-xs font-bold mb-1.5" style={{ color:'var(--color-text)' }}>Название сборки *</label>
                     <input autoFocus value={form.name} onChange={e => setForm(f => ({...f,name:e.target.value}))}
                       placeholder={`${form.loader==='neoforge'?'NeoForge':form.loader.charAt(0).toUpperCase()+form.loader.slice(1)} ${form.mcVersion}`}
-                      className="w-full px-3 py-2.5 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                      className="w-full px-3 py-2.5 rounded-md text-sm font-medium outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
                       style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }} />
                   </div>
                 </div>
@@ -648,9 +647,9 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                         <button key={core.id} onClick={() => setForm(f => ({ ...f, loader: core.id }))}
                           disabled={disabled}
                           title={disabled ? 'Требуется настоящий Microsoft-аккаунт' : undefined}
-                          className="relative flex items-center gap-2.5 p-2.5 rounded-2xl text-left outline-none transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
-                          style={{ background:selected ? `${LOADER_COLOR[core.id]}18` : 'var(--color-surface-2)', border:`1px solid ${selected ? LOADER_COLOR[core.id] : 'var(--color-border)'}`, boxShadow:selected ? `0 8px 18px ${LOADER_COLOR[core.id]}18` : 'none' }}>
-                          <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background:`${LOADER_COLOR[core.id]}22`, color:LOADER_COLOR[core.id] }}><LoaderGlyph id={core.id} Icon={core.Icon} /></span>
+                          className="relative flex items-center gap-2.5 p-2.5 rounded-md text-left outline-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                          style={{ background:selected ? 'transparent' : 'var(--color-surface-2)', border:`1px solid ${selected ? LOADER_COLOR[core.id] : 'var(--color-border)'}`, boxShadow:'none' }}>
+                          <span className="w-8 h-8 rounded-sm flex items-center justify-center shrink-0" style={{ background:'transparent', color:LOADER_COLOR[core.id] }}><LoaderGlyph id={core.id} Icon={core.Icon} /></span>
                           <span className="min-w-0"><span className="block text-xs font-bold truncate" style={{ color:'var(--color-text)' }}>{core.label}</span><span className="block text-[9px] truncate" style={{ color:'var(--color-text-tertiary)' }}>{core.desc}</span></span>
                         </button>
                       );
@@ -762,10 +761,10 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
 
             {step==='install' && (
               <motion.div key="install" initial={{ opacity:0,x:12 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-12 }} className="space-y-4">
-                <div className="rounded-2xl p-4" style={{ background:'linear-gradient(135deg, color-mix(in srgb, var(--color-surface-2) 88%, var(--color-primary) 8%), var(--color-surface-2))', border:'1px solid var(--color-border)' }}>
+                <div className="rounded-md p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                   <p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Импорт из файла</p>
                   <p className="mt-1 text-[11px] leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>Откройте сохранённый .mrpack или .zip. Перед установкой можно посмотреть содержимое и отключить ненужные файлы.</p>
-                  <button type="button" onClick={pickFile} className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.98]" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)', boxShadow:'var(--shadow-glow)' }}><Upload className="w-4 h-4" />Открыть .mrpack / .zip</button>
+                  <button type="button" onClick={pickFile} className="mt-3 w-full flex items-center justify-center gap-2 rounded-sm px-4 py-3 text-sm font-bold transition-colors" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)', boxShadow:'none' }}><Upload className="w-4 h-4" />Открыть .mrpack / .zip</button>
                 </div>
                 <div className="rounded-2xl p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                   <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black" style={{ color:'var(--color-text)' }}>Сборки из других лаунчеров</p><p className="mt-0.5 text-[10px]" style={{ color:'var(--color-text-secondary)' }}>Prism Launcher, Modrinth App, XMCL и CurseForge App.</p></div><button type="button" onClick={() => void loadExternalInstances()} aria-label="Обновить список внешних сборок" className="shrink-0 rounded-full p-2 outline-none hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ color:'var(--color-text-secondary)' }}><RefreshCw className={externalLoading ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} /></button></div>
@@ -795,8 +794,8 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
         <div className="shrink-0 px-6 pb-6 pt-1 flex justify-end gap-2.5">
           {step==='custom' && (
             <button onClick={doCreate} disabled={creating || (form.loader !== 'bedrock' && !form.mcVersion)}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-              style={{ background:'var(--color-primary)', color:'#fff', opacity:creating?0.55:1, boxShadow:'var(--shadow-glow)' }}>
+              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-sm text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ background:'var(--color-primary)', color:'#fff', opacity:creating?0.55:1, boxShadow:'none' }}>
               {creating ? <><div className="w-4 h-4 border border-white/40 border-t-white rounded-full animate-spin" />{t('libraryRuntime.creating')}</> : `+ ${t('libraryRuntime.create')}`}
             </button>
           )}

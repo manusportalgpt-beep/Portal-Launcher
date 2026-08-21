@@ -199,12 +199,12 @@ function ProjectCard({ p, view, onClick }: { p: Project; view: 'grid'|'list'; on
   const letter = p.title[0]?.toUpperCase() ?? '?';
 
   const Icon = (
-    <div className="rounded-2xl flex items-center justify-center font-black overflow-hidden shrink-0"
+    <div className="rounded-sm flex items-center justify-center font-black overflow-hidden shrink-0"
       style={{ width: view==='list'?48:40, height: view==='list'?48:40,
                background: p.iconUrl ? 'transparent' : `${color}1A`, color }}>
         {p.iconUrl
           ? <>
-              <img src={p.iconUrl} alt="" className="w-full h-full object-cover rounded-2xl"
+              <img src={p.iconUrl} alt="" className="w-full h-full object-cover rounded-sm"
                 onError={e => {
                   const image = e.currentTarget;
                   image.style.display = 'none';
@@ -220,8 +220,8 @@ function ProjectCard({ p, view, onClick }: { p: Project; view: 'grid'|'list'; on
     return (
       <button onClick={onClick}
         data-testid={`mod-card-${p.id}`}
-        className="group/card w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all hover:-translate-y-px"
-        style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
+        className="group/card w-full flex items-center gap-4 p-3 rounded-md text-left transition-colors"
+        style={{ background:'transparent', border:'1px solid var(--color-border)' }}>
         {Icon}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -258,15 +258,15 @@ function ProjectCard({ p, view, onClick }: { p: Project; view: 'grid'|'list'; on
   return (
     <button onClick={onClick}
       data-testid={`mod-card-${p.id}`}
-      className="group/card p-4 rounded-2xl text-left transition-all hover:-translate-y-1 relative"
-      style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
+      className="group/card p-3 rounded-md text-left transition-colors relative"
+      style={{ background:'transparent', border:'1px solid var(--color-border)' }}>
       <div className="flex items-start justify-between gap-2 mb-3">
         {Icon}
       </div>
       <p className="font-bold text-sm leading-tight" style={{ color:'var(--color-text)' }}>{p.title}</p>
       <p className="text-[10px] mt-0.5 font-medium" style={{ color:'var(--color-text-secondary)' }}>by {p.author}</p>
       <p className="text-xs mt-1.5 line-clamp-2 leading-relaxed" style={{ color:'var(--color-text-tertiary)' }}>{p.description}</p>
-      <div className="flex items-center gap-3 mt-3 pt-3" style={{ borderTop:'1px solid var(--color-border)' }}>
+      <div className="flex items-center gap-3 mt-3 pt-1" style={{ borderTop:'0' }}>
         <div className="flex items-center gap-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>
           <Download className="w-3 h-3" />{fmtNum(p.downloads)}
         </div>

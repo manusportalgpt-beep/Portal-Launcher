@@ -75,17 +75,17 @@ const FONT_OPTIONS = [
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
     <button onClick={() => onChange(!value)}
-      className="relative rounded-full transition-all shrink-0"
-      style={{ width:40, height:22, background:value?'var(--color-primary)':'var(--color-surface-2)', border:`1px solid ${value?'var(--color-primary)':'var(--color-border)'}` }}>
-      <div className="absolute top-0.5 rounded-full transition-all"
-        style={{ width:18, height:18, background:'#fff', left:value?'calc(100% - 20px)':'2px', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }} />
+      className="relative transition-colors shrink-0"
+      style={{ width:36, height:18, borderRadius:2, background:value?'var(--color-primary)':'var(--color-surface-2)', border:`1px solid ${value?'var(--color-primary)':'var(--color-border)'}` }}>
+      <div className="absolute top-[2px] transition-[left]"
+        style={{ width:12, height:12, borderRadius:1, background:'#fff', left:value?'calc(100% - 14px)':'2px', boxShadow:'none' }} />
     </button>
   );
 }
 
 function Row({ label, desc, children }: { label: string; desc?: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between py-3.5" style={{ borderBottom:'1px solid var(--color-border)' }}>
+    <div className="flex items-center justify-between py-3">
       <div className="flex-1 min-w-0 mr-4">
         <p className="text-sm font-semibold" style={{ color:'var(--color-text)' }}>{label}</p>
         {desc && <p className="text-xs mt-0.5" style={{ color:'var(--color-text-secondary)' }}>{desc}</p>}
@@ -97,7 +97,7 @@ function Row({ label, desc, children }: { label: string; desc?: string; children
 
 function RangeRow({ label, desc, value, min, max, unit, onChange }: { label:string; desc?:string; value:number; min:number; max:number; unit?:string; onChange:(v:number)=>void }) {
   return (
-    <div className="py-3.5" style={{ borderBottom:'1px solid var(--color-border)' }}>
+    <div className="py-3">
       <div className="flex items-center justify-between mb-2">
         <div>
           <p className="text-sm font-semibold" style={{ color:'var(--color-text)' }}>{label}</p>
@@ -118,7 +118,7 @@ function InputRow({ label, desc, value, onChange, placeholder, type='text', read
       {desc && <p className="text-xs mb-2" style={{ color:'var(--color-text-secondary)' }}>{desc}</p>}
       <input type={type} value={value} onChange={e => !readOnly && onChange?.(e.target.value)} placeholder={placeholder}
         readOnly={readOnly}
-        className="w-full px-3 py-2.5 rounded-xl text-sm font-medium"
+        className="w-full px-3 py-2.5 rounded-md text-sm font-medium"
         style={{
           background: readOnly ? 'var(--color-surface)' : 'var(--color-surface-2)',
           border:'1px solid var(--color-border)',
@@ -375,14 +375,14 @@ function AppearanceSection() {
               boxShadow:'none',
             }}>
             <p className="text-[11px] font-bold truncate" style={{ color: themeId === t.id ? t.accent : 'var(--color-text)' }}>{t.name}</p>
-            <p className="mt-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{themeId === t.id ? 'Выбрана' : 'Палитра темы'}</p>
+            <p className="mt-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{themeId === t.id ? 'Активна' : 'Палитра'}</p>
           </button>
         ))}
       </div>
       <CustomThemeBuilder />
 
       {/* ===================== Typography ===================== */}
-      <div className="flex items-center gap-2 mt-8 mb-1">
+      <div className="minimal-section-title">
         <Palette className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
         <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>Типографика</h3>
       </div>
@@ -408,7 +408,7 @@ function AppearanceSection() {
       </div>
 
       {/* ===================== Search ===================== */}
-      <div className="flex items-center gap-2 mt-8 mb-1">
+      <div className="minimal-section-title">
         <Search className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
         <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>Поиск</h3>
       </div>
@@ -431,7 +431,7 @@ function AppearanceSection() {
         onChange={v => ui.set('searchDetailReturnPosition', v as any)} />
 
       {/* ===================== More ===================== */}
-      <div className="flex items-center gap-2 mt-8 mb-1">
+      <div className="minimal-section-title">
         <Layout className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
         <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>{t('settings.appearanceUi.more')}</h3>
       </div>
@@ -472,7 +472,7 @@ function AppearanceSection() {
       )}
       <NavigationPanelEditor />
 
-      <div className="flex items-center gap-2 mt-6 mb-1">
+      <div className="minimal-section-title">
         <Layout className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
         <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>{t('settings.appearanceUi.workspace')}</h3>
       </div>
@@ -494,12 +494,12 @@ function AppearanceSection() {
         <Toggle value={ui.adaptiveTitlebarColor} onChange={value => ui.set('adaptiveTitlebarColor', value)} />
       </Row>
 
-      <div className="flex items-center gap-2 mt-6 mb-1">
+      <div className="minimal-section-title">
         <SlidersHorizontal className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
         <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>{t('settings.appearanceUi.panelPolish')}</h3>
       </div>
       <p className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>{t('settings.appearanceUi.panelPolishDescription')}</p>
-      <div className="mb-3 rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-primary-dim)', color:'var(--color-primary)' }}>
+      <div className="mb-3 px-1 py-1 text-xs font-bold" style={{ background:'transparent', color:'var(--color-primary)' }}>
         Редактор: {ui.navMode === 'notch' ? 'Notch-панель' : 'Боковая панель'} · изменения не влияют на другой режим
       </div>
       <SegRow label={t('settings.appearanceUi.panelAlignment')} desc={t('settings.appearanceUi.panelAlignmentDescription')}
@@ -536,7 +536,7 @@ function AppearanceSection() {
       <Row label="Компактный режим" desc="Более плотные списки и карточки">
         <Toggle value={ui.compact} onChange={v => ui.set('compact', v)} />
       </Row>
-      <div className="flex items-center gap-2 mt-6 mb-1">
+      <div className="minimal-section-title">
         <Palette className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
         <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>Визуальный материал</h3>
       </div>
@@ -579,7 +579,7 @@ function AppearanceSection() {
       </>}
 
       {/* ===================== CSS / .prtheme ===================== */}
-      <div className="flex items-center gap-2 mt-8 mb-1">
+      <div className="minimal-section-title">
         <Code className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
         <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>Пользовательский CSS (.prtheme)</h3>
       </div>
@@ -949,46 +949,45 @@ export function SettingsPage() {
   const activeMeta = SECTIONS.find(section => section.id === activeSection) ?? SECTIONS[0];
   const ActiveIcon = activeMeta.icon;
   return (
-    <div className="h-full overflow-hidden p-3 sm:p-4" style={{ background:'transparent' }}>
-      <div className="flex h-full overflow-hidden rounded-[22px]" style={{ border:'1px solid var(--color-border)', background:'color-mix(in srgb, var(--color-surface) 38%, transparent)' }}>
-        <aside className="shrink-0 flex h-full flex-col overflow-y-auto p-2.5"
-          style={{ width:264, background:'linear-gradient(180deg, color-mix(in srgb, var(--color-surface) 78%, transparent), color-mix(in srgb, var(--color-bg) 30%, transparent))', borderRight:'1px solid var(--color-border)' }}>
-          <div className="mb-3 flex items-center gap-3 rounded-2xl p-3" style={{ background:'var(--color-primary-dim)', border:'1px solid color-mix(in srgb, var(--color-primary) 35%, var(--color-border))' }}>
-            <img src="/launcher-icon.png" alt="Portal Launcher" className="h-9 w-9 rounded-xl object-cover" />
+    <div className="h-full overflow-hidden" style={{ background:'var(--color-bg)' }}>
+      <div className="flex h-full overflow-hidden" style={{ background:'var(--color-bg)' }}>
+        <aside className="shrink-0 flex h-full flex-col overflow-y-auto px-3 py-4"
+          style={{ width:232, background:'var(--color-bg)', borderRight:'0' }}>
+          <div className="mb-4 flex items-center gap-3 px-2 py-1" style={{ background:'transparent', border:'0' }}>
+            <img src="/launcher-icon.png" alt="Portal Launcher" className="h-8 w-8 rounded-md object-cover" />
             <div className="min-w-0"><p className="truncate text-sm font-black" style={{ color:'var(--color-text)' }}>Portal Launcher</p><p className="text-[10px]" style={{ color:'var(--color-text-secondary)' }}>Центр управления</p></div>
           </div>
           <p className="mb-1 px-2 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-text-tertiary)' }}>Настройки</p>
-          <nav className="space-y-1">
+          <nav className="space-y-0.5">
             {SECTIONS.map(sec => {
               const Icon = sec.icon;
               const active = activeSection === sec.id;
               return (
                 <button key={sec.id}
                   onClick={() => { setActiveSection(sec.id); navigate(`/settings/${sec.id}`); }}
-                  className="group relative flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition-all"
+                  className="group relative flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors"
                   style={active
-                    ? { background:'var(--color-primary-dim)', color:'var(--color-text)', border:'1px solid var(--color-primary)' }
+                    ? { background:'transparent', color:'var(--color-text)', border:'1px solid var(--color-primary)' }
                     : { color:'var(--color-text-secondary)', border:'1px solid transparent' }}>
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ background:active?'var(--color-primary)':'var(--color-surface-2)', color:active?'var(--color-primary-text)':'var(--color-text-secondary)' }}><Icon className="h-4 w-4" /></span>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm" style={{ background:'transparent', color:active?'var(--color-primary)':'var(--color-text-secondary)' }}><Icon className="h-4 w-4" /></span>
                   <span className="min-w-0"><span className="block text-xs font-black">{sec.label}</span><span className="block truncate text-[10px]" style={{ color:active?'var(--color-text-secondary)':'var(--color-text-tertiary)' }}>{sec.desc}</span></span>
-                  {active && <span className="absolute right-2 h-1.5 w-1.5 rounded-full" style={{ background:'var(--color-primary)' }} />}
                 </button>
               );
             })}
           </nav>
-          <div className="mt-auto rounded-2xl p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+          <div className="mt-auto px-2 py-3" style={{ background:'transparent', border:'0' }}>
             <p className="text-[10px] font-black uppercase tracking-wide" style={{ color:'var(--color-primary)' }}>Сохраняется автоматически</p>
             <p className="mt-1 text-[10px] leading-4" style={{ color:'var(--color-text-secondary)' }}>Тема, Java, панели и язык сохраняются после перезапуска.</p>
           </div>
         </aside>
 
-        <div className="flex-1 min-w-0 overflow-y-auto" style={{ background:'radial-gradient(ellipse at 100% 0%, var(--color-primary-dim), transparent 35%), color-mix(in srgb, var(--color-bg) 24%, transparent)' }}>
-          <div className="mx-auto max-w-3xl px-5 py-5 sm:px-8 sm:py-7">
-            <div className="mb-5 flex items-center gap-3 rounded-2xl p-4" style={{ background:'color-mix(in srgb, var(--color-surface) 88%, transparent)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-sm)' }}>
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><ActiveIcon className="h-5 w-5" /></span>
+        <div className="flex-1 min-w-0 overflow-y-auto" style={{ background:'var(--color-bg)' }}>
+          <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8 sm:py-8">
+            <div className="mb-6 flex items-center gap-3 px-1 py-1" style={{ background:'transparent', border:'0', boxShadow:'none' }}>
+              <span className="flex h-8 w-8 items-center justify-center rounded-sm" style={{ background:'transparent', color:'var(--color-primary)' }}><ActiveIcon className="h-4 w-4" /></span>
               <div><p className="text-base font-black" style={{ color:'var(--color-text)' }}>{activeMeta.label}</p><p className="text-xs" style={{ color:'var(--color-text-secondary)' }}>{activeMeta.desc}</p></div>
             </div>
-            <div className="rounded-2xl p-4 sm:p-6" style={{ background:'color-mix(in srgb, var(--color-surface) 94%, transparent)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-sm)' }}>
+            <div className="minimal-settings-group px-1 py-1 sm:px-2" style={{ background:'transparent', border:'0', boxShadow:'none' }}>
               <AnimatePresence mode="wait">
                 <motion.div key={activeSection}
                   initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-8 }}

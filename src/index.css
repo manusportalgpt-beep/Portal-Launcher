@@ -123,26 +123,27 @@ button:active:not(:disabled), [role="button"]:active:not([aria-disabled="true"])
 
 input[type="range"] {
   -webkit-appearance: none;
-  height: 5px;
-  border-radius: 99px;
-  background: var(--color-surface-2);
+  height: 4px;
+  border-radius: 0;
+  background: var(--color-border);
   cursor: pointer;
   outline: none;
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
   background: var(--color-primary);
   cursor: pointer;
-  border: 2px solid var(--color-bg);
-  box-shadow: 0 0 0 2px var(--color-primary);
-  transition: transform 150ms ease, box-shadow 150ms ease;
+  border: 1px solid var(--color-bg);
+  box-shadow: none;
+  transition: background-color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
 }
 input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-  box-shadow: 0 0 0 4px var(--color-primary-dim);
+  transform: none;
+  box-shadow: none;
+  background: var(--color-primary-hover);
 }
 
 /* One solid surface; translucency belongs only to user-selected background media. */
@@ -417,6 +418,8 @@ html[data-design-system="clean"] [style*="box-shadow"] { box-shadow:var(--shadow
 html[data-design-system="clean"] :is(.rounded-2xl, .rounded-3xl, .rounded-\[24px\], .rounded-\[26px\], .rounded-\[28px\], .rounded-\[32px\], .rounded-\[34px\]) { border-radius:var(--radius-card) !important; }
 html[data-design-system="clean"] :is(button, a, [role="button"], [role="tab"]).rounded-full { border-radius:var(--radius-button) !important; }
 html[data-design-system="clean"] .theme-swatch-square:hover { background:var(--color-surface-hover) !important; border-color:var(--color-border-strong) !important; }
+html[data-design-system="clean"] :is(button, a, [role="button"], [role="tab"]):hover { transform:none !important; }
+html[data-design-system="clean"] :is(.hover\:-translate-y-0\.5, .hover\:-translate-y-1, .hover\:scale-\[1\.03\], .hover\:scale-105):hover { transform:none !important; }
 html[data-design-system="clean"] :is(button, a, [role="button"], [role="tab"]) > svg {
   stroke-width:1.8;
   stroke-linecap:round;
@@ -425,6 +428,30 @@ html[data-design-system="clean"] :is(button, a, [role="button"], [role="tab"]) >
 html[data-design-system="clean"] :is(.tabs, [role="tablist"], .segmented-control) {
   border-radius:var(--radius-button) !important;
   box-shadow:none !important;
+}
+html[data-design-system="clean"] :is(.rounded-full, .rounded-2xl, .rounded-3xl) { border-radius:var(--radius-md) !important; }
+html[data-design-system="clean"] .minimal-section-title {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:24px;
+  margin-bottom:8px;
+  color:var(--color-text);
+  font-size:0.75rem;
+  font-weight:700;
+  letter-spacing:0.04em;
+  text-transform:uppercase;
+}
+html[data-design-system="clean"] .minimal-section-title::after {
+  content:'';
+  flex:1;
+  height:1px;
+  background:color-mix(in srgb, var(--color-border) 55%, transparent);
+}
+html[data-design-system="clean"] .minimal-settings-group {
+  background:transparent;
+  border:0;
+  box-shadow:none;
 }
 html[data-design-system="clean"] .portal-sidebar {
   border-right:0 !important;

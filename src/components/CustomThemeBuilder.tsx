@@ -102,11 +102,11 @@ export function CustomThemeBuilder() {
     <div className="mt-3">
       <button
         onClick={() => setOpen(value => !value)}
-        className="group flex min-h-[98px] w-full items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-4 py-4 text-left transition-all hover:-translate-y-0.5"
-        style={{ borderColor: 'var(--color-primary)', background: 'var(--color-primary-dim)' }}
+        className="group flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-left transition-colors"
+        style={{ borderColor: 'var(--color-border)', background: 'transparent' }}
       >
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'var(--color-surface-2)', color: 'var(--color-primary)' }}>
-          {open ? <X className="h-5 w-5" /> : <Plus className="h-5 w-5 transition-transform group-hover:rotate-90" />}
+        <span className="flex h-8 w-8 items-center justify-center rounded-sm" style={{ background: 'transparent', color: 'var(--color-primary)', border:'1px solid var(--color-border)' }}>
+          {open ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
         </span>
         <span>
           <span className="block text-sm font-black" style={{ color: 'var(--color-text)' }}>Добавить тему</span>
@@ -120,8 +120,8 @@ export function CustomThemeBuilder() {
             initial={{ opacity: 0, height: 0, y: -8 }}
             animate={{ opacity: 1, height: 'auto', y: 0 }}
             exit={{ opacity: 0, height: 0, y: -8 }}
-            className="mt-3 overflow-hidden rounded-2xl"
-            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+            className="mt-3 overflow-hidden rounded-md"
+            style={{ background: 'transparent', border: '1px solid var(--color-border)' }}
           >
             <div className="p-4">
               <div className="mb-3 flex items-center gap-2">
@@ -134,27 +134,27 @@ export function CustomThemeBuilder() {
               <input value={name} onChange={e => setName(e.target.value)} maxLength={32} placeholder="Название темы"
                 className="mb-3 w-full rounded-xl px-3 py-2 text-xs outline-none"
                 style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
-              <div className="mb-3 rounded-xl p-2.5" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+              <div className="mb-3 p-0" style={{ background:'transparent', border:'0' }}>
                 <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color:'var(--color-text-secondary)' }}>Направление темы</p>
-                <div className="flex flex-wrap gap-1.5">{QUICK_PALETTES.map(palette => <button key={palette.name} onClick={() => setColors(current => ({ ...current, ...palette.colors }))} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-bold" style={{ background:'var(--color-surface)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><span className="h-3 w-3 rounded-full" style={{ background:palette.colors.primary }} />{palette.name}</button>)}</div>
+                <div className="flex flex-wrap gap-1.5">{QUICK_PALETTES.map(palette => <button key={palette.name} onClick={() => setColors(current => ({ ...current, ...palette.colors }))} className="rounded-sm px-2 py-1.5 text-[10px] font-bold" style={{ background:'transparent', color:palette.colors.primary, border:`1px solid ${palette.colors.primary}` }}>{palette.name}</button>)}</div>
               </div>
               <div className="mb-3 flex flex-wrap gap-1.5">
                 <button onClick={useRandomPalette} title="Сгенерировать новую палитру" className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><Wand2 className="h-3.5 w-3.5" />Сгенерировать</button>
                 <button onClick={repairContrast} title="Сделать текст читаемым" className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><Contrast className="h-3.5 w-3.5" />Исправить контраст</button>
                 <button onClick={() => { setColors(DEFAULT_COLORS); setOptions(DEFAULT_OPTIONS); }} title="Вернуть значения редактора" className="rounded-lg px-2 py-1.5 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Сбросить</button>
               </div>
-              <div className="mb-3 rounded-xl p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+              <div className="mb-3 rounded-sm p-3" style={{ background:'transparent', border:'1px solid var(--color-border)' }}>
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <div><p className="text-[11px] font-bold" style={{ color:'var(--color-text)' }}>{t('settings.appearanceUi.customBackground')}</p><p className="text-[9px]" style={{ color:'var(--color-text-secondary)' }}>{t('settings.appearanceUi.customBackgroundDescription')}</p></div>
                   <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" id="custom-theme-background" onChange={event => importBackground(event.target.files?.[0])} />
                   <label htmlFor="custom-theme-background" className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Upload className="h-3.5 w-3.5" />{t('settings.appearanceUi.chooseBackground')}</label>
                 </div>
-                {backgroundImage && <div className="flex items-center gap-2"><div className="h-9 flex-1 rounded-lg bg-cover bg-center" style={{ backgroundImage: backgroundPreview ? `url("${backgroundPreview}")` : 'none' }} /><button type="button" onClick={() => { void removeBackgroundMedia('image'); setUi('backgroundImage', ''); }} className="rounded-lg px-2 py-1.5 text-[10px] font-bold" style={{ background:'var(--color-bg)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>{t('settings.appearanceUi.removeBackground')}</button></div>}
+                {backgroundImage && <div className="flex items-center gap-2"><div className="h-9 flex-1 rounded-sm bg-cover bg-center" style={{ backgroundImage: backgroundPreview ? `url("${backgroundPreview}")` : 'none' }} /><button type="button" onClick={() => { void removeBackgroundMedia('image'); setUi('backgroundImage', ''); }} className="rounded-sm px-2 py-1.5 text-[10px] font-bold" style={{ background:'transparent', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>{t('settings.appearanceUi.removeBackground')}</button></div>}
               </div>
               <div className="mb-2 flex items-center justify-between"><p className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color:'var(--color-text-secondary)' }}>Цвета интерфейса</p><span className="rounded-md px-1.5 py-1 text-[9px] font-bold" style={{ background: contrast >= 4.5 ? 'rgba(46,204,113,0.14)' : 'rgba(243,156,18,0.14)', color: contrast >= 4.5 ? '#2ECC71' : '#F39C12' }}>Контраст {contrast.toFixed(1)}:1</span></div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {COLOR_FIELDS.map(field => (
-                  <label key={field.key} className="rounded-xl p-2.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+                  <label key={field.key} className="rounded-sm p-2.5" style={{ background: 'transparent', border: '1px solid var(--color-border)' }}>
                     <div className="flex items-center gap-2">
                       <input type="color" value={colors[field.key]} onChange={e => updateColor(field.key, e.target.value)} className="h-8 w-8 cursor-pointer rounded-lg border-0 bg-transparent p-0" />
                       <span className="min-w-0">
@@ -171,14 +171,14 @@ export function CustomThemeBuilder() {
               </div>
               <p className="mt-3 text-[10px] font-black uppercase tracking-[0.12em]" style={{ color:'var(--color-text-secondary)' }}>Форма и атмосфера</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-4">
-                <label className="rounded-xl p-2" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><span className="block text-[10px] font-bold" style={{ color:'var(--color-text)' }}>Скругление {options.radiusScale.toFixed(1)}×</span><input type="range" min="0.5" max="1.8" step="0.1" value={options.radiusScale} onChange={e => updateOption('radiusScale', Number(e.target.value))} className="w-full" style={{ accentColor:'var(--color-primary)' }} /></label>
-                <label className="rounded-xl p-2" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><span className="block text-[10px] font-bold" style={{ color:'var(--color-text)' }}>Тени {Math.round(options.shadowStrength * 100)}%</span><input type="range" min="0" max="1.5" step="0.05" value={options.shadowStrength} onChange={e => updateOption('shadowStrength', Number(e.target.value))} className="w-full" style={{ accentColor:'var(--color-primary)' }} /></label>
-                <label className="rounded-xl p-2" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><span className="block text-[10px] font-bold" style={{ color:'var(--color-text)' }}>Glow {Math.round(options.glowStrength * 100)}%</span><input type="range" min="0" max="1.8" step="0.05" value={options.glowStrength} onChange={e => updateOption('glowStrength', Number(e.target.value))} className="w-full" style={{ accentColor:'var(--color-primary)' }} /></label>
-                <label className="rounded-xl p-2" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><span className="block text-[10px] font-bold" style={{ color:'var(--color-text)' }}>Шрифт</span><select value={options.font} onChange={e => updateOption('font', e.target.value)} className="mt-1 w-full rounded-lg px-1.5 py-1 text-[10px]" style={{ background:'var(--color-surface)', color:'var(--color-text)', border:'1px solid var(--color-border)' }}><option value="'Inter',system-ui,sans-serif">Inter</option><option value="'Space Grotesk','Inter',system-ui,sans-serif">Space Grotesk</option><option value="'Manrope','Inter',system-ui,sans-serif">Manrope</option><option value="'JetBrains Mono',monospace">JetBrains Mono</option><option value="'Press Start 2P',monospace">Pixel</option></select></label>
+                <label className="rounded-sm p-2" style={{ background:'transparent', border:'1px solid var(--color-border)' }}><span className="block text-[10px] font-bold" style={{ color:'var(--color-text)' }}>Скругление {options.radiusScale.toFixed(1)}×</span><input type="range" min="0.5" max="1.8" step="0.1" value={options.radiusScale} onChange={e => updateOption('radiusScale', Number(e.target.value))} className="w-full" style={{ accentColor:'var(--color-primary)' }} /></label>
+                <label className="rounded-sm p-2" style={{ background:'transparent', border:'1px solid var(--color-border)' }}><span className="block text-[10px] font-bold" style={{ color:'var(--color-text)' }}>Тени {Math.round(options.shadowStrength * 100)}%</span><input type="range" min="0" max="1.5" step="0.05" value={options.shadowStrength} onChange={e => updateOption('shadowStrength', Number(e.target.value))} className="w-full" style={{ accentColor:'var(--color-primary)' }} /></label>
+                <label className="rounded-sm p-2" style={{ background:'transparent', border:'1px solid var(--color-border)' }}><span className="block text-[10px] font-bold" style={{ color:'var(--color-text)' }}>Glow {Math.round(options.glowStrength * 100)}%</span><input type="range" min="0" max="1.8" step="0.05" value={options.glowStrength} onChange={e => updateOption('glowStrength', Number(e.target.value))} className="w-full" style={{ accentColor:'var(--color-primary)' }} /></label>
+                <label className="rounded-sm p-2" style={{ background:'transparent', border:'1px solid var(--color-border)' }}><span className="block text-[10px] font-bold" style={{ color:'var(--color-text)' }}>Шрифт</span><select value={options.font} onChange={e => updateOption('font', e.target.value)} className="mt-1 w-full rounded-sm px-1.5 py-1 text-[10px]" style={{ background:'var(--color-surface)', color:'var(--color-text)', border:'1px solid var(--color-border)' }}><option value="'Inter',system-ui,sans-serif">Inter</option><option value="'Space Grotesk','Inter',system-ui,sans-serif">Space Grotesk</option><option value="'Manrope','Inter',system-ui,sans-serif">Manrope</option><option value="'JetBrains Mono',monospace">JetBrains Mono</option><option value="'Press Start 2P',monospace">Pixel</option></select></label>
               </div>
               <div className="mt-3 flex items-center gap-2">
-                <div className="h-8 flex-1 rounded-xl" style={{ background: colors.background, border: `1px solid ${colors.outline}` }}>
-                  <div className="m-1 h-6 rounded-lg" style={{ background: colors.surface }}><span className="ml-2 text-[10px] font-bold" style={{ color: colors.text }}>Portal Launcher</span><span className="ml-2 text-[10px]" style={{ color: colors.primary }}>Aa</span></div>
+                <div className="h-8 flex-1 rounded-sm" style={{ background: colors.background, border: `1px solid ${colors.outline}` }}>
+                  <div className="m-1 h-6 rounded-sm" style={{ background: colors.surface }}><span className="ml-2 text-[10px] font-bold" style={{ color: colors.text }}>Portal Launcher</span><span className="ml-2 text-[10px]" style={{ color: colors.primary }}>Aa</span></div>
                 </div>
                 <button onClick={() => { addCustomTheme(name, colors, options); setOpen(false); }} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
                   <Check className="h-3.5 w-3.5" />Сохранить тему
@@ -192,9 +192,8 @@ export function CustomThemeBuilder() {
       {Object.values(customThemes).length > 0 && (
         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {Object.values(customThemes).map(theme => (
-            <div key={theme.id} className="flex items-center gap-2 rounded-xl p-2" style={{ background: 'var(--color-surface-2)', border: `1px solid ${themeId === theme.id ? theme.colors.primary : 'var(--color-border)'}` }}>
+            <div key={theme.id} className="flex items-center gap-2 rounded-sm p-2" style={{ background: 'transparent', borderTop:`2px solid ${theme.colors.primary}`, borderRight:`1px solid ${themeId === theme.id ? theme.colors.primary : 'var(--color-border)'}`, borderBottom:`1px solid ${themeId === theme.id ? theme.colors.primary : 'var(--color-border)'}`, borderLeft:`1px solid ${themeId === theme.id ? theme.colors.primary : 'var(--color-border)'}` }}>
               <button onClick={() => setTheme(theme.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                <span className="h-7 w-7 shrink-0 rounded-lg" style={{ background: `linear-gradient(135deg, ${theme.colors.background}, ${theme.colors.primary})` }} />
                 <span className="truncate text-[10px] font-bold" style={{ color: 'var(--color-text)' }}>{theme.name}</span>
               </button>
               <button onClick={() => deleteCustomTheme(theme.id)} className="rounded-lg p-1 hover:bg-white/10" style={{ color: 'var(--color-text-secondary)' }} aria-label="Delete theme"><Trash2 className="h-3 w-3" /></button>

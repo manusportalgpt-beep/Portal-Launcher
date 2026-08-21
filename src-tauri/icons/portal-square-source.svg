@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Portal Launcher square portal mark">
+  <rect width="1024" height="1024" rx="144" fill="#09090b"/>
+  <rect x="54" y="54" width="916" height="916" rx="108" fill="none" stroke="#24242a" stroke-width="20"/>
+  <g fill="none" stroke="#020203" stroke-width="124" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="M170 356V170H692M854 356V854H332"/>
+    <path d="M324 496V324H620M700 496V700H404"/>
+    <path d="M458 600V458H570M620 600V620H508"/>
+  </g>
+  <g fill="none" stroke="#e60018" stroke-width="76" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="M170 356V170H692M854 356V854H332"/>
+    <path d="M324 496V324H620M700 496V700H404"/>
+    <path d="M458 600V458H570M620 600V620H508"/>
+  </g>
+</svg>

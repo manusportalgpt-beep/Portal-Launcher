@@ -1505,3 +1505,11 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Detect mod JARs, resource-pack ZIPs and shader-pack ZIPs and route each to the current instance `mods`, `resourcepacks` or `shaderpacks` directory.
 - [x] Refresh content metadata and surface a localized honest error when a selected file cannot be classified or copied.
 - [x] Run TypeScript-only verification and push the file-add routing repair to GitHub main.
+
+---
+
+# Square Portal Launcher icon refresh
+
+- [x] Replace only launcher icon resources with a square red portal mark, black inset field and clear outline for desktop-size readability.
+- [x] Regenerate all application icon formats and resolutions from the same square source so shortcut, taskbar and window use one mark.
+- [x] Verify the icon resource set and push only icon assets plus the required TODO update to GitHub main.

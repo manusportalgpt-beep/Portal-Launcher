@@ -1363,4 +1363,4 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 
 - [x] Replace the incorrect rectangular spiral with a reference-matched circular red multi-arc portal symbol inside a compact square icon composition.
 - [x] Preserve a black inner field, crisp black stroke outline and true alpha transparency outside the mark in every native resource.
-- [ ] Run TypeScript-only verification and push the reference-correct icon replacement to GitHub main.
+- [x] Run TypeScript-only verification and push the reference-correct icon replacement to GitHub main.

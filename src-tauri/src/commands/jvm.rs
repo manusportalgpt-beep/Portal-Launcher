@@ -27,24 +27,13 @@ pub fn java_cache_dir() -> PathBuf {
 }
 
 /// Find best available Java for the given major version.
-/// Priority: user JAVA_HOME → managed runtime → validated system PATH → platform JVM paths.
+/// Priority: managed Portal Launcher runtime → user JAVA_HOME → validated
+/// system PATH → platform JVM paths. A manually selected per-instance/runtime
+/// path is handled by the launcher before this automatic resolver is called.
 pub fn find_java(major: u32) -> String {
-    // Prefer an exact, 64-bit Java already installed by the user. This avoids
-    // downloading a managed runtime when the required Java is already usable.
-    let mut user_candidates: Vec<PathBuf> = Vec::new();
-    if let Ok(home) = std::env::var("JAVA_HOME") {
-        user_candidates.push(if cfg!(windows) { PathBuf::from(home).join("bin").join("java.exe") } else { PathBuf::from(home).join("bin").join("java") });
-    }
-    for candidate in user_candidates.into_iter().filter(|path| path.exists()) {
-        if let Some(info) = run_java(&candidate.to_string_lossy()) {
-            if (info.major_version == major || major == 0) && !info.architecture.eq_ignore_ascii_case("x86") {
-                log::info!("Using user-installed Java: {}", candidate.display());
-                return candidate.to_string_lossy().to_string();
-            }
-        }
-    }
-
-    // 1. Scan our managed dir (PortalLauncher/java/)
+    // 1. Use an exact, 64-bit managed runtime when it is available. These
+    // runtimes are tested with Portal Launcher and keep automatic launches
+    // stable even if JAVA_HOME changes after another application update.
     let base = java_base_dir();
     if let Ok(entries) = std::fs::read_dir(&base) {
         let mut candidates: Vec<PathBuf> = entries
@@ -77,15 +66,16 @@ pub fn find_java(major: u32) -> String {
         }
     }
 
-    // 2. JAVA_HOME
+    // 2. A compatible user-installed Java is a fallback, so a launcher with no
+    // managed runtime does not download another copy unnecessarily.
     if let Ok(jh) = std::env::var("JAVA_HOME") {
         let bin = if cfg!(windows) { PathBuf::from(&jh).join("bin").join("java.exe") }
                   else { PathBuf::from(&jh).join("bin").join("java") };
         if bin.exists() {
             if let Some(info) = run_java(&bin.to_string_lossy()) {
                 log::info!("🔍 Found JAVA_HOME Java: {} (version={})", bin.display(), info.major_version);
-                if info.major_version == major || major == 0 {
-                    log::info!("✅ Using JAVA_HOME Java: {}", bin.display());
+                if (info.major_version == major || major == 0) && !info.architecture.eq_ignore_ascii_case("x86") {
+                    log::info!("Using user-installed Java from JAVA_HOME: {}", bin.display());
                     return bin.to_string_lossy().to_string();
                 }
             }

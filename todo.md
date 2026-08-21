@@ -1182,3 +1182,11 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the supported-core-only update to GitHub main.
 
 ---
+
+# Regression investigation: non-working flows and Minecraft performance
+
+- [ ] Identify the exact remaining non-working launcher flows reported after the supported-core update.
+- [ ] Investigate Minecraft in-game performance regression without changing JVM limits or deleting existing instances.
+- [x] Restore managed Portal Launcher Java as the automatic runtime preference while retaining installed Java as a no-download fallback.
+- [x] Run TypeScript-only verification for the managed-Java preference repair.
+- [ ] Apply verified regression fixes, run TypeScript-only verification, and push the result to GitHub main.

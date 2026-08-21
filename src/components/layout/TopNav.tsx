@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  Home, Compass, Library, User, Settings, LogIn, Pin, ChevronLeft, ChevronRight,
+  House, Search, Boxes, CircleUserRound, SlidersHorizontal, PanelsTopLeft, LogIn, Pin, ChevronLeft, ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -16,10 +16,10 @@ import { CachedPlayerFace } from '@/components/CachedPlayerFace';
 interface NavItem { to: string; icon: LucideIcon; labelKey: 'home' | 'discover' | 'skins' | 'library' | 'settings'; end?: boolean }
 
 const NAV: NavItem[] = [
-  { to: '/home', icon: Home, labelKey: 'home', end: true },
-  { to: '/discover', icon: Compass, labelKey: 'discover' },
-  { to: '/skins', icon: User, labelKey: 'skins' },
-  { to: '/library', icon: Library, labelKey: 'library' },
+  { to: '/home', icon: House, labelKey: 'home', end: true },
+  { to: '/discover', icon: Search, labelKey: 'discover' },
+  { to: '/skins', icon: CircleUserRound, labelKey: 'skins' },
+  { to: '/library', icon: Boxes, labelKey: 'library' },
 ];
 
 function orderedNav(order: string[]) {
@@ -65,7 +65,7 @@ function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem
             backfaceVisibility: 'hidden',
             WebkitFontSmoothing: 'antialiased',
           }} />
-          {(showLabel || revealLabelOnHover) && <span className={`relative whitespace-nowrap text-xs font-bold ${showLabel ? 'flex-1' : 'max-w-0 overflow-hidden opacity-0 transition-[max-width,opacity] group-hover:max-w-28 group-hover:opacity-100'}`} style={{ transitionDuration: revealLabelOnHover ? `${navHoverMs}ms` : undefined, color:'var(--color-text-secondary)', transform: 'translateZ(0)', backfaceVisibility: 'hidden', WebkitFontSmoothing: 'antialiased' }}>{label}</span>}
+          {(showLabel || revealLabelOnHover) && <span className={`nav-dock-label relative whitespace-nowrap text-xs font-bold ${showLabel ? 'flex-1' : 'max-w-0 overflow-hidden opacity-0 transition-[max-width,opacity] group-hover:max-w-28 group-hover:opacity-100'}`} style={{ transitionDuration: revealLabelOnHover ? `${navHoverMs}ms` : undefined, color:'var(--color-text-secondary)', transform: 'translateZ(0)', backfaceVisibility: 'hidden', WebkitFontSmoothing: 'antialiased' }}>{label}</span>}
         </>
       )}
     </NavLink>
@@ -143,14 +143,14 @@ function SidebarNav() {
   const justifyContent = appearance.alignment === 'start' ? 'flex-start' : appearance.alignment === 'end' ? 'flex-end' : 'center';
   const borderColor = appearance.border === 'none' ? 'transparent' : appearance.border === 'strong' ? 'var(--color-border-strong)' : 'var(--color-border)';
   return (
-    <aside className="clean-nav shrink-0 flex flex-col z-40"
-      style={{ width: sidebarWidth, gap:appearance.gap, padding: `${appearance.edgePadding}px 10px`, justifyContent, background:'var(--color-surface)', borderRight: `1px solid ${borderColor}`, boxShadow:'none', backdropFilter:'none', WebkitBackdropFilter:'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease, background calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
-      <div className="px-2 pb-3 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-text-tertiary)' }}>Portal Launcher</div>
+    <aside className="portal-sidebar clean-nav shrink-0 flex flex-col z-40"
+      style={{ width: Math.min(sidebarWidth, 184), gap:Math.min(appearance.gap, 6), padding: `${Math.min(appearance.edgePadding, 12)}px 8px`, justifyContent, background:'var(--color-bg)', borderRight:'0', boxShadow:'none', backdropFilter:'none', WebkitBackdropFilter:'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
+      <div className="nav-identity flex items-center gap-2 px-2 pb-2" style={{ color:'var(--color-text)' }}><PanelsTopLeft size={15} style={{ color:'var(--color-primary)' }} /><span className="nav-identity-label text-xs font-semibold">Portal Launcher</span></div>
       {items.map(item => <DockButton key={item.to} item={item} vertical scale={scale} appearance={appearance} />)}
       <InstanceQuickAccess vertical />
       <div className="flex-1" />
       <div className="px-2"><AccountButton /></div>
-      <DockButton item={{ to: '/settings', icon: Settings, labelKey: 'settings' }} vertical scale={scale} appearance={appearance} />
+      <DockButton item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} vertical scale={scale} appearance={appearance} />
     </aside>
   );
 }
@@ -222,7 +222,8 @@ function NotchNav() {
             <motion.div key="handle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               style={{
                 background: 'var(--color-border-strong)',
-                ...(vertical ? { width: 6, height: 34 } : { width: 34, height: 6 }),
+                borderRadius:2,
+                ...(vertical ? { width: 4, height: 28 } : { width: 28, height: 4 }),
               }} />
           )}
         </AnimatePresence>
@@ -232,7 +233,7 @@ function NotchNav() {
             <motion.nav key="dock"
               initial={{ opacity: 0, scale: dockScale * 0.96, ...offset }} animate={{ opacity: 1, scale: dockScale, x: 0, y: 0 }} exit={{ opacity: 0, scale: dockScale * 0.96, ...offset }}
               transition={{ duration: 0.12, ease: [0.22, 0.78, 0.24, 1] }}
-              className={`clean-nav flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1 rounded-xl`}
+              className={`portal-notch clean-nav flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1 rounded-xl`}
               style={{
                 position: 'absolute',
                 zIndex: 1,
@@ -242,8 +243,8 @@ function NotchNav() {
                 padding: Math.max(visualPanelVersion === 'new' ? 5 : 4, Math.min(5, appearance.edgePadding / 2)),
                 gap: Math.min(appearance.gap, 3),
                 background:'var(--color-surface)',
-                border: `1px solid ${borderColor}`,
-                borderRadius: visualPanelVersion === 'new' ? 'var(--radius-modal)' : 'var(--radius-xl)',
+                border:'0',
+                borderRadius:'var(--radius-sm)',
                 backdropFilter:'none',
                 WebkitBackdropFilter:'none',
                 boxShadow:'none',
@@ -253,7 +254,7 @@ function NotchNav() {
               <InstanceQuickAccess vertical={vertical} />
               <div className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1`}>
                 <AccountButton />
-                <DockButton item={{ to: '/settings', icon: Settings, labelKey: 'settings' }} vertical={vertical} scale={navItemScale} appearance={appearance} />
+                <DockButton item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} vertical={vertical} scale={navItemScale} appearance={appearance} />
                 <button title="Назад" onClick={() => window.history.back()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronLeft size={13} /></button>
                 <button title="Вперёд" onClick={() => window.history.forward()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronRight size={13} /></button>
                 <button title={t('notch.pin')} onClick={() => set('notchPinned', !notchPinned)}

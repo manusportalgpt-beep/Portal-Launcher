@@ -426,6 +426,22 @@ html[data-design-system="clean"] :is(.tabs, [role="tablist"], .segmented-control
   border-radius:var(--radius-button) !important;
   box-shadow:none !important;
 }
+html[data-design-system="clean"] .portal-sidebar {
+  border-right:0 !important;
+  background:var(--color-bg) !important;
+}
+html[data-design-system="clean"] .portal-sidebar .group:hover > span:first-child,
+html[data-design-system="clean"] .portal-sidebar .group[aria-current="page"] > span:first-child {
+  background:var(--color-surface) !important;
+}
+html[data-design-system="clean"] .portal-notch { border:0 !important; background:var(--color-bg) !important; }
+@media (max-width: 760px) {
+  html[data-design-system="clean"] .portal-sidebar { width:48px !important; padding-left:8px !important; padding-right:8px !important; }
+  html[data-design-system="clean"] .portal-sidebar .nav-identity-label,
+  html[data-design-system="clean"] .portal-sidebar .nav-dock-label { display:none !important; }
+  html[data-design-system="clean"] .portal-sidebar a[data-testid^="nav-"] { width:32px !important; min-width:32px !important; height:32px !important; }
+  html[data-design-system="clean"] .portal-sidebar .nav-identity { justify-content:center; padding-left:0; padding-right:0; }
+}
 html[data-design-system="clean"] :is(.uppercase.tracking-widest, .uppercase.tracking-wider, .uppercase.tracking-wide) { letter-spacing:0.04em !important; font-size:0.6875rem !important; }
 
 

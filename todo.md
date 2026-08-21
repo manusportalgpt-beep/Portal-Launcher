@@ -1272,3 +1272,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Reduce non-semantic connecting lines and nested separators so each page reads as one interface surface.
 - [x] Unify active launcher icons around one human-made-feeling outline weight, alignment and neutral inactive treatment without replacing the pending app icon.
 - [x] Run TypeScript-only verification and push the square-interface update to GitHub main.
+
+---
+
+# Seamless compact navigation
+
+- [x] Rebuild Sidebar as a visible but compact, seam-free navigation surface without a floating outer edge or internal decorative cards.
+- [x] Rebuild Notch panel with the same compact square rhythm, visible controls and no detached border/blur/shadow treatment.
+- [x] Use one coherent, human-made-feeling outline icon set and explicit accessible labels without changing the pending application icon.
+- [x] Preserve responsive behavior so navigation yields more content width on laptops and narrow screens.
+- [x] Run TypeScript-only verification and push the seamless navigation update to GitHub main.

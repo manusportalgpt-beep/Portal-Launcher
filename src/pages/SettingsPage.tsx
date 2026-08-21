@@ -157,10 +157,10 @@ function AccountSection() {
       <h2 className="text-base font-bold mb-1" style={{ color:'var(--color-text)' }}>Аккаунт Microsoft</h2>
       <p className="text-sm mb-5" style={{ color:'var(--color-text-secondary)' }}>Управление игровыми аккаунтами Minecraft</p>
       {isAuth && user ? (
-        <div className="p-4 rounded-2xl mb-4" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+        <div className="p-4 rounded-2xl mb-4" style={{ background:'var(--color-bg)', border:'1px solid var(--color-border)' }}>
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0"
-              style={{ background:'linear-gradient(135deg,var(--color-primary),#E74C3C)' }}>
+              style={{ background:'var(--color-bg)', border:'1px solid var(--color-border)' }}>
               <CachedPlayerFace user={user} className="w-full h-full" alt="" />
             </div>
             <div className="flex-1 min-w-0">
@@ -189,10 +189,10 @@ function AccountSection() {
         </div>
       ) : (
         <div className="p-6 rounded-2xl mb-4 flex flex-col items-center gap-4"
-          style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+          style={{ background:'var(--color-bg)', border:'1px solid var(--color-border)' }}>
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-            style={{ background:'linear-gradient(135deg,#0078D4,#00BCF2)' }}>
-            <LogIn className="w-7 h-7 text-white" />
+            style={{ background:'var(--color-bg)', border:'1px solid var(--color-border)', color:'var(--color-primary)' }}>
+            <LogIn className="w-7 h-7" />
           </div>
           <div className="text-center">
             <p className="font-bold" style={{ color:'var(--color-text)' }}>Вход не выполнен</p>
@@ -200,7 +200,7 @@ function AccountSection() {
           </div>
           <button onClick={() => setShowAuth(true)}
             className="px-5 py-2.5 rounded-xl text-sm font-bold"
-            style={{ background:'#0078D4', color:'#fff' }}>
+            style={{ background:'transparent', color:'var(--color-primary)', border:'1px solid var(--color-primary)' }}>
             Войти в аккаунт
           </button>
         </div>
@@ -213,9 +213,9 @@ function AccountSection() {
             {accounts.filter(a => a.uuid !== activeAccountUuid).map(a => (
               <button key={a.uuid} onClick={() => switchAccount(a.uuid)}
                 className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left hover:opacity-90 transition-opacity"
-                style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+                style={{ background:'transparent', border:'1px solid var(--color-border)' }}>
                 <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0"
-                  style={{ background:'linear-gradient(135deg,var(--color-primary),#E74C3C)' }}>
+                  style={{ background:'var(--color-bg)', border:'1px solid var(--color-border)' }}>
                   <CachedPlayerFace user={a} className="w-full h-full" alt="" />
                 </div>
                 <div className="min-w-0 flex-1">

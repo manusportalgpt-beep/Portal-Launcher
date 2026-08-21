@@ -1421,3 +1421,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Restore theme-card colour top strips after selection and preserve the selected state without a disappearing palette marker.
 - [x] Verify the exact Forge installer artifact URL/version in the reported 404 and add a safe official fallback/version-mapping path without changing Modrinth, CurseForge, Bedrock or performance settings.
 - [x] Run TypeScript-only verification and push the preview, identity, interface and Forge correction to GitHub main.
+
+---
+
+# ModDetail, settings surfaces and instance-settings localization repair
+
+- [x] Remove the animated mirrored screenshot ribbons from ModDetail and restore the prior static, project-focused content hierarchy only for this page.
+- [x] Repair screenshot-gallery hover and arrow controls so the buttons remain visible, do not overlap captions/actions, and do not trap pointer events.
+- [x] Reduce the heavy gray Settings account and section surfaces to black-background outlined objects with concise grouping.
+- [x] Audit the instance settings page and replace remaining visible English strings with Russian i18n-backed text without altering its behavior.
+- [x] Run TypeScript-only verification and push the scoped ModDetail, settings and localization repair to GitHub main.

@@ -18,6 +18,7 @@ import { useAuthorAvatar } from '@/lib/author-avatar';
 import { saveSearchReturn } from '@/lib/search-navigation';
 import { useLaunchStore } from '@/stores/launchStore';
 import { getModrinthProjectGateway, getModrinthVersionsGateway } from '@/lib/modrinth-gateway';
+import modrinthWrench from '@/assets/modrinth-wrench-clean.png';
 
 interface ModVersion {
   id: string;
@@ -249,6 +250,18 @@ function ModpackPreviewModal({ preview, onClose, onInstall }: { preview: Modpack
   );
 }
 
+function ScreenshotRibbons({ items, onSelect }: { items: Array<{ url: string; title?: string; description?: string }>; onSelect: (index: number) => void }) {
+  const repeated = items.length > 1 ? [...items, ...items] : items;
+  return <div className="project-screenshot-ribbons grid h-[460px] grid-cols-2 gap-3 overflow-hidden" style={{ border:'1px solid var(--color-border)', background:'var(--color-bg)' }}>
+    <div className="project-ribbon-track project-ribbon-down">
+      {repeated.map((item, index) => <button key={`down-${item.url}-${index}`} type="button" onClick={() => onSelect(index % items.length)} className="project-ribbon-item"><img src={item.url} alt={item.title || 'Скриншот модификации'} loading="lazy" /></button>)}
+    </div>
+    <div className="project-ribbon-track project-ribbon-up">
+      {repeated.map((item, index) => <button key={`up-${item.url}-${index}`} type="button" onClick={() => onSelect((items.length - 1 - (index % items.length) + items.length) % items.length)} className="project-ribbon-item"><img src={items[(items.length - 1 - (index % items.length) + items.length) % items.length].url} alt={item.title || 'Скриншот модификации'} loading="lazy" /></button>)}
+    </div>
+  </div>;
+}
+
 function ProjectScreenshots({ items, instanceId }: { items: Array<{ url: string; title?: string; description?: string }>; instanceId?: string | null }) {
   const [selected, setSelected] = useState<number | null>(null);
   const [downloading, setDownloading] = useState<'downloads' | 'instance' | null>(null);
@@ -273,14 +286,7 @@ function ProjectScreenshots({ items, instanceId }: { items: Array<{ url: string;
   );
   return (
     <>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {items.map((item, index) => (
-          <button key={`${item.url}-${index}`} onClick={() => setSelected(index)} className="group overflow-hidden rounded-sm text-left transition-colors" style={{ background: 'transparent', border: '1px solid var(--color-border)' }}>
-            <div className="aspect-video overflow-hidden" style={{ background: 'var(--color-background)' }}><img src={item.url} alt={item.title || 'Mod screenshot'} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" /></div>
-            {(item.title || item.description) && <div className="p-3"><p className="truncate text-xs font-bold" style={{ color: 'var(--color-text)' }}>{item.title || 'Screenshot'}</p>{item.description && <p className="mt-1 line-clamp-2 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>{item.description}</p>}</div>}
-          </button>
-        ))}
-      </div>
+      <ScreenshotRibbons items={items} onSelect={setSelected} />
       <AnimatePresence>
         {selected !== null && (
           <motion.div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 p-5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setSelected(null)}>
@@ -882,7 +888,7 @@ export function ModDetail() {
           {location.state?.fromFindProjects ? 'К проектам' : 'Назад к поиску'}
         </button>
 
-        <motion.div className="mb-4 flex items-start gap-4 border-y py-4"
+        <motion.div className="mb-0 flex items-start gap-4 py-4"
           style={{ background: 'transparent', borderColor:'var(--color-border)' }}
           initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
 
@@ -898,7 +904,7 @@ export function ModDetail() {
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div className="min-w-0 flex-1">
                 <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--color-text)' }}>{project?.title}</h1>
-                <p className="max-w-2xl border-b pb-3 text-sm" style={{ color: 'var(--color-text-secondary)', borderColor:'var(--color-border)' }}>{project?.description}</p>
+                <p className="max-w-2xl text-sm" style={{ color: 'var(--color-text-secondary)' }}>{project?.description}</p>
                 {project?.author && (
                   <button
                     onClick={() => navigate(`/author/${source === 'curseforge' ? 'curseforge' : 'modrinth'}/${encodeURIComponent(project.author!)}`)}
@@ -954,7 +960,7 @@ export function ModDetail() {
               </div>
             </div>
 
-            <div className="flex items-center gap-4 mt-3 flex-wrap border-t pt-3" style={{ borderColor:'var(--color-border)' }}>
+            <div className="-mx-4 mt-4 flex items-center gap-4 flex-wrap border-y px-4 py-3" style={{ background:'var(--color-surface)', borderColor:'var(--color-border)' }}>
               <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 <Download className="w-4 h-4" />{(project?.downloads ?? 0).toLocaleString('ru-RU')} загрузок
               </span>
@@ -967,9 +973,8 @@ export function ModDetail() {
                   <Calendar className="w-4 h-4" />Обновлено {new Date(project.date_modified).toLocaleDateString('ru-RU')}
                 </span>
               )}
-              <span className="text-xs font-bold px-2 py-1 rounded-sm"
-                style={{ background:'transparent', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-                {source === 'modrinth' ? 'Modrinth' : 'CurseForge'}
+              <span className="flex h-6 w-6 items-center justify-center" title={source === 'modrinth' ? 'Modrinth' : 'CurseForge'} style={{ border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}>
+                {source === 'modrinth' ? <img src={modrinthWrench} alt="Modrinth" className="h-3.5 w-3.5 object-contain" /> : <Code className="h-3.5 w-3.5" />}
               </span>
               {project?.source_url && (
                 <a href={project.source_url} target="_blank" rel="noreferrer"
@@ -1002,8 +1007,8 @@ export function ModDetail() {
           </div>
         </motion.div>
 
-        <div className="flex gap-3 mb-4 border-b"
-          style={{ background: 'transparent', borderColor:'var(--color-border)' }}>
+        <div className="-mx-4 mb-5 flex gap-0 border-y px-4"
+          style={{ background: 'var(--color-surface)', borderColor:'var(--color-border)' }}>
           {([
             ['desc', 'Описание'],
             ['versions', `Версии (${versions.length})`],
@@ -1011,7 +1016,7 @@ export function ModDetail() {
             ['screenshots', `Скриншоты (${project?.gallery?.length ?? 0})`],
           ] as const).map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
-              className="py-2 text-sm font-medium transition-colors"
+              className="flex-1 py-3 text-center text-sm font-medium transition-colors"
               style={tab === id
                 ? { color: 'var(--color-text)', borderBottom:'2px solid var(--color-text)' }
                 : { color: 'var(--color-text-secondary)', borderBottom:'2px solid transparent' }}>

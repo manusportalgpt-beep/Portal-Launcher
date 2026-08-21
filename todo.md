@@ -1364,3 +1364,14 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Replace the incorrect rectangular spiral with a reference-matched circular red multi-arc portal symbol inside a compact square icon composition.
 - [x] Preserve a black inner field, crisp black stroke outline and true alpha transparency outside the mark in every native resource.
 - [x] Run TypeScript-only verification and push the reference-correct icon replacement to GitHub main.
+
+---
+
+# Sidebar, Notch and Mod Detail correction
+
+- [x] Widen the default Sidebar and place every navigation, instance and utility icon on one stable centered grid without drift or mismatched boxes.
+- [x] Make the Notch Panel use the same square black surface and neutral-gray object outlines as the rest of the launcher, removing the detached gray panel effect.
+- [x] Make the Notch/Sidebar quick-instance `+` action navigate directly to Instance Studio creation instead of the theme creation surface.
+- [x] Rebuild Mod Detail as a continuous content page with fewer nested panels, full-width neutral metadata and tab strips, and a Modrinth glyph instead of the literal source word.
+- [x] Add paired screenshot ribbons when screenshots exist: the left ribbon loops top-to-bottom, while the right shows the same images looping in the reverse direction.
+- [ ] Run TypeScript-only verification and push the Sidebar, Notch and Mod Detail correction to GitHub main.

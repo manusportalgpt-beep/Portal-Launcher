@@ -46,7 +46,7 @@ function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem
       title={label}
       data-testid={`nav-${item.labelKey}`}
       className="group relative flex items-center justify-center gap-2 px-2.5 text-left"
-      style={{ width: showLabel ? '100%' : 36 * scale / 100, minWidth: 36 * scale / 100, height: showLabel ? 42 * scale / 100 : 32 * scale / 100, borderRadius: interactionRadius, isolation:'isolate' }}
+      style={{ width: showLabel ? '100%' : (vertical ? 40 : 34) * scale / 100, minWidth: (vertical ? 40 : 34) * scale / 100, height: showLabel ? 42 * scale / 100 : (vertical ? 40 : 34) * scale / 100, borderRadius: interactionRadius, isolation:'isolate' }}
     >
       {({ isActive }) => (
         <>
@@ -85,15 +85,15 @@ function InstanceQuickAccess({ vertical }: { vertical: boolean }) {
         <button key={inst.id} title={inst.name}
           onClick={() => { select(inst.id); navigate('/library'); }}
           className="rounded-sm overflow-hidden shrink-0 flex items-center justify-center font-bold text-[10px]"
-          style={{ width: 32, height: 32, background: inst.color || 'var(--color-surface-2)', color: '#fff', border:'1px solid var(--color-border)' }}>
+          style={{ width: vertical ? 40 : 32, height: vertical ? 40 : 32, background: inst.color || 'var(--color-surface-2)', color: '#fff', border:'1px solid var(--color-border)' }}>
           {inst.iconPath
             ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" draggable={false} style={{ imageRendering:'auto', filter:'none', opacity:1 }} />
             : inst.name[0]?.toUpperCase()}
         </button>
       ))}
-      <button title="Создать сборку" onClick={() => navigate('/library?create=1')}
+      <button type="button" title="Создать сборку" onClick={(event) => { event.preventDefault(); event.stopPropagation(); navigate('/library?create=1'); }}
         className="rounded-sm shrink-0 flex items-center justify-center"
-        style={{ width:32, height:32, background:'transparent', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
+        style={{ width:vertical ? 40 : 32, height:vertical ? 40 : 32, background:'transparent', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
         <Plus size={15} />
       </button>
     </div>
@@ -101,7 +101,7 @@ function InstanceQuickAccess({ vertical }: { vertical: boolean }) {
 }
 
 /** Аватар аккаунта — при клике показывает, каким способом выполнен вход. */
-function AccountButton() {
+function AccountButton({ vertical = false }: { vertical?: boolean }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const user = useCurrentUser();
@@ -119,7 +119,7 @@ function AccountButton() {
       <button title={isAuthenticated && user ? user.username : t('auth.signIn')}
         onClick={() => isAuthenticated ? setOpen(v => !v) : navigate('/settings/account')}
         className="flex items-center justify-center rounded-sm overflow-hidden shrink-0"
-        style={{ width: 32, height: 32, background: 'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+        style={{ width: vertical ? 40 : 32, height: vertical ? 40 : 32, background: 'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
         {isAuthenticated && user
           ? <CachedPlayerFace user={user} className="w-full h-full" alt="" />
           : isAuthenticated && user
@@ -148,12 +148,12 @@ function SidebarNav() {
   const borderColor = appearance.border === 'none' ? 'transparent' : appearance.border === 'strong' ? 'var(--color-border-strong)' : 'var(--color-border)';
   return (
     <aside className="portal-sidebar clean-nav shrink-0 flex flex-col z-40"
-      style={{ width: Math.min(sidebarWidth, 72), gap:Math.min(appearance.gap, 4), padding: `${Math.min(appearance.edgePadding, 10)}px 8px`, justifyContent, background:'var(--color-bg)', borderRight:'0', boxShadow:'none', backdropFilter:'none', WebkitBackdropFilter:'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
-      <div className="nav-identity flex items-center justify-center pb-1" style={{ color:'var(--color-text)' }}><PanelsTopLeft size={15} style={{ color:'var(--color-primary)' }} /></div>
+      style={{ width: Math.max(84, sidebarWidth), gap:Math.min(appearance.gap, 5), padding: `${Math.min(appearance.edgePadding, 12)}px 12px`, justifyContent, background:'var(--color-bg)', borderRight:'1px solid var(--color-border)', boxShadow:'none', backdropFilter:'none', WebkitBackdropFilter:'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
+      <div className="nav-identity flex h-10 items-center justify-center" style={{ color:'var(--color-text)' }}><PanelsTopLeft size={16} style={{ color:'var(--color-primary)' }} /></div>
       {items.map(item => <DockButton key={item.to} item={item} vertical scale={scale} appearance={appearance} />)}
       <InstanceQuickAccess vertical />
       <div className="flex-1" />
-      <div className="flex justify-center"><AccountButton /></div>
+      <div className="flex justify-center"><AccountButton vertical /></div>
       <DockButton item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} vertical scale={scale} appearance={appearance} />
     </aside>
   );
@@ -246,8 +246,8 @@ function NotchNav() {
                 ...(vertical ? { [isStart ? 'left' : 'right']: 0 } : { [isStart ? 'top' : 'bottom']: 0 }),
                 padding: Math.max(visualPanelVersion === 'new' ? 5 : 4, Math.min(5, appearance.edgePadding / 2)),
                 gap: Math.min(appearance.gap, 3),
-                background:'var(--color-surface)',
-                border:'0',
+                background:'var(--color-bg)',
+                border:'1px solid var(--color-border)',
                 borderRadius:'var(--radius-sm)',
                 backdropFilter:'none',
                 WebkitBackdropFilter:'none',
@@ -257,7 +257,7 @@ function NotchNav() {
               {items.map(item => <DockButton key={item.to} item={item} vertical={vertical} scale={navItemScale} appearance={appearance} />)}
               <InstanceQuickAccess vertical={vertical} />
               <div className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1`}>
-                <AccountButton />
+                <AccountButton vertical={vertical} />
                 <DockButton item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} vertical={vertical} scale={navItemScale} appearance={appearance} />
                 <button title="Назад" onClick={() => window.history.back()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronLeft size={13} /></button>
                 <button title="Вперёд" onClick={() => window.history.forward()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronRight size={13} /></button>

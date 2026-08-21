@@ -422,9 +422,6 @@ function AppearanceSection() {
       <Row label="Иконка источника контента" desc="Показывать некликабельную иконку Modrinth или CurseForge рядом с действиями в строках контента">
         <Toggle value={ui.showContentSourceIcon} onChange={value => ui.set('showContentSourceIcon', value)} />
       </Row>
-      <Row label="Имя игрока над стендом" desc="Показывать имя аккаунта или пресета над большой 3D-моделью скина">
-        <Toggle value={ui.showSkinStandName} onChange={value => ui.set('showSkinStandName', value)} />
-      </Row>
       <SegRow label="Возврат со страницы проекта" desc="Выберите положение для Discover и «Найти проекты» после закрытия страницы Modrinth или CurseForge"
         value={ui.searchDetailReturnPosition}
         options={[{ id:'remember', label:'Предыдущее место' }, { id:'top', label:'Верх' }, { id:'bottom', label:'Низ' }]}

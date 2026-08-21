@@ -147,7 +147,7 @@ export interface UiState {
 }
 
 const defaults = {
-  navMode: 'notch' as NavMode,
+  navMode: 'sidebar' as NavMode,
   notchSide: 'top' as NotchSide,
   notchHotzone: 46,
   notchPinned: false,
@@ -158,7 +158,7 @@ const defaults = {
   navItemOrder: ['home', 'discover', 'skins', 'library'],
   navHoverMs: 180,
   notchWidth: 72,
-  sidebarWidth: 148,
+  sidebarWidth: 64,
   navItemScale: 100,
   uiScale: 100,
   cornerRadius: 12,
@@ -174,12 +174,12 @@ const defaults = {
   customCssName: '',
   customCssEnabled: true,
   textColorOverride: 'auto' as 'auto' | 'black' | 'white',
-  navInstanceCount: 5,
+  navInstanceCount: 8,
   avatarStyle: 'head' as 'face' | 'head',
   fontFamily: 'theme' as FontFamily,
   installEffect: 'icon-drop' as InstallEffect,
   showContentSourceIcon: true,
-  showSkinStandName: true,
+  showSkinStandName: false,
   searchDetailReturnPosition: 'remember' as SearchDetailReturnPosition,
   uiMode: 'new' as UiMode,
   panelVersion: 'new' as PanelVersion,
@@ -212,9 +212,9 @@ const defaults = {
     labels: 'icons' as NavLabels, hoverIndicator: 'circle' as NavHoverIndicator, interactionShape: 'circle' as NavInteractionShape,
   },
   sidebarPanelAppearance: {
-    alignment: 'start' as NavAlignment, gap: 6, edgePadding: 12, opacity: 92, blur: 18,
-    shadow: 'soft' as NavShadow, border: 'subtle' as NavBorder, activeIndicator: 'pill' as NavActiveIndicator,
-    labels: 'always' as NavLabels, hoverIndicator: 'circle' as NavHoverIndicator, interactionShape: 'circle' as NavInteractionShape,
+    alignment: 'start' as NavAlignment, gap: 4, edgePadding: 10, opacity: 100, blur: 0,
+    shadow: 'none' as NavShadow, border: 'none' as NavBorder, activeIndicator: 'line' as NavActiveIndicator,
+    labels: 'icons' as NavLabels, hoverIndicator: 'square' as NavHoverIndicator, interactionShape: 'square' as NavInteractionShape,
   },
   contentWidth: 100,
   contentInset: 0,
@@ -231,10 +231,23 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'portal-launcher-ui',
-      version: 3,
+      version: 5,
       migrate: (persisted: any, version) => {
         // Migrate only stock Title Bar heights from earlier releases; custom heights remain the user's choice.
         if (version < 3 && [28, 30, 32].includes(persisted?.titlebarHeight)) persisted.titlebarHeight = 26;
+        // Stock layouts used Notch and showed only a few instance shortcuts.
+        // Preserve an explicit custom mode/count, but migrate the old defaults.
+        if (version < 4 && (persisted?.navMode === 'notch' || persisted?.navMode == null)) persisted.navMode = 'sidebar';
+        if (version < 4 && [4, 5].includes(persisted?.navInstanceCount)) persisted.navInstanceCount = 8;
+        if (version < 5 && persisted?.sidebarWidth === 148) persisted.sidebarWidth = 64;
+        if (version < 5 && persisted?.sidebarPanelAppearance?.labels === 'always') {
+          persisted.sidebarPanelAppearance = {
+            ...persisted.sidebarPanelAppearance,
+            alignment: 'start', gap: 4, edgePadding: 10, opacity: 100, blur: 0,
+            shadow: 'none', border: 'none', activeIndicator: 'line', labels: 'icons',
+            hoverIndicator: 'square', interactionShape: 'square',
+          };
+        }
         return persisted;
       },
     },

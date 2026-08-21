@@ -184,28 +184,28 @@ function DependencyGroup({ title, tone, entries, depInfo, navigate, contextInsta
   contextLoader: string;
 }) {
   const fixed = tone === 'required'
-    ? { border: '#F1C40F', background: 'rgba(241,196,15,0.10)', label: 'Обязательно' }
-    : { border: '#E74C3C', background: 'rgba(231,76,60,0.10)', label: 'Несовместимо' };
+    ? { label: 'Обязательно' }
+    : { label: 'Несовместимо' };
   return (
-    <section>
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-black uppercase tracking-wider" style={{ color: fixed.border }}>{title}</p>
+    <section style={{ borderTop:'1px solid var(--color-border)' }}>
+      <div className="mb-1 flex items-center justify-between py-3">
+        <p className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>{title}</p>
         <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>{entries.length}</span>
       </div>
       <div className="space-y-2">
         {entries.map((dependency, index) => {
           const info = dependency.project_id ? depInfo[dependency.project_id] : undefined;
           return (
-            <div key={`${dependency.project_id ?? 'unknown'}-${index}`} className="flex items-center gap-3 rounded-xl p-3" style={{ background: fixed.background, border: `1px solid ${fixed.border}` }}>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg" style={{ background: 'var(--color-surface-2)' }}>
-                {info?.icon_url ? <img src={info.icon_url} alt="" className="h-full w-full object-cover" onError={event => { (event.target as HTMLImageElement).style.display = 'none'; }} /> : <Code className="h-4 w-4" style={{ color: fixed.border }} />}
+            <div key={`${dependency.project_id ?? 'unknown'}-${index}`} className="flex items-center gap-3 py-3" style={{ background:'transparent', borderTop:index ? '1px solid var(--color-border)' : '0' }}>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-sm" style={{ background: 'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+                {info?.icon_url ? <img src={info.icon_url} alt="" className="h-full w-full object-cover" onError={event => { (event.target as HTMLImageElement).style.display = 'none'; }} /> : <Code className="h-4 w-4" style={{ color: 'var(--color-text-secondary)' }} />}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold" style={{ color: 'var(--color-text)' }}>{info?.name ?? dependency.project_id ?? 'Неизвестная модификация'}</p>
                 <p className="flex items-center gap-1.5 truncate text-[11px]" style={{ color: 'var(--color-text-secondary)' }}><DependencyAuthorAvatar author={info?.author} source="modrinth" /><span className="truncate">{info?.author ?? 'Автор не указан'}</span></p>
-                <p className="mt-0.5 text-[10px] font-bold" style={{ color: fixed.border }}>{fixed.label}</p>
+                <p className="mt-0.5 text-[10px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}>{fixed.label}</p>
               </div>
-              {dependency.project_id && <button onClick={() => navigate(`/discover/modrinth/${dependency.project_id}`, { state: contextInstanceId ? { contextInstanceId, contextMcVersion, contextLoader } : undefined })} className="flex shrink-0 items-center gap-1 text-xs font-bold" style={{ color: fixed.border }}><ExternalLink className="h-3 w-3" />Открыть</button>}
+              {dependency.project_id && <button onClick={() => navigate(`/discover/modrinth/${dependency.project_id}`, { state: contextInstanceId ? { contextInstanceId, contextMcVersion, contextLoader } : undefined })} className="flex shrink-0 items-center gap-1 text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}><ExternalLink className="h-3 w-3" />Открыть</button>}
             </div>
           );
         })}
@@ -275,7 +275,7 @@ function ProjectScreenshots({ items, instanceId }: { items: Array<{ url: string;
     <>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {items.map((item, index) => (
-          <button key={`${item.url}-${index}`} onClick={() => setSelected(index)} className="group overflow-hidden rounded-2xl text-left transition-transform hover:-translate-y-0.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+          <button key={`${item.url}-${index}`} onClick={() => setSelected(index)} className="group overflow-hidden rounded-sm text-left transition-colors" style={{ background: 'transparent', border: '1px solid var(--color-border)' }}>
             <div className="aspect-video overflow-hidden" style={{ background: 'var(--color-background)' }}><img src={item.url} alt={item.title || 'Mod screenshot'} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" /></div>
             {(item.title || item.description) && <div className="p-3"><p className="truncate text-xs font-bold" style={{ color: 'var(--color-text)' }}>{item.title || 'Screenshot'}</p>{item.description && <p className="mt-1 line-clamp-2 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>{item.description}</p>}</div>}
           </button>
@@ -882,14 +882,14 @@ export function ModDetail() {
           {location.state?.fromFindProjects ? 'К проектам' : 'Назад к поиску'}
         </button>
 
-        <motion.div className="rounded-2xl p-6 mb-4 flex items-start gap-5"
-          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+        <motion.div className="mb-4 flex items-start gap-4 border-y py-4"
+          style={{ background: 'transparent', borderColor:'var(--color-border)' }}
           initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
 
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold shrink-0 overflow-hidden"
-            style={{ background: project?.icon_url ? 'transparent' : `${color}25`, color }}>
+          <div className="w-14 h-14 rounded-sm flex items-center justify-center text-xl font-bold shrink-0 overflow-hidden"
+            style={{ background: project?.icon_url ? 'transparent' : 'var(--color-surface-2)', color, border:'1px solid var(--color-border)' }}>
             {project?.icon_url
-              ? <img src={project.icon_url} alt="" className="w-full h-full object-cover rounded-2xl"
+              ? <img src={project.icon_url} alt="" className="w-full h-full object-cover rounded-sm"
                   onError={e => { (e.target as any).style.display = 'none'; }} />
               : letter}
           </div>
@@ -898,14 +898,14 @@ export function ModDetail() {
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div className="min-w-0 flex-1">
                 <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--color-text)' }}>{project?.title}</h1>
-                <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{project?.description}</p>
+                <p className="max-w-2xl border-b pb-3 text-sm" style={{ color: 'var(--color-text-secondary)', borderColor:'var(--color-border)' }}>{project?.description}</p>
                 {project?.author && (
                   <button
                     onClick={() => navigate(`/author/${source === 'curseforge' ? 'curseforge' : 'modrinth'}/${encodeURIComponent(project.author!)}`)}
-                    className="mt-2 inline-flex items-center gap-2 rounded-full pr-3 transition-colors hover:bg-white/5"
+                    className="mt-2 inline-flex items-center gap-2 transition-colors hover:opacity-75"
                     title={`Открыть профиль ${project.author}`}
                   >
-                    <span className="h-6 w-6 overflow-hidden rounded-full" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+                    <span className="h-5 w-5 overflow-hidden rounded-sm" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
                       {authorAvatar ? <img src={authorAvatar} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-[10px] font-black" style={{ color: 'var(--color-primary)' }}>{project.author[0]?.toUpperCase()}</span>}
                     </span>
                     <span className="text-xs font-bold" style={{ color: 'var(--color-primary)' }}>{project.author}</span>
@@ -932,9 +932,9 @@ export function ModDetail() {
                     }
                   }}
                   disabled={installing || installed}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-sm font-semibold text-sm transition-colors"
                   style={installed
-                    ? { background: 'rgba(46,204,113,0.15)', color: '#2ECC71', border: '1px solid rgba(46,204,113,0.4)' }
+                    ? { background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-border)' }
                     : { background: 'var(--color-primary)', color: '#fff', opacity: installing ? 0.75 : 1 }}>
                   {installing || previewLoading
                     ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />{previewLoading ? 'Читаю манифест…' : (installMessage || 'Устанавливаю…')}</>
@@ -954,7 +954,7 @@ export function ModDetail() {
               </div>
             </div>
 
-            <div className="flex items-center gap-4 mt-3 flex-wrap">
+            <div className="flex items-center gap-4 mt-3 flex-wrap border-t pt-3" style={{ borderColor:'var(--color-border)' }}>
               <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 <Download className="w-4 h-4" />{(project?.downloads ?? 0).toLocaleString('ru-RU')} загрузок
               </span>
@@ -967,10 +967,8 @@ export function ModDetail() {
                   <Calendar className="w-4 h-4" />Обновлено {new Date(project.date_modified).toLocaleDateString('ru-RU')}
                 </span>
               )}
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full"
-                style={source === 'modrinth'
-                  ? { background: 'rgba(27,217,106,0.12)', color: '#1BD96A' }
-                  : { background: 'rgba(241,100,54,0.12)', color: '#F16436' }}>
+              <span className="text-xs font-bold px-2 py-1 rounded-sm"
+                style={{ background:'transparent', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
                 {source === 'modrinth' ? 'Modrinth' : 'CurseForge'}
               </span>
               {project?.source_url && (
@@ -983,20 +981,20 @@ export function ModDetail() {
 
             <div className="flex flex-wrap gap-2 mt-3">
               {project?.loaders?.map(l => (
-                <span key={l} className="text-xs px-2.5 py-1 rounded-lg font-medium capitalize"
-                  style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+                <span key={l} className="text-xs px-2 py-1 rounded-sm font-medium capitalize"
+                  style={{ background: 'transparent', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
                   {l}
                 </span>
               ))}
               {project?.game_versions?.slice(0, 6).map(v => (
-                <span key={v} className="text-xs px-2.5 py-1 rounded-lg font-medium"
-                  style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+                <span key={v} className="text-xs px-2 py-1 rounded-sm font-medium"
+                  style={{ background: 'transparent', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
                   {v}
                 </span>
               ))}
               {(project?.game_versions?.length ?? 0) > 6 && (
-                <span className="text-xs px-2.5 py-1 rounded-lg font-medium"
-                  style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>
+                <span className="text-xs px-2 py-1 rounded-sm font-medium"
+                  style={{ background: 'transparent', color: 'var(--color-text-tertiary)', border: '1px solid var(--color-border)' }}>
                   +{(project?.game_versions?.length ?? 0) - 6} ещё
                 </span>
               )}
@@ -1004,8 +1002,8 @@ export function ModDetail() {
           </div>
         </motion.div>
 
-        <div className="flex gap-1 mb-4 p-1 rounded-xl"
-          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+        <div className="flex gap-3 mb-4 border-b"
+          style={{ background: 'transparent', borderColor:'var(--color-border)' }}>
           {([
             ['desc', 'Описание'],
             ['versions', `Версии (${versions.length})`],
@@ -1013,17 +1011,17 @@ export function ModDetail() {
             ['screenshots', `Скриншоты (${project?.gallery?.length ?? 0})`],
           ] as const).map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
-              className="flex-1 py-2 rounded-lg text-sm font-medium transition-all"
+              className="py-2 text-sm font-medium transition-colors"
               style={tab === id
-                ? { background: 'var(--color-primary)', color: '#fff' }
-                : { color: 'var(--color-text-secondary)' }}>
+                ? { color: 'var(--color-text)', borderBottom:'2px solid var(--color-text)' }
+                : { color: 'var(--color-text-secondary)', borderBottom:'2px solid transparent' }}>
               {label}
             </button>
           ))}
         </div>
 
         <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl p-6" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+          className="pb-6" style={{ background: 'transparent', border: '0' }}>
 
           {tab === 'desc' && (
             <div className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
@@ -1088,14 +1086,14 @@ export function ModDetail() {
                   Нет версий, соответствующих выбранным фильтрам
                 </p>
               ) : filteredVersions.map(v => (
-                <div key={v.id} className="flex items-center gap-3 p-3 rounded-xl"
-                  style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+                <div key={v.id} className="flex items-center gap-3 py-3"
+                  style={{ background:'transparent', borderBottom:'1px solid var(--color-border)' }}>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>{v.version_number}</p>
                       {v.loaders?.slice(0, 3).map(l => (
-                        <span key={l} className="text-[10px] font-semibold px-1.5 py-0.5 rounded capitalize"
-                          style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+                        <span key={l} className="text-[10px] font-semibold px-1.5 py-0.5 rounded-sm capitalize"
+                          style={{ background: 'transparent', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
                           {l}
                         </span>
                       ))}

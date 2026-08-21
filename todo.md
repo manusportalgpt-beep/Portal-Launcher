@@ -1309,3 +1309,17 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Simplify theme, navigation-panel and screenshot-editor controls into thin, functional groups without decorative cards, colour bars or duplicated separators.
 - [x] Refine Instance Studio and content/discovery lists to use a single low-noise surface hierarchy while keeping all creation, filtering and editing capabilities.
 - [x] Run TypeScript-only verification, inspect the requested desktop and compact layouts, then commit and push the minimal-interface revision to GitHub main.
+
+---
+
+# Loader installer parity and complete thin UI pass
+
+- [x] Compare the actual Fabric, Forge, Quilt and NeoForge installer download, cache, validation, Java and profile-resolution paths using the reported corrupt Forge installer JAR evidence.
+- [x] Add safe installer-JAR integrity validation, stale/HTML/corrupt cache eviction and one clean redownload retry for Forge, Quilt and NeoForge without changing Fabric behaviour.
+- [x] Keep exact version-derived managed Temurin Java selection and return a concise localized root-cause message if a loader installer remains invalid.
+- [x] Remove the player nickname/nameplate from the Skin Studio stand and retain only the skin preview controls.
+- [x] Make Sidebar the default compact navigation mode, with a uniform icon rhythm, no mismatched text blocks or floating tiles.
+- [x] Add a direct `+` action beside Notch Panel instance shortcuts and raise the default visible instance shortcut limit from four to eight.
+- [x] Rebuild Mod Detail around concise project facts, direct actions, dependencies, screenshots and files; show calm neutral-gray separators under text/card groups rather than colour decoration.
+- [x] Extend the same thin, information-first hierarchy to remaining content cards without changing launcher, Java, loader, Modrinth or CurseForge behaviours.
+- [ ] Run TypeScript-only verification and commit/push the installer parity and thin UI revision to GitHub main.

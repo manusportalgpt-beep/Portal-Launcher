@@ -79,6 +79,66 @@ async fn download_bytes(client: &reqwest::Client, url: &str) -> Result<bytes::By
         .map_err(|e| format!("read: {e}"))
 }
 
+/// Maven mirrors and captive/error pages can return HTTP-success HTML that was
+/// previously written straight to `*-installer.jar`. Java then only reports an
+/// opaque "Invalid or corrupt jarfile" error. Validate the response before it
+/// reaches disk, atomically replace the target, and retry once from a clean
+/// path for Forge-family installers.
+async fn download_verified_installer_jar(
+    client: &reqwest::Client,
+    loader: &str,
+    url: &str,
+    jar_path: &std::path::Path,
+) -> Result<(), String> {
+    let mut last_error = String::new();
+    for attempt in 1..=2 {
+        let result = async {
+            let response = client
+                .get(url)
+                .header(reqwest::header::ACCEPT, "application/java-archive, application/octet-stream;q=0.9, */*;q=0.1")
+                .send()
+                .await
+                .map_err(|error| format!("GET {url}: {error}"))?;
+            let status = response.status();
+            let content_type = response
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            if !status.is_success() {
+                return Err(format!("сервер вернул HTTP {status}"));
+            }
+            if content_type.contains("text/html") || content_type.contains("text/plain") || content_type.contains("application/json") {
+                return Err(format!("сервер вернул {content_type}, а не Java-архив"));
+            }
+
+            let bytes = response.bytes().await.map_err(|error| format!("не удалось прочитать ответ: {error}"))?;
+            let jar_magic = bytes.starts_with(b"PK\x03\x04") || bytes.starts_with(b"PK\x05\x06") || bytes.starts_with(b"PK\x07\x08");
+            if bytes.len() < 4096 || !jar_magic {
+                return Err(format!("получен невалидный JAR ({} байт, отсутствует ZIP-сигнатура)", bytes.len()));
+            }
+
+            let part_path = jar_path.with_extension(format!("jar.part-{attempt}"));
+            std::fs::remove_file(&part_path).ok();
+            std::fs::write(&part_path, &bytes).map_err(|error| format!("не удалось записать временный JAR: {error}"))?;
+            std::fs::remove_file(jar_path).ok();
+            std::fs::rename(&part_path, jar_path).map_err(|error| format!("не удалось заменить installer JAR: {error}"))?;
+            Ok::<(), String>(())
+        }.await;
+
+        match result {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                std::fs::remove_file(jar_path).ok();
+                std::fs::remove_file(jar_path.with_extension(format!("jar.part-{attempt}"))).ok();
+                last_error = error;
+            }
+        }
+    }
+    Err(format!("{loader}: {last_error}. Повреждённый installer JAR удалён; повторная чистая загрузка не дала корректный архив"))
+}
+
 fn maven_versions(xml: &str) -> Vec<String> {
     let mut versions = Vec::new();
     let mut remainder = xml;
@@ -187,8 +247,12 @@ pub async fn install_forge(mc_version: String, forge_version: String, instance_d
 
     let safe_ver = full_ver.replace(':', "-");
     let jar_path = mc_base_dir().join(format!("forge-{}-installer.jar", safe_ver));
-    std::fs::write(&jar_path, &download_bytes(&client, &installer_url).await?)
-        .map_err(|e| format!("Download Forge installer: {e}"))?;
+    if let Err(error) = download_verified_installer_jar(&client, "Forge", &installer_url, &jar_path).await {
+        return Ok(LoaderInstallResult {
+            success: false, loader: "forge".into(), version: full_ver,
+            message: format!("Не удалось получить корректный installer JAR Forge: {error}"),
+        });
+    }
 
     let java = find_java_for_mc(&mc_version)?;
     let jar_str = jar_path.to_string_lossy().to_string();
@@ -246,7 +310,12 @@ pub async fn install_quilt(mc_version: String, loader_version: String, instance_
 
     let installer_url = "https://quiltmc.org/api/v1/download-latest-installer/java-universal";
     let jar_path = mc_base_dir().join("quilt-installer.jar");
-    std::fs::write(&jar_path, &download_bytes(&client, installer_url).await?).map_err(|e| e.to_string())?;
+    if let Err(error) = download_verified_installer_jar(&client, "Quilt", installer_url, &jar_path).await {
+        return Ok(LoaderInstallResult {
+            success: false, loader: "quilt".into(), version: lv,
+            message: format!("Не удалось получить корректный installer JAR Quilt: {error}"),
+        });
+    }
 
     let java = find_java_for_mc(&mc_version)?;
     let output = crate::utils::create_hidden_command(&java)
@@ -289,12 +358,11 @@ pub async fn install_neoforge(mc_version: String, neoforge_version: String, inst
         v = nfv
     );
     let jar_path = mc_base_dir().join(format!("neoforge-{}-installer.jar", nfv));
-    match download_bytes(&client, &installer_url).await {
-        Ok(bytes) => { std::fs::write(&jar_path, &bytes).map_err(|e| e.to_string())?; }
-        Err(e) => return Ok(LoaderInstallResult {
+    if let Err(error) = download_verified_installer_jar(&client, "NeoForge", &installer_url, &jar_path).await {
+        return Ok(LoaderInstallResult {
             success: false, loader: "neoforge".into(), version: nfv,
-            message: format!("Download failed: {e}"),
-        })
+            message: format!("Не удалось получить корректный installer JAR NeoForge: {error}"),
+        });
     }
 
     // NeoForge follows the Minecraft runtime requirement: 1.20.1 uses Java

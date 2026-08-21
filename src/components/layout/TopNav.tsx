@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  House, Search, Boxes, CircleUserRound, SlidersHorizontal, PanelsTopLeft, LogIn, Pin, ChevronLeft, ChevronRight,
+  House, Search, Boxes, CircleUserRound, SlidersHorizontal, PanelsTopLeft, LogIn, Pin, ChevronLeft, ChevronRight, Plus,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -79,19 +79,23 @@ function InstanceQuickAccess({ vertical }: { vertical: boolean }) {
   const select = useInstanceStore(s => s.select);
   const count = useUiStore(s => s.navInstanceCount);
   const shown = instances.slice(0, count);
-  if (shown.length === 0) return null;
   return (
     <div className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1`}>
       {shown.map(inst => (
         <button key={inst.id} title={inst.name}
           onClick={() => { select(inst.id); navigate('/library'); }}
-          className="rounded-lg overflow-hidden shrink-0 flex items-center justify-center font-bold text-[10px]"
-          style={{ width: 24, height: 24, background: inst.color || 'var(--color-surface-2)', color: '#fff' }}>
+          className="rounded-sm overflow-hidden shrink-0 flex items-center justify-center font-bold text-[10px]"
+          style={{ width: 32, height: 32, background: inst.color || 'var(--color-surface-2)', color: '#fff', border:'1px solid var(--color-border)' }}>
           {inst.iconPath
             ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" draggable={false} style={{ imageRendering:'auto', filter:'none', opacity:1 }} />
             : inst.name[0]?.toUpperCase()}
         </button>
       ))}
+      <button title="Создать сборку" onClick={() => navigate('/library?create=1')}
+        className="rounded-sm shrink-0 flex items-center justify-center"
+        style={{ width:32, height:32, background:'transparent', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
+        <Plus size={15} />
+      </button>
     </div>
   );
 }
@@ -114,8 +118,8 @@ function AccountButton() {
     <div className="relative">
       <button title={isAuthenticated && user ? user.username : t('auth.signIn')}
         onClick={() => isAuthenticated ? setOpen(v => !v) : navigate('/settings/account')}
-        className="flex items-center justify-center rounded-lg overflow-hidden shrink-0"
-        style={{ width: 24, height: 24, background: 'var(--color-surface-2)' }}>
+        className="flex items-center justify-center rounded-sm overflow-hidden shrink-0"
+        style={{ width: 32, height: 32, background: 'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
         {isAuthenticated && user
           ? <CachedPlayerFace user={user} className="w-full h-full" alt="" />
           : isAuthenticated && user
@@ -144,12 +148,12 @@ function SidebarNav() {
   const borderColor = appearance.border === 'none' ? 'transparent' : appearance.border === 'strong' ? 'var(--color-border-strong)' : 'var(--color-border)';
   return (
     <aside className="portal-sidebar clean-nav shrink-0 flex flex-col z-40"
-      style={{ width: Math.min(sidebarWidth, 184), gap:Math.min(appearance.gap, 6), padding: `${Math.min(appearance.edgePadding, 12)}px 8px`, justifyContent, background:'var(--color-bg)', borderRight:'0', boxShadow:'none', backdropFilter:'none', WebkitBackdropFilter:'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
-      <div className="nav-identity flex items-center gap-2 px-2 pb-2" style={{ color:'var(--color-text)' }}><PanelsTopLeft size={15} style={{ color:'var(--color-primary)' }} /><span className="nav-identity-label text-xs font-semibold">Portal Launcher</span></div>
+      style={{ width: Math.min(sidebarWidth, 72), gap:Math.min(appearance.gap, 4), padding: `${Math.min(appearance.edgePadding, 10)}px 8px`, justifyContent, background:'var(--color-bg)', borderRight:'0', boxShadow:'none', backdropFilter:'none', WebkitBackdropFilter:'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
+      <div className="nav-identity flex items-center justify-center pb-1" style={{ color:'var(--color-text)' }}><PanelsTopLeft size={15} style={{ color:'var(--color-primary)' }} /></div>
       {items.map(item => <DockButton key={item.to} item={item} vertical scale={scale} appearance={appearance} />)}
       <InstanceQuickAccess vertical />
       <div className="flex-1" />
-      <div className="px-2"><AccountButton /></div>
+      <div className="flex justify-center"><AccountButton /></div>
       <DockButton item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} vertical scale={scale} appearance={appearance} />
     </aside>
   );

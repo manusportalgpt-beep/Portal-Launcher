@@ -110,7 +110,7 @@ export function NavigationPanelEditor() {
           <div className="grid gap-2 sm:grid-cols-2">
             <Range label="Анимация наведения" value={draft.navHoverMs} min={80} max={700} step={20} unit=" мс" onChange={value => setNumber('navHoverMs', value)} />
             <Range label="Размер иконок" value={draft.navItemScale} min={75} max={155} step={5} unit="%" onChange={value => setNumber('navItemScale', value)} />
-            <Range label="Иконки сборок в панели" value={draft.navInstanceCount} min={0} max={14} step={1} unit="" onChange={value => setNumber('navInstanceCount', value)} />
+            <Range label="Иконки сборок в панели" value={draft.navInstanceCount} min={0} max={16} step={1} unit="" onChange={value => setNumber('navInstanceCount', value)} />
             {isNotch
               ? <Range label="Ширина Notch-панели" value={draft.notchWidth} min={38} max={100} step={2} unit="%" onChange={value => setNumber('notchWidth', value)} />
               : <Range label="Ширина боковой панели" value={draft.sidebarWidth} min={48} max={168} step={4} unit=" px" onChange={value => setNumber('sidebarWidth', value)} />}

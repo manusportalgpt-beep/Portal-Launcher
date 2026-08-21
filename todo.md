@@ -1282,3 +1282,16 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Use one coherent, human-made-feeling outline icon set and explicit accessible labels without changing the pending application icon.
 - [x] Preserve responsive behavior so navigation yields more content width on laptops and narrow screens.
 - [x] Run TypeScript-only verification and push the seamless navigation update to GitHub main.
+
+---
+
+# New Portal Launcher icon concept
+
+- [x] Generate a high-resolution square Portal Launcher icon based on the supplied red spiral mark, with a clean black background and no text.
+- [x] Deliver the generated image for approval before replacing any application, taskbar or installer icon.
+- [x] Regenerate the icon as a tightly framed red spiral mark only on a pure black background, with no tile, frame, bevel or shadow.
+- [x] Crop the icon to the marked inner black square, retaining that black background and removing every outer area, border and green markup.
+- [x] Create a final red spiral icon with a black outline, preserving black inside the mark while removing any outer background.
+- [x] Replace the current Portal Launcher visual icon in the app shell, native window/taskbar resources and installer resources.
+- [x] Preserve all game, Java, loader and platform functionality while integrating the new icon.
+- [x] Run TypeScript-only verification and push the new icon integration to GitHub main.

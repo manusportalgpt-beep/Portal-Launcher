@@ -74,11 +74,11 @@ const FONT_OPTIONS = [
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button onClick={() => onChange(!value)}
+    <button onClick={() => onChange(!value)} role="switch" aria-checked={value}
       className="relative transition-colors shrink-0"
-      style={{ width:36, height:18, borderRadius:2, background:value?'var(--color-primary)':'var(--color-surface-2)', border:`1px solid ${value?'var(--color-primary)':'var(--color-border)'}` }}>
-      <div className="absolute top-[2px] transition-[left]"
-        style={{ width:12, height:12, borderRadius:1, background:'#fff', left:value?'calc(100% - 14px)':'2px', boxShadow:'none' }} />
+      style={{ width:38, height:20, borderRadius:2, background:value?'var(--color-primary)':'var(--color-surface-2)', border:`1px solid ${value?'var(--color-primary)':'var(--color-border)'}` }}>
+      <span className="absolute transition-[left]"
+        style={{ width:12, height:12, borderRadius:1, background:'var(--color-text)', top:'50%', transform:'translateY(-50%)', left:value?22:3, boxShadow:'none' }} />
     </button>
   );
 }

@@ -1323,3 +1323,16 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Rebuild Mod Detail around concise project facts, direct actions, dependencies, screenshots and files; show calm neutral-gray separators under text/card groups rather than colour decoration.
 - [x] Extend the same thin, information-first hierarchy to remaining content cards without changing launcher, Java, loader, Modrinth or CurseForge behaviours.
 - [x] Run TypeScript-only verification and commit/push the installer parity and thin UI revision to GitHub main.
+
+---
+
+# Black surface system and practical controls
+
+- [x] Establish a single black application surface with thin neutral-gray outlines around real objects, including the square Notch Panel, instead of floating text or coloured decoration.
+- [x] Apply the same visible hover response to interactive objects throughout the launcher without lift, scale, glow or inconsistent background behaviour.
+- [x] Correct the square toggle geometry and thumb alignment; replace coloured destructive controls with a normal neutral trash action without a decorative outline.
+- [x] Remove redundant AI-like explanatory copy from Skin Studio and first-launch surfaces while retaining necessary action labels, validation and accessibility text.
+- [x] Rework the first-launch experience and remaining primary pages for concise, information-first access with key actions close to their related objects.
+- [x] Create a refined transparent Portal Launcher mark with a slightly rounder spiral, no outer background and reliable legibility at small native icon sizes.
+- [x] Replace shell, favicon, taskbar and installer resources with the refined transparency-corrected icon.
+- [ ] Run TypeScript-only verification and push the black surface and icon refinement revision to GitHub main.

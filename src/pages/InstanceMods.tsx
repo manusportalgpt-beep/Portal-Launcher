@@ -145,11 +145,11 @@ function AuthorLink({ author, authorId, source }: { author?: string; authorId?: 
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
-    <button onClick={onChange}
-      className="relative w-9 h-5 rounded-full shrink-0 transition-colors"
-      style={{ background: checked ? 'var(--color-primary)' : 'var(--color-surface-2)', border: checked ? 'none' : '1px solid var(--color-border)' }}>
-      <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
-        style={{ left: checked ? 18 : 2 }} />
+    <button onClick={onChange} role="switch" aria-checked={checked}
+      className="relative shrink-0 transition-colors"
+      style={{ width:38, height:20, borderRadius:2, background: checked ? 'var(--color-primary)' : 'var(--color-surface-2)', border:`1px solid ${checked ? 'var(--color-primary)' : 'var(--color-border)'}` }}>
+      <span className="absolute transition-[left]"
+        style={{ width:12, height:12, borderRadius:1, background:'var(--color-text)', top:'50%', transform:'translateY(-50%)', left: checked ? 22 : 3 }} />
     </button>
   );
 }
@@ -819,8 +819,8 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
                     </button>
                   )}
                   <Toggle checked={m.enabled !== false} onChange={() => handleToggle(m)} />
-                  <button onClick={() => handleRemove(m)} className="p-1.5 rounded-lg"
-                    style={{ background: 'rgba(231,76,60,0.1)', color: 'var(--color-error)' }} title="Удалить">
+                  <button onClick={() => handleRemove(m)} className="p-1.5 rounded-sm"
+                    style={{ background: 'transparent', color: 'var(--color-text-secondary)' }} title="Удалить">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>

@@ -442,27 +442,8 @@ export function SkinSelectorPage() {
           {/* 3D стенд */}
           <div className="flex flex-col gap-4">
             <div className="overflow-hidden" style={{ ...card, borderRadius: 'var(--radius-modal)' }}>
-              <div className="relative" style={{ background: 'radial-gradient(ellipse at 50% 15%, color-mix(in srgb, var(--color-primary) 18%, var(--color-surface-2)) 0%, var(--color-bg) 78%)' }}>
+              <div className="relative" style={{ background: 'var(--color-bg)' }}>
                 <SkinStand3D skinUrl={liveSkinUrl} capeUrl={activeCape?.url ?? null} model={model} height={440} cameraDistance={70} autoRotate={false} applySequence={applySequence} trackCursor />
-              </div>
-              <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid var(--color-border)' }}>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold truncate" style={{ color: 'var(--color-text)' }}>{profile?.name || user?.username || 'Steve'}</p>
-                  <p className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
-                    {model === 'slim' ? 'Slim' : 'Classic'}{activeCape ? ` · ${activeCape.alias}` : ' · без плаща'}
-                  </p>
-                </div>
-                <span className="text-[10px] font-semibold px-2 py-1"
-                  style={{ borderRadius: 999, background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>
-                  перетаскивайте для обзора
-                </span>
-              </div>
-            </div>
-
-            <div className="p-4" style={card}>
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 shrink-0" style={{ color: 'var(--color-primary)' }} />
-                <p className="text-xs leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>Выберите или создайте пресет справа. Тип тела и плащ привязаны к пресету, поэтому случайно не меняют текущий вид.</p>
               </div>
             </div>
           </div>
@@ -515,7 +496,6 @@ export function SkinSelectorPage() {
                 <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ background:'var(--color-primary-dim)', color:'var(--color-primary)' }}><Search className="h-4 w-4" /></span>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>Скин по нику</p>
-                  <p className="mt-0.5 text-[11px] leading-4" style={{ color:'var(--color-text-secondary)' }}>Введите ник Minecraft: загрузится публичная текстура игрока, затем её можно назвать, проверить и применить как пресет.</p>
                   <div className="mt-3 flex gap-2">
                     <input value={nickname} maxLength={16} onChange={event => setNickname(event.target.value.replace(/[^A-Za-z0-9_]/g, ''))} onKeyDown={event => { if (event.key === 'Enter') void importSkinByNickname(); }} placeholder="Ник Minecraft" className="min-w-0 flex-1 px-3 py-2.5 text-sm outline-none" style={{ borderRadius:'var(--radius-button)', background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }} />
                     <button onClick={() => void importSkinByNickname()} disabled={!canEdit || nicknameLoading} className="flex shrink-0 items-center gap-1.5 px-3 py-2 text-xs font-bold" style={{ borderRadius:'var(--radius-button)', background:'var(--color-primary)', color:'var(--color-primary-text)', opacity: !canEdit || nicknameLoading ? 0.55 : 1 }}>
@@ -527,31 +507,25 @@ export function SkinSelectorPage() {
             </div>
 
             <div className="p-4" style={card}>
-              <div className="flex items-center justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Мои пресеты</p><p className="mt-0.5 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>После применения скин автоматически сохраняется как ваш пресет.</p></div><span className="shrink-0 px-2 py-1 text-[10px] font-bold" style={{ borderRadius: 999, background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>{skinHistory.length}/{MAX_AUTO_SKINS}</span></div>
-              <div className="mt-2 flex items-center gap-3 rounded-xl p-2.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
-                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg" style={{ background: 'var(--color-surface)' }}>
-                  <SkinStand3D skinUrl={liveSkinUrl} capeUrl={activeCape?.url ?? null} model={model} height={56} cameraDistance={72} initialYaw={0.45} interactive={false} autoRotate />
-                </div>
-                <div><p className="text-xs font-bold" style={{ color: 'var(--color-text)' }}>Никаких предустановленных Steve, Alex или чужих текстур.</p><p className="mt-0.5 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>Ваша текстура не дублируется, если она уже была сохранена.</p></div>
-              </div>
+              <div className="flex items-center justify-between gap-3"><p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Мои пресеты</p><span className="shrink-0 px-2 py-1 text-[10px] font-bold" style={{ borderRadius:2, background: 'transparent', border:'1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>{skinHistory.length}/{MAX_AUTO_SKINS}</span></div>
               {skinHistory.length > 0 && (
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
                   {skinHistory.map(skin => {
                     const selected = skin.id === selectedSkinId;
                     return (
-                      <div key={skin.id} className="group overflow-hidden p-1.5" style={{ borderRadius: 'var(--radius-card)', background: 'var(--color-surface-2)', border: `2px solid ${selected ? '#37D67A' : 'var(--color-border)'}`, boxShadow: selected ? '0 0 0 1px rgba(55,214,122,.22), 0 8px 22px rgba(55,214,122,.16)' : 'none' }}>
+                      <div key={skin.id} className="group overflow-hidden p-1.5" style={{ borderRadius: 'var(--radius-card)', background: 'var(--color-surface)', border: `1px solid ${selected ? 'var(--color-border-strong)' : 'var(--color-border)'}`, boxShadow:'none' }}>
                         <button onClick={() => void selectHistorySkin(skin)} disabled={!canEdit} title="Открыть и применить пресет" className="w-full text-left">
                           <div className="relative h-28 overflow-hidden rounded-lg" style={{ background: 'radial-gradient(ellipse at 50% 15%, var(--color-surface) 0%, var(--color-bg) 100%)' }}>
                             <SkinStand3D skinUrl={skin.dataUrl} capeUrl={skin.capeUrl ?? null} model={skin.model} height={112} cameraDistance={78} initialYaw={0.45} interactive={false} autoRotate />
                           </div>
                           <div className="px-1 pt-2">
                             <span className="block truncate text-[11px] font-bold" style={{ color: 'var(--color-text)' }}>{skin.name}</span>
-                            <span className="block truncate pt-0.5 text-[9px]" style={{ color: selected ? '#37D67A' : 'var(--color-text-secondary)' }}>{selected ? 'Выбран' : skin.model === 'slim' ? 'Slim' : 'Classic'}{skin.capeUrl ? ' · Cape' : ''}</span>
+                            <span className="block truncate pt-0.5 text-[9px]" style={{ color: selected ? 'var(--color-text)' : 'var(--color-text-secondary)' }}>{selected ? 'Выбран' : skin.model === 'slim' ? 'Slim' : 'Classic'}{skin.capeUrl ? ' · Cape' : ''}</span>
                           </div>
                         </button>
                         <div className="flex gap-1 px-1 pb-1 pt-1">
                           <button onClick={() => void selectHistorySkin(skin)} disabled={!canEdit} title="Редактировать пресет" className="flex h-6 flex-1 items-center justify-center" style={{ borderRadius: 7, color: 'var(--color-primary)', background: 'var(--color-primary-dim)' }}><Pencil className="h-3 w-3" /></button>
-                          <button onClick={() => deleteHistorySkin(skin)} title="Удалить пресет" className="flex h-6 w-7 items-center justify-center" style={{ borderRadius: 7, color: 'var(--color-error)', background: 'color-mix(in srgb, var(--color-error) 12%, transparent)' }}><Trash2 className="h-3 w-3" /></button>
+                          <button onClick={() => deleteHistorySkin(skin)} title="Удалить пресет" className="flex h-6 w-7 items-center justify-center" style={{ borderRadius:2, color: 'var(--color-text-secondary)', background: 'transparent' }}><Trash2 className="h-3 w-3" /></button>
                         </div>
                       </div>
                     );

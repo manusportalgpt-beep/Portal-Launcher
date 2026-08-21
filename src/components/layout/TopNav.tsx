@@ -45,6 +45,8 @@ function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem
       end={item.end}
       title={label}
       data-testid={`nav-${item.labelKey}`}
+      data-tutorial-target={item.to}
+      onClick={() => window.dispatchEvent(new CustomEvent('portal:tutorial-navigation', { detail:item.to }))}
       className="group relative flex items-center justify-center gap-2 px-2.5 text-left"
       style={{ width: showLabel ? '100%' : (vertical ? 40 : 34) * scale / 100, minWidth: (vertical ? 40 : 34) * scale / 100, height: showLabel ? 42 * scale / 100 : (vertical ? 40 : 34) * scale / 100, borderRadius: interactionRadius, isolation:'isolate' }}
     >
@@ -259,8 +261,8 @@ function NotchNav() {
               <div className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1`}>
                 <AccountButton vertical={vertical} />
                 <DockButton item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} vertical={vertical} scale={navItemScale} appearance={appearance} />
-                <button title="Назад" onClick={() => window.history.back()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronLeft size={13} /></button>
-                <button title="Вперёд" onClick={() => window.history.forward()} className="rounded-md p-1" style={{ color:'var(--color-text-secondary)', background:'transparent' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronRight size={13} /></button>
+                <button title="Назад" onClick={() => window.history.back()} className="flex items-center justify-center rounded-sm" style={{ width:28, height:28, color:'var(--color-text-secondary)', background:'transparent', border:'1px solid var(--color-border)' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronLeft size={18} /></button>
+                <button title="Вперёд" onClick={() => window.history.forward()} className="flex items-center justify-center rounded-sm" style={{ width:28, height:28, color:'var(--color-text-secondary)', background:'transparent', border:'1px solid var(--color-border)' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronRight size={18} /></button>
                 <button title={t('notch.pin')} onClick={() => set('notchPinned', !notchPinned)}
                   className="flex items-center justify-center rounded-md"
                   style={{ width: 18, height: 18, color: notchPinned ? 'var(--color-primary)' : 'var(--color-text-tertiary)', background:'transparent' }}

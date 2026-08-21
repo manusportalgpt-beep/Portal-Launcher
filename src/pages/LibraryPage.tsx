@@ -580,19 +580,9 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
         <div className="relative shrink-0 px-5 pt-5 pb-3" style={{ borderBottom:'0', background:'transparent' }}>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-primary)' }}>{t('libraryRuntime.instanceStudio')}</p>
-              <h2 className="font-black text-lg mt-0.5" style={{ color:'var(--color-text)' }}>{step==='type'?t('libraryRuntime.create'):step==='custom'?t('libraryRuntime.customSetup'):step==='install'?'Установить или импортировать сборку':t('libraryRuntime.importInstance')}</h2>
+              <h2 className="font-black text-lg" style={{ color:'var(--color-text)' }}>{step==='type'?t('libraryRuntime.create'):step==='custom'?t('libraryRuntime.customSetup'):step==='install'?'Установить или импортировать сборку':t('libraryRuntime.importInstance')}</h2>
             </div>
             <button type="button" onClick={onClose} aria-label="Закрыть студию сборок" className="relative w-8 h-8 flex items-center justify-center rounded-md outline-none transition-colors hover:bg-[var(--color-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ border:'1px solid var(--color-border)' }}><X className="w-4 h-4" style={{ color:'var(--color-text-secondary)' }} /></button>
-          </div>
-          <div className="grid grid-cols-2 gap-1.5 mt-4">
-            {[
-              { id:'custom', label:t('libraryRuntime.createStep'), Icon:Wrench },
-              { id:'install', label:'Установить / импортировать', Icon:Download },
-            ].map(item => {
-              const active = step === item.id || (step === 'type' && item.id === 'custom');
-              return <button type="button" key={item.id} onClick={() => setStep(item.id as CreateStep)} className="flex items-center justify-center gap-1.5 py-2 rounded-sm text-[10px] font-bold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ background:active?'transparent':'var(--color-surface)', color:active?'var(--color-primary)':'var(--color-text-tertiary)', border:`1px solid ${active?'var(--color-primary)':'var(--color-border)'}` }}><item.Icon className="w-3 h-3" />{item.label}</button>;
-            })}
           </div>
         </div>
 

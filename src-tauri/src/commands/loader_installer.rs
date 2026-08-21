@@ -13,6 +13,20 @@ fn mc_base_dir() -> PathBuf {
     crate::commands::version_manager::mc_base_dir()
 }
 
+/// Official Forge-family client installers create a launcher profile in the
+/// shared Minecraft root. Portal Launcher keeps game data per instance, so a
+/// minimal profile store must exist in that shared root before invoking them.
+fn ensure_launcher_profile_store(base_dir: &std::path::Path) -> Result<(), String> {
+    std::fs::create_dir_all(base_dir)
+        .map_err(|error| format!("Не удалось подготовить папку Minecraft {}: {error}", base_dir.display()))?;
+    let profile_path = base_dir.join("launcher_profiles.json");
+    if !profile_path.exists() {
+        std::fs::write(&profile_path, r#"{"profiles":{},"settings":{},"version":3}"#)
+            .map_err(|error| format!("Не удалось создать launcher_profiles.json: {error}"))?;
+    }
+    Ok(())
+}
+
 /// Required Java major version for a given MC version string (1.7.2 – latest).
 fn java_major_for_mc(mc_version: &str) -> u32 {
     let parts: Vec<u32> = mc_version.split('.').filter_map(|part| part.parse::<u32>().ok()).collect();
@@ -48,6 +62,23 @@ fn installer_failure(output: &std::process::Output) -> String {
     let code = output.status.code().map(|value| value.to_string()).unwrap_or_else(|| "неизвестен".to_string());
     if tail.is_empty() { format!("установщик завершился с кодом {code} без вывода") }
     else { format!("код {code}: {tail}") }
+}
+
+fn installer_failure_with_network_hint(output: &std::process::Output) -> String {
+    let details = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    if details.contains("libraries.minecraft.net")
+        || details.contains("launchermeta.mojang.com")
+        || details.contains("piston-meta.mojang.com")
+        || details.contains("sessionserver.mojang.com")
+    {
+        "Нет соединения с серверами Minecraft, нужными установщику. Проверьте доступ к Minecraft/Mojang и повторите запуск: профиль загрузчика не был создан.".to_string()
+    } else {
+        installer_failure(output)
+    }
 }
 
 /// Return only a verified, exact and 64-bit Java. Running a loader installer
@@ -221,7 +252,7 @@ pub async fn install_fabric(mc_version: String, loader_version: String, instance
 
 /// Install Forge – 1.7.2 to latest (full installer flow).
 #[tauri::command]
-pub async fn install_forge(mc_version: String, forge_version: String, instance_dir: String) -> Result<LoaderInstallResult, String> {
+pub async fn install_forge(mc_version: String, forge_version: String, _instance_dir: String) -> Result<LoaderInstallResult, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(300))
         .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
@@ -254,6 +285,8 @@ pub async fn install_forge(mc_version: String, forge_version: String, instance_d
         });
     }
 
+    let shared_base = mc_base_dir();
+    ensure_launcher_profile_store(&shared_base)?;
     let java = find_java_for_mc(&mc_version)?;
     let jar_str = jar_path.to_string_lossy().to_string();
 
@@ -262,7 +295,7 @@ pub async fn install_forge(mc_version: String, forge_version: String, instance_d
     let args: Vec<String> = if mc_minor <= 12 {
         vec!["-jar".into(), jar_str, "--installClient".into()]
     } else {
-        vec!["-jar".into(), jar_str, "--installClient".into(), instance_dir.clone()]
+        vec!["-jar".into(), jar_str, "--installClient".into(), shared_base.to_string_lossy().to_string()]
     };
 
     let output = crate::utils::create_hidden_command(&java)
@@ -273,7 +306,7 @@ pub async fn install_forge(mc_version: String, forge_version: String, instance_d
     Ok(LoaderInstallResult {
         success: output.status.success(), loader: "forge".into(), version: full_ver,
         message: if output.status.success() { "Forge installed".into() }
-                 else { format!("Не удалось установить Forge: {}", installer_failure(&output)) },
+                 else { format!("Не удалось установить Forge: {}", installer_failure_with_network_hint(&output)) },
     })
 }
 
@@ -333,7 +366,7 @@ pub async fn install_quilt(mc_version: String, loader_version: String, instance_
 
 /// Install NeoForge – 1.20.1+ including 26.x snapshots.
 #[tauri::command]
-pub async fn install_neoforge(mc_version: String, neoforge_version: String, instance_dir: String) -> Result<LoaderInstallResult, String> {
+pub async fn install_neoforge(mc_version: String, neoforge_version: String, _instance_dir: String) -> Result<LoaderInstallResult, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(300))
         .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
@@ -368,16 +401,18 @@ pub async fn install_neoforge(mc_version: String, neoforge_version: String, inst
     // NeoForge follows the Minecraft runtime requirement: 1.20.1 uses Java
     // 17, modern 1.21.x uses Java 21, and 26.x uses Java 25. Keep installer
     // and game launch on the same verified managed runtime.
+    let shared_base = mc_base_dir();
+    ensure_launcher_profile_store(&shared_base)?;
     let java = find_java_for_mc(&mc_version)?;
     let output = crate::utils::create_hidden_command(&java)
-        .args(&["-jar", &jar_path.to_string_lossy(), "--installClient", &instance_dir])
+        .args(&["-jar", &jar_path.to_string_lossy(), "--installClient", &shared_base.to_string_lossy()])
         .output().map_err(|e| format!("Run NeoForge ({java}): {e}"))?;
 
     std::fs::remove_file(&jar_path).ok();
     Ok(LoaderInstallResult {
         success: output.status.success(), loader: "neoforge".into(), version: nfv,
         message: if output.status.success() { "NeoForge installed successfully".into() }
-                 else { format!("Не удалось установить NeoForge: {}", installer_failure(&output)) },
+                 else { format!("Не удалось установить NeoForge: {}", installer_failure_with_network_hint(&output)) },
     })
 }
 

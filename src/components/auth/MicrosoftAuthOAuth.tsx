@@ -240,8 +240,8 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
             </button>
             <button
               onClick={() => setStep('elyby_form')}
-              className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
-              style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+              className="w-full py-3 font-semibold text-sm flex items-center justify-center gap-2"
+              style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius:2 }}
             >
               Войти через Ely.by
             </button>
@@ -252,8 +252,8 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel }: {
                 </p>
                 <button
                   onClick={() => setStep('offline_form')}
-                  className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
-                  style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+                  className="w-full py-3 font-semibold text-sm flex items-center justify-center gap-2"
+                  style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius:2 }}
                 >
                   Войти оффлайн (по нику)
                 </button>

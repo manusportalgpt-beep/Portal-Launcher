@@ -482,6 +482,17 @@ html[data-design-system="clean"] .portal-sidebar .group[aria-current="page"] > s
 }
 html[data-design-system="clean"] .portal-notch { border:1px solid var(--color-border) !important; border-radius:2px !important; background:var(--color-bg) !important; box-shadow:none !important; }
 html[data-design-system="clean"] .portal-notch:hover { border-color:var(--color-border-strong) !important; }
+html[data-design-system="clean"] {
+  --color-surface:var(--color-bg);
+  --color-surface-2:var(--color-bg);
+}
+html[data-design-system="clean"] button:not([data-allow-fill]),
+html[data-design-system="clean"] [role="button"] { border-radius:2px; }
+body[data-portal-tutorial-target="/home"] a[data-tutorial-target="/home"],
+body[data-portal-tutorial-target="/discover"] a[data-tutorial-target="/discover"],
+body[data-portal-tutorial-target="/skins"] a[data-tutorial-target="/skins"],
+body[data-portal-tutorial-target="/library"] a[data-tutorial-target="/library"],
+body[data-portal-tutorial-target="/settings"] a[data-tutorial-target="/settings"] { outline:1px solid var(--color-border-strong); outline-offset:2px; }
 
 @keyframes portal-ribbon-down { from { transform:translateY(-50%); } to { transform:translateY(0); } }
 @keyframes portal-ribbon-up { from { transform:translateY(0); } to { transform:translateY(-50%); } }

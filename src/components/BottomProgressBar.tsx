@@ -54,7 +54,7 @@ function stageLabel(event: ProgressEvent): string {
       default: return 'Instance installation';
     }
   }
-  if (event.source === 'launch') {
+      if (event.source === 'launch') {
     switch (event.stage) {
       case 'auth': return 'Аккаунт';
       case 'resolve': return 'Метаданные версии';
@@ -63,6 +63,7 @@ function stageLabel(event: ProgressEvent): string {
       case 'natives': return 'Нативные библиотеки';
       case 'starting': return 'Запуск игры';
       case 'running': return 'Готово';
+      case 'error': return 'Ошибка установки';
       default: return 'Подготовка Minecraft';
     }
   }
@@ -214,7 +215,21 @@ export function BottomProgressBar() {
           instanceId: instanceId ?? undefined,
         });
         clearLater(950);
-      } else if (status === 'stopped' || status === 'error') {
+      } else if (status === 'error') {
+        launchingRef.current = null;
+        suppressLaunchDownloadsRef.current = false;
+        setCollapsed(false);
+        setEvent({
+          source: 'launch',
+          stage: 'error',
+          message: String(p.message ?? 'Не удалось подготовить Minecraft'),
+          current: 0,
+          total: 0,
+          percent: 0,
+          instanceId: instanceId ?? undefined,
+        });
+        clearLater(8000);
+      } else if (status === 'stopped') {
         launchingRef.current = null;
         suppressLaunchDownloadsRef.current = false;
         clearLater(450);
@@ -236,6 +251,7 @@ export function BottomProgressBar() {
   const itemCounter = total > 0 && !isByteProgress ? `${Math.min(current, total)}/${total} files` : null;
   const cancelTarget = event?.source === 'instance' ? event.instanceId : launching;
   const canCancelInstallation = Boolean(cancelTarget) && event?.source === 'instance';
+  const hasError = event?.source === 'launch' && event.stage === 'error';
 
   if (collapsed) {
     return (
@@ -276,11 +292,11 @@ export function BottomProgressBar() {
                 {event ? `${stageLabel(event)} · ${event.message || 'Подготавливаю…'}${itemCounter ? ` · ${itemCounter}` : ''}` : 'Подготавливаю запуск'}
               </p>
             </div>
-            <span className="text-[11px] font-black tabular-nums shrink-0" style={{ color: percent >= 100 ? 'var(--color-success, var(--color-primary))' : 'var(--color-primary)' }}>{percent}%</span>
+            <span className="text-[11px] font-black tabular-nums shrink-0" style={{ color: hasError ? 'var(--color-error)' : percent >= 100 ? 'var(--color-success, var(--color-primary))' : 'var(--color-primary)' }}>{hasError ? 'Ошибка' : `${percent}%`}</span>
           </div>
           <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-2)' }}>
             <div className="h-full rounded-full transition-all duration-300"
-              style={{ width: `${percent}%`, background: percent >= 100 ? 'var(--color-success, var(--color-primary))' : 'linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 60%, black), var(--color-primary))' }} />
+              style={{ width: `${hasError ? 100 : percent}%`, background: hasError ? 'var(--color-error)' : percent >= 100 ? 'var(--color-success, var(--color-primary))' : 'var(--color-primary)' }} />
           </div>
         </div>
 

@@ -19,6 +19,7 @@ import { saveSearchReturn } from '@/lib/search-navigation';
 import { useLaunchStore } from '@/stores/launchStore';
 import { getModrinthProjectGateway, getModrinthVersionsGateway } from '@/lib/modrinth-gateway';
 import modrinthWrench from '@/assets/modrinth-wrench-clean.png';
+import curseforgeAnvil from '@/assets/curseforge-anvil.png';
 
 interface ModVersion {
   id: string;
@@ -974,7 +975,7 @@ export function ModDetail() {
                 </span>
               )}
               <span className="flex h-6 w-6 items-center justify-center" title={source === 'modrinth' ? 'Modrinth' : 'CurseForge'} style={{ border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}>
-                {source === 'modrinth' ? <img src={modrinthWrench} alt="Modrinth" className="h-3.5 w-3.5 object-contain" /> : <Code className="h-3.5 w-3.5" />}
+                {source === 'modrinth' ? <img src={modrinthWrench} alt="Modrinth" className="h-3.5 w-3.5 object-contain" /> : <img src={curseforgeAnvil} alt="CurseForge" className="h-3.5 w-3.5 object-contain" />}
               </span>
               {project?.source_url && (
                 <a href={project.source_url} target="_blank" rel="noreferrer"

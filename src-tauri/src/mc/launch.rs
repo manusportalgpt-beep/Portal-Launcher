@@ -293,13 +293,19 @@ pub async fn launch_instance(
     let mut prepared_only = downloaded_java
         || !version_jar_path(&instance.mc_version).exists()
         || !natives_dir(&instance.mc_version).exists();
-    let (version, profile_id) = resolve_version(
+    let (version, profile_id) = match resolve_version(
         &client,
         &instance.mc_version,
         &instance.loader,
         &instance.loader_version,
     )
-    .await?;
+    .await {
+        Ok(resolved) => resolved,
+        Err(error) => {
+            status("error", &error);
+            return Err(error);
+        }
+    };
     let asset_index_ready = version["assetIndex"]["id"].as_str()
         .map(|id| assets_dir().join("indexes").join(format!("{id}.json")).exists())
         .unwrap_or(true);

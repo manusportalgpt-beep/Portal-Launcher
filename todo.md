@@ -1375,3 +1375,17 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Rebuild Mod Detail as a continuous content page with fewer nested panels, full-width neutral metadata and tab strips, and a Modrinth glyph instead of the literal source word.
 - [x] Add paired screenshot ribbons when screenshots exist: the left ribbon loops top-to-bottom, while the right shows the same images looping in the reverse direction.
 - [x] Run TypeScript-only verification and push the Sidebar, Notch and Mod Detail correction to GitHub main.
+
+---
+
+# Account, interactive tutorial and loader completion
+
+- [x] Make Microsoft and Ely.by account entry buttons identical square neutral objects; remove the redundant cancel action when the user can skip onboarding.
+- [x] Turn the tutorial into a guided Russian interaction: reveal one concrete task at a time, highlight the destination, and advance only after the user opens or uses the requested launcher area.
+- [x] Remove remaining duplicate top panels from Instance Studio and make its controls, Settings account cards and CurseForge equivalents use the same black background with sparse neutral-gray object outlines.
+- [x] Increase Notch navigation arrows while keeping every utility control square and on the same black outlined object grid.
+- [x] Replace unnecessary per-row separators with grouping outlines only; apply the same source glyph treatment to CurseForge as Modrinth.
+- [x] Diagnose the reported NeoForge 1.21.1 failure, including installer profile resolution and managed Java handoff, and correct the implementation without changing Fabric behaviour.
+- [x] Ensure a failed installation card surfaces the localized reason, changes out of progress state and auto-dismisses after the error is readable.
+- [x] Verify native taskbar icon packaging points to the new icon and document any cache/rebuild requirement outside the launcher process.
+- [ ] Run TypeScript-only verification and push the account, tutorial, UI and loader correction to GitHub main.

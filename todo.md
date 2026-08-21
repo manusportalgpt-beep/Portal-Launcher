@@ -1343,7 +1343,7 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 
 - [x] Redraw the transparent Portal Launcher sign as a more geometric square spiral while preserving the black inner field and black outline.
 - [x] Replace shell, favicon, taskbar and installer resources with the square transparent mark.
-- [ ] Run TypeScript-only verification and push the square icon refinement to GitHub main.
+- [x] Run TypeScript-only verification and push the square icon refinement to GitHub main.
 
 ---
 
@@ -1355,4 +1355,4 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Add first-launch navigation choice between the default Sidebar and Notch Panel, with compact static previews and instructions for how each is opened and used.
 - [x] Keep the tutorial accessible after setup and make every tutorial step brief, navigable and focused on a concrete launcher action.
 - [x] Integrate the completed transparent square Portal Launcher mark into the shell, favicon, taskbar and installer resources.
-- [ ] Run TypeScript-only verification and push the account/onboarding and square-icon revision to GitHub main.
+- [x] Run TypeScript-only verification and push the account/onboarding and square-icon revision to GitHub main.

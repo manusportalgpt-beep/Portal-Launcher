@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Portal Launcher circular multi-arc portal mark">
   <!-- The square canvas is transparent; only the circular portal field is black. -->
-  <circle cx="512" cy="512" r="408" fill="#050506"/>
+  <circle cx="512" cy="512" r="420" fill="#050506"/>
   <!-- Black keyline beneath every red arc. -->
   <g fill="none" stroke="#050506" stroke-linecap="round">
-    <circle cx="512" cy="512" r="350" stroke-width="112" stroke-dasharray="1680 520" transform="rotate(-36 512 512)"/>
-    <circle cx="512" cy="512" r="242" stroke-width="108" stroke-dasharray="1160 360" transform="rotate(50 512 512)"/>
+    <circle cx="512" cy="512" r="363" stroke-width="112" stroke-dasharray="1740 530" transform="rotate(-36 512 512)"/>
+    <circle cx="512" cy="512" r="250" stroke-width="108" stroke-dasharray="1200 370" transform="rotate(50 512 512)"/>
     <circle cx="512" cy="512" r="120" stroke-width="76" stroke-dasharray="505 250" transform="rotate(-35 512 512)"/>
   </g>
   <g fill="none" stroke="#e60012" stroke-linecap="round">
-    <circle cx="512" cy="512" r="350" stroke-width="78" stroke-dasharray="1680 520" transform="rotate(-36 512 512)"/>
-    <circle cx="512" cy="512" r="242" stroke-width="74" stroke-dasharray="1160 360" transform="rotate(50 512 512)"/>
+    <circle cx="512" cy="512" r="363" stroke-width="78" stroke-dasharray="1740 530" transform="rotate(-36 512 512)"/>
+    <circle cx="512" cy="512" r="250" stroke-width="74" stroke-dasharray="1200 370" transform="rotate(50 512 512)"/>
     <circle cx="512" cy="512" r="120" stroke-width="46" stroke-dasharray="505 250" transform="rotate(-35 512 512)"/>
   </g>
 </svg>

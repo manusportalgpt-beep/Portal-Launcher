@@ -1262,3 +1262,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Rebuild the shared shell, navigation, home, library/discovery/detail surfaces, settings and first launch around one restrained hierarchy and spacing system.
 - [x] Preserve Java, installers, Modrinth, CurseForge, accounts, instance data and all non-visual behavior unchanged.
 - [x] Run TypeScript-only verification and push the complete Kill AI Slop redesign to GitHub main.
+
+---
+
+# Square navigation and restrained boundaries
+
+- [x] Make all interactive tabs, filters, segmented controls and theme choices rectangular with small square corners; remove circular/pill treatment.
+- [x] Render theme choices as named palette swatches with a single square color outline, without color dots or checkmark bubbles.
+- [x] Reduce non-semantic connecting lines and nested separators so each page reads as one interface surface.
+- [x] Unify active launcher icons around one human-made-feeling outline weight, alignment and neutral inactive treatment without replacing the pending app icon.
+- [x] Run TypeScript-only verification and push the square-interface update to GitHub main.

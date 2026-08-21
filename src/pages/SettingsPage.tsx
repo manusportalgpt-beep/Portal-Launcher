@@ -367,24 +367,15 @@ function AppearanceSection() {
         {THEMES.map(t => (
           <button key={t.id} onClick={() => setTheme(t.id)}
             data-testid={`theme-${t.id}`}
-            className="relative rounded-2xl overflow-hidden transition-all hover:scale-[1.03] hover:-translate-y-0.5"
+            className="theme-swatch-square relative p-3 text-left transition-colors"
             style={{
-              border: `2px solid ${themeId === t.id ? t.accent : 'var(--color-border)'}`,
-              boxShadow: themeId === t.id ? `0 8px 24px ${t.accent}33` : 'none',
+              background:'var(--color-surface)',
+              border: `${themeId === t.id ? 2 : 1}px solid ${themeId === t.id ? t.accent : 'var(--color-border)'}`,
+              borderTop:`3px solid ${t.accent}`,
+              boxShadow:'none',
             }}>
-            <div className="h-16 relative" style={{ background: t.preview }}>
-              <div className="absolute bottom-1.5 left-1.5 w-3 h-3 rounded-full"
-                style={{ background: t.accent, boxShadow: `0 0 8px ${t.accent}` }} />
-            </div>
-            <div className="px-2 py-2" style={{ background: 'var(--color-surface-2)' }}>
-              <p className="text-[11px] font-bold text-center truncate" style={{ color: 'var(--color-text)' }}>{t.name}</p>
-            </div>
-            {themeId === t.id && (
-              <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center"
-                style={{ background: t.accent, boxShadow: `0 2px 8px ${t.accent}` }}>
-                <Check className="w-3 h-3 text-white" strokeWidth={3} />
-              </div>
-            )}
+            <p className="text-[11px] font-bold truncate" style={{ color: themeId === t.id ? t.accent : 'var(--color-text)' }}>{t.name}</p>
+            <p className="mt-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{themeId === t.id ? 'Выбрана' : 'Палитра темы'}</p>
           </button>
         ))}
       </div>
@@ -525,16 +516,9 @@ function AppearanceSection() {
       <SegRow label={t('settings.appearanceUi.panelBorder')} desc={t('settings.appearanceUi.panelBorderDescription')} value={panelAppearance.border}
         options={[{ id:'none', label:t('settings.appearanceUi.none') }, { id:'subtle', label:t('settings.appearanceUi.subtle') }, { id:'strong', label:t('settings.appearanceUi.strong') }]}
         onChange={v => setPanelAppearance('border', v)} />
-      <SegRow label={t('settings.appearanceUi.activeItem')} desc={t('settings.appearanceUi.activeItemDescription')} value={panelAppearance.activeIndicator}
-        options={[{ id:'line', label:t('settings.appearanceUi.line') }, { id:'dot', label:t('settings.appearanceUi.dot') }, { id:'pill', label:t('settings.appearanceUi.pill') }]}
-        onChange={v => setPanelAppearance('activeIndicator', v)} />
-      <SegRow label={t('settings.appearanceUi.hoverIndicator')} desc={t('settings.appearanceUi.hoverIndicatorDescription')} value={panelAppearance.hoverIndicator}
-        options={[{ id:'square', label:t('settings.appearanceUi.square') }, { id:'circle', label:t('settings.appearanceUi.circle') }, { id:'none', label:t('settings.appearanceUi.none') }]}
-        onChange={v => setPanelAppearance('hoverIndicator', v)} />
-      <SegRow label="Форма нажатия" desc="Форма активного элемента и короткого эффекта при нажатии в Notch Panel и Sidebar"
-        value={panelAppearance.interactionShape}
-        options={[{ id:'square', label:t('settings.appearanceUi.square') }, { id:'circle', label:t('settings.appearanceUi.circle') }]}
-        onChange={v => setPanelAppearance('interactionShape', v)} />
+      <div className="mb-3 px-3 py-2 text-xs" style={{ border:'1px solid var(--color-border)', background:'var(--color-surface)' }}>
+        Активные элементы используют только квадратную обводку в цвете темы. Круглые, точечные и pill-индикаторы отключены для всего launcher.
+      </div>
       <SegRow label={t('settings.appearanceUi.navigationLabels')} desc={t('settings.appearanceUi.navigationLabelsDescription')} value={panelAppearance.labels}
         options={[{ id:'icons', label:t('settings.appearanceUi.icons') }, { id:'hover', label:t('settings.appearanceUi.hover') }, { id:'always', label:t('settings.appearanceUi.always') }]}
         onChange={v => setPanelAppearance('labels', v)} />

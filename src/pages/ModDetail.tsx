@@ -884,9 +884,8 @@ export function ModDetail() {
           {location.state?.fromFindProjects ? 'К проектам' : 'Назад к поиску'}
         </button>
 
-        <motion.div className="mb-4 flex items-start gap-4 border-y py-4"
-          style={{ background: 'transparent', borderColor:'var(--color-border)' }}
-          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+        <section className="mb-4 border p-5 sm:p-6"
+          style={{ background: 'var(--color-bg)', borderColor:'var(--color-border)', borderRadius:'var(--radius-card)' }}>
 
           <div className="w-14 h-14 rounded-sm flex items-center justify-center text-xl font-bold shrink-0 overflow-hidden"
             style={{ background: project?.icon_url ? 'transparent' : 'var(--color-surface-2)', color, border:'1px solid var(--color-border)' }}>
@@ -900,7 +899,7 @@ export function ModDetail() {
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div className="min-w-0 flex-1">
                 <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--color-text)' }}>{project?.title}</h1>
-                <p className="max-w-2xl border-b pb-3 text-sm" style={{ color: 'var(--color-text-secondary)', borderColor:'var(--color-border)' }}>{project?.description}</p>
+                <p className="max-w-2xl text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{project?.description}</p>
                 {project?.author && (
                   <button
                     onClick={() => navigate(`/author/${source === 'curseforge' ? 'curseforge' : 'modrinth'}/${encodeURIComponent(project.author!)}`)}
@@ -937,7 +936,7 @@ export function ModDetail() {
                   className="flex items-center gap-2 px-4 py-2.5 rounded-sm font-semibold text-sm transition-colors"
                   style={installed
                     ? { background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-border)' }
-                    : { background: 'var(--color-primary)', color: '#fff', opacity: installing ? 0.75 : 1 }}>
+                    : { background: 'transparent', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', opacity: installing ? 0.75 : 1 }}>
                   {installing || previewLoading
                     ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />{previewLoading ? 'Читаю манифест…' : (installMessage || 'Устанавливаю…')}</>
                     : installed
@@ -956,7 +955,7 @@ export function ModDetail() {
               </div>
             </div>
 
-            <div className="mt-3 flex items-center gap-4 flex-wrap border-t pt-3" style={{ borderColor:'var(--color-border)' }}>
+            <div className="mt-4 flex items-center gap-x-4 gap-y-2 flex-wrap border px-3 py-2.5" style={{ background:'transparent', borderColor:'var(--color-border)', borderRadius:'var(--radius-button)' }}>
               <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 <Download className="w-4 h-4" />{(project?.downloads ?? 0).toLocaleString('ru-RU')} загрузок
               </span>
@@ -1001,10 +1000,10 @@ export function ModDetail() {
               )}
             </div>
           </div>
-        </motion.div>
+        </section>
 
-        <div className="mb-4 flex gap-3 border-b"
-          style={{ background:'transparent', borderColor:'var(--color-border)' }}>
+        <div className="mb-4 grid grid-cols-2 sm:grid-cols-4"
+          style={{ background:'var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-card)' }}>
           {([
             ['desc', 'Описание'],
             ['versions', `Версии (${versions.length})`],
@@ -1012,20 +1011,20 @@ export function ModDetail() {
             ['screenshots', `Скриншоты (${project?.gallery?.length ?? 0})`],
           ] as const).map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
-              className="py-2 text-sm font-medium transition-colors"
+              className="min-w-0 px-3 py-3 text-center text-sm font-semibold transition-colors"
               style={tab === id
-                ? { color: 'var(--color-text)', borderBottom:'2px solid var(--color-text)' }
-                : { color: 'var(--color-text-secondary)', borderBottom:'2px solid transparent' }}>
+                ? { color: 'var(--color-primary)', background:'transparent', outline:'1px solid var(--color-primary)', outlineOffset:'-1px' }
+                : { color: 'var(--color-text-secondary)', borderRight:'1px solid var(--color-border)' }}>
               {label}
             </button>
           ))}
         </div>
 
-        <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="pb-6" style={{ background: 'transparent', border: '0' }}>
+        <section key={tab} className="mb-6 min-h-[18rem] border p-5 sm:p-6"
+          style={{ background: 'var(--color-bg)', borderColor:'var(--color-border)', borderRadius:'var(--radius-card)' }}>
 
           {tab === 'desc' && (
-            <div className="text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+            <div className="max-w-3xl text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
               {project?.body ? (
                 <div dangerouslySetInnerHTML={{ __html: renderBody(project.body) }} />
               ) : (
@@ -1135,7 +1134,7 @@ export function ModDetail() {
           )}
 
           {tab === 'screenshots' && <ProjectScreenshots items={project?.gallery ?? []} instanceId={contextInstanceId} />}
-        </motion.div>
+        </section>
       </div>
 
       <AnimatePresence>

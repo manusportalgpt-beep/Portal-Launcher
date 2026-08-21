@@ -1450,3 +1450,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Reconcile the remaining NeoForge 21.1.99 duplicate `minecraft` / `_1._21._1` module error with the exact launcher profile representation, including installed builds created before the previous fix.
 - [x] Keep Quilt unchanged and add narrow source-level coverage for the Forge versus NeoForge client-JAR decision.
 - [x] Run TypeScript-only verification, inspect the Rust source diff, and push the evidence-based loader repair to GitHub main.
+
+---
+
+# Compact reference-style ModDetails
+
+- [x] Restore a compact project header with icon, title, concise description, author, metadata, source and square install state/action.
+- [x] Rebuild ModDetails tabs as one outlined square row with a clear active state, without animation ribbons or detached grey card surfaces.
+- [x] Render the description as one readable black outlined content object; retain working versions, dependencies and screenshots tabs.
+- [x] Run TypeScript-only verification and push the scoped compact ModDetails layout to GitHub main.

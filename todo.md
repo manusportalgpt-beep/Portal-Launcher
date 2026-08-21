@@ -1335,4 +1335,4 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Rework the first-launch experience and remaining primary pages for concise, information-first access with key actions close to their related objects.
 - [x] Create a refined transparent Portal Launcher mark with a slightly rounder spiral, no outer background and reliable legibility at small native icon sizes.
 - [x] Replace shell, favicon, taskbar and installer resources with the refined transparency-corrected icon.
-- [ ] Run TypeScript-only verification and push the black surface and icon refinement revision to GitHub main.
+- [x] Run TypeScript-only verification and push the black surface and icon refinement revision to GitHub main.

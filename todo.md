@@ -1513,3 +1513,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Replace only launcher icon resources with a square red portal mark, black inset field and clear outline for desktop-size readability.
 - [x] Regenerate all application icon formats and resolutions from the same square source so shortcut, taskbar and window use one mark.
 - [x] Verify the icon resource set and push only icon assets plus the required TODO update to GitHub main.
+
+---
+
+# Isolated CurseForge resource-pack installation repair
+
+- [x] Preserve the confirmed working NeoForge 1.21.1, Forge, Quilt and CurseForge shaderpack paths without modifications.
+- [x] Trace the CurseForge resource-pack version selection, download URL and destination path behind the visible resource-pack card failures.
+- [x] Correct only the CurseForge resource-pack install path and surface a useful localized failure only if its archive cannot be obtained or copied.
+- [x] Run TypeScript-only verification and push the isolated CurseForge resource-pack repair to GitHub main.

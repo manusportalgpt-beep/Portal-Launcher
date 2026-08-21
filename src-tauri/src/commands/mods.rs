@@ -365,7 +365,27 @@ pub async fn install_mod(
 
     app.emit("mod-progress", serde_json::json!({"name":mod_name,"percent":20,"message":"Downloading mod..."})).ok();
 
-    let bytes = client.get(&download_url).send().await.map_err(|e| format!("Download: {e}"))?.bytes().await.map_err(|e| format!("Read: {e}"))?;
+    let curseforge_resource_pack = source.eq_ignore_ascii_case("curseforge")
+        && mod_type_folder(mtype) == "resourcepacks";
+    let mut download = client.get(&download_url);
+    if curseforge_resource_pack {
+        let api_key = crate::commands::settings::read_curseforge_api_key();
+        if api_key.trim().is_empty() {
+            return Err("Для загрузки resource pack с CurseForge нужен API key. Добавьте его в Настройки → Дополнительно.".to_string());
+        }
+        // CurseForge requires API-key attribution for direct CDN file downloads.
+        // This is intentionally limited to resource packs; the working mod and
+        // shaderpack paths are not changed by this repair.
+        download = download.header("x-api-key", api_key);
+    }
+    let response = download.send().await.map_err(|e| format!("Скачивание файла: {e}"))?;
+    if curseforge_resource_pack && !response.status().is_success() {
+        return Err(format!("CurseForge не отдал resource pack {file_name} (HTTP {}). Проверьте API key в Настройки → Дополнительно.", response.status()));
+    }
+    let bytes = response.bytes().await.map_err(|e| format!("Чтение файла: {e}"))?;
+    if curseforge_resource_pack && !bytes.starts_with(b"PK") {
+        return Err(format!("CurseForge вернул не ZIP-архив для resource pack {file_name}."));
+    }
     let file_size = bytes.len() as u64;
     std::fs::write(dir.join(&file_name), &bytes).map_err(|e| format!("Write: {e}"))?;
     remove_legacy_misplaced_content(&instance_id, &file_name, mtype);

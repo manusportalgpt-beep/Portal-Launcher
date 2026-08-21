@@ -1441,3 +1441,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Recheck Forge and NeoForge profile/version handoff without changing the working Quilt path or content providers.
 - [x] Audit only launcher-owned Java, JVM, game-directory and graphics-launch settings that can explain the reported performance regression; preserve explicit user settings.
 - [x] Run TypeScript-only verification, perform available Rust source validation, and push the scoped repair to GitHub main.
+
+---
+
+# Forge and NeoForge classpath evidence repair
+
+- [x] Reconcile Forge 1.21.1-52.1.16 `Could not find net/minecraft/client/Minecraft.class` with the official installed profile and restore the required client path only for Forge.
+- [x] Reconcile the remaining NeoForge 21.1.99 duplicate `minecraft` / `_1._21._1` module error with the exact launcher profile representation, including installed builds created before the previous fix.
+- [x] Keep Quilt unchanged and add narrow source-level coverage for the Forge versus NeoForge client-JAR decision.
+- [x] Run TypeScript-only verification, inspect the Rust source diff, and push the evidence-based loader repair to GitHub main.

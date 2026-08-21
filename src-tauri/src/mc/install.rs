@@ -536,6 +536,7 @@ fn maven_url(base: &str, name: &str) -> Option<String> {
 
 #[derive(Debug, Clone)]
 pub struct LibraryTarget {
+    pub coordinate: String,
     pub path: PathBuf,
     pub url: String,
     pub sha1: Option<String>,
@@ -575,6 +576,7 @@ pub fn collect_libraries(version: &serde_json::Value) -> Vec<LibraryTarget> {
                 artifact.get("url").and_then(|u| u.as_str()).map(String::from),
             ) {
                 out.push(LibraryTarget {
+                    coordinate: name.clone(),
                     path,
                     url,
                     sha1: artifact.get("sha1").and_then(|s| s.as_str()).map(String::from),
@@ -588,6 +590,7 @@ pub fn collect_libraries(version: &serde_json::Value) -> Vec<LibraryTarget> {
                 .unwrap_or("https://libraries.minecraft.net/");
             if let (Some(path), Some(url)) = (maven_path(&name), maven_url(base, &name)) {
                 out.push(LibraryTarget {
+                    coordinate: name.clone(),
                     path,
                     url,
                     sha1: None,
@@ -611,6 +614,7 @@ pub fn collect_libraries(version: &serde_json::Value) -> Vec<LibraryTarget> {
                     classifier.get("url").and_then(|u| u.as_str()).map(String::from),
                 ) {
                     out.push(LibraryTarget {
+                        coordinate: format!("{name}:{key}"),
                         path,
                         url,
                         sha1: classifier.get("sha1").and_then(|s| s.as_str()).map(String::from),

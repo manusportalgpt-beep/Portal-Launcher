@@ -140,6 +140,15 @@ fn neoforge_profile_owns_client_jar(version: &serde_json::Value) -> bool {
         })
 }
 
+fn classpath_library_key(coordinate: &str) -> Option<String> {
+    let mut parts = coordinate.split(':');
+    let group = parts.next()?;
+    let artifact = parts.next()?;
+    let _version = parts.next()?;
+    let classifier = parts.next().unwrap_or("");
+    Some(format!("{group}:{artifact}:{classifier}"))
+}
+
 fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
     let mut cp: Vec<String> = Vec::new();
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -149,13 +158,11 @@ fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
             continue;
         }
         let p = lib.path.to_string_lossy().to_string();
-        // одна библиотека на group:artifact — берём первую (профиль загрузчика впереди)
-        let key = lib
-            .path
-            .parent()
-            .and_then(|p| p.parent())
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| p.clone());
+        // Одна библиотека на Maven group:artifact:classifier — берём первую
+        // (профиль загрузчика идёт впереди). Classifier обязателен в ключе:
+        // Forge 1.21.1 поставляет `:universal` и `:client`, оба JAR нужны
+        // SecureModuleClassLoader, но прежний ключ по директории оставлял один.
+        let key = classpath_library_key(&lib.coordinate).unwrap_or_else(|| p.clone());
         // ВАЖНО: сначала проверяем exists(), потом seen.insert(key).
         // Раньше было наоборот — seen.insert(key) выполнялся первым за счёт
         // short-circuit && и "занимал" слот group:artifact, даже если файл
@@ -185,7 +192,7 @@ fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod classpath_tests {
-    use super::neoforge_profile_owns_client_jar;
+    use super::{classpath_library_key, neoforge_profile_owns_client_jar};
     use serde_json::json;
 
     #[test]
@@ -209,6 +216,14 @@ mod classpath_tests {
         });
 
         assert!(!neoforge_profile_owns_client_jar(&profile));
+    }
+
+    #[test]
+    fn preserves_forge_universal_and_client_classifiers() {
+        assert_ne!(
+            classpath_library_key("net.minecraftforge:forge:1.21.1-52.1.16:universal"),
+            classpath_library_key("net.minecraftforge:forge:1.21.1-52.1.16:client")
+        );
     }
 }
 

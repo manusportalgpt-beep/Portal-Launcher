@@ -1200,3 +1200,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Make Fabric and NeoForge installers use the same version-derived managed Java resolver as Forge and Quilt.
 - [x] Remove only a confirmed Java-path divergence while preserving existing instances, loader profiles, mod directories and platform sources.
 - [x] Run TypeScript-only verification and push the isolated stabilization repair to GitHub main.
+
+---
+
+# Automatic Adoptium Temurin runtime visibility
+
+- [x] When no compatible Java exists, download the required 64-bit Adoptium Temurin JDK for the selected Minecraft version and loader.
+- [x] Refresh Java Manager after automatic download so the exact runtime is immediately shown as «Установлено».
+- [x] Prefer managed Temurin over legacy managed runtimes for automatic resolution, while keeping manually chosen paths intact.
+- [ ] Preserve existing Java selections, instances, Modrinth, CurseForge and loader-install paths.
+- [x] Run TypeScript-only verification and push the isolated Temurin visibility update to GitHub main.

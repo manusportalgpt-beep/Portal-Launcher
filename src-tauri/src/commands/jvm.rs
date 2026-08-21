@@ -26,6 +26,13 @@ pub fn java_cache_dir() -> PathBuf {
     std::fs::create_dir_all(&p).ok(); p
 }
 
+fn managed_runtime_priority(path: &Path) -> u8 {
+    let name = path.to_string_lossy().to_ascii_lowercase();
+    if name.contains("temurin") || name.contains("adoptium") { 0 }
+    else if name.contains("zulu") { 1 }
+    else { 2 }
+}
+
 /// Find best available Java for the given major version.
 /// Priority: managed Portal Launcher runtime → user JAVA_HOME → validated
 /// system PATH → platform JVM paths. A manually selected per-instance/runtime
@@ -46,13 +53,9 @@ pub fn find_java(major: u32) -> String {
             .filter(|p| p.exists())
             .collect();
         
-        // Приоритет: Zulu > Temurin/Eclipse > остальные
-        candidates.sort_by_key(|p| {
-            let name = p.to_string_lossy().to_lowercase();
-            if name.contains("zulu") { 0 }
-            else if name.contains("temurin") || name.contains("eclipse") || name.contains("timur") { 1 }
-            else { 2 }
-        });
+        // Temurin is the automatic Portal Launcher runtime. Zulu remains
+        // compatible for users who have selected it explicitly.
+        candidates.sort_by_key(|path| managed_runtime_priority(path));
         
         for bin in &candidates {
             if let Some(info) = run_java(&bin.to_string_lossy()) {
@@ -113,12 +116,7 @@ pub fn find_java(major: u32) -> String {
                 .map(|e| e.path().join("Contents").join("Home").join("bin").join("java"))
                 .filter(|p| p.exists())
                 .collect();
-            candidates.sort_by_key(|p| {
-                let name = p.to_string_lossy().to_lowercase();
-                if name.contains("zulu") { 0 }
-                else if name.contains("temurin") || name.contains("eclipse") || name.contains("timur") { 1 }
-                else { 2 }
-            });
+            candidates.sort_by_key(|path| managed_runtime_priority(path));
             for bin in candidates {
                 if let Some(info) = run_java(&bin.to_string_lossy()) {
                     if info.major_version == major || major == 0 {
@@ -141,12 +139,7 @@ pub fn find_java(major: u32) -> String {
                     .map(|e| e.path().join("bin").join("java"))
                     .filter(|p| p.exists())
                     .collect();
-                bins.sort_by_key(|p| {
-                    let name = p.to_string_lossy().to_lowercase();
-                    if name.contains("zulu") { 0 }
-                    else if name.contains("temurin") || name.contains("eclipse") || name.contains("timur") { 1 }
-                    else { 2 }
-                });
+                bins.sort_by_key(|path| managed_runtime_priority(path));
                 for bin in bins {
                     if let Some(info) = run_java(&bin.to_string_lossy()) {
                         if info.major_version == major || major == 0 {
@@ -419,7 +412,7 @@ async fn download_temurin<F: Fn(u8, &str) + Send + Sync>(
 
     emit(55, "Extracting Temurin JDK...");
     let base = java_base_dir();
-    let dir_name = format!("java{}-{}", major_version, actual_version.replace('.', "_"));
+    let dir_name = format!("temurin-jdk{}-{}", major_version, actual_version.replace('.', "_"));
     let dest = base.join(&dir_name);
     let _ = std::fs::remove_dir_all(&dest);
     extract_archive(&data, &dest, ext, emit)?;
@@ -430,7 +423,9 @@ async fn download_temurin<F: Fn(u8, &str) + Send + Sync>(
     Ok(java_bin.to_string_lossy().to_string())
 }
 
-/// Download Java — tries Azul Zulu first (best for ARM/Apple Silicon), falls back to Adoptium Temurin.
+/// Download the automatic Portal Launcher runtime: Adoptium Temurin JDK.
+/// Azul Zulu remains available through the explicit user-facing command, but
+/// automatic Minecraft and loader preparation must use the same Temurin build.
 #[tauri::command]
 pub async fn download_java(app: tauri::AppHandle, major_version: u32) -> Result<String, String> {
     let emit = move |pct: u8, msg: &str| {
@@ -444,15 +439,6 @@ pub async fn download_java(app: tauri::AppHandle, major_version: u32) -> Result<
         .user_agent("PortalLauncher/1.3")
         .build().map_err(|e| e.to_string())?;
 
-    // Try Zulu first — best for ARM (Apple Silicon M1/M2/M3) and all platforms
-    match download_zulu(&client, major_version, &emit).await {
-        Ok(path) => return Ok(path),
-        Err(e) => {
-            emit(5, &format!("Zulu unavailable ({}), trying Temurin...", e));
-        }
-    }
-
-    // Fallback to Adoptium Temurin
     download_temurin(&client, major_version, &emit).await
 }
 

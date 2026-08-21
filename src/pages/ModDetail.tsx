@@ -657,7 +657,12 @@ export function ModDetail() {
           pickNewest(versions, mcVersion, loader);
       } else {
         const CF_LOADER_MAP: Record<string, number> = { forge: 1, fabric: 4, quilt: 5, neoforge: 6 };
-        const loaderNum = loader && loader !== 'vanilla' ? CF_LOADER_MAP[loader] : undefined;
+        const curseforgeType = project?.project_type ?? passedProject?.project_type ?? 'mod';
+        const nonModContent = ['resourcepack', 'resourcepacks', 'shader', 'shaders', 'shaderpack', 'shaderpacks'].includes(curseforgeType);
+        // CurseForge does not consistently attach mod-loader indexes to texture
+        // and shader packs. Never ask its file endpoint for Forge/Fabric/etc.
+        // on these two content types; ordinary mods retain the current filter.
+        const loaderNum = !nonModContent && loader && loader !== 'vanilla' ? CF_LOADER_MAP[loader] : undefined;
         try {
           const filesResp = await invoke<any>('get_curseforge_mod_files', {
             modId: Number(modId) || Number(passedProject?.id),
@@ -884,10 +889,10 @@ export function ModDetail() {
           {location.state?.fromFindProjects ? 'К проектам' : 'Назад к поиску'}
         </button>
 
-        <section className="mb-4 border p-5 sm:p-6"
+        <section className="mb-4 border p-4 sm:p-5"
           style={{ background: 'var(--color-bg)', borderColor:'var(--color-border)', borderRadius:'var(--radius-card)' }}>
 
-          <div className="w-14 h-14 rounded-sm flex items-center justify-center text-xl font-bold shrink-0 overflow-hidden"
+          <div className="w-12 h-12 rounded-sm flex items-center justify-center text-lg font-bold shrink-0 overflow-hidden"
             style={{ background: project?.icon_url ? 'transparent' : 'var(--color-surface-2)', color, border:'1px solid var(--color-border)' }}>
             {project?.icon_url
               ? <img src={project.icon_url} alt="" className="w-full h-full object-cover rounded-sm"
@@ -898,7 +903,7 @@ export function ModDetail() {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--color-text)' }}>{project?.title}</h1>
+                <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--color-text)' }}>{project?.title}</h1>
                 <p className="max-w-2xl text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{project?.description}</p>
                 {project?.author && (
                   <button
@@ -933,7 +938,7 @@ export function ModDetail() {
                     }
                   }}
                   disabled={installing || installed}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-sm font-semibold text-sm transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 rounded-sm font-semibold text-sm transition-colors"
                   style={installed
                     ? { background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-border)' }
                     : { background: 'transparent', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', opacity: installing ? 0.75 : 1 }}>
@@ -955,7 +960,7 @@ export function ModDetail() {
               </div>
             </div>
 
-            <div className="mt-4 flex items-center gap-x-4 gap-y-2 flex-wrap border px-3 py-2.5" style={{ background:'transparent', borderColor:'var(--color-border)', borderRadius:'var(--radius-button)' }}>
+            <div className="mt-3 flex items-center gap-x-4 gap-y-2 flex-wrap border px-3 py-2" style={{ background:'transparent', borderColor:'var(--color-border)', borderRadius:'var(--radius-button)' }}>
               <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 <Download className="w-4 h-4" />{(project?.downloads ?? 0).toLocaleString('ru-RU')} загрузок
               </span>
@@ -979,7 +984,7 @@ export function ModDetail() {
               )}
             </div>
 
-            <div className="flex flex-wrap gap-2 mt-3">
+            <div className="flex flex-wrap gap-2 mt-2.5">
               {project?.loaders?.map(l => (
                 <span key={l} className="text-xs px-2 py-1 rounded-sm font-medium capitalize"
                   style={{ background: 'transparent', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>

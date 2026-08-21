@@ -1468,3 +1468,31 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Trace the fresh NeoForge 21.1.99 `minecraft` / `_1._21._1` conflict in the installed launch profile rather than changing generic classpath behavior.
 - [x] Apply a NeoForge-only classpath/module repair with a narrow source-level guard for the 1.21.x client artifact.
 - [x] Run TypeScript-only verification, inspect the source diff and push the isolated NeoForge repair to GitHub main.
+
+---
+
+# Isolated CurseForge resource-pack status repair
+
+- [x] Trace the CurseForge Golden Days Base resource-pack failure from file selection through the installed-content status store.
+- [x] Correct only the CurseForge resource-pack file fallback/type/path mapping so a real compatible archive reaches the instance `resourcepacks` directory.
+- [x] Repair the card status so it reports an actionable error only when the CurseForge file truly cannot be selected or installed.
+- [ ] Preserve Forge, NeoForge, Quilt, Modrinth, UI layout and performance settings; run TypeScript-only verification and push the isolated CurseForge repair.
+
+- [x] Reduce the wasted vertical space in the shared ModDetails header for every Modrinth and CurseForge project while preserving the square tab row and black outlined design.
+
+---
+
+# Final project-page installed status repair
+
+- [ ] Trace why installed project identifiers are lost or mismatched after returning to Modrinth and CurseForge project pages.
+- [ ] Reconcile the client installed store with persisted instance content for mods, resource packs, shaders and datapacks without touching downloads or files.
+- [ ] Preserve all current Forge, NeoForge, Quilt, CurseForge CDN, Modrinth and UI logic after this status-only correction.
+- [ ] Run TypeScript-only verification and push the final installed-status repair to GitHub main.
+
+---
+
+# Narrow CurseForge non-mod loader-filter repair
+
+- [x] Remove CurseForge loader filtering only for resource packs and shader packs; leave the user-fixed regular-mod path untouched.
+- [x] Preserve all other install, status, loader and UI behavior.
+- [x] Run TypeScript-only verification and push only this narrow CurseForge correction to GitHub main.

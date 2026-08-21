@@ -1190,3 +1190,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Restore managed Portal Launcher Java as the automatic runtime preference while retaining installed Java as a no-download fallback.
 - [x] Run TypeScript-only verification for the managed-Java preference repair.
 - [ ] Apply verified regression fixes, run TypeScript-only verification, and push the result to GitHub main.
+
+---
+
+# Loader Java-path stabilization and critical subsystem isolation
+
+- [ ] Keep Modrinth, CurseForge, Java management and loader installers unchanged during unrelated feature work.
+- [x] Compare managed-Java selection between normal game launch and Forge, NeoForge, Fabric and Quilt installers.
+- [x] Make Fabric and NeoForge installers use the same version-derived managed Java resolver as Forge and Quilt.
+- [x] Remove only a confirmed Java-path divergence while preserving existing instances, loader profiles, mod directories and platform sources.
+- [x] Run TypeScript-only verification and push the isolated stabilization repair to GitHub main.

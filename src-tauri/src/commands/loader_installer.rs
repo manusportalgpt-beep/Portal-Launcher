@@ -44,16 +44,8 @@ fn find_java_for_mc(mc_version: &str) -> Result<String, String> {
     verified_java(major, &format!("установки загрузчика для Minecraft {mc_version}"))
 }
 
-fn find_java_17() -> Result<String, String> {
-    verified_java(17, "установщика Fabric")
-}
-
 fn is_modern_quilt_target(mc_version: &str) -> bool {
     mc_version.split('.').next().and_then(|part| part.parse::<u32>().ok()).unwrap_or(0) >= 26
-}
-
-fn find_java_21() -> Result<String, String> {
-    verified_java(21, "установщика NeoForge")
 }
 
 async fn download_bytes(client: &reqwest::Client, url: &str) -> Result<bytes::Bytes, String> {
@@ -123,7 +115,11 @@ pub async fn install_fabric(mc_version: String, loader_version: String, instance
     let jar_path = mc_base_dir().join("fabric-installer.jar");
     std::fs::write(&jar_path, &download_bytes(&client, installer_url).await?).map_err(|e| e.to_string())?;
 
-    let java = find_java_17()?;
+    // Use the exact runtime required by the selected Minecraft version. A
+    // fixed Java 17 installer path breaks current Fabric targets that require
+    // Java 21 or Java 25, even though the launcher itself resolves them
+    // correctly at game start.
+    let java = find_java_for_mc(&mc_version)?;
     let output = crate::utils::create_hidden_command(&java)
         .args(&["-jar", &jar_path.to_string_lossy(), "client",
             "-mcversion", &mc_version, "-loader", &lv,
@@ -276,7 +272,10 @@ pub async fn install_neoforge(mc_version: String, neoforge_version: String, inst
         })
     }
 
-    let java = find_java_21()?;
+    // NeoForge follows the Minecraft runtime requirement: 1.20.1 uses Java
+    // 17, modern 1.21.x uses Java 21, and 26.x uses Java 25. Keep installer
+    // and game launch on the same verified managed runtime.
+    let java = find_java_for_mc(&mc_version)?;
     let output = crate::utils::create_hidden_command(&java)
         .args(&["-jar", &jar_path.to_string_lossy(), "--installClient", &instance_dir])
         .output().map_err(|e| format!("Run NeoForge ({java}): {e}"))?;

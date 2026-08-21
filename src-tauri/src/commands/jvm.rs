@@ -27,7 +27,7 @@ pub fn java_cache_dir() -> PathBuf {
 }
 
 /// Find best available Java for the given major version.
-/// Priority: user JAVA_HOME/PATH → managed runtime → platform JVM paths → "java".
+/// Priority: user JAVA_HOME → managed runtime → validated system PATH → platform JVM paths.
 pub fn find_java(major: u32) -> String {
     // Prefer an exact, 64-bit Java already installed by the user. This avoids
     // downloading a managed runtime when the required Java is already usable.
@@ -35,14 +35,6 @@ pub fn find_java(major: u32) -> String {
     if let Ok(home) = std::env::var("JAVA_HOME") {
         user_candidates.push(if cfg!(windows) { PathBuf::from(home).join("bin").join("java.exe") } else { PathBuf::from(home).join("bin").join("java") });
     }
-    #[cfg(windows)]
-    {
-        if let Ok(output) = crate::utils::create_hidden_command("where").arg("java").output() {
-            user_candidates.extend(String::from_utf8_lossy(&output.stdout).lines().map(|line| PathBuf::from(line.trim())));
-        }
-    }
-    #[cfg(not(windows))]
-    user_candidates.push(PathBuf::from("/usr/bin/java"));
     for candidate in user_candidates.into_iter().filter(|path| path.exists()) {
         if let Some(info) = run_java(&candidate.to_string_lossy()) {
             if (info.major_version == major || major == 0) && !info.architecture.eq_ignore_ascii_case("x86") {
@@ -100,7 +92,26 @@ pub fn find_java(major: u32) -> String {
         }
     }
 
-    // 3. macOS: /Library/Java/JavaVirtualMachines (Zulu, Temurin, etc.)
+    // 3. System PATH. Deliberately skip Oracle javapath indirection: it can
+    // target an unrelated Java after a Windows update even when Java 21 is
+    // installed inside Portal Launcher.
+    #[cfg(windows)]
+    {
+        if let Ok(output) = crate::utils::create_hidden_command("where").arg("java").output() {
+            for candidate in String::from_utf8_lossy(&output.stdout).lines().map(|line| PathBuf::from(line.trim())) {
+                let normalized = candidate.to_string_lossy().replace('/', "\\").to_ascii_lowercase();
+                if normalized.contains("\\common files\\oracle\\java\\javapath\\") { continue; }
+                if let Some(info) = run_java(&candidate.to_string_lossy()) {
+                    if (info.major_version == major || major == 0) && !info.architecture.eq_ignore_ascii_case("x86") {
+                        log::info!("Using validated system Java: {}", candidate.display());
+                        return candidate.to_string_lossy().to_string();
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. macOS: /Library/Java/JavaVirtualMachines (Zulu, Temurin, etc.)
     #[cfg(target_os = "macos")]
     {
         let jvm_dir = PathBuf::from("/Library/Java/JavaVirtualMachines");
@@ -129,7 +140,7 @@ pub fn find_java(major: u32) -> String {
         }
     }
 
-    // 4. Linux: /usr/lib/jvm
+    // 5. Linux: /usr/lib/jvm
     #[cfg(target_os = "linux")]
     {
         let jvm_dir = PathBuf::from("/usr/lib/jvm");
@@ -158,8 +169,8 @@ pub fn find_java(major: u32) -> String {
         }
     }
 
-    log::info!("⚠️ No managed Java found for version {}, falling back to system 'java'", major);
-    "java".to_string()
+    log::warn!("No validated Java found for required version {}", major);
+    String::new()
 }
 
 pub fn run_java(java_path: &str) -> Option<JavaInfo> {

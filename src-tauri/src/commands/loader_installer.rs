@@ -1,6 +1,5 @@
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
-use which::which;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LoaderInstallResult {
@@ -99,24 +98,6 @@ async fn latest_forge_version(client: &reqwest::Client, mc_version: &str) -> Res
 /// Install Fabric loader – 1.14+ to latest snapshots.
 #[tauri::command]
 pub async fn install_fabric(mc_version: String, loader_version: String, instance_dir: String) -> Result<LoaderInstallResult, String> {
-    // Prefer lighty-launcher if available
-    if which("lighty-launcher").is_ok() || which("npx").is_ok() {
-        let mut cmd_opt = None;
-        if which("lighty-launcher").is_ok() {
-            let mut c = crate::utils::create_hidden_command("lighty-launcher");
-            c.arg("loader").arg("install").arg("fabric").arg(&mc_version).arg(&instance_dir).arg(&loader_version);
-            cmd_opt = Some(c);
-        } else if which("npx").is_ok() {
-            let mut c = crate::utils::create_hidden_command("npx");
-            c.arg("lighty-launcher").arg("loader").arg("install").arg("fabric").arg(&mc_version).arg(&instance_dir).arg(&loader_version);
-            cmd_opt = Some(c);
-        }
-
-        if let Some(mut cmd) = cmd_opt {
-            let status = cmd.status().map_err(|e| format!("Failed to run lighty installer: {}", e))?;
-            return Ok(LoaderInstallResult { success: status.success(), loader: "fabric".into(), version: loader_version, message: if status.success() { "Installed via lighty".into() } else { "Lighty installation failed".into() } });
-        }
-    }
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(180))
         .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
@@ -143,41 +124,23 @@ pub async fn install_fabric(mc_version: String, loader_version: String, instance
     std::fs::write(&jar_path, &download_bytes(&client, installer_url).await?).map_err(|e| e.to_string())?;
 
     let java = find_java_17()?;
-    let status = crate::utils::create_hidden_command(&java)
+    let output = crate::utils::create_hidden_command(&java)
         .args(&["-jar", &jar_path.to_string_lossy(), "client",
             "-mcversion", &mc_version, "-loader", &lv,
             "-dir", &instance_dir, "-noprofile"])
-        .status().map_err(|e| format!("Run Fabric ({java}): {e}"))?;
+        .output().map_err(|e| format!("Run Fabric ({java}): {e}"))?;
 
     std::fs::remove_file(&jar_path).ok();
     Ok(LoaderInstallResult {
-        success: status.success(), loader: "fabric".into(), version: lv,
-        message: if status.success() { "Fabric installed successfully".into() }
-                 else { format!("Fabric installation failed (Java: {java})") },
+        success: output.status.success(), loader: "fabric".into(), version: lv,
+        message: if output.status.success() { "Fabric installed successfully".into() }
+                 else { format!("Не удалось установить Fabric: {}", String::from_utf8_lossy(&output.stderr).lines().last().unwrap_or("установщик завершился с ошибкой")) },
     })
 }
 
 /// Install Forge – 1.7.2 to latest (full installer flow).
 #[tauri::command]
 pub async fn install_forge(mc_version: String, forge_version: String, instance_dir: String) -> Result<LoaderInstallResult, String> {
-    // Prefer lighty-launcher if available
-    if !forge_version.trim().is_empty() && (which("lighty-launcher").is_ok() || which("npx").is_ok()) {
-        let mut cmd_opt = None;
-        if which("lighty-launcher").is_ok() {
-            let mut c = crate::utils::create_hidden_command("lighty-launcher");
-            c.arg("loader").arg("install").arg("forge").arg(&mc_version).arg(&instance_dir).arg(&forge_version);
-            cmd_opt = Some(c);
-        } else if which("npx").is_ok() {
-            let mut c = crate::utils::create_hidden_command("npx");
-            c.arg("lighty-launcher").arg("loader").arg("install").arg("forge").arg(&mc_version).arg(&instance_dir).arg(&forge_version);
-            cmd_opt = Some(c);
-        }
-
-        if let Some(mut cmd) = cmd_opt {
-            let status = cmd.status().map_err(|e| format!("Failed to run lighty installer: {}", e))?;
-            return Ok(LoaderInstallResult { success: status.success(), loader: "forge".into(), version: forge_version, message: if status.success() { "Installed via lighty".into() } else { "Lighty installation failed".into() } });
-        }
-    }
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(300))
         .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
@@ -217,15 +180,15 @@ pub async fn install_forge(mc_version: String, forge_version: String, instance_d
         vec!["-jar".into(), jar_str, "--installClient".into(), instance_dir.clone()]
     };
 
-    let status = crate::utils::create_hidden_command(&java)
+    let output = crate::utils::create_hidden_command(&java)
         .args(&args)
-        .status().map_err(|e| format!("Run Forge ({java}): {e}"))?;
+        .output().map_err(|e| format!("Run Forge ({java}): {e}"))?;
 
     std::fs::remove_file(&jar_path).ok();
     Ok(LoaderInstallResult {
-        success: status.success(), loader: "forge".into(), version: full_ver,
-        message: if status.success() { "Forge installed".into() }
-                 else { format!("Forge installation failed (Java: {java})") },
+        success: output.status.success(), loader: "forge".into(), version: full_ver,
+        message: if output.status.success() { "Forge installed".into() }
+                 else { format!("Не удалось установить Forge: {}", String::from_utf8_lossy(&output.stderr).lines().last().unwrap_or("установщик завершился с ошибкой")) },
     })
 }
 
@@ -265,40 +228,22 @@ pub async fn install_quilt(mc_version: String, loader_version: String, instance_
     std::fs::write(&jar_path, &download_bytes(&client, installer_url).await?).map_err(|e| e.to_string())?;
 
     let java = find_java_for_mc(&mc_version)?;
-    let status = crate::utils::create_hidden_command(&java)
+    let output = crate::utils::create_hidden_command(&java)
         .args(&["-jar", &jar_path.to_string_lossy(), "install", "client",
             &mc_version, &lv, "--install-dir", &instance_dir])
-        .status().map_err(|e| format!("Run Quilt ({java}): {e}"))?;
+        .output().map_err(|e| format!("Run Quilt ({java}): {e}"))?;
 
     std::fs::remove_file(&jar_path).ok();
     Ok(LoaderInstallResult {
-        success: status.success(), loader: "quilt".into(), version: lv,
-        message: if status.success() { "Quilt installed".into() }
-                 else { format!("Quilt installation failed (Java: {java})") },
+        success: output.status.success(), loader: "quilt".into(), version: lv,
+        message: if output.status.success() { "Quilt installed".into() }
+                 else { format!("Не удалось установить Quilt: {}", String::from_utf8_lossy(&output.stderr).lines().last().unwrap_or("установщик завершился с ошибкой")) },
     })
 }
 
 /// Install NeoForge – 1.20.1+ including 26.x snapshots.
 #[tauri::command]
 pub async fn install_neoforge(mc_version: String, neoforge_version: String, instance_dir: String) -> Result<LoaderInstallResult, String> {
-    // Prefer lighty-launcher if available
-    if !neoforge_version.trim().is_empty() && (which("lighty-launcher").is_ok() || which("npx").is_ok()) {
-        let mut cmd_opt = None;
-        if which("lighty-launcher").is_ok() {
-            let mut c = crate::utils::create_hidden_command("lighty-launcher");
-            c.arg("loader").arg("install").arg("neoforge").arg(&mc_version).arg(&instance_dir).arg(&neoforge_version);
-            cmd_opt = Some(c);
-        } else if which("npx").is_ok() {
-            let mut c = crate::utils::create_hidden_command("npx");
-            c.arg("lighty-launcher").arg("loader").arg("install").arg("neoforge").arg(&mc_version).arg(&instance_dir).arg(&neoforge_version);
-            cmd_opt = Some(c);
-        }
-
-        if let Some(mut cmd) = cmd_opt {
-            let status = cmd.status().map_err(|e| format!("Failed to run lighty installer: {}", e))?;
-            return Ok(LoaderInstallResult { success: status.success(), loader: "neoforge".into(), version: neoforge_version, message: if status.success() { "Installed via lighty".into() } else { "Lighty installation failed".into() } });
-        }
-    }
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(300))
         .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
@@ -332,15 +277,15 @@ pub async fn install_neoforge(mc_version: String, neoforge_version: String, inst
     }
 
     let java = find_java_21()?;
-    let status = crate::utils::create_hidden_command(&java)
+    let output = crate::utils::create_hidden_command(&java)
         .args(&["-jar", &jar_path.to_string_lossy(), "--installClient", &instance_dir])
-        .status().map_err(|e| format!("Run NeoForge ({java}): {e}"))?;
+        .output().map_err(|e| format!("Run NeoForge ({java}): {e}"))?;
 
     std::fs::remove_file(&jar_path).ok();
     Ok(LoaderInstallResult {
-        success: status.success(), loader: "neoforge".into(), version: nfv,
-        message: if status.success() { "NeoForge installed successfully".into() }
-                 else { format!("NeoForge installation failed (Java: {java})") },
+        success: output.status.success(), loader: "neoforge".into(), version: nfv,
+        message: if output.status.success() { "NeoForge installed successfully".into() }
+                 else { format!("Не удалось установить NeoForge: {}", String::from_utf8_lossy(&output.stderr).lines().last().unwrap_or("установщик завершился с ошибкой")) },
     })
 }
 

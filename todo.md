@@ -1165,3 +1165,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Refresh the library card after icon recovery, run TypeScript-only verification and push the fix to GitHub main.
 
 ---
+
+# Complete loader runtime repair
+
+- [x] Audit all Forge, NeoForge, Quilt, Fabric, OptiFine and LabyMod setup paths for direct or indirect fallback to Oracle javapath.
+- [x] Route all supported loader installers through one validated exact-version 64-bit Java resolver.
+- [x] Repair loader-profile recovery and produce localized actionable errors instead of raw installer-path failures.
+- [x] Run TypeScript-only verification and commit/push the complete loader runtime repair to GitHub main.
+
+---

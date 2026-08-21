@@ -85,6 +85,7 @@ pub fn pick_local_modpack() -> Result<Option<String>, String> {
 pub fn pick_local_files() -> Result<Vec<String>, String> {
     let selected = rfd::FileDialog::new()
         .set_title("Добавить файлы в сборку")
+        .add_filter("Minecraft content", &["jar", "zip", "mrpack"])
         .pick_files()
         .unwrap_or_default();
     Ok(selected.into_iter().map(|path| path.to_string_lossy().to_string()).collect())

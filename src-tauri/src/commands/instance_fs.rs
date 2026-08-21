@@ -346,7 +346,7 @@ pub fn instance_drop_files(
         } else if lower.ends_with(".prtheme") || lower.ends_with(".css") {
             crate::commands::version_manager::mc_base_dir().join("themes")
         } else {
-            root.join("misc")
+            return Err(format!("{name}: поддерживаются только .jar, .zip и .mrpack файлы Minecraft"));
         };
 
         std::fs::create_dir_all(&dest_dir).ok();
@@ -374,14 +374,18 @@ fn classify_zip(src: &Path, root: &Path) -> PathBuf {
     };
     let mut has_shaders = false;
     let mut has_level = false;
+    let mut has_resource_assets = false;
     for i in 0..zip.len().min(400) {
         if let Ok(entry) = zip.by_index(i) {
             let n = entry.name().to_lowercase();
-            if n.contains("shaders/") {
+            if n.contains("shaders/") || n.ends_with("shaders.properties") {
                 has_shaders = true;
             }
             if n.ends_with("level.dat") {
                 has_level = true;
+            }
+            if n.starts_with("assets/") || n.contains("/assets/") || n.ends_with("pack.mcmeta") {
+                has_resource_assets = true;
             }
         }
     }
@@ -389,7 +393,12 @@ fn classify_zip(src: &Path, root: &Path) -> PathBuf {
         root.join("shaderpacks")
     } else if has_level {
         root.join("saves")
+    } else if has_resource_assets {
+        root.join("resourcepacks")
     } else {
+        // ZIP archive without a shader or world marker is treated as a
+        // resource-pack candidate. Minecraft itself validates `pack.mcmeta`
+        // when the instance starts, while the launcher keeps it out of mods.
         root.join("resourcepacks")
     }
 }

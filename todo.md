@@ -1496,3 +1496,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Remove CurseForge loader filtering only for resource packs and shader packs; leave the user-fixed regular-mod path untouched.
 - [x] Preserve all other install, status, loader and UI behavior.
 - [x] Run TypeScript-only verification and push only this narrow CurseForge correction to GitHub main.
+
+---
+
+# Instance file-add routing repair
+
+- [x] Restore the «Добавить файлы» system-picker action in the instance content view.
+- [x] Detect mod JARs, resource-pack ZIPs and shader-pack ZIPs and route each to the current instance `mods`, `resourcepacks` or `shaderpacks` directory.
+- [x] Refresh content metadata and surface a localized honest error when a selected file cannot be classified or copied.
+- [x] Run TypeScript-only verification and push the file-add routing repair to GitHub main.

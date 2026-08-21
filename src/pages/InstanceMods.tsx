@@ -522,7 +522,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
     } catch (e: any) { setError(e?.toString() ?? 'Не удалось отменить последнее действие'); }
   }
 
-  async function importPaths(paths: string[]) {
+  async function importPaths(paths: string[], forceClassification = false) {
     if (!paths.length) return;
     try {
       // A Modrinth pack is an instance archive, not ordinary content. Route it
@@ -536,11 +536,14 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
           return;
         }
       }
-      await invoke('instance_drop_files', {
+      const added = await invoke<string[]>('instance_drop_files', {
         instanceId,
         files: paths,
-        targetDir: mainTab === 'files' ? (cwd || null) : null,
+        targetDir: !forceClassification && mainTab === 'files' ? (cwd || null) : null,
       });
+      if (!added?.length) {
+        throw new Error('Выбранные файлы не были добавлены в сборку');
+      }
       await Promise.all([loadMods(), loadFiles(cwd)]);
     } catch (e: any) {
       setError(e?.toString() ?? 'Не удалось импортировать файлы');
@@ -550,7 +553,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   async function pickFilesForInstance() {
     try {
       const paths = await invoke<string[]>('pick_local_files');
-      if (paths?.length) await importPaths(paths);
+      if (paths?.length) await importPaths(paths, true);
     } catch (e: any) {
       setError(e?.toString() ?? 'Не удалось открыть выбор файлов');
     }

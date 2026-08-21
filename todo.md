@@ -1174,3 +1174,11 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Run TypeScript-only verification and commit/push the complete loader runtime repair to GitHub main.
 
 ---
+
+# Supported instance cores only
+
+- [x] Remove OptiFine and LabyMod from Studio creation, core filters and navigation choices.
+- [x] Preserve existing imported OptiFine/LabyMod instance folders and their files without offering new creation paths.
+- [x] Run TypeScript-only verification and commit/push the supported-core-only update to GitHub main.
+
+---

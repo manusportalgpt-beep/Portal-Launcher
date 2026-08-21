@@ -37,8 +37,6 @@ const CORE_CATALOG = [
   { id:'forge', label:'Forge', short:'FG', desc:'Большие модпаки', Icon:Wrench },
   { id:'neoforge', label:'NeoForge', short:'NF', desc:'Новое поколение Forge', Icon:Sparkles },
   { id:'quilt', label:'Quilt', short:'Q', desc:'Совместимый модлоадер', Icon:Layers },
-  { id:'optifine', label:'OptiFine', short:'OF', desc:'Графика и шейдеры', Icon:MonitorPlay, external:true },
-  { id:'labymod', label:'LabyMod', short:'LM', desc:'Отдельный игровой клиент', Icon:MonitorPlay, external:true },
   { id:'bedrock', label:'Бедрок', short:'B', desc:'Minecraft для Windows', Icon:Box },
 ] as const;
 
@@ -64,7 +62,7 @@ type CreateStep = 'type' | 'custom' | 'install' | 'import';
 type LoaderVersionOption = { value: string; recommended: boolean; unreliable: boolean };
 type DeletedInstanceRecord = { recovery_id: string; instance: any; deleted_at: string; size_bytes: number };
 
-const LOADERS = ['vanilla', 'fabric', 'neoforge', 'forge', 'quilt', 'optifine', 'labymod', 'bedrock'] as const;
+const LOADERS = ['vanilla', 'fabric', 'neoforge', 'forge', 'quilt', 'bedrock'] as const;
 
 function VersionPicker({ versions, value, onChange, showSnapshots }: { versions: string[]; value: string; onChange: (value: string) => void; showSnapshots: boolean }) {
   const [open, setOpen] = useState(false);
@@ -392,13 +390,6 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
   const [devMode, setDevMode] = useState<{ enabled:boolean; windows:boolean } | null>(null);
   const [devModeBusy, setDevModeBusy] = useState(false);
   const currentUser = useCurrentUser();
-  const accountProvider = String(currentUser?.provider ?? '').toLowerCase();
-  // Microsoft/Mojang/MSA are licensed Java account variants. Ely.by,
-  // offline, demo and unknown providers must never unlock LabyMod.
-  const isLicensedMicrosoft = Boolean(currentUser && !currentUser.isDemo && (
-    accountProvider === '' || ['microsoft', 'msa', 'mojang', 'minecraft'].includes(accountProvider)
-  ));
-  const canUseLabyMod = isLicensedMicrosoft;
   // Аккаунты, вошедшие ДО того как появилось поле provider, имеют
   // provider===undefined — раньше это ошибочно блокировало Bedrock даже для
   // настоящего Microsoft-входа. До Ely.by/оффлайн-входа единственным
@@ -443,7 +434,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
     let alive = true;
     const loadVersions = async () => {
       const loader = form.loader;
-      if (!form.mcVersion || !['fabric', 'forge', 'neoforge', 'optifine'].includes(loader)) {
+      if (!form.mcVersion || !['fabric', 'forge', 'neoforge'].includes(loader)) {
         setLoaderVersions([]);
         return;
       }
@@ -505,57 +496,6 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
       return;
     }
     const instanceName = form.name.trim() || generatedInstanceName;
-    // LabyMod 4 is an external licensed client. It has no documented API/CLI for
-    // third-party launch and does not accept Ely.by, so do not create a broken profile.
-    if (form.loader === 'labymod') {
-      if (!canUseLabyMod) {
-        dialog.alert(
-          'Скачивание LabyMod доступно только после входа в лицензированный Microsoft-аккаунт Minecraft: Java Edition. Ely.by, offline и demo-аккаунты не поддерживаются.',
-          { title: 'Требуется Microsoft Java-аккаунт', danger: false },
-        );
-        return;
-      }
-      dialog.alert(
-        'LabyMod будет скачан через официальный Laby Launcher. Для запуска используйте лицензированный Microsoft-аккаунт; Ely.by и offline-аккаунты LabyMod не поддерживает.',
-        { title: 'LabyMod — официальный клиент', danger: false },
-      );
-      return;
-    }
-    if (form.loader === 'optifine') {
-      const input = document.createElement('input');
-      input.type = 'file'; input.accept = '.jar,application/java-archive';
-      input.onchange = async (event: any) => {
-        const file = event.target.files?.[0] as File | undefined;
-        if (!file) return;
-        setCreating(true);
-        try {
-          const dataUrl = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result ?? ''));
-            reader.onerror = () => reject(new Error('Unable to read OptiFine JAR'));
-            reader.readAsDataURL(file);
-          });
-          const selectedForge = form.loaderVersionType === 'custom'
-            ? form.customLoaderVersion
-            : form.loaderVersionType === 'latest'
-              ? loaderVersions[0]?.value
-              : recommendedLoaderVersion?.value;
-          if (!selectedForge) throw new Error('Select a compatible Forge version first.');
-          const raw = await invoke<any>('create_optifine_instance', {
-            name: instanceName, description: '', mcVersion: form.mcVersion,
-            forgeVersion: selectedForge, minRam: 1024, maxRam: 4096,
-            color: null, icon: iconPreview || null,
-            optifineFileName: file.name, optifineDataUrl: dataUrl,
-          });
-          onCreated(raw);
-        } catch (error) {
-          console.error('create_optifine_instance failed:', error);
-          dialog.alert('Failed to create OptiFine setup: ' + String(error), { title: 'OptiFine', danger: true });
-        } finally { setCreating(false); onClose(); }
-      };
-      input.click();
-      return;
-    }
     setCreating(true);
     try {
       if (form.loader === 'bedrock') {
@@ -704,42 +644,18 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                     {CORE_CATALOG.map(core => {
                       const selected = form.loader === core.id;
                       const disabled = core.id === 'bedrock' && !canUseBedrock;
-                      const external = 'external' in core && core.external;
                       return (
                         <button key={core.id} onClick={() => setForm(f => ({ ...f, loader: core.id }))}
                           disabled={disabled}
-                          title={disabled ? 'Требуется настоящий Microsoft-аккаунт' : external ? 'Внешний официальный клиент' : undefined}
+                          title={disabled ? 'Требуется настоящий Microsoft-аккаунт' : undefined}
                           className="relative flex items-center gap-2.5 p-2.5 rounded-2xl text-left outline-none transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
                           style={{ background:selected ? `${LOADER_COLOR[core.id]}18` : 'var(--color-surface-2)', border:`1px solid ${selected ? LOADER_COLOR[core.id] : 'var(--color-border)'}`, boxShadow:selected ? `0 8px 18px ${LOADER_COLOR[core.id]}18` : 'none' }}>
                           <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background:`${LOADER_COLOR[core.id]}22`, color:LOADER_COLOR[core.id] }}><LoaderGlyph id={core.id} Icon={core.Icon} /></span>
                           <span className="min-w-0"><span className="block text-xs font-bold truncate" style={{ color:'var(--color-text)' }}>{core.label}</span><span className="block text-[9px] truncate" style={{ color:'var(--color-text-tertiary)' }}>{core.desc}</span></span>
-                          {external && <span className="absolute right-1.5 top-1.5 text-[8px] font-bold px-1 py-0.5 rounded" style={{ background:'var(--color-surface)', color:'var(--color-text-tertiary)' }}>EXT</span>}
                         </button>
                       );
                     })}
                   </div>
-                  {(form.loader === 'optifine' || form.loader === 'labymod') && (
-                    <div className="mt-2 p-2.5 rounded-xl" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
-                      <p className="text-[10px] leading-relaxed" style={{ color:'var(--color-text-tertiary)' }}>
-                        {form.loader === 'optifine'
-                          ? 'OptiFine создаёт Forge-сборку и попросит выбрать официальный OptiFine JAR. Minecraft-библиотеки не изменяются.'
-                          : canUseLabyMod
-                            ? 'LabyMod доступен для вашего лицензированного Microsoft Java-аккаунта и скачивается через официальный клиент.'
-                            : 'Войдите в лицензированный Microsoft Java-аккаунт, чтобы скачать LabyMod. Ely.by и offline-аккаунты не поддерживаются.'}
-                      </p>
-                      <button disabled={form.loader === 'labymod' && !canUseLabyMod}
-                        onClick={() => {
-                          if (form.loader === 'labymod' && !canUseLabyMod) {
-                            dialog.alert('Сначала войдите в лицензированный Microsoft Java-аккаунт.', { title: 'LabyMod заблокирован', danger: false });
-                            return;
-                          }
-                          invoke('open_url', { url: form.loader === 'optifine' ? 'https://optifine.net/downloads' : 'https://laby.net/client' }).catch(() => {});
-                        }}
-                        className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold disabled:opacity-40 disabled:cursor-not-allowed" style={{ background:'var(--color-primary-dim)', color:'var(--color-primary)', border:'1px solid var(--color-primary)' }}>
-                        <Download className="w-3 h-3" />Открыть официальный установщик
-                      </button>
-                    </div>
-                  )}
                 </div>
                 {form.loader==='bedrock' ? (
                   !canUseBedrock ? (
@@ -806,7 +722,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                     </div>
                     {form.loader!=='vanilla' && (
                       <div>
-                        <label className="block text-xs font-bold mb-2" style={{ color:'var(--color-text)' }}>{form.loader==='optifine' || form.loader==='labymod' ? 'Версия ядра' : 'Версия загрузчика'}</label>
+                        <label className="block text-xs font-bold mb-2" style={{ color:'var(--color-text)' }}>Версия загрузчика</label>
                         <div className="flex gap-2">
                           {(['stable','latest','custom'] as const).map(t => (
                             <button key={t} onClick={() => setForm(f => ({...f,loaderVersionType:t, customLoaderVersion:t==='custom'?f.customLoaderVersion:''}))}
@@ -834,7 +750,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                             placeholder="e.g. 0.15.11" className="w-full mt-2 px-3 py-2.5 rounded-xl text-sm"
                             style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }} />
                         )}
-                        {form.loaderVersionType!=='custom' && loaderVersions.length===0 && !loaderVersionsLoading && ['quilt','optifine','labymod'].includes(form.loader) && (
+                        {form.loaderVersionType!=='custom' && loaderVersions.length===0 && !loaderVersionsLoading && form.loader === 'quilt' && (
                           <p className="text-[10px] mt-2" style={{ color:'var(--color-text-tertiary)' }}>Используется рекомендуемая версия из официального установщика или внешнего клиента.</p>
                         )}
                       </div>

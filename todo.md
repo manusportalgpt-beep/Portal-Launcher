@@ -1636,3 +1636,9 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Apply the shared Glass material to content panels, menus, controls, Sidebar, Notch Panel and icons without changing Quadral, FallOff or AboutS.
 - [x] Tune text and icon contrast, focus states and reduced-transparency fallback so the glass interface remains readable.
 - [x] Verify TypeScript, inspect the Glass-only diff and push the visual update to GitHub main.
+
+---
+
+# Liquid Glass visual reference mockup
+
+- [x] Generate one 16:9 Portal Launcher visual mockup that visibly demonstrates white translucent glass, rounded floating Sidebar/Notch navigation, background blur and readable text.

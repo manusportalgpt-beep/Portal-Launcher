@@ -13,6 +13,37 @@ fn mc_base_dir() -> PathBuf {
     crate::commands::version_manager::mc_base_dir()
 }
 
+fn neoforge_profile_dirs(version: &str) -> Vec<PathBuf> {
+    let root = crate::commands::version_manager::versions_dir();
+    let prefix = format!("neoforge-{version}");
+    std::fs::read_dir(&root).ok().into_iter().flatten().filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| path.is_dir() && path.file_name().and_then(|name| name.to_str()).map(|name| name.starts_with(&prefix)).unwrap_or(false))
+        .collect()
+}
+
+/// NeoForge 1.21 processors publish their PATCHED output as
+/// `net.neoforged:neoforge:<version>:client`. A partial profile lets the game
+/// reach NeoForge and then fails with "patched Minecraft jar is missing".
+pub fn neoforge_profile_complete(version: &str) -> bool {
+    let profile_exists = neoforge_profile_dirs(version).iter().any(|dir| {
+        let id = dir.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+        dir.join(format!("{id}.json")).is_file()
+    });
+    let patched_client = crate::commands::version_manager::libraries_dir()
+        .join("net").join("neoforged").join("neoforge").join(version)
+        .join(format!("neoforge-{version}-client.jar"));
+    profile_exists && patched_client.is_file()
+}
+
+fn clear_incomplete_neoforge_profile(version: &str) -> Result<(), String> {
+    for dir in neoforge_profile_dirs(version) {
+        std::fs::remove_dir_all(&dir)
+            .map_err(|error| format!("Не удалось очистить неполный NeoForge profile {}: {error}", dir.display()))?;
+    }
+    Ok(())
+}
+
 /// Official Forge-family client installers create a launcher profile in the
 /// shared Minecraft root. Portal Launcher keeps game data per instance, so a
 /// minimal profile store must exist in that shared root before invoking them.
@@ -494,15 +525,21 @@ pub async fn install_neoforge(mc_version: String, neoforge_version: String, _ins
     // and game launch on the same verified managed runtime.
     let shared_base = mc_base_dir();
     ensure_launcher_profile_store(&shared_base)?;
+    // A profile left by a cancelled or older installer prevents NeoForge from
+    // re-running its binary patch processor. Remove it before the official
+    // installer runs so the patched client JAR is generated again.
+    clear_incomplete_neoforge_profile(&nfv)?;
     let java = find_java_for_mc(&mc_version)?;
     let output = crate::utils::create_hidden_command(&java)
         .args(&["-jar", &jar_path.to_string_lossy(), "--installClient", &shared_base.to_string_lossy()])
         .output().map_err(|e| format!("Run NeoForge ({java}): {e}"))?;
 
     std::fs::remove_file(&jar_path).ok();
+    let profile_ready = output.status.success() && neoforge_profile_complete(&nfv);
     Ok(LoaderInstallResult {
-        success: output.status.success(), loader: "neoforge".into(), version: nfv,
-        message: if output.status.success() { "NeoForge installed successfully".into() }
+        success: profile_ready, loader: "neoforge".into(), version: nfv,
+        message: if profile_ready { "NeoForge installed successfully".into() }
+                 else if output.status.success() { "NeoForge installer завершился, но не создал patched client JAR. Профиль будет переустановлен при следующем запуске.".into() }
                  else { format!("Не удалось установить NeoForge: {}", installer_failure_with_network_hint(&output)) },
     })
 }

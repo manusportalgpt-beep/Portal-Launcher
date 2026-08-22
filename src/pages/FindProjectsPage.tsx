@@ -85,6 +85,7 @@ interface Project {
   categories: string[]; gameVersions: string[]; loaders: string[];
   dateModified: string; platform: Platform; projectType: ProjectType;
   sources?: SourcePlatform[];
+  sourceProjects?: Partial<Record<SourcePlatform, Project>>;
   color?: string;
 }
 
@@ -222,12 +223,13 @@ function dedupeCombinedProjects(projects: Project[]): Project[] {
     const key = combinedProjectKey(project);
     const existing = merged.get(key);
     if (!existing) {
-      merged.set(key, { ...project, sources: [project.platform as SourcePlatform] });
+      merged.set(key, { ...project, sources: [project.platform as SourcePlatform], sourceProjects: { [project.platform]: project } });
       continue;
     }
     const sources = [...new Set([...(existing.sources ?? [existing.platform as SourcePlatform]), project.platform as SourcePlatform])];
-    if (project.downloads > existing.downloads) merged.set(key, { ...project, sources });
-    else existing.sources = sources;
+    const sourceProjects = { ...(existing.sourceProjects ?? { [existing.platform]: existing }), [project.platform]: project };
+    if (project.downloads > existing.downloads) merged.set(key, { ...project, sources, sourceProjects });
+    else { existing.sources = sources; existing.sourceProjects = sourceProjects; }
   }
   return [...merged.values()];
 }
@@ -241,7 +243,10 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
   const [state, setState] = useState<'idle'|'busy'|'done'|'err'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmRunningInstall, setConfirmRunningInstall] = useState(false);
-  const isInstalled = useIsInstalled(instanceId, [project.id, project.title, project.slug]);
+  const sourceChoiceAvailable = project.sources?.length === 2 && (project.projectType === 'resourcepacks' || project.projectType === 'shaders');
+  const [selectedSource, setSelectedSource] = useState<SourcePlatform>((project.platform === 'curseforge' ? 'curseforge' : 'modrinth') as SourcePlatform);
+  const installProject = project.sourceProjects?.[selectedSource] ?? project;
+  const isInstalled = useIsInstalled(instanceId, [project.id, project.title, project.slug, ...Object.values(project.sourceProjects ?? {}).map(candidate => candidate.id)]);
   const cfApiKey = useSettingsStore(s => s.curseforgeApiKey);
   const launchStatus = useLaunchStore(s => s.getStatus(instanceId));
 
@@ -262,14 +267,14 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
     setConfirmRunningInstall(false);
     setState('busy');
     try {
-      if (project.platform === 'modrinth') {
+      if (installProject.platform === 'modrinth') {
         // Только у модов есть смысл фильтровать по загрузчику (fabric/forge/quilt).
         // У ресурспаков/шейдеров/датапаков такого тега нет вообще — если всё
         // равно слать loaders:[fabric], Modrinth просто вернёт пустой список,
         // и установка "с карточки" будет молча падать с "no version found".
-        const isModType = project.projectType === 'mods';
+        const isModType = installProject.projectType === 'mods';
         const versionParams = {
-          projectId: project.id,
+          projectId: installProject.id,
           loader: isModType && loader && loader !== 'vanilla' ? loader : undefined,
           gameVersion: normalizedMcVersion || undefined,
         };
@@ -283,7 +288,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         // проекта уже использовала неотфильтрованный список как резервный;
         // повторяем это поведение и для быстрой кнопки Install.
         if (!vers || vers.length === 0) {
-          vers = await getModrinthVersionsGateway(project.id);
+          vers = await getModrinthVersionsGateway(installProject.id);
         }
         if (!vers || vers.length === 0) {
           setErrorMsg(t('findProjects.install.modrinthNoFiles'));
@@ -310,39 +315,39 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         const file = ver.files?.find((f: any) => f.primary && f.url) ?? ver.files?.find((f: any) => f.url) ?? ver.files?.[0];
         if (!file) { setState('err'); setTimeout(() => setState('idle'), 2500); return; }
         const contentType =
-          project.projectType === 'resourcepacks' ? 'resourcepack'
-            : project.projectType === 'shaders' ? 'shaderpack'
+          installProject.projectType === 'resourcepacks' ? 'resourcepack'
+            : installProject.projectType === 'shaders' ? 'shaderpack'
               : 'mod';
         await invoke('install_mod', {
           instanceId,
           downloadUrl: file.url,
           fileName: file.filename,
-          modId: project.id,
-          modName: project.title,
+          modId: installProject.id,
+          modName: installProject.title,
           modVersion: ver.version_number || '',
           versionId: ver.id || '',
           source: 'modrinth',
           modType: contentType,
-          projectId: project.id,
-          author: project.author || null,
-          iconUrl: project.iconUrl || null,
+          projectId: installProject.id,
+          author: installProject.author || null,
+          iconUrl: installProject.iconUrl || null,
         });
-        useInstalledStore.getState().mark(instanceId, [project.id, project.title, project.slug]);
-        triggerInstallEffect({ name: project.title, iconUrl: project.iconUrl, contentType });
+        useInstalledStore.getState().mark(instanceId, [installProject.id, installProject.title, installProject.slug]);
+        triggerInstallEffect({ name: installProject.title, iconUrl: installProject.iconUrl, contentType });
         setState('done');
       } else {
         // CurseForge installs directly from the card. Opening project details is
         // reserved for a deliberate click on the card itself, not Install.
-        const numericProjectId = Number(project.id);
+        const numericProjectId = Number(installProject.id);
         if (!Number.isSafeInteger(numericProjectId) || numericProjectId <= 0) {
           throw new Error(t('findProjects.install.curseforgeInvalidProject'));
         }
 
         const contentType =
-          project.projectType === 'resourcepacks' ? 'resourcepack'
-            : project.projectType === 'shaders' ? 'shaderpack'
+          installProject.projectType === 'resourcepacks' ? 'resourcepack'
+            : installProject.projectType === 'shaders' ? 'shaderpack'
               : 'mod';
-        const loaderNum = project.projectType === 'mods' && loader && loader !== 'vanilla'
+        const loaderNum = installProject.projectType === 'mods' && loader && loader !== 'vanilla'
           ? CF_LOADER_MAP[loader]
           : undefined;
         const filesResp = await invoke<any>('get_curseforge_mod_files', {
@@ -367,7 +372,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         const candidates = rawFiles
           .filter((file: any) => Number(file?.id) > 0 && Boolean(file?.fileName))
           .sort((a: any, b: any) => new Date(b.fileDate ?? 0).getTime() - new Date(a.fileDate ?? 0).getTime());
-        const isMod = project.projectType === 'mods';
+        const isMod = installProject.projectType === 'mods';
         let compatible = candidates.filter((file: any) => {
           const tags = Array.isArray(file.gameVersions) ? file.gameVersions.map((tag: unknown) => String(tag).toLowerCase()) : [];
           const versionOk = hasCompatibleMinecraftTag(tags, normalizedMcVersion, true);
@@ -425,23 +430,23 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
           instanceId,
           downloadUrl,
           fileName: selectedFile.fileName,
-          modId: project.id,
-          modName: project.title,
+          modId: installProject.id,
+          modName: installProject.title,
           modVersion: selectedFile.displayName ?? selectedFile.fileName,
           versionId: String(selectedFile.id),
           source: 'curseforge',
           modType: contentType,
-          projectId: project.id,
-          author: project.author || null,
-          iconUrl: project.iconUrl || null,
+          projectId: installProject.id,
+          author: installProject.author || null,
+          iconUrl: installProject.iconUrl || null,
         });
-        useInstalledStore.getState().mark(instanceId, [project.id, project.title, project.slug]);
-        triggerInstallEffect({ name: project.title, iconUrl: project.iconUrl, contentType });
+        useInstalledStore.getState().mark(instanceId, [installProject.id, installProject.title, installProject.slug]);
+        triggerInstallEffect({ name: installProject.title, iconUrl: installProject.iconUrl, contentType });
         setState('done');
       }
     } catch (e: any) {
       const msg = e?.message || (typeof e === 'string' ? e : String(e));
-      console.error('Install failed:', project.title, msg);
+      console.error('Install failed:', installProject.title, msg);
       setErrorMsg(msg);
       setState('err');
       setTimeout(() => setState('idle'), 4000);
@@ -470,6 +475,10 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
     </div>
   );
   return (
+    <div className="flex items-center gap-1.5">
+      {sourceChoiceAvailable && <div className="flex overflow-hidden" style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}>
+        {(['modrinth','curseforge'] as SourcePlatform[]).map(source => <button key={source} title={source === 'modrinth' ? 'Скачать с Modrinth' : 'Скачать с CurseForge'} onClick={event => { event.stopPropagation(); setSelectedSource(source); }} className="px-1.5 py-1 text-[9px] font-bold" style={{ background:selectedSource === source ? 'var(--color-primary-dim)' : 'transparent', color:selectedSource === source ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>{source === 'modrinth' ? 'MR' : 'CF'}</button>)}
+      </div>}
     <button onClick={doInstall}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold hover:opacity-90 transition-all"
       style={{ background:'var(--color-primary)', color:'#fff', opacity: state==='busy' ? 0.7 : 1 }}>
@@ -477,6 +486,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         ? <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />{t('findProjects.install.installing')}</>
         : <><Download className="w-3.5 h-3.5" />{t('findProjects.install.install')}</>}
     </button>
+    </div>
   );
 }
 

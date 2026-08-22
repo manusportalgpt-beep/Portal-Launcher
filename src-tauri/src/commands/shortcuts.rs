@@ -73,6 +73,36 @@ fn shortcut_icon_dir() -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+/// Refresh the launcher-owned desktop shortcut when a new bundled ICO ships.
+/// This deliberately touches only `Portal Launcher.lnk`, never instance links
+/// or arbitrary user shortcuts with similar names.
+#[cfg(windows)]
+pub fn refresh_portal_launcher_desktop_shortcut() -> Result<(), String> {
+    let shortcut_path = desktop_dir()?.join("Portal Launcher.lnk");
+    if !shortcut_path.is_file() {
+        return Ok(());
+    }
+    let icon_path = shortcut_icon_dir()?.join("portal-launcher-1.0.3.ico");
+    std::fs::write(&icon_path, PORTAL_LAUNCHER_ICON_ICO)
+        .map_err(|error| format!("Не удалось обновить ICO лаунчера: {error}"))?;
+    let output = crate::utils::create_hidden_command("powershell")
+        .args([
+            "-NoProfile", "-NonInteractive", "-Command",
+            &format!(
+                "$s=New-Object -ComObject WScript.Shell;$l=$s.CreateShortcut({});$l.IconLocation={};$l.Save()",
+                ps_quote(&shortcut_path.to_string_lossy()),
+                ps_quote(&format!("{},0", icon_path.to_string_lossy())),
+            ),
+        ])
+        .output()
+        .map_err(|error| format!("Не удалось обновить ярлык лаунчера: {error}"))?;
+    if output.status.success() { Ok(()) }
+    else { Err(format!("Windows не обновила иконку ярлыка: {}", String::from_utf8_lossy(&output.stderr).trim())) }
+}
+
+#[cfg(not(windows))]
+pub fn refresh_portal_launcher_desktop_shortcut() -> Result<(), String> { Ok(()) }
+
 /// Wrap a PNG payload in a minimal PNG-backed ICO container for Windows shortcuts.
 fn write_png_ico(png_path: &Path, ico_path: &Path) -> Result<bool, String> {
     let png = match std::fs::read(png_path) {

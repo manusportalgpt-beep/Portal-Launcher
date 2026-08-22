@@ -91,6 +91,19 @@ export function FirstLaunchExperience() {
     window.addEventListener('portal:open-onboarding-preview', openPreview);
     return () => { window.removeEventListener('portal:open-tutorial', openTutorial); window.removeEventListener('portal:open-onboarding-preview', openPreview); };
   }, []);
+  useEffect(() => {
+    const previewOpen = mode === 'setup' && isPreview;
+    if (previewOpen) {
+      document.documentElement.dataset.portalTutorialPreview = 'true';
+      window.dispatchEvent(new CustomEvent('portal:tutorial-preview-change', { detail: true }));
+    }
+    return () => {
+      if (previewOpen) {
+        delete document.documentElement.dataset.portalTutorialPreview;
+        window.dispatchEvent(new CustomEvent('portal:tutorial-preview-change', { detail: false }));
+      }
+    };
+  }, [mode, isPreview]);
 
   const finishSetup = () => { if (isPreview) { setMode('none'); return; } localStorage.setItem(SETUP_KEY, '1'); setMode('tutorial'); };
   const finishTutorial = () => { localStorage.setItem(TUTORIAL_KEY, '1'); setMode('none'); };

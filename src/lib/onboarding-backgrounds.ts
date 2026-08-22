@@ -1,7 +1,5 @@
 import goldenParticles from '@/assets/onboarding-backgrounds/golden-particles.jpg';
-import sunsetDunes from '@/assets/onboarding-backgrounds/sunset-dunes.jpg';
 import azureWaves from '@/assets/onboarding-backgrounds/azure-waves.jpg';
-import glassRibbons from '@/assets/onboarding-backgrounds/glass-ribbons.jpg';
 import greenWaterfall from '@/assets/onboarding-backgrounds/green-waterfall.jpg';
 import spectrumFlow from '@/assets/onboarding-backgrounds/spectrum-flow.jpg';
 import watercolorMist from '@/assets/onboarding-backgrounds/watercolor-mist.jpg';
@@ -12,9 +10,7 @@ import blueFold from '@/assets/onboarding-backgrounds/blue-fold.jpg';
 
 export const ONBOARDING_BACKGROUNDS = [
   { id: 'golden-particles', name: 'Золотые частицы', src: goldenParticles, tone: 'dark' },
-  { id: 'sunset-dunes', name: 'Розовые дюны', src: sunsetDunes, tone: 'light' },
   { id: 'azure-waves', name: 'Голубые волны', src: azureWaves, tone: 'light' },
-  { id: 'glass-ribbons', name: 'Стеклянные ленты', src: glassRibbons, tone: 'light' },
   { id: 'green-waterfall', name: 'Зелёный водопад', src: greenWaterfall, tone: 'dark' },
   { id: 'spectrum-flow', name: 'Спектральный поток', src: spectrumFlow, tone: 'dark' },
   { id: 'watercolor-mist', name: 'Акварельный туман', src: watercolorMist, tone: 'light' },

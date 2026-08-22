@@ -1599,3 +1599,15 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Trace why combined Modrinth + CurseForge mode exposes fewer pages than standalone Modrinth despite combining result sources.
 - [x] Correct combined result totals and pagination independently of standalone Modrinth and CurseForge counts.
 - [x] Run TypeScript-only verification, inspect the focused diff and push the pagination repair to GitHub main.
+
+---
+
+# Appearance, tutorial, install-source, NeoForge and dependency repair
+
+- [x] Add built-in background selection to Appearance settings and remove the `Розовые дюны` and `Стеклянные ленты` presets/assets.
+- [x] Restore the launcher tab/handle while the first-launch tutorial preview is open so navigation remains visible and usable.
+- [x] Trace the remaining old Windows desktop icon to its actual installed shortcut/resource path and update only the launcher shortcut pipeline to the new Portal mark.
+- [x] Make combined Modrinth + CurseForge results retain a usable install source for resource packs and shaders instead of defaulting to Modrinth when the selected source is CurseForge.
+- [x] Repair NeoForge installation so the generated patched Minecraft JAR exists before the upgraded NeoForge profile launches.
+- [x] Make dependency counts match the displayed required dependencies and restore clickable, highlighted author links for dependency entries.
+- [x] Run TypeScript-only verification, inspect the focused diff and push the isolated repair set to GitHub main.

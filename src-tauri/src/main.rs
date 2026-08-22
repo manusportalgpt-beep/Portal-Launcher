@@ -33,6 +33,9 @@ fn main() {
     
     // Create ALL required directories on startup
     commands::dirs::ensure_all_dirs();
+    // Refresh only the launcher-owned desktop link so it moves off a cached
+    // old EXE icon when a newer bundled Portal icon is installed.
+    commands::shortcuts::refresh_portal_launcher_desktop_shortcut().ok();
     
     let app_state = AppState::new();
     

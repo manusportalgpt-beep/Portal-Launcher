@@ -175,19 +175,27 @@ function DependencyAuthorAvatar({ author, source }: { author?: string; source?: 
     : <span className="flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-black" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>{initials}</span>;
 }
 
-function DependencyGroup({ title, tone, entries, depInfo, navigate, contextInstanceId, contextMcVersion, contextLoader }: {
+function DependencyGroup({ title, tone, entries, depInfo, navigate, contextInstanceId, contextMcVersion, contextLoader, source }: {
   title: string;
-  tone: 'required' | 'incompatible';
+  tone: 'required' | 'optional' | 'incompatible';
   entries: ModVersion['dependencies'];
   depInfo: Record<string, { name: string; author?: string; icon_url?: string }>;
   navigate: (to: string, options?: any) => void;
   contextInstanceId: string | null;
   contextMcVersion: string;
   contextLoader: string;
+  source: 'modrinth' | 'curseforge';
 }) {
   const fixed = tone === 'required'
-    ? { label: 'Обязательно' }
-    : { label: 'Несовместимо' };
+    ? { label: 'Обязательно', color: 'var(--color-warning)' }
+    : tone === 'incompatible'
+      ? { label: 'Несовместимо', color: 'var(--color-error)' }
+      : { label: 'Дополнительно', color: 'var(--color-text-tertiary)' };
+  const openAuthor = (author?: string) => {
+    if (!author) return;
+    const base = source === 'curseforge' ? 'https://www.curseforge.com/members/' : 'https://modrinth.com/user/';
+    void invoke('open_url', { url: `${base}${encodeURIComponent(author)}` }).catch(() => window.open(`${base}${encodeURIComponent(author)}`, '_blank'));
+  };
   return (
     <section style={{ borderTop:'1px solid var(--color-border)' }}>
       <div className="mb-1 flex items-center justify-between py-3">
@@ -204,8 +212,8 @@ function DependencyGroup({ title, tone, entries, depInfo, navigate, contextInsta
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold" style={{ color: 'var(--color-text)' }}>{info?.name ?? dependency.project_id ?? 'Неизвестная модификация'}</p>
-                <p className="flex items-center gap-1.5 truncate text-[11px]" style={{ color: 'var(--color-text-secondary)' }}><DependencyAuthorAvatar author={info?.author} source="modrinth" /><span className="truncate">{info?.author ?? 'Автор не указан'}</span></p>
-                <p className="mt-0.5 text-[10px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}>{fixed.label}</p>
+                <p className="flex items-center gap-1.5 truncate text-[11px]" style={{ color: 'var(--color-text-secondary)' }}><DependencyAuthorAvatar author={info?.author} source={source} />{info?.author ? <button onClick={() => openAuthor(info.author)} className="truncate text-left font-semibold hover:underline" style={{ color:'var(--color-primary)' }} title={`Открыть автора ${info.author}`}>{info.author}</button> : <span className="truncate">Автор не указан</span>}</p>
+                <p className="mt-0.5 text-[10px] font-bold" style={{ color: fixed.color }}>{fixed.label}</p>
               </div>
               {dependency.project_id && <button onClick={() => navigate(`/discover/modrinth/${dependency.project_id}`, { state: contextInstanceId ? { contextInstanceId, contextMcVersion, contextLoader } : undefined })} className="flex shrink-0 items-center gap-1 text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}><ExternalLink className="h-3 w-3" />Открыть</button>}
             </div>
@@ -740,6 +748,7 @@ export function ModDetail() {
   const allDeps = versions[0]?.dependencies ?? [];
   const requiredDeps = allDeps.filter(d => d.dependency_type === 'required');
   const incompatibleDeps = allDeps.filter(d => d.dependency_type === 'incompatible');
+  const otherDeps = allDeps.filter(d => d.dependency_type !== 'required' && d.dependency_type !== 'incompatible');
 
   const uniqueMcVersions = Array.from(new Set(versions.flatMap(v => v.game_versions ?? [])))
     .filter(v => /^\d+\.\d+/.test(v))
@@ -1130,9 +1139,10 @@ export function ModDetail() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {requiredDeps.length > 0 && <DependencyGroup title="Обязательные зависимости" tone="required" entries={requiredDeps} depInfo={depInfo} navigate={navigate} contextInstanceId={contextInstanceId} contextMcVersion={contextMcVersion} contextLoader={contextLoader} />}
-                  {incompatibleDeps.length > 0 && <DependencyGroup title="Несовместимые модификации" tone="incompatible" entries={incompatibleDeps} depInfo={depInfo} navigate={navigate} contextInstanceId={contextInstanceId} contextMcVersion={contextMcVersion} contextLoader={contextLoader} />}
-                  {requiredDeps.length === 0 && incompatibleDeps.length === 0 && <p className="text-sm" style={{ color:'var(--color-text-secondary)' }}>Для этой версии нет сведений о зависимостях.</p>}
+                  {requiredDeps.length > 0 && <DependencyGroup title="Обязательные зависимости" tone="required" entries={requiredDeps} depInfo={depInfo} navigate={navigate} contextInstanceId={contextInstanceId} contextMcVersion={contextMcVersion} contextLoader={contextLoader} source={source === 'curseforge' ? 'curseforge' : 'modrinth'} />}
+                  {otherDeps.length > 0 && <DependencyGroup title="Другие зависимости" tone="optional" entries={otherDeps} depInfo={depInfo} navigate={navigate} contextInstanceId={contextInstanceId} contextMcVersion={contextMcVersion} contextLoader={contextLoader} source={source === 'curseforge' ? 'curseforge' : 'modrinth'} />}
+                  {incompatibleDeps.length > 0 && <DependencyGroup title="Несовместимые модификации" tone="incompatible" entries={incompatibleDeps} depInfo={depInfo} navigate={navigate} contextInstanceId={contextInstanceId} contextMcVersion={contextMcVersion} contextLoader={contextLoader} source={source === 'curseforge' ? 'curseforge' : 'modrinth'} />}
+                  {requiredDeps.length === 0 && otherDeps.length === 0 && incompatibleDeps.length === 0 && <p className="text-sm" style={{ color:'var(--color-text-secondary)' }}>Для этой версии нет сведений о зависимостях.</p>}
                 </div>
               )}
             </div>

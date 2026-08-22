@@ -458,22 +458,25 @@ pub async fn launch_instance(
         status("install", "Подготавливаю Vanilla-файлы для установщика загрузчика…");
         install_version(&app, &vanilla, &instance.mc_version, &instance.mc_version).await?;
         if requested_loader == "neoforge" {
-            if let Some(required) = required_neoforge_version_from_mod_metadata(&instance_game_dir(&instance_id)) {
-                if !crate::commands::loader_installer::neoforge_version_satisfies(&effective_loader_version, &required) {
-                    status("neoforge", &format!("Моды требуют NeoForge {required} или новее — обновляю загрузчик…"));
-                    let selected = crate::commands::loader_installer::latest_neoforge_version_at_least(&instance.mc_version, &required).await?;
-                    let installed = crate::commands::loader_installer::install_neoforge(
-                        instance.mc_version.clone(),
-                        selected.clone(),
-                        crate::commands::version_manager::mc_base_dir().to_string_lossy().to_string(),
-                    ).await?;
-                    if !installed.success {
-                        return Err(format!("Не удалось обновить NeoForge до версии не ниже {required}: {}", installed.message));
-                    }
-                    effective_loader_version = installed.version;
-                    persist_neoforge_loader_version(&instance_id, &effective_loader_version);
-                    prepared_only = true;
+            let required = required_neoforge_version_from_mod_metadata(&instance_game_dir(&instance_id));
+            let version_is_old = required.as_ref().map(|minimum| !crate::commands::loader_installer::neoforge_version_satisfies(&effective_loader_version, minimum)).unwrap_or(false);
+            let profile_is_incomplete = !crate::commands::loader_installer::neoforge_profile_complete(&effective_loader_version);
+            if version_is_old || profile_is_incomplete {
+                status("neoforge", if version_is_old { &format!("Моды требуют NeoForge {} или новее — обновляю загрузчик…", required.as_deref().unwrap_or_default()) } else { "NeoForge profile неполный — заново создаю patched Minecraft JAR…" });
+                let selected = if let Some(minimum) = required.filter(|_| version_is_old) {
+                    crate::commands::loader_installer::latest_neoforge_version_at_least(&instance.mc_version, &minimum).await?
+                } else { effective_loader_version.clone() };
+                let installed = crate::commands::loader_installer::install_neoforge(
+                    instance.mc_version.clone(),
+                    selected.clone(),
+                    crate::commands::version_manager::mc_base_dir().to_string_lossy().to_string(),
+                ).await?;
+                if !installed.success {
+                    return Err(format!("Не удалось восстановить NeoForge {}: {}", selected, installed.message));
                 }
+                effective_loader_version = installed.version;
+                persist_neoforge_loader_version(&instance_id, &effective_loader_version);
+                prepared_only = true;
             }
         }
     }

@@ -14,6 +14,7 @@ import { useCurrentUser, useIsAuthenticated, useAuthStore } from '@/stores/authS
 import { MicrosoftAuthOAuth } from '@/components/auth/MicrosoftAuthOAuth';
 import { type ThemeId } from '@/lib/theme-engine';
 import { STYLE_PRESETS } from '@/lib/style-presets';
+import { ONBOARDING_BACKGROUNDS } from '@/lib/onboarding-backgrounds';
 import { useUiStore } from '@/stores/uiStore';
 import { readThemeFile } from '@/lib/ui-engine';
 import { removeBackgroundMedia, saveBackgroundMedia } from '@/lib/background-media';
@@ -563,6 +564,19 @@ function AppearanceSection() {
         onChange={v => ui.set('textColorOverride', v as any)} />
       <RangeRow label="Прозрачность фона" value={ui.backgroundOpacity} min={0} max={100} unit="%"
         onChange={v => ui.set('backgroundOpacity', v)} />
+      <div className="minimal-section-title">
+        <Palette className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
+        <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>Фон</h3>
+      </div>
+      <p className="mb-3 text-xs" style={{ color: 'var(--color-text-secondary)' }}>Выберите встроенный фон или отключите изображение. Настройки прозрачности и читаемости ниже применяются сразу.</p>
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <button onClick={() => ui.set('backgroundImage', '')} className="overflow-hidden text-left" style={{ border:`2px solid ${ui.backgroundImage ? 'transparent' : 'var(--color-primary)'}`, borderRadius:'var(--radius-card)', background:'var(--color-surface-2)' }}>
+          <div className="aspect-[16/9]" style={{ background:'var(--color-bg)' }} /><p className="px-2 py-1.5 text-[10px] font-bold">Без изображения</p>
+        </button>
+        {ONBOARDING_BACKGROUNDS.map(background => <button key={background.id} onClick={() => ui.set('backgroundImage', background.src)} className="group overflow-hidden text-left" style={{ border:`2px solid ${ui.backgroundImage === background.src ? 'var(--color-primary)' : 'transparent'}`, borderRadius:'var(--radius-card)', background:'var(--color-surface-2)' }}>
+          <div className="aspect-[16/9] bg-cover bg-center transition-transform duration-200 group-hover:scale-[1.03]" style={{ backgroundImage:`url("${background.src}")` }} /><p className="truncate px-2 py-1.5 text-[10px] font-bold">{background.name}</p>
+        </button>)}
+      </div>
       <RangeRow label="Читаемость фона" desc="Тёмный защитный слой за карточками, текстом и кнопками на вашем изображении" value={ui.backgroundReadability} min={0} max={90} unit="%" onChange={v => ui.set('backgroundReadability', v)} />
       <SegRow label="Заполнение фона" desc="Как выбранное фоновое изображение заполняет лаунчер" value={ui.backgroundFit}
         options={[{ id:'cover', label:'Заполнить' }, { id:'contain', label:'Вписать' }, { id:'stretch', label:'Растянуть' }, { id:'tile', label:'Плитка' }]}

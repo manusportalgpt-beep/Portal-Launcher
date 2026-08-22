@@ -334,7 +334,10 @@ pub fn instance_drop_files(
             .unwrap_or_default();
         let lower = name.to_lowercase();
 
-        let dest_dir = if let Some(t) = target_dir.as_ref().filter(|t| !t.is_empty()) {
+        // Files workspace always passes an explicit current folder, including
+        // the empty string for `.minecraft`. Only callers that omit target_dir
+        // altogether use the existing Minecraft-content classification.
+        let dest_dir = if let Some(t) = target_dir.as_ref() {
             safe_join(&instance_id, t)?
         } else if lower.ends_with(".jar") {
             root.join("mods")

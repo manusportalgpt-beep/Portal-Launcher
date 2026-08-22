@@ -230,6 +230,47 @@ pub fn merge_inherited(child: &serde_json::Value, parent: &serde_json::Value) ->
     out
 }
 
+/// NeoForge 1.20.1+ keeps the launch profile and the mandatory `neoforge`
+/// system-mod JAR in separate installer sections. Vanilla can reach the menu
+/// without this runtime, but NeoForge mods correctly reject that incomplete
+/// environment when they require the `neoforge` dependency. Keep the repair
+/// local to NeoForge profiles: expose its official universal artifact to the
+/// regular library installer and classpath assembly.
+fn include_neoforge_runtime(profile: &mut serde_json::Value) {
+    let Some(version) = profile["id"]
+        .as_str()
+        .and_then(|id| id.strip_prefix("neoforge-"))
+        .filter(|version| !version.trim().is_empty())
+        .map(str::to_string)
+    else {
+        return;
+    };
+
+    let runtime = format!("net.neoforged:neoforge:{version}:universal");
+    if !profile["libraries"].is_array() {
+        profile["libraries"] = serde_json::Value::Array(Vec::new());
+    }
+    let Some(libraries) = profile["libraries"].as_array_mut() else {
+        return;
+    };
+    if libraries.iter().any(|library| {
+        library["name"]
+            .as_str()
+            .map(|name| name.trim_end_matches("@jar") == runtime)
+            .unwrap_or(false)
+    }) {
+        return;
+    }
+
+    libraries.insert(
+        0,
+        serde_json::json!({
+            "name": runtime,
+            "url": "https://maven.neoforged.net/releases/"
+        }),
+    );
+}
+
 /// Полностью разрешённый version.json (с наследованием) для инстанса.
 pub async fn resolve_version(
     client: &reqwest::Client,
@@ -261,8 +302,11 @@ pub async fn resolve_version(
         if let Some(profile_id) = find_local_loader_profile(&loader, version_id, loader_version) {
             let raw = std::fs::read_to_string(version_json_path(&profile_id))
                 .map_err(|e| format!("Профиль {profile_id}: {e}"))?;
-            let child: serde_json::Value =
+            let mut child: serde_json::Value =
                 serde_json::from_str(&raw).map_err(|e| format!("Разбор {profile_id}: {e}"))?;
+            if loader == "neoforge" {
+                include_neoforge_runtime(&mut child);
+            }
             return Ok((merge_inherited(&child, &vanilla), profile_id));
         }
     }
@@ -333,8 +377,11 @@ pub async fn resolve_version(
         if let Some(profile_id) = find_local_loader_profile(&loader, version_id, installed_loader_version) {
             let raw = std::fs::read_to_string(version_json_path(&profile_id))
                 .map_err(|e| format!("Профиль {profile_id}: {e}"))?;
-            let child: serde_json::Value = serde_json::from_str(&raw)
+            let mut child: serde_json::Value = serde_json::from_str(&raw)
                 .map_err(|e| format!("Разбор {profile_id}: {e}"))?;
+            if loader == "neoforge" {
+                include_neoforge_runtime(&mut child);
+            }
             return Ok((merge_inherited(&child, &vanilla), profile_id));
         }
         return Err(format!("{loader} {} установлен, но не создал профиль запуска для {version_id}. Повторите запуск.", result.version));
@@ -413,7 +460,7 @@ fn loader_profile_matches(
 
 #[cfg(test)]
 mod loader_profile_tests {
-    use super::loader_profile_matches;
+    use super::{include_neoforge_runtime, loader_profile_matches};
     use serde_json::json;
 
     #[test]
@@ -434,6 +481,21 @@ mod loader_profile_tests {
         });
 
         assert!(loader_profile_matches(&profile, "fabric", "1.21.1", "0.19.3"));
+    }
+
+    #[test]
+    fn resolves_neoforge_system_mod_from_the_profile_id() {
+        let mut profile = json!({
+            "id": "neoforge-21.1.99",
+            "libraries": []
+        });
+
+        include_neoforge_runtime(&mut profile);
+
+        assert_eq!(
+            profile["libraries"][0]["name"].as_str(),
+            Some("net.neoforged:neoforge:21.1.99:universal")
+        );
     }
 }
 

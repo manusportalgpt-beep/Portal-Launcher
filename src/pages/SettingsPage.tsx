@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Cpu, Palette,
   LogIn, RefreshCw, Trash2, Check, X,
-  Volume2, Code, Shield, Save, Layout, Upload, Gamepad2, Globe, Search, SlidersHorizontal,
+  Volume2, Code, Shield, Save, Layout, Upload, Gamepad2, Globe, Github, ExternalLink, Search, SlidersHorizontal,
 } from 'lucide-react';
 import { invoke } from '@/lib/invoke-shim';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -900,12 +900,16 @@ function AboutSection() {
         </button>
         <div className="text-center">
           <p className="font-black text-xl" style={{ color:'var(--color-text)' }}>Portal Launcher</p>
-          <p className="text-sm mt-0.5" style={{ color:'var(--color-text-secondary)' }}>Версия 1.0.0</p>
+          <p className="text-sm mt-0.5" style={{ color:'var(--color-text-secondary)' }}>Версия 1.0.1</p>
           <p className="text-xs mt-1" style={{ color:'var(--color-text-tertiary)' }}>Создано с Tauri v2 · React · TypeScript</p>
           <p className="mt-2 text-[11px] font-black uppercase tracking-wider" style={{ color:rarityColor }}>{rarityLabel} · {clicks} {language === 'ru' ? 'кликов' : 'clicks'}</p>
           {clicks >= 5 && <p className="mt-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{language === 'ru' ? 'Иконка лаунчера перешла в альтернативную редкость.' : 'The launcher icon has entered an alternate rarity.'}</p>}
         </div>
       </div>
+      <a href="https://github.com/manusportalgpt-beep/Portal-Launcher" target="_blank" rel="noreferrer" className="portal-about-github mb-4 flex items-center justify-between gap-3 px-3 py-3 transition-colors" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', color:'var(--color-text)' }}>
+        <span className="flex min-w-0 items-center gap-2"><Github className="h-4 w-4 shrink-0" /><span className="min-w-0"><span className="block text-xs font-black">GitHub проекта</span><span className="block truncate text-[10px]" style={{ color:'var(--color-text-secondary)' }}>manusportalgpt-beep/Portal-Launcher</span></span></span>
+        <ExternalLink className="h-4 w-4 shrink-0" style={{ color:'var(--color-text-secondary)' }} />
+      </a>
       <AnimatePresence>
         {manusReveal && (
           <motion.div className="mb-4 flex items-center gap-3 p-3.5" initial={{ opacity:0, y:8, scale:0.98 }} animate={{ opacity:1, y:0, scale:1 }} exit={{ opacity:0, y:8, scale:0.98 }} style={{ borderRadius:'var(--radius-card)', background:'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 18%, var(--color-surface)), var(--color-surface-2))', border:'1px solid var(--color-primary)', boxShadow:'var(--shadow-md)' }}>

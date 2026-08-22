@@ -1541,3 +1541,14 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Verify nickname identity launches Vanilla, Forge, Fabric, Quilt and NeoForge; keep Bedrock blocked without a Microsoft licence and keep nickname skin editing unavailable.
 - [x] Improve interface hierarchy, interaction consistency and memorable Portal identity using the established black square outline system without altering working launcher behavior.
 - [x] Run TypeScript-only verification and push the scoped reliability and interface work to GitHub main.
+
+---
+
+# NeoForge mod dependencies, Files drop and Portal navigation refinement
+
+- [x] Trace why NeoForge 1.21.1 with installed mods reports a missing `neoforge` dependency while the same loader launches without mods.
+- [x] Repair only the NeoForge mod classpath/metadata path without changing working Forge, Quilt, Fabric or vanilla launch behavior.
+- [x] Add direct OS Drag & Drop into the currently open Files folder, preserving that folder as the destination and rejecting invalid copies with a localized error.
+- [x] Add an outlined GitHub button to About linking to the Portal Launcher repository.
+- [x] Refine the global square interaction scheme so navigation, folder workspaces and actions stay compact, consistent and immediately reachable.
+- [x] Run TypeScript-only verification and push the scoped NeoForge, Files, About and UI refinement to GitHub main.

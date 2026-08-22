@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Archive, CheckCircle2, ChevronRight, ExternalLink, FileCode2, FilePlus2, Folder, FolderCog, FolderOpen, FolderPlus, Home, ImagePlus, LoaderCircle, Map, PackagePlus, Pencil, Save, Search, Settings2, Share2, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react';
+import { getCurrentWebview, type DragDropEvent } from '@tauri-apps/api/webview';
+import { AlertTriangle, Archive, CheckCircle2, ChevronRight, ExternalLink, FileCode2, FilePlus2, Folder, FolderCog, FolderOpen, FolderPlus, Home, ImagePlus, LoaderCircle, Map, PackagePlus, Pencil, Save, Search, Settings2, Share2, ShieldCheck, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { invoke } from '@/lib/invoke-shim';
 import { dialog } from '@/stores/dialogStore';
 
@@ -65,7 +66,9 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
   const [checkingIntegrity, setCheckingIntegrity] = useState(false);
   const [publishingLog, setPublishingLog] = useState(false);
   const [mclogsDiagnosis, setMclogsDiagnosis] = useState<MclogsDiagnosis | null>(null);
+  const [externalDropActive, setExternalDropActive] = useState(false);
   const highlightedCodeRef = useRef<HTMLPreElement>(null);
+  const workspaceRef = useRef<HTMLDivElement>(null);
 
   const dirty = !!selected && content !== savedContent;
   const visible = useMemo(() => {
@@ -155,6 +158,36 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
       await onContentChanged?.();
     } catch (e) { setError(String(e)); }
   };
+  const dropExternalFiles = async (paths: string[]) => {
+    if (!paths.length) return;
+    setBusy(true); setError('');
+    try {
+      const copied = await invoke<string[]>('instance_drop_files', { instanceId, files: paths, targetDir: cwd });
+      if (!copied.length) throw new Error('Не удалось получить файлы из операции перетаскивания.');
+      await loadDir(cwd);
+      await onContentChanged?.();
+    } catch (e) { setError(`Не удалось добавить файлы в ${cwd || '.minecraft'}: ${String(e)}`); }
+    finally { setBusy(false); }
+  };
+  const isDropInsideWorkspace = (position: Extract<DragDropEvent, { type: 'enter' | 'over' | 'drop' }>['position']) => {
+    const rect = workspaceRef.current?.getBoundingClientRect();
+    if (!rect) return false;
+    const scale = window.devicePixelRatio || 1;
+    const x = position.x / scale;
+    const y = position.y / scale;
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  };
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void getCurrentWebview().onDragDropEvent(event => {
+      const payload = event.payload;
+      if (payload.type === 'leave') { setExternalDropActive(false); return; }
+      const inside = isDropInsideWorkspace(payload.position);
+      setExternalDropActive(inside);
+      if (payload.type === 'drop' && inside) void dropExternalFiles(payload.paths);
+    }).then(stop => { unlisten = stop; }).catch(() => { /* Browser preview has no Tauri drop bridge. */ });
+    return () => unlisten?.();
+  }, [cwd, instanceId]);
   const up = () => { const next = cwd.split('/').slice(0, -1).join('/'); void loadDir(next); };
   const publishLog = async (path?: string) => {
     const logPath = path || selected?.path;
@@ -207,7 +240,7 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
     finally { setCheckingIntegrity(false); }
   };
 
-  return <div className="grid min-h-[430px] overflow-hidden rounded-2xl" style={{ gridTemplateColumns: 'minmax(220px, 34%) minmax(0, 1fr)', border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
+  return <div ref={workspaceRef} className="portal-files-workspace relative grid min-h-[430px] overflow-hidden rounded-2xl" style={{ gridTemplateColumns: 'minmax(220px, 34%) minmax(0, 1fr)', border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
     <section className="flex min-w-0 flex-col" style={{ borderRight: '1px solid var(--color-border)', background:'linear-gradient(180deg, color-mix(in srgb, var(--color-surface-2) 24%, transparent), transparent)' }}>
       <div className="flex items-center gap-1 border-b px-2 py-2" style={{ borderColor: 'var(--color-border)', background:'linear-gradient(180deg, color-mix(in srgb, var(--color-surface-2) 72%, transparent), transparent)' }}>
         <button onClick={() => void loadDir('')} className="rounded-lg p-1.5 hover:bg-white/5" title="Корень .minecraft"><Home className="h-3.5 w-3.5" /></button>
@@ -266,5 +299,12 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
       </aside>}
       {error && <div className="flex items-center gap-2 border-t px-3 py-2 text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-error)' }}><X className="h-3.5 w-3.5" />{error}</div>}
     </section>
+    {externalDropActive && <div className="portal-files-drop pointer-events-none absolute inset-2 z-20 flex items-center justify-center border-2 border-dashed" style={{ background:'color-mix(in srgb, var(--color-primary) 12%, var(--color-bg))', borderColor:'var(--color-primary)' }}>
+      <div className="flex max-w-xs flex-col items-center gap-2 px-5 py-4 text-center" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
+        <Upload className="h-6 w-6" style={{ color:'var(--color-primary)' }} />
+        <p className="text-xs font-black" style={{ color:'var(--color-text)' }}>Отпустите файлы в {cwd || '.minecraft'}</p>
+        <p className="text-[10px] leading-4" style={{ color:'var(--color-text-secondary)' }}>Файлы будут скопированы прямо в открытую папку.</p>
+      </div>
+    </div>}
   </div>;
 }

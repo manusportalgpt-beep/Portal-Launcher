@@ -245,6 +245,16 @@ pub async fn get_curseforge_mod_files(
 }
 
 /// Get the direct download URL for a specific CurseForge file
+pub fn curseforge_download_url_candidates(url: &str) -> Vec<String> {
+    const PRIMARY: &str = "edge.curseforgecdn.com";
+    const FALLBACK: &str = "mediafilez.forgecdn.net";
+    let primary = url
+        .replace("edge.forgecdn.net", PRIMARY)
+        .replace(FALLBACK, PRIMARY);
+    let fallback = primary.replace(PRIMARY, FALLBACK);
+    if fallback == primary { vec![primary] } else { vec![primary, fallback] }
+}
+
 #[tauri::command]
 pub async fn get_curseforge_file_download_url(
     mod_id: u64,
@@ -262,11 +272,10 @@ pub async fn get_curseforge_file_download_url(
         "download URL lookup",
     ).await?;
     let url = resp["data"].as_str().unwrap_or("").to_string();
-    let resource_pack_cdn = prefer_resource_pack_cdn.unwrap_or(false);
+    let _ = prefer_resource_pack_cdn;
     if url.is_empty() {
-        // The retired edge host can reject texture-pack archives even though
-        // CurseForge returned valid file metadata. Keep the established host
-        // for other content; resource packs explicitly use the current CDN.
+        // Keep the historic edge address as the primary, then let the download
+        // layer retry the current mediafilez host only if this request fails.
         let id_str = file_id.to_string();
         let part1 = &id_str[..4];
         let part2 = &id_str[4..];
@@ -275,14 +284,9 @@ pub async fn get_curseforge_file_download_url(
             "file metadata lookup",
         ).await?;
         let fname = file_resp["data"]["fileName"].as_str().unwrap_or("mod.jar");
-        let host = if resource_pack_cdn { "mediafilez.forgecdn.net" } else { "edge.forgecdn.net" };
-        Ok(format!("https://{host}/files/{}/{}/{}", part1, part2.trim_start_matches('0'), fname))
+        Ok(format!("https://edge.curseforgecdn.com/files/{}/{}/{}", part1, part2.trim_start_matches('0'), fname))
     } else {
-        if resource_pack_cdn {
-            Ok(url.replace("edge.forgecdn.net", "mediafilez.forgecdn.net"))
-        } else {
-            Ok(url)
-        }
+        Ok(curseforge_download_url_candidates(&url).into_iter().next().unwrap_or(url))
     }
 }
 

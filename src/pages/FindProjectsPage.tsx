@@ -22,7 +22,8 @@ import { useLaunchStore } from '@/stores/launchStore';
 
 type ProjectType = 'mods' | 'resourcepacks' | 'shaders';
 type SortOrder = 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated';
-type Platform = 'modrinth' | 'curseforge';
+type SourcePlatform = 'modrinth' | 'curseforge';
+type Platform = SourcePlatform | 'combined';
 type FindProjectsFilterSnapshot = {
   platform?: Platform;
   projectType?: ProjectType;
@@ -47,6 +48,18 @@ function readFindProjectsFilters(instanceId: string): FindProjectsFilterSnapshot
 
 function ModrinthLogo({ size = 16 }: { size?: number }) {
   return <img src={modrinthWrench} width={size} height={size} alt="Modrinth" className="shrink-0 object-contain" />;
+}
+
+function PlatformMark({ platform, size = 16 }: { platform: Platform; size?: number }) {
+  if (platform === 'modrinth') return <ModrinthLogo size={size} />;
+  if (platform === 'curseforge') return <img src={curseforgeAnvil} width={size} height={size} alt="CurseForge" className="shrink-0 object-contain grayscale opacity-80" />;
+  const small = Math.max(11, Math.round(size * 0.72));
+  return (
+    <span className="flex items-center -space-x-1" title="Modrinth + CurseForge">
+      <ModrinthLogo size={small} />
+      <img src={curseforgeAnvil} width={small} height={small} alt="CurseForge" className="shrink-0 object-contain grayscale opacity-80" />
+    </span>
+  );
 }
 
 interface ModrinthHit {
@@ -374,7 +387,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         const rawDownloadUrl = selectedFile.downloadUrl || selectedFile.download_url;
         const fileIdText = String(selectedFile.id ?? '');
         const derivedDownloadUrl = fileIdText.length >= 5 && selectedFile.fileName
-          ? `https://edge.forgecdn.net/files/${fileIdText.slice(0, 4)}/${fileIdText.slice(4).replace(/^0+/, '')}/${selectedFile.fileName}`
+          ? `https://edge.curseforgecdn.com/files/${fileIdText.slice(0, 4)}/${fileIdText.slice(4).replace(/^0+/, '')}/${selectedFile.fileName}`
           : '';
           const officialDownloadUrl = await invoke<string>('get_curseforge_file_download_url', {
             modId: numericProjectId,
@@ -604,7 +617,7 @@ export function FindProjectsPage() {
   const [selectedVersions, setSelectedVersions] = useState<string[]>(() => restoredFilters.current.selectedVersions ?? (instance?.minecraftVersion ? [instance.minecraftVersion] : []));
   const [selectedLoaders, setSelectedLoaders] = useState<string[]>(() => restoredFilters.current.selectedLoaders ?? (instance?.modLoader && instance.modLoader !== 'vanilla' ? [instance.modLoader] : []));
   const [selectedCats, setSelectedCats] = useState<string[]>(() => restoredFilters.current.selectedCats ?? []);
-  const platformFiltersRef = useRef<Record<Platform, { cats: string[]; loaders: string[]; versions: string[] }>>({
+  const platformFiltersRef = useRef<Record<SourcePlatform, { cats: string[]; loaders: string[]; versions: string[] }>>({
     modrinth: {
       cats: restoredFilters.current.platform === 'modrinth' ? (restoredFilters.current.selectedCats ?? []) : [],
       loaders: restoredFilters.current.platform === 'modrinth' ? (restoredFilters.current.selectedLoaders ?? []) : (instance?.modLoader && instance.modLoader !== 'vanilla' ? [instance.modLoader] : []),
@@ -640,8 +653,12 @@ export function FindProjectsPage() {
   }, [instance?.minecraftVersion, instance?.modLoader, projectType]);
 
   const switchPlatform = (nextPlatform: Platform) => {
-    platformFiltersRef.current[platform] = { cats: selectedCats, loaders: selectedLoaders, versions: selectedVersions };
-    const next = platformFiltersRef.current[nextPlatform];
+    if (platform !== 'combined') {
+      platformFiltersRef.current[platform] = { cats: selectedCats, loaders: selectedLoaders, versions: selectedVersions };
+    }
+    const next = nextPlatform === 'combined'
+      ? { cats: [], loaders: selectedLoaders, versions: selectedVersions }
+      : platformFiltersRef.current[nextPlatform];
     setPlatform(nextPlatform);
     setSelectedCats(nextPlatform === 'modrinth' ? next.cats : []);
     setSelectedLoaders(next.loaders);
@@ -740,7 +757,7 @@ export function FindProjectsPage() {
         setReachableTotal(null);
         setCapped(false);
         writeFindProjectsCache(cacheKey, { savedAt: Date.now(), results: mapped, total: res.total_hits, reachableTotal: null, capped: false });
-      } else {
+      } else if (pl === 'curseforge') {
         if (!cfApiKey) {
           setResults([]); setTotal(0); setReachableTotal(null); setCapped(false); return;
         }
@@ -760,6 +777,45 @@ export function FindProjectsPage() {
         setReachableTotal(res.reachable_count ?? null);
         setCapped(!!res.capped);
         writeFindProjectsCache(cacheKey, { savedAt: Date.now(), results: mapped, total: res.pagination?.total_count ?? 0, reachableTotal: res.reachable_count ?? null, capped: !!res.capped });
+      } else {
+        const modrinthSearch = searchModrinthGateway({
+          query: q, limit: PAGE_SIZE, offset,
+          categories: undefined,
+          versions: vers.length > 0 ? vers : undefined,
+          loaders: pt === 'mods' && ldrs.length > 0 ? ldrs : undefined,
+          sort: s.charAt(0).toUpperCase() + s.slice(1),
+          projectType: TYPE_DEFS[pt].modrinthFacet,
+        });
+        const curseforgeSearch = cfApiKey
+          ? invoke<CfResult>('search_curseforge', {
+              query: q, limit: PAGE_SIZE, offset,
+              classId: TYPE_DEFS[pt].cfClass,
+              gameVersion: vers.length > 0 ? vers[0] : undefined,
+              modLoaderType: pt === 'mods' && ldrs.length > 0 ? (CF_LOADER_MAP[ldrs[0]] ?? undefined) : undefined,
+              sortField: s === 'downloads' ? 6 : s === 'newest' ? 11 : s === 'updated' ? 3 : 2,
+              apiKey: cfApiKey,
+            })
+          : Promise.resolve(null);
+        const [mrOutcome, cfOutcome] = await Promise.allSettled([modrinthSearch, curseforgeSearch]);
+        const mr = mrOutcome.status === 'fulfilled' ? mrOutcome.value : null;
+        const cf = cfOutcome.status === 'fulfilled' ? cfOutcome.value : null;
+        const mapped = [
+          ...(mr?.hits ?? []).map(hit => fromModrinth(hit)),
+          ...(cf?.data ?? []).map(item => fromCurseForge(item)),
+        ].sort((left, right) => {
+          if (s === 'downloads') return right.downloads - left.downloads;
+          if (s === 'follows') return right.follows - left.follows;
+          if (s === 'newest' || s === 'updated') return Date.parse(right.dateModified) - Date.parse(left.dateModified);
+          return right.downloads - left.downloads;
+        });
+        const combinedTotal = (mr?.total_hits ?? 0) + (cf?.pagination?.total_count ?? 0);
+        const combinedReachable = cf?.reachable_count == null ? null : (mr?.total_hits ?? 0) + cf.reachable_count;
+        const combinedCapped = Boolean(cf?.capped);
+        setResults(mapped);
+        setTotal(combinedTotal);
+        setReachableTotal(combinedReachable);
+        setCapped(combinedCapped);
+        writeFindProjectsCache(cacheKey, { savedAt: Date.now(), results: mapped, total: combinedTotal, reachableTotal: combinedReachable, capped: combinedCapped });
       }
     } catch {
       // Only show error if definitely offline
@@ -810,7 +866,8 @@ export function FindProjectsPage() {
 
   const hasFilters = selectedCats.length>0||selectedLoaders.length>0||selectedVersions.length>0;
   const effectiveTotal = reachableTotal != null ? Math.min(total, reachableTotal) : total;
-  const totalPages = Math.ceil(effectiveTotal / PAGE_SIZE);
+  const resultPageSize = platform === 'combined' && cfApiKey ? PAGE_SIZE * 2 : PAGE_SIZE;
+  const totalPages = Math.ceil(effectiveTotal / resultPageSize);
   const mcVer  = selectedVersions[0] ?? instance?.minecraftVersion ?? '';
   const loader = selectedLoaders[0]  ?? instance?.modLoader ?? '';
   // Установка ВСЕГДА идёт под реальную версию/загрузчик сборки — а не под
@@ -951,22 +1008,27 @@ export function FindProjectsPage() {
                 title="Обновить каталог">
                 <RefreshCw className={`w-4 h-4 ${loading?'animate-spin':''}`} style={{ color:'var(--color-text-secondary)' }} />
               </button>
-              {/* Platform toggle — Modrinth ⇄ CurseForge */}
-              <button
-                onClick={() => {
-                  switchPlatform(platform === 'modrinth' ? 'curseforge' : 'modrinth');
-                }}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl shrink-0 transition-all hover:bg-white/5"
-                style={{
-                  background: 'var(--color-surface-2)',
-                  border:     '1px solid var(--color-border)',
-                  color:      'var(--color-text-secondary)',
-                }}
-                title={`Переключить на ${platform === 'modrinth' ? 'CurseForge' : 'Modrinth'}`}>
-                 {platform === 'modrinth'
-                   ? <ModrinthLogo size={20} />
-                   : <img src={curseforgeAnvil} alt="" className="h-5 w-5 object-contain grayscale opacity-70" />}
-              </button>
+              {/* Source selector — either platform separately or both in one result list. */}
+              <div className="flex h-10 shrink-0 overflow-hidden" style={{ border:'1px solid var(--color-border)' }}>
+                {([
+                  ['modrinth', 'Только Modrinth'],
+                  ['combined', 'Modrinth + CurseForge'],
+                  ['curseforge', 'Только CurseForge'],
+                ] as [Platform, string][]).map(([target, title]) => (
+                  <button
+                    key={target}
+                    onClick={() => switchPlatform(target)}
+                    className="flex min-w-10 items-center justify-center px-2 transition-colors hover:bg-white/5"
+                    style={platform === target
+                      ? { background:'var(--color-primary-dim)', color:'var(--color-primary)', borderBottom:'2px solid var(--color-primary)' }
+                      : { color:'var(--color-text-secondary)' }}
+                    title={title}
+                    aria-label={title}
+                  >
+                    <PlatformMark platform={target} size={18} />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -987,11 +1049,11 @@ export function FindProjectsPage() {
           {/* Results */}
           <div ref={resultsScrollRef} className="flex-1 overflow-y-auto px-4 pb-4">
             {/* CurseForge API key missing — visible inline banner */}
-            {platform === 'curseforge' && !cfApiKey && (
+            {platform !== 'modrinth' && !cfApiKey && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl mb-3 text-xs"
                 style={{ background:'rgba(241,100,54,0.08)', border:'1px solid rgba(241,100,54,0.3)', color:'#F16436' }}>
                 <Wifi className="w-3.5 h-3.5 shrink-0" />
-                <span className="flex-1">Ключ CurseForge не задан. Добавь его в Настройки → Дополнительно.</span>
+                <span className="flex-1">Ключ CurseForge не задан. {platform === 'combined' ? 'Показаны результаты Modrinth; добавь ключ, чтобы включить CurseForge.' : 'Добавь его в Настройки → Дополнительно.'}</span>
                 <button onClick={() => navigate('/settings#advanced')}
                   className="underline font-semibold hover:opacity-80">Открыть настройки</button>
               </div>
@@ -1079,9 +1141,9 @@ export function FindProjectsPage() {
                   Next →
                 </button>
               </div>
-              {capped && platform === 'curseforge' && (
+              {capped && platform !== 'modrinth' && (
                 <p className="text-[11px] text-center max-w-md" style={{ color:'var(--color-text-tertiary)' }}>
-                  CurseForge only lets us browse the first {(reachableTotal ?? 20000).toLocaleString()} results for this search — try narrowing your filters to find more.
+                  CurseForge показывает только первые {(reachableTotal ?? 20000).toLocaleString()} результатов; сузьте фильтры, чтобы найти больше.
                 </p>
               )}
               </div>

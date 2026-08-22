@@ -211,9 +211,61 @@ async fn forge_builds_for_mc_from_maven(client: &reqwest::Client, mc_version: &s
 fn neoforge_versions_for_mc(xml: &str, mc_version: &str) -> Vec<String> {
     let prefix = format!("{}.", mc_version.trim_start_matches("1."));
     let mut versions: Vec<String> = maven_versions(xml).into_iter().filter(|version| version.starts_with(&prefix)).collect();
-    versions.sort_by(|left, right| right.cmp(left));
+    versions.sort_by(|left, right| compare_neoforge_versions(right, left));
     versions.dedup();
     versions
+}
+
+/// NeoForge's build component is numeric. Lexicographic ordering is incorrect:
+/// `21.1.99` sorts above `21.1.219` as text, which can launch an outdated
+/// profile even though installed mods require the newer runtime.
+fn compare_neoforge_versions(left: &str, right: &str) -> std::cmp::Ordering {
+    let numeric_parts = |version: &str| {
+        version
+            .split('.')
+            .map(|part| {
+                part.chars()
+                    .take_while(|character| character.is_ascii_digit())
+                    .collect::<String>()
+                    .parse::<u32>()
+                    .unwrap_or(0)
+            })
+            .collect::<Vec<_>>()
+    };
+    let left_parts = numeric_parts(left);
+    let right_parts = numeric_parts(right);
+    let length = left_parts.len().max(right_parts.len());
+    for index in 0..length {
+        match left_parts.get(index).copied().unwrap_or(0).cmp(&right_parts.get(index).copied().unwrap_or(0)) {
+            std::cmp::Ordering::Equal => {}
+            ordering => return ordering,
+        }
+    }
+    left.cmp(right)
+}
+
+pub fn neoforge_version_satisfies(candidate: &str, minimum: &str) -> bool {
+    compare_neoforge_versions(candidate, minimum) != std::cmp::Ordering::Less
+}
+
+pub async fn latest_neoforge_version_at_least(mc_version: &str, minimum: &str) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .user_agent("PortalLauncher/1.3")
+        .build()
+        .map_err(|error| error.to_string())?;
+    let xml = client
+        .get("https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml")
+        .send()
+        .await
+        .map_err(|error| format!("NeoForge metadata: {error}"))?
+        .text()
+        .await
+        .map_err(|error| format!("NeoForge metadata: {error}"))?;
+    neoforge_versions_for_mc(&xml, mc_version)
+        .into_iter()
+        .find(|candidate| neoforge_version_satisfies(candidate, minimum))
+        .ok_or_else(|| format!("Для Minecraft {mc_version} нет NeoForge версии не ниже {minimum}"))
 }
 
 async fn latest_forge_version(client: &reqwest::Client, mc_version: &str) -> Result<String, String> {

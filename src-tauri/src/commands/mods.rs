@@ -247,6 +247,37 @@ fn remove_legacy_misplaced_content(instance_id: &str, file_name: &str, mod_type:
     }
 }
 
+async fn download_curseforge_bytes_with_fallback(
+    client: &reqwest::Client,
+    url: &str,
+    api_key: &str,
+) -> Result<bytes::Bytes, String> {
+    let mut failures = Vec::new();
+    for candidate in crate::commands::curseforge::curseforge_download_url_candidates(url) {
+        match client
+            .get(&candidate)
+            .header("x-api-key", api_key)
+            .header(reqwest::header::ACCEPT_ENCODING, "identity")
+            .send()
+            .await
+        {
+            Ok(response) if response.status().is_success() => {
+                let bytes = response
+                    .bytes()
+                    .await
+                    .map_err(|error| format!("CurseForge file body could not be read: {error}"))?;
+                if !bytes.is_empty() {
+                    return Ok(bytes);
+                }
+                failures.push(format!("{candidate}: empty response"));
+            }
+            Ok(response) => failures.push(format!("{candidate}: HTTP {}", response.status())),
+            Err(error) => failures.push(format!("{candidate}: {error}")),
+        }
+    }
+    Err(format!("CurseForge download failed after edge and fallback CDN attempts: {}", failures.join("; ")))
+}
+
 /// Resolve content files from the instance-local folder first, then from the
 /// shared Minecraft content folder used by older Portal Launcher profiles.
 fn content_dir_for_action(instance_id: &str, mod_type: &str, file_name: &str) -> PathBuf {
@@ -365,24 +396,19 @@ pub async fn install_mod(
 
     app.emit("mod-progress", serde_json::json!({"name":mod_name,"percent":20,"message":"Downloading mod..."})).ok();
 
-    let curseforge_resource_pack = source.eq_ignore_ascii_case("curseforge")
-        && mod_type_folder(mtype) == "resourcepacks";
-    let mut download = client.get(&download_url);
-    if curseforge_resource_pack {
+    let curseforge_content = source.eq_ignore_ascii_case("curseforge");
+    let curseforge_resource_pack = curseforge_content && mod_type_folder(mtype) == "resourcepacks";
+    let bytes = if curseforge_content {
         let api_key = crate::commands::settings::read_curseforge_api_key();
-        if api_key.trim().is_empty() {
+        if curseforge_resource_pack && api_key.trim().is_empty() {
             return Err("Для загрузки resource pack с CurseForge нужен API key. Добавьте его в Настройки → Дополнительно.".to_string());
         }
-        // CurseForge requires API-key attribution for direct CDN file downloads.
-        // This is intentionally limited to resource packs; the working mod and
-        // shaderpack paths are not changed by this repair.
-        download = download.header("x-api-key", api_key);
-    }
-    let response = download.send().await.map_err(|e| format!("Скачивание файла: {e}"))?;
-    if curseforge_resource_pack && !response.status().is_success() {
-        return Err(format!("CurseForge не отдал resource pack {file_name} (HTTP {}). Проверьте API key в Настройки → Дополнительно.", response.status()));
-    }
-    let bytes = response.bytes().await.map_err(|e| format!("Чтение файла: {e}"))?;
+        download_curseforge_bytes_with_fallback(&client, &download_url, &api_key).await?
+    } else {
+        client.get(&download_url).send().await
+            .map_err(|error| format!("Скачивание файла: {error}"))?
+            .bytes().await.map_err(|error| format!("Чтение файла: {error}"))?
+    };
     if curseforge_resource_pack && !bytes.starts_with(b"PK") {
         return Err(format!("CurseForge вернул не ZIP-архив для resource pack {file_name}."));
     }
@@ -465,26 +491,12 @@ pub async fn install_curseforge_mod(
 
     app.emit("mod-progress", serde_json::json!({"name":mod_name,"percent":30,"message":"Downloading..."})).ok();
 
-    let resp = client.get(&download_url)
-        .header("x-api-key", &api_key)
-        .header(reqwest::header::ACCEPT_ENCODING, "identity")
-        .send().await.map_err(|e| format!("Download failed: {e}"))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let detail = resp.text().await.unwrap_or_default();
-        let preview: String = detail.chars().filter(|character| !character.is_control()).take(220).collect();
-        return Err(if preview.is_empty() {
-            format!("CurseForge download failed: HTTP {status}")
-        } else {
-            format!("CurseForge download failed: HTTP {status} — {preview}")
-        });
-    }
-
-    let bytes = resp.bytes().await.map_err(|e| format!("CurseForge file body could not be read: {e}"))?;
-    if bytes.is_empty() {
-        return Err("CurseForge returned an empty file. Try another compatible version.".into());
-    }
+    let direct_api_key = if api_key.trim().is_empty() {
+        crate::commands::settings::read_curseforge_api_key()
+    } else {
+        api_key.clone()
+    };
+    let bytes = download_curseforge_bytes_with_fallback(&client, &download_url, &direct_api_key).await?;
     let file_size = bytes.len() as u64;
 
     // Use a safe filename

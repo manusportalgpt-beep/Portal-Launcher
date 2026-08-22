@@ -80,6 +80,68 @@ pub fn instance_game_dir(instance_id: &str) -> PathBuf {
     instances_root().join(instance_id).join(".minecraft")
 }
 
+fn neoforge_minimum_from_range(value: &str) -> Option<String> {
+    let value = value.trim().trim_matches(['\'', '"']);
+    let minimum = value.trim_start_matches(['[', '(']).split(',').next()?.trim();
+    (!minimum.is_empty()
+        && minimum.split('.').all(|part| !part.is_empty() && part.chars().all(|character| character.is_ascii_digit())))
+        .then(|| minimum.to_string())
+}
+
+fn required_neoforge_version_from_mod_metadata(game_dir: &Path) -> Option<String> {
+    let mods_dir = game_dir.join("mods");
+    let entries = std::fs::read_dir(mods_dir).ok()?;
+    let mut required: Option<String> = None;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let file_name = path.file_name().and_then(|value| value.to_str()).unwrap_or_default();
+        if !path.is_file() || !file_name.to_ascii_lowercase().ends_with(".jar") || file_name.ends_with(".disabled") {
+            continue;
+        }
+        let Ok(file) = std::fs::File::open(&path) else { continue; };
+        let Ok(mut archive) = zip::ZipArchive::new(file) else { continue; };
+        let metadata = ["META-INF/neoforge.mods.toml", "META-INF/mods.toml"]
+            .iter()
+            .find_map(|name| {
+                let mut entry = archive.by_name(name).ok()?;
+                let mut text = String::new();
+                std::io::Read::read_to_string(&mut entry, &mut text).ok()?;
+                Some(text)
+            });
+        let Some(metadata) = metadata else { continue; };
+        let mut is_neoforge_dependency = false;
+        for raw_line in metadata.lines() {
+            let line = raw_line.split('#').next().unwrap_or("").trim();
+            if line.starts_with("[[dependencies.") {
+                is_neoforge_dependency = false;
+                continue;
+            }
+            let Some((key, value)) = line.split_once('=') else { continue; };
+            match key.trim() {
+                "modId" => is_neoforge_dependency = value.trim().trim_matches(['\'', '"']).eq_ignore_ascii_case("neoforge"),
+                "versionRange" if is_neoforge_dependency => {
+                    if let Some(candidate) = neoforge_minimum_from_range(value) {
+                        let replace = required.as_deref()
+                            .map(|current| !crate::commands::loader_installer::neoforge_version_satisfies(current, &candidate))
+                            .unwrap_or(true);
+                        if replace { required = Some(candidate); }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    required
+}
+
+fn persist_neoforge_loader_version(instance_id: &str, version: &str) {
+    let path = instances_root().join(instance_id).join("instance.json");
+    let Ok(raw) = std::fs::read_to_string(&path) else { return; };
+    let Ok(mut config) = serde_json::from_str::<serde_json::Value>(&raw) else { return; };
+    config["loader_version"] = serde_json::Value::String(version.to_string());
+    let _ = std::fs::write(path, serde_json::to_string_pretty(&config).unwrap_or(raw));
+}
+
 fn sep() -> &'static str {
     if cfg!(windows) {
         ";"
@@ -296,6 +358,8 @@ pub async fn launch_instance(
     let instance = crate::minecraft_lib::load_instance_config(&instance_id)
         .ok_or_else(|| format!("Сборка {instance_id} не найдена."))?;
     let configured_max_ram = instance.max_ram.max(512);
+    let requested_loader = instance.loader.trim().to_ascii_lowercase();
+    let mut effective_loader_version = instance.loader_version.clone();
 
     // Сбрасываем возможный "хвост" отмены от предыдущей попытки запуска.
     CANCELLED.lock().unwrap().remove(&instance_id);
@@ -387,19 +451,37 @@ pub async fn launch_instance(
     // it reach Mojang directly and then report a secondary missing-profile
     // error. Prepare only the shared vanilla layer here; worlds, mods and the
     // per-instance game directory remain untouched.
-    let requested_loader = instance.loader.trim().to_ascii_lowercase();
     if requested_loader == "forge" || requested_loader == "neoforge" {
         let vanilla = crate::mc::install::ensure_version_json(&client, &instance.mc_version)
             .await
             .map_err(|error| format!("Не удалось подготовить Vanilla {} до установки {}: {error}", instance.mc_version, instance.loader))?;
         status("install", "Подготавливаю Vanilla-файлы для установщика загрузчика…");
         install_version(&app, &vanilla, &instance.mc_version, &instance.mc_version).await?;
+        if requested_loader == "neoforge" {
+            if let Some(required) = required_neoforge_version_from_mod_metadata(&instance_game_dir(&instance_id)) {
+                if !crate::commands::loader_installer::neoforge_version_satisfies(&effective_loader_version, &required) {
+                    status("neoforge", &format!("Моды требуют NeoForge {required} или новее — обновляю загрузчик…"));
+                    let selected = crate::commands::loader_installer::latest_neoforge_version_at_least(&instance.mc_version, &required).await?;
+                    let installed = crate::commands::loader_installer::install_neoforge(
+                        instance.mc_version.clone(),
+                        selected.clone(),
+                        crate::commands::version_manager::mc_base_dir().to_string_lossy().to_string(),
+                    ).await?;
+                    if !installed.success {
+                        return Err(format!("Не удалось обновить NeoForge до версии не ниже {required}: {}", installed.message));
+                    }
+                    effective_loader_version = installed.version;
+                    persist_neoforge_loader_version(&instance_id, &effective_loader_version);
+                    prepared_only = true;
+                }
+            }
+        }
     }
     let (version, profile_id) = match resolve_version(
         &client,
         &instance.mc_version,
         &instance.loader,
-        &instance.loader_version,
+        &effective_loader_version,
     )
     .await {
         Ok(resolved) => resolved,

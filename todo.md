@@ -1569,3 +1569,13 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Synchronize only the remaining Windows icon source or shortcut recreation path with the square Portal icon, without changing game launch code.
 - [x] Verify icon resources and document the exact fresh-artifact/reinstall or shortcut-recreation step required by Windows cache.
 - [x] Push the scoped Windows icon repair to GitHub main.
+
+---
+
+# NeoForge version compatibility, CurseForge CDN fallback and combined Discover search
+
+- [x] Make NeoForge instance creation and launch preparation select an installed loader version that satisfies the installed mods' minimum NeoForge dependency instead of launching an outdated profile.
+- [x] Restore `edge.curseforgecdn.com` as the primary CurseForge download host and use `mediafilez.forgecdn.net` only as a retry fallback for a failed request, including shaderpacks and resource packs.
+- [x] Add an explicit combined Modrinth + CurseForge search mode alongside individual platform filters, with a compact dual-source visual marker on mixed results.
+- [x] Preserve existing standalone Modrinth and CurseForge filters, Forge, Fabric, Quilt, NeoForge and working local install destinations.
+- [x] Run TypeScript-only verification, inspect the focused diff and push the scoped repair to GitHub main.

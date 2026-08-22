@@ -411,7 +411,7 @@ export function ModDetail() {
           let url: string | null = (f.downloadUrl as string) ?? null;
           if (!url && f.id && f.fileName) {
             const idStr = String(f.id);
-            url = `https://edge.forgecdn.net/files/${idStr.slice(0, 4)}/${idStr.slice(4).replace(/^0+/, '')}/${f.fileName}`;
+            url = `https://edge.curseforgecdn.com/files/${idStr.slice(0, 4)}/${idStr.slice(4).replace(/^0+/, '')}/${f.fileName}`;
           }
           return {
             id: String(f.id),
@@ -676,14 +676,9 @@ export function ModDetail() {
           const filtered: ModVersion[] = rawFiles.map((f: any) => {
             const gv: string[] = Array.isArray(f.gameVersions) ? f.gameVersions : [];
             let url: string | null = (f.downloadUrl as string) ?? null;
-            const isCurseForgeResourcePack = curseforgeType === 'resourcepack' || curseforgeType === 'resourcepacks';
-            if (isCurseForgeResourcePack && url) {
-              url = url.replace('edge.forgecdn.net', 'mediafilez.forgecdn.net');
-            }
             if (!url && f.id && f.fileName) {
               const idStr = String(f.id);
-              const cdnHost = isCurseForgeResourcePack ? 'mediafilez.forgecdn.net' : 'edge.forgecdn.net';
-              url = `https://${cdnHost}/files/${idStr.slice(0, 4)}/${idStr.slice(4).replace(/^0+/, '')}/${f.fileName}`;
+              url = `https://edge.curseforgecdn.com/files/${idStr.slice(0, 4)}/${idStr.slice(4).replace(/^0+/, '')}/${f.fileName}`;
             }
             return {
               id: String(f.id),

@@ -84,6 +84,7 @@ interface Project {
   author: string; authorId?: number; downloads: number; follows: number; iconUrl?: string;
   categories: string[]; gameVersions: string[]; loaders: string[];
   dateModified: string; platform: Platform; projectType: ProjectType;
+  sources?: SourcePlatform[];
   color?: string;
 }
 
@@ -209,6 +210,26 @@ function fmtNum(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
   return String(n);
+}
+
+function combinedProjectKey(project: Project): string {
+  return `${project.projectType}:${project.title.toLocaleLowerCase('ru-RU').replace(/[^\p{L}\p{N}]+/gu, '')}`;
+}
+
+function dedupeCombinedProjects(projects: Project[]): Project[] {
+  const merged = new globalThis.Map<string, Project>();
+  for (const project of projects) {
+    const key = combinedProjectKey(project);
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, { ...project, sources: [project.platform as SourcePlatform] });
+      continue;
+    }
+    const sources = [...new Set([...(existing.sources ?? [existing.platform as SourcePlatform]), project.platform as SourcePlatform])];
+    if (project.downloads > existing.downloads) merged.set(key, { ...project, sources });
+    else existing.sources = sources;
+  }
+  return [...merged.values()];
 }
 
 // ── Install Button ──────────────────────────────────────────────────────────
@@ -480,6 +501,7 @@ function ProjectCard({ p, view, instanceId, mcVersion, loader, onClick }: {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="font-bold text-sm truncate" style={{ color:'var(--color-text)' }}>{p.title}</p>
+          <PlatformMark platform={p.sources?.length === 2 ? 'combined' : p.platform} size={14} />
         </div>
         <p className="text-xs mt-0.5 truncate" style={{ color:'var(--color-text-secondary)' }}>{p.description}</p>
         <div className="flex items-center gap-3 mt-1">
@@ -508,7 +530,7 @@ function ProjectCard({ p, view, instanceId, mcVersion, loader, onClick }: {
           ? <img src={p.iconUrl} className="w-full h-full object-cover" alt="" />
           : <span className="text-4xl font-black" style={{ color: accent }}>{p.title[0]}</span>}
       </div>
-      <p className="font-bold text-sm truncate mb-0.5" style={{ color:'var(--color-text)' }}>{p.title}</p>
+      <div className="mb-0.5 flex items-center gap-1.5"><p className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color:'var(--color-text)' }}>{p.title}</p><PlatformMark platform={p.sources?.length === 2 ? 'combined' : p.platform} size={13} /></div>
       <p className="text-xs mb-2 line-clamp-2 flex-1" style={{ color:'var(--color-text-secondary)' }}>{p.description}</p>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -799,10 +821,10 @@ export function FindProjectsPage() {
         const [mrOutcome, cfOutcome] = await Promise.allSettled([modrinthSearch, curseforgeSearch]);
         const mr = mrOutcome.status === 'fulfilled' ? mrOutcome.value : null;
         const cf = cfOutcome.status === 'fulfilled' ? cfOutcome.value : null;
-        const mapped = [
+        const mapped = dedupeCombinedProjects([
           ...(mr?.hits ?? []).map(hit => fromModrinth(hit)),
           ...(cf?.data ?? []).map(item => fromCurseForge(item)),
-        ].sort((left, right) => {
+        ]).sort((left, right) => {
           if (s === 'downloads') return right.downloads - left.downloads;
           if (s === 'follows') return right.follows - left.follows;
           if (s === 'newest' || s === 'updated') return Date.parse(right.dateModified) - Date.parse(left.dateModified);

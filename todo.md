@@ -1579,3 +1579,15 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Add an explicit combined Modrinth + CurseForge search mode alongside individual platform filters, with a compact dual-source visual marker on mixed results.
 - [x] Preserve existing standalone Modrinth and CurseForge filters, Forge, Fabric, Quilt, NeoForge and working local install destinations.
 - [x] Run TypeScript-only verification, inspect the focused diff and push the scoped repair to GitHub main.
+
+---
+
+# First-launch guide, supplied backgrounds, style presets and unified Discover search
+
+- [x] Replace the first-launch flow with a sequential Russian guide: language, Sidebar/Notch Panel preview, supplied background choice, style/theme choice and account sign-in.
+- [x] Add all user-supplied images as selectable built-in backgrounds with clear preview names, cover rendering and a safe neutral fallback.
+- [x] Add persistent style presets: Glassmorphism (default, black/white base choice), Quadral, FallOff and AboutS; keep existing themes compatible with every preset and allow starting a custom theme from onboarding.
+- [x] Make Sidebar and Notch Panel choices use clear visual mini-previews and persist the selected navigation mode without changing existing controls.
+- [x] Keep nickname, Microsoft and Ely.by account flows reachable as the final onboarding step, with skip available to avoid forcing sign-in.
+- [x] Deduplicate combined Modrinth + CurseForge results by normalized project title and content type while retaining each source's standalone listing and install route.
+- [x] Run TypeScript-only verification, inspect the focused diff and push the onboarding/style/search refinement to GitHub main.

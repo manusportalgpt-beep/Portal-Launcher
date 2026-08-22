@@ -603,3 +603,23 @@ html[data-design-system="clean"] .portal-files-drop > div,
 html[data-design-system="clean"] .portal-about-github { border-radius:0 !important; }
 html[data-design-system="clean"] .portal-files-workspace .group:hover { transform:none !important; }
 html[data-design-system="clean"] .portal-about-github:hover { background:var(--color-surface-hover) !important; border-color:var(--color-border-strong) !important; }
+
+/* Onboarding style presets. Glass keeps solid high-contrast text while only
+   material surfaces become translucent and blurred. */
+html[data-portal-style="glass"] .portal-workspace-material,
+html[data-portal-style="glass"] .portal-glass-surface,
+html[data-portal-style="glass"] .clean-nav {
+  background:color-mix(in srgb, var(--color-surface) 72%, transparent) !important;
+  backdrop-filter:blur(var(--portal-glass-blur, 22px)) saturate(1.14);
+  -webkit-backdrop-filter:blur(var(--portal-glass-blur, 22px)) saturate(1.14);
+}
+html[data-portal-style="glass"] .portal-glass-outline { border-color:color-mix(in srgb, var(--color-border-strong) 72%, white 28%) !important; }
+html[data-portal-style="falloff"] .portal-style-mark { transform:rotate(45deg); border-radius:3px !important; }
+html[data-portal-style="falloff"] .portal-style-mark > svg { transform:rotate(-45deg); }
+html[data-portal-style="falloff"] .portal-sidebar a[data-tutorial-target] > span:first-child,
+html[data-portal-style="falloff"] .portal-notch a[data-tutorial-target] > span:first-child { clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%); border-radius:0 !important; }
+html[data-portal-style="abouts"] .portal-workspace-material { box-shadow:var(--shadow-sm); }
+@media (prefers-reduced-transparency: reduce) {
+  html[data-portal-style="glass"] .portal-workspace-material,
+  html[data-portal-style="glass"] .portal-glass-surface { background:var(--color-surface) !important; backdrop-filter:none; -webkit-backdrop-filter:none; }
+}

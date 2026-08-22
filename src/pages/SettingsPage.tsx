@@ -13,6 +13,7 @@ import { useThemeStore } from '@/stores/themeStore';
 import { useCurrentUser, useIsAuthenticated, useAuthStore } from '@/stores/authStore';
 import { MicrosoftAuthOAuth } from '@/components/auth/MicrosoftAuthOAuth';
 import { type ThemeId } from '@/lib/theme-engine';
+import { STYLE_PRESETS } from '@/lib/style-presets';
 import { useUiStore } from '@/stores/uiStore';
 import { readThemeFile } from '@/lib/ui-engine';
 import { removeBackgroundMedia, saveBackgroundMedia } from '@/lib/background-media';
@@ -450,6 +451,11 @@ function AppearanceSection() {
         value={ui.uiMode}
         options={[{ id: 'old', label: 'Классический' }, { id: 'new', label: 'Новый' }]}
         onChange={v => { ui.set('uiMode', v as any); ui.set('panelVersion', v as any); }} />
+
+      <SegRow label="Материал и форма" desc="Glassmorphism, квадратный Quadral, ромбовидный FallOff или системный AboutS. Цветовая тема остаётся отдельной настройкой выше."
+        value={ui.stylePreset}
+        options={STYLE_PRESETS.map(preset => ({ id:preset.id, label:preset.title }))}
+        onChange={value => ui.set('stylePreset', value as any)} />
 
       {ui.navMode === 'notch' && (
         <>

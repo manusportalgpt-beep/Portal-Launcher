@@ -17,7 +17,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
   }, [backgroundImage]);
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden relative" style={{ background: 'transparent' }}>
+    <div className="portal-workspace-material flex h-full min-h-0 overflow-hidden relative" style={{ background: 'transparent' }}>
       {/* Пользовательский фон (.prtheme / Appearance) */}
       <div aria-hidden className="pointer-events-none absolute inset-0" style={{
         backgroundImage: backgroundSrc ? `url("${backgroundSrc}")` : 'none',

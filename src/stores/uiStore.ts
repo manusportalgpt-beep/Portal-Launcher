@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { StylePreset } from '@/lib/style-presets';
 
 export type NavMode = 'notch' | 'sidebar';
 export type NotchSide = 'top' | 'bottom' | 'left' | 'right';
@@ -33,6 +34,8 @@ export interface PanelAppearance {
 }
 
 export interface UiState {
+  /** Глобальный материал и геометрия интерфейса, выбранные в первом запуске/оформлении. */
+  stylePreset: StylePreset;
   /** Тип навигации: выезжающая Notch-панель или боковая панель */
   navMode: NavMode;
   /** Сторона экрана, к которой прикреплена Notch-панель */
@@ -147,6 +150,7 @@ export interface UiState {
 }
 
 const defaults = {
+  stylePreset: 'glass' as StylePreset,
   navMode: 'sidebar' as NavMode,
   notchSide: 'top' as NotchSide,
   notchHotzone: 46,
@@ -231,7 +235,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'portal-launcher-ui',
-      version: 6,
+      version: 7,
       migrate: (persisted: any, version) => {
         // Migrate only stock Title Bar heights from earlier releases; custom heights remain the user's choice.
         if (version < 3 && [28, 30, 32].includes(persisted?.titlebarHeight)) persisted.titlebarHeight = 26;
@@ -241,6 +245,8 @@ export const useUiStore = create<UiState>()(
         if (version < 4 && [4, 5].includes(persisted?.navInstanceCount)) persisted.navInstanceCount = 8;
         if (version < 5 && persisted?.sidebarWidth === 148) persisted.sidebarWidth = 64;
         if (version < 6 && (!persisted?.sidebarWidth || persisted.sidebarWidth <= 72)) persisted.sidebarWidth = 88;
+        // Existing users keep the familiar square system; new users start with Glassmorphism.
+        if (version < 7 && !persisted?.stylePreset) persisted.stylePreset = 'quadral';
         if (version < 5 && persisted?.sidebarPanelAppearance?.labels === 'always') {
           persisted.sidebarPanelAppearance = {
             ...persisted.sidebarPanelAppearance,

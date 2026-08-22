@@ -147,11 +147,11 @@ pub fn create_instance_shortcut(
     #[cfg(windows)]
     {
         let shortcut_path = desktop.join(format!("{label}.lnk"));
-        let icon_path = if has_instance_icon {
-            shortcut_icon.to_string_lossy().to_string()
-        } else {
-            executable.to_string_lossy().to_string()
-        };
+        // Always point Explorer at the persisted ICO. Falling back to the
+        // executable makes existing desktop links depend on the resource cache
+        // of an older EXE; this ICO is rewritten whenever Portal recreates the
+        // shortcut and carries the current square launcher mark.
+        let icon_path = shortcut_icon.to_string_lossy().to_string();
         let script = format!(
             "$ws=New-Object -ComObject WScript.Shell;$s=$ws.CreateShortcut({});$s.TargetPath={};$s.Arguments={};$s.WorkingDirectory={};$s.IconLocation=({},0);$s.Description={};$s.Save()",
             ps_quote(&shortcut_path.to_string_lossy()),

@@ -6,15 +6,11 @@ SOURCE = ROOT / "tools" / "icon_source.png"
 
 
 def frame_icon(image: Image.Image, size: int) -> Image.Image:
-    # Original mark has roughly 9% empty edge padding. Crop it and return a
-    # slightly protected 96%-fill canvas so Windows small-size rendering keeps
-    # the circle clean rather than looking like a tiny dot.
-    padding = max(2, round(size * 0.022))
-    inner = size - padding * 2
-    crop = image.crop((90, 90, 934, 934)).resize((inner, inner), Image.Resampling.LANCZOS)
-    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    canvas.alpha_composite(crop, ((size - crop.width) // 2, (size - crop.height) // 2))
-    return canvas
+    # The master asset is already a final square composition. Older code
+    # assumed a 1024px circular source and cropped it, which can regenerate a
+    # wrong ICO from the current 512px Portal mark. Preserve the entire source
+    # when making every Windows resolution.
+    return image.resize((size, size), Image.Resampling.LANCZOS)
 
 
 def main() -> None:

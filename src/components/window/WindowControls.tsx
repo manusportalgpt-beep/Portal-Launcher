@@ -3,7 +3,11 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, Square, Copy, X } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useUiStore } from '@/stores/uiStore';
-import portalIcon from '../../../src-tauri/icons/icon.png';
+
+// Keep the custom title bar on the same cache-busted public asset as About
+// and Sidebar. This avoids a stale Vite-imported image when the native EXE
+// resource has already been refreshed by a new Windows installation.
+const portalIcon = '/launcher-icon.png?rev=portal-square-2';
 
 /** Три кастомные кнопки Windows: свернуть / развернуть / закрыть. */
 export function WindowControls() {

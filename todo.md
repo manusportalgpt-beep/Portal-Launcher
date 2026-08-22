@@ -1560,3 +1560,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Update direct Rust callers in `instances.rs` and `mods.rs` to pass the fourth `prefer_resource_pack_cdn` argument to `get_curseforge_file_download_url`.
 - [x] Preserve non-resource-pack behavior by passing `None` where the caller does not know the content type.
 - [x] Verify the focused diff and push the compilation repair to GitHub main.
+
+---
+
+# Remaining Windows desktop and title-bar icon repair
+
+- [x] Trace the old red icon still shown by the desktop shortcut and window title bar through Tauri bundle resources, runtime window setup and `.lnk` IconLocation.
+- [x] Synchronize only the remaining Windows icon source or shortcut recreation path with the square Portal icon, without changing game launch code.
+- [x] Verify icon resources and document the exact fresh-artifact/reinstall or shortcut-recreation step required by Windows cache.
+- [x] Push the scoped Windows icon repair to GitHub main.

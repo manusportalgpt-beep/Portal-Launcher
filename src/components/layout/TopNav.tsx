@@ -147,7 +147,9 @@ function SidebarNav() {
   return (
     <aside className="portal-sidebar clean-nav shrink-0 flex flex-col z-40"
       style={{ width: Math.max(84, sidebarWidth), gap:Math.min(appearance.gap, 5), padding: `${Math.min(appearance.edgePadding, 12)}px 12px`, justifyContent, background:'var(--color-bg)', borderRight:'1px solid var(--color-border)', boxShadow:'none', backdropFilter:'none', WebkitBackdropFilter:'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
-      <div className="nav-identity flex h-10 items-center justify-center" style={{ color:'var(--color-text)' }}><PanelsTopLeft size={16} style={{ color:'var(--color-primary)' }} /></div>
+      <div className="nav-identity flex h-10 items-center justify-center" title="Portal Launcher">
+        <span className="portal-brand-tile relative"><img src="/launcher-icon.png?rev=portal-square-1" alt="Portal Launcher" draggable={false} /></span>
+      </div>
       {items.map(item => <DockButton key={item.to} item={item} vertical scale={scale} appearance={appearance} />)}
       <InstanceQuickAccess vertical />
       <div className="flex-1" />

@@ -895,7 +895,7 @@ function AboutSection() {
       <div className="p-5 rounded-2xl mb-4 flex flex-col items-center gap-3"
         style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
         <button onClick={handleLogoClick} className={`relative w-20 h-20 rounded-3xl overflow-hidden transition-transform ${burst ? 'scale-110' : 'hover:scale-[1.03]'}`} style={{ boxShadow:`0 8px 24px ${rarityColor}55`, border:`1px solid ${rarityColor}88` }} title="Portal Launcher">
-          <img src="/launcher-icon.png" alt="Portal Launcher" className="w-full h-full object-cover" draggable={false} style={{ filter: clicks >= 5 ? `hue-rotate(${Math.min(260, clicks % 360)}deg) saturate(${1 + Math.min(1.5, clicks / 500)})` : undefined }} />
+          <img src="/launcher-icon.png?rev=portal-square-1" alt="Portal Launcher" className="w-full h-full object-cover" draggable={false} style={{ filter: clicks >= 5 ? `hue-rotate(${Math.min(260, clicks % 360)}deg) saturate(${1 + Math.min(1.5, clicks / 500)})` : undefined }} />
           {burst && <span className="absolute inset-0 animate-ping rounded-3xl" style={{ border:`2px solid ${rarityColor}` }} />}
         </button>
         <div className="text-center">

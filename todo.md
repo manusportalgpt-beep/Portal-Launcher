@@ -1522,3 +1522,22 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Trace the CurseForge resource-pack version selection, download URL and destination path behind the visible resource-pack card failures.
 - [x] Correct only the CurseForge resource-pack install path and surface a useful localized failure only if its archive cannot be obtained or copied.
 - [x] Run TypeScript-only verification and push the isolated CurseForge resource-pack repair to GitHub main.
+
+---
+
+# Final CurseForge resource-pack and stale icon sources repair
+
+- [x] Identify the exact CurseForge resource-pack download error and correct only that install path.
+- [x] Replace the stale desktop shortcut source/icon-cache invalidation path with the current square launcher icon.
+- [x] Replace the stale «О лаунчере» icon source with the current square launcher icon.
+- [x] Preserve all other working loaders, content types and UI behavior; run TypeScript-only verification and push the scoped repair.
+
+---
+
+# Launcher reliability and recognizable square experience
+
+- [x] Complete the CurseForge resource-pack-only download path using the current CDN contract without altering working shaders, mods, Forge, NeoForge or Quilt.
+- [x] Replace all stale launcher icon sources used by the Windows desktop shortcut, static frontend assets and «О лаунчере» with the current square asset.
+- [x] Verify nickname identity launches Vanilla, Forge, Fabric, Quilt and NeoForge; keep Bedrock blocked without a Microsoft licence and keep nickname skin editing unavailable.
+- [x] Improve interface hierarchy, interaction consistency and memorable Portal identity using the established black square outline system without altering working launcher behavior.
+- [x] Run TypeScript-only verification and push the scoped reliability and interface work to GitHub main.

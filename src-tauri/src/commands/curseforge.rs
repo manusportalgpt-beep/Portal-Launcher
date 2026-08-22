@@ -250,6 +250,7 @@ pub async fn get_curseforge_file_download_url(
     mod_id: u64,
     file_id: u64,
     api_key: String,
+    prefer_resource_pack_cdn: Option<bool>,
 ) -> Result<String, String> {
     let api_key = if api_key.is_empty() { read_curseforge_api_key() } else { api_key };
     if api_key.is_empty() {
@@ -261,8 +262,11 @@ pub async fn get_curseforge_file_download_url(
         "download URL lookup",
     ).await?;
     let url = resp["data"].as_str().unwrap_or("").to_string();
+    let resource_pack_cdn = prefer_resource_pack_cdn.unwrap_or(false);
     if url.is_empty() {
-        // Fallback: construct URL from file ID (works for most mods)
+        // The retired edge host can reject texture-pack archives even though
+        // CurseForge returned valid file metadata. Keep the established host
+        // for other content; resource packs explicitly use the current CDN.
         let id_str = file_id.to_string();
         let part1 = &id_str[..4];
         let part2 = &id_str[4..];
@@ -271,9 +275,14 @@ pub async fn get_curseforge_file_download_url(
             "file metadata lookup",
         ).await?;
         let fname = file_resp["data"]["fileName"].as_str().unwrap_or("mod.jar");
-        Ok(format!("https://edge.forgecdn.net/files/{}/{}/{}", part1, part2.trim_start_matches('0'), fname))
+        let host = if resource_pack_cdn { "mediafilez.forgecdn.net" } else { "edge.forgecdn.net" };
+        Ok(format!("https://{host}/files/{}/{}/{}", part1, part2.trim_start_matches('0'), fname))
     } else {
-        Ok(url)
+        if resource_pack_cdn {
+            Ok(url.replace("edge.forgecdn.net", "mediafilez.forgecdn.net"))
+        } else {
+            Ok(url)
+        }
     }
 }
 

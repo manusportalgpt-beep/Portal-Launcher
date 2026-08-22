@@ -1,6 +1,6 @@
 {
   "productName": "Portal Launcher",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "identifier": "com.portal.launcher",
   "build": {
     "frontendDist": "../dist",

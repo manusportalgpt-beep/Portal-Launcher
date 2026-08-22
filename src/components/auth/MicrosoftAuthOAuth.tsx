@@ -95,6 +95,15 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel, preview = false }: {
     setAltBusy(true); setErrorMsg('');
     try {
       const skin = await invoke<any>('lookup_public_skin', { username });
+      await invoke('save_frontend_account', {
+        uuid: skin.uuid,
+        username: skin.name,
+        skinUrl: skin.skin_url ?? null,
+        accessToken: '',
+        refreshToken: '',
+        expiresAt: 0,
+        provider: 'nickname',
+      });
       addProfile({
         uuid: skin.uuid,
         username: skin.name,

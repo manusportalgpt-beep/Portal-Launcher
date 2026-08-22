@@ -753,6 +753,7 @@ pub fn save_frontend_account(
     let provider = match provider.as_deref() {
         Some("elyby") => "elyby",
         Some("offline") => "offline",
+        Some("nickname") => "nickname",
         _ => "microsoft",
     }.to_string();
     let acc = Account {
@@ -764,8 +765,10 @@ pub fn save_frontend_account(
         refresh_token,
         xuid: None,
         expires_at,
-        licensed: provider != "offline",
-        demo: provider == "offline",
+        // Nickname lookup intentionally has no Minecraft token or licence. It
+        // may launch Java in legacy/offline mode but must never unlock Bedrock.
+        licensed: provider != "offline" && provider != "nickname",
+        demo: provider == "offline" || provider == "nickname",
         provider: Some(provider),
     };
     save_account(&acc)

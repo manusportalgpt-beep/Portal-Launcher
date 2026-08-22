@@ -376,11 +376,12 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         const derivedDownloadUrl = fileIdText.length >= 5 && selectedFile.fileName
           ? `https://edge.forgecdn.net/files/${fileIdText.slice(0, 4)}/${fileIdText.slice(4).replace(/^0+/, '')}/${selectedFile.fileName}`
           : '';
-        const officialDownloadUrl = await invoke<string>('get_curseforge_file_download_url', {
-          modId: numericProjectId,
-          fileId: Number(selectedFile.id),
-          apiKey: cfApiKey,
-        }).catch(() => '');
+          const officialDownloadUrl = await invoke<string>('get_curseforge_file_download_url', {
+            modId: numericProjectId,
+            fileId: Number(selectedFile.id),
+            apiKey: cfApiKey,
+            preferResourcePackCdn: contentType === 'resourcepack',
+          }).catch(() => '');
         const downloadUrl = officialDownloadUrl || rawDownloadUrl || derivedDownloadUrl;
         if (!downloadUrl) {
           throw new Error(t('findProjects.install.curseforgeNoUrl'));

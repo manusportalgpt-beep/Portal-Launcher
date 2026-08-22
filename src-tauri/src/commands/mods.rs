@@ -433,7 +433,7 @@ pub async fn install_curseforge_mod(
 
     // Get download URL from CurseForge API
     let download_url = super::curseforge::get_curseforge_file_download_url(
-        mod_id, file_id, api_key.clone()
+        mod_id, file_id, api_key.clone(), Some(mod_type_folder(mtype) == "resourcepacks")
     ).await?;
 
     if download_url.is_empty() {

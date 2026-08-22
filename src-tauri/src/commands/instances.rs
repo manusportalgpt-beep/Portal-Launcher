@@ -1565,7 +1565,7 @@ async fn import_curseforge_modpack_from_archive(
         let pct = 15 + (i as u64 * 80) / total.max(1) as u64;
         app.emit("instance-progress", serde_json::json!({"stage":"downloading","instance_id":new_id,"name":pack_name,"icon":icon_b64.as_deref(),"percent":pct,"message":format!("Downloading {}/{}", i+1, total)})).ok();
 
-        match crate::commands::curseforge::get_curseforge_file_download_url(project_id, file_id, String::new()).await {
+        match crate::commands::curseforge::get_curseforge_file_download_url(project_id, file_id, String::new(), None).await {
             Ok(url) if !url.is_empty() => {
                 let fname = url.rsplit('/').next().unwrap_or("mod.jar").to_string();
                 match reqwest::get(&url).await {

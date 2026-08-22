@@ -1552,3 +1552,11 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Add an outlined GitHub button to About linking to the Portal Launcher repository.
 - [x] Refine the global square interaction scheme so navigation, folder workspaces and actions stay compact, consistent and immediately reachable.
 - [x] Run TypeScript-only verification and push the scoped NeoForge, Files, About and UI refinement to GitHub main.
+
+---
+
+# CurseForge URL signature build repair
+
+- [x] Update direct Rust callers in `instances.rs` and `mods.rs` to pass the fourth `prefer_resource_pack_cdn` argument to `get_curseforge_file_download_url`.
+- [x] Preserve non-resource-pack behavior by passing `None` where the caller does not know the content type.
+- [x] Verify the focused diff and push the compilation repair to GitHub main.

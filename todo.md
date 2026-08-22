@@ -1627,3 +1627,12 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Replace the temporary `format!` reference passed to NeoForge `status` with an owned local message to eliminate Rust E0716.
 - [x] Preserve the non-blocking `msa.rs` warning without unrelated authentication changes.
 - [x] Verify the focused diff and push the E0716 repair to GitHub main.
+
+---
+
+# Liquid Glass Glassmorphism refinement
+
+- [x] Rework only the Glassmorphism preset into a true round Liquid Glass material with visible background, translucency, blur, depth and neutral white glass edges.
+- [x] Apply the shared Glass material to content panels, menus, controls, Sidebar, Notch Panel and icons without changing Quadral, FallOff or AboutS.
+- [x] Tune text and icon contrast, focus states and reduced-transparency fallback so the glass interface remains readable.
+- [x] Verify TypeScript, inspect the Glass-only diff and push the visual update to GitHub main.

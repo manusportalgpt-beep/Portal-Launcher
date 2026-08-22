@@ -14,7 +14,10 @@ const styleTokens: Record<StylePreset, Record<string, string>> = {
     '--radius-xs': '8px', '--radius-sm': '10px', '--radius-md': '14px', '--radius-lg': '18px', '--radius-xl': '24px',
     '--radius-button': '14px', '--radius-card': '18px', '--radius-modal': '24px',
     '--shadow-sm': '0 2px 12px rgba(0, 0, 0, 0.18)', '--shadow-md': '0 12px 36px rgba(0, 0, 0, 0.22)',
-    '--shadow-lg': '0 24px 64px rgba(0, 0, 0, 0.30)', '--portal-glass-blur': '22px',
+    '--shadow-lg': '0 24px 64px rgba(0, 0, 0, 0.30)', '--portal-glass-blur': '32px',
+    '--portal-glass-panel': 'rgba(255, 255, 255, 0.15)', '--portal-glass-panel-strong': 'rgba(255, 255, 255, 0.24)',
+    '--portal-glass-edge': 'rgba(255, 255, 255, 0.42)', '--portal-glass-edge-soft': 'rgba(255, 255, 255, 0.17)',
+    '--portal-glass-shadow': 'rgba(0, 0, 0, 0.30)',
   },
   quadral: {
     '--radius-xs': '0px', '--radius-sm': '1px', '--radius-md': '2px', '--radius-lg': '2px', '--radius-xl': '3px',

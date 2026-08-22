@@ -623,3 +623,106 @@ html[data-portal-style="abouts"] .portal-workspace-material { box-shadow:var(--s
   html[data-portal-style="glass"] .portal-workspace-material,
   html[data-portal-style="glass"] .portal-glass-surface { background:var(--color-surface) !important; backdrop-filter:none; -webkit-backdrop-filter:none; }
 }
+
+/* Liquid Glass: this is a dedicated material layer for the Glassmorphism
+   preset, not a generic round-button override. The root stays open so the
+   selected background remains visible; floating navigation and real surfaces
+   receive the lens, white edge and blur treatment. */
+html[data-portal-style="glass"] .portal-workspace-material {
+  background:transparent !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+}
+html[data-portal-style="glass"] .portal-background-layer {
+  opacity:clamp(.52, var(--custom-bg-opacity, .35), .88) !important;
+  filter:blur(var(--custom-bg-blur, 0px)) saturate(1.12) !important;
+}
+html[data-portal-style="glass"] .portal-background-scrim {
+  background:linear-gradient(135deg, rgba(3, 8, 18, .28), rgba(4, 8, 18, .08) 48%, rgba(8, 12, 25, .24)) !important;
+}
+html[data-portal-style="glass"] :is(
+  .portal-sidebar,
+  .portal-notch,
+  .portal-glass-surface,
+  .soft-surface,
+  .object-frame,
+  .new-ui-header,
+  .new-ui-footer,
+  [role="dialog"],
+  dialog,
+  [style*="background:var(--color-surface)"],
+  [style*="background: var(--color-surface)"],
+  [style*="background:var(--color-surface-2)"],
+  [style*="background: var(--color-surface-2)"]
+) {
+  background:linear-gradient(135deg, rgba(255,255,255,.24), rgba(255,255,255,.13) 42%, rgba(255,255,255,.09)) !important;
+  border-color:var(--portal-glass-edge-soft) !important;
+  box-shadow:0 18px 42px var(--portal-glass-shadow), inset 0 1px 0 var(--portal-glass-edge), inset 0 -1px 0 rgba(255,255,255,.08) !important;
+  backdrop-filter:blur(var(--portal-glass-blur)) saturate(1.28) brightness(1.06) !important;
+  -webkit-backdrop-filter:blur(var(--portal-glass-blur)) saturate(1.28) brightness(1.06) !important;
+}
+html[data-portal-style="glass"] :is(.portal-sidebar, .portal-notch, .new-ui-header, .new-ui-footer) {
+  background:linear-gradient(135deg, rgba(255,255,255,.28), rgba(255,255,255,.15) 45%, rgba(255,255,255,.10)) !important;
+  border-color:var(--portal-glass-edge) !important;
+  border-radius:var(--radius-card) !important;
+}
+html[data-portal-style="glass"] .portal-sidebar {
+  margin:10px 0 10px 10px;
+  border:1px solid var(--portal-glass-edge) !important;
+}
+html[data-portal-style="glass"] .portal-notch {
+  border-radius:var(--radius-modal) !important;
+}
+html[data-portal-style="glass"] :is(.portal-sidebar, .portal-notch, .new-ui-header, .new-ui-footer, [role="dialog"], dialog) {
+  position:relative;
+  overflow:hidden;
+}
+html[data-portal-style="glass"] :is(.portal-sidebar, .portal-notch, .new-ui-header, .new-ui-footer, [role="dialog"], dialog)::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(118deg, rgba(255,255,255,.22), transparent 34%, transparent 68%, rgba(255,255,255,.08));
+  z-index:0;
+}
+html[data-portal-style="glass"] :is(.portal-sidebar, .portal-notch, .new-ui-header, .new-ui-footer, [role="dialog"], dialog) > * { position:relative; z-index:1; }
+html[data-portal-style="glass"] .portal-brand-tile,
+html[data-portal-style="glass"] :is(.new-ui-icon-button, .new-ui-history-button, .new-ui-account-dot, .new-ui-search-pill) {
+  background:rgba(255,255,255,.14) !important;
+  border-color:var(--portal-glass-edge-soft) !important;
+  box-shadow:inset 0 1px 0 var(--portal-glass-edge-soft) !important;
+  backdrop-filter:blur(calc(var(--portal-glass-blur) * .7)) saturate(1.2) !important;
+  -webkit-backdrop-filter:blur(calc(var(--portal-glass-blur) * .7)) saturate(1.2) !important;
+}
+html[data-portal-style="glass"] :is(button, [role="button"], [role="tab"]):is(:hover, :focus-visible) {
+  box-shadow:0 10px 24px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.46) !important;
+}
+html[data-portal-style="glass"] input,
+html[data-portal-style="glass"] textarea,
+html[data-portal-style="glass"] select {
+  background:rgba(6,12,25,.26) !important;
+  border-color:var(--portal-glass-edge-soft) !important;
+  color:var(--color-text) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.13) !important;
+  backdrop-filter:blur(calc(var(--portal-glass-blur) * .65)) !important;
+  -webkit-backdrop-filter:blur(calc(var(--portal-glass-blur) * .65)) !important;
+}
+html[data-portal-style="glass"] :is(h1, h2, h3, h4, h5, h6, [data-liquid-glass-text]) {
+  text-shadow:0 1px 14px rgba(0,0,0,.34);
+}
+html[data-portal-style="glass"] :is(svg, .lucide) { filter:drop-shadow(0 1px 5px rgba(0,0,0,.24)); }
+html[data-portal-style="glass"] .portal-sidebar a[aria-current="page"] > span:first-child,
+html[data-portal-style="glass"] .portal-sidebar a:hover > span:first-child {
+  background:rgba(255,255,255,.16) !important;
+  border-color:var(--portal-glass-edge) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.32), 0 8px 18px rgba(0,0,0,.14) !important;
+}
+@media (prefers-reduced-transparency: reduce) {
+  html[data-portal-style="glass"] .portal-background-layer { opacity:.28 !important; }
+  html[data-portal-style="glass"] :is(.portal-sidebar, .portal-notch, .portal-glass-surface, .soft-surface, .object-frame, .new-ui-header, .new-ui-footer, [role="dialog"], dialog, [style*="background:var(--color-surface)"], [style*="background: var(--color-surface)"], [style*="background:var(--color-surface-2)"], [style*="background: var(--color-surface-2)"]) {
+    background:var(--color-surface) !important;
+    border-color:var(--color-border-strong) !important;
+    backdrop-filter:none !important;
+    -webkit-backdrop-filter:none !important;
+  }
+}

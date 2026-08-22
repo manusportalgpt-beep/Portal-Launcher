@@ -19,7 +19,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
   return (
     <div className="portal-workspace-material flex h-full min-h-0 overflow-hidden relative" style={{ background: 'transparent' }}>
       {/* Пользовательский фон (.prtheme / Appearance) */}
-      <div aria-hidden className="pointer-events-none absolute inset-0" style={{
+      <div aria-hidden className="portal-background-layer pointer-events-none absolute inset-0" style={{
         backgroundImage: backgroundSrc ? `url("${backgroundSrc}")` : 'none',
         backgroundSize: 'var(--custom-bg-size, cover)',
         backgroundRepeat: 'var(--custom-bg-repeat, no-repeat)',
@@ -28,7 +28,7 @@ export function MainLayout({ children }: { children: ReactNode }) {
         filter: 'blur(var(--custom-bg-blur, 0px)) saturate(var(--custom-bg-saturation, 100%))',
         transform: 'scale(var(--custom-bg-scale, 1))',
       }} />
-      <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background:'rgba(4, 6, 12, var(--custom-bg-readability, 0.48))' }} />
+      <div aria-hidden className="portal-background-scrim pointer-events-none absolute inset-0" style={{ background:'rgba(4, 6, 12, var(--custom-bg-readability, 0.48))' }} />
       {navMode === 'sidebar' && <TopNav />}
       <main className="flex-1 min-w-0 min-h-0 overflow-hidden relative z-10">
         <div className="h-full min-h-0 w-full">

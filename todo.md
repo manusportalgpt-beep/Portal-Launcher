@@ -1611,3 +1611,19 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Repair NeoForge installation so the generated patched Minecraft JAR exists before the upgraded NeoForge profile launches.
 - [x] Make dependency counts match the displayed required dependencies and restore clickable, highlighted author links for dependency entries.
 - [x] Run TypeScript-only verification, inspect the focused diff and push the isolated repair set to GitHub main.
+
+---
+
+# Failed run investigation
+
+- [x] Identify whether the failed run is GitHub Actions, the launcher, or a Minecraft/NeoForge instance from its exact log or failed job.
+- [x] Apply only the smallest repair supported by the reported failure.
+- [x] Verify the focused diff and push the launch repair to GitHub main.
+
+---
+
+# NeoForge status lifetime compile repair
+
+- [x] Replace the temporary `format!` reference passed to NeoForge `status` with an owned local message to eliminate Rust E0716.
+- [x] Preserve the non-blocking `msa.rs` warning without unrelated authentication changes.
+- [x] Verify the focused diff and push the E0716 repair to GitHub main.

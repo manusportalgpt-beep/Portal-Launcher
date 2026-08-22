@@ -462,7 +462,12 @@ pub async fn launch_instance(
             let version_is_old = required.as_ref().map(|minimum| !crate::commands::loader_installer::neoforge_version_satisfies(&effective_loader_version, minimum)).unwrap_or(false);
             let profile_is_incomplete = !crate::commands::loader_installer::neoforge_profile_complete(&effective_loader_version);
             if version_is_old || profile_is_incomplete {
-                status("neoforge", if version_is_old { &format!("Моды требуют NeoForge {} или новее — обновляю загрузчик…", required.as_deref().unwrap_or_default()) } else { "NeoForge profile неполный — заново создаю patched Minecraft JAR…" });
+                let neoforge_status = if version_is_old {
+                    format!("Моды требуют NeoForge {} или новее — обновляю загрузчик…", required.as_deref().unwrap_or_default())
+                } else {
+                    "NeoForge profile неполный — заново создаю patched Minecraft JAR…".to_string()
+                };
+                status("neoforge", &neoforge_status);
                 let selected = if let Some(minimum) = required.filter(|_| version_is_old) {
                     crate::commands::loader_installer::latest_neoforge_version_at_least(&instance.mc_version, &minimum).await?
                 } else { effective_loader_version.clone() };

@@ -1591,3 +1591,11 @@ These items supersede further Portal LAN tunnel work until Millida authenticatio
 - [x] Keep nickname, Microsoft and Ely.by account flows reachable as the final onboarding step, with skip available to avoid forcing sign-in.
 - [x] Deduplicate combined Modrinth + CurseForge results by normalized project title and content type while retaining each source's standalone listing and install route.
 - [x] Run TypeScript-only verification, inspect the focused diff and push the onboarding/style/search refinement to GitHub main.
+
+---
+
+# Combined Discover pagination repair
+
+- [x] Trace why combined Modrinth + CurseForge mode exposes fewer pages than standalone Modrinth despite combining result sources.
+- [x] Correct combined result totals and pagination independently of standalone Modrinth and CurseForge counts.
+- [x] Run TypeScript-only verification, inspect the focused diff and push the pagination repair to GitHub main.

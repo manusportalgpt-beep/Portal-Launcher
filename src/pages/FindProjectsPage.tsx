@@ -888,8 +888,10 @@ export function FindProjectsPage() {
 
   const hasFilters = selectedCats.length>0||selectedLoaders.length>0||selectedVersions.length>0;
   const effectiveTotal = reachableTotal != null ? Math.min(total, reachableTotal) : total;
-  const resultPageSize = platform === 'combined' && cfApiKey ? PAGE_SIZE * 2 : PAGE_SIZE;
-  const totalPages = Math.ceil(effectiveTotal / resultPageSize);
+  // Combined search fetches PAGE_SIZE from every source at the same page offset.
+  // It must therefore retain the deepest source page (not divide the sum by two),
+  // otherwise a 373-page Modrinth result is incorrectly displayed as 187 pages.
+  const totalPages = Math.ceil(effectiveTotal / PAGE_SIZE);
   const mcVer  = selectedVersions[0] ?? instance?.minecraftVersion ?? '';
   const loader = selectedLoaders[0]  ?? instance?.modLoader ?? '';
   // Установка ВСЕГДА идёт под реальную версию/загрузчик сборки — а не под

@@ -110,6 +110,8 @@ pub async fn get_curseforge_author(
     let mut projects = Vec::new();
     let mut total = 0u64;
 
+    let mut avatar_url: Option<String> = None;
+
     if !key.is_empty() {
         let mut req = client
             .get("https://api.curseforge.com/v1/mods/search")
@@ -165,16 +167,25 @@ pub async fn get_curseforge_author(
                     .unwrap_or_default(),
             });
         }
+        // Fetch CurseForge author avatar from the first project's author list
+        avatar_url = resp["data"]
+            .as_array()
+            .and_then(|a| a.first())
+            .and_then(|p| p["authors"].as_array())
+            .and_then(|authors| authors.first())
+            .and_then(|author_obj| author_obj["avatarUrl"].as_str())
+            .map(String::from);
+
         projects.sort_by(|a, b| b.downloads.cmp(&a.downloads));
     }
 
-    Ok(AuthorProfile {
-        source: "curseforge".into(),
-        id: author_id.map(|i| i.to_string()).unwrap_or_else(|| author.clone()),
-        username: author.clone(),
-        display_name: Some(author.clone()),
-        avatar_url: None,
-        bio: if projects.is_empty() {
+        Ok(AuthorProfile {
+            source: "curseforge".into(),
+            id: author_id.map(|i| i.to_string()).unwrap_or_else(|| author.clone()),
+            username: author.clone(),
+            display_name: Some(author.clone()),
+            avatar_url,
+            bio: if projects.is_empty() {
             Some("Не удалось получить проекты автора — проверьте ключ CurseForge API в настройках.".into())
         } else {
             None

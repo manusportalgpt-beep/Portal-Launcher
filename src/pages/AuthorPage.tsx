@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
+import { useAuthorAvatar } from '@/lib/author-avatar';
 import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
 
 type Project = { id: string; slug: string; name: string; summary: string; icon_url?: string; downloads: number; source: string };
@@ -16,6 +17,7 @@ export function AuthorPage() {
   const location = useLocation();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const fallbackAvatar = useAuthorAvatar(name, source);
 
   useEffect(() => {
     if (!source || !name) return;
@@ -38,8 +40,8 @@ export function AuthorPage() {
       {profile && (
         <>
           <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-5">
-            {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt={profile.username} className="h-20 w-20 rounded-2xl object-cover" />
+            {profile.avatar_url || fallbackAvatar ? (
+              <img src={profile.avatar_url || fallbackAvatar || ''} alt={profile.username} className="h-20 w-20 rounded-2xl object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} />
             ) : (
               <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 text-2xl font-bold">
                 {profile.username.slice(0, 1).toUpperCase()}

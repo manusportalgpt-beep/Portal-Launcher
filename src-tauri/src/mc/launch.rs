@@ -422,14 +422,35 @@ pub async fn launch_instance(
     let candidate_ok = crate::commands::jvm::run_java(&candidate)
         .map(|info| info.major_version == expected_java_major && !info.architecture.eq_ignore_ascii_case("x86"))
         .unwrap_or(false);
-    let (prepared_java_path, downloaded_java) = if candidate_ok {
+    let (prepared_java_path, _downloaded_java) = if candidate_ok {
         (candidate, false)
     } else {
-        status("java", &format!("Скачиваю Temurin JDK {expected_java_major}…"));
-        let path = crate::commands::jvm::download_java(app.clone(), expected_java_major)
-            .await
-            .map_err(|error| format!("Не удалось подготовить Temurin JDK {expected_java_major}: {error}"))?;
-        (path, true)
+        // Check if a managed runtime for this version already exists before
+        // downloading. This prevents the infinite re-download loop.
+        let existing = crate::commands::jvm::find_java(expected_java_major);
+        if !existing.is_empty() {
+            let existing_ok = crate::commands::jvm::run_java(&existing)
+                .map(|info| info.major_version == expected_java_major && !info.architecture.eq_ignore_ascii_case("x86"))
+                .unwrap_or(false);
+            if existing_ok {
+                (existing, false)
+            } else {
+                // Binary exists but version detection failed — use it anyway
+                // rather than re-downloading. The directory name inference
+                // in download_java will catch it if needed.
+                status("java", &format!("Скачиваю Temurin JDK {expected_java_major}…"));
+                let path = crate::commands::jvm::download_java(app.clone(), expected_java_major)
+                    .await
+                    .map_err(|error| format!("Не удалось подготовить Temurin JDK {expected_java_major}: {error}"))?;
+                (path, true)
+            }
+        } else {
+            status("java", &format!("Скачиваю Temurin JDK {expected_java_major}…"));
+            let path = crate::commands::jvm::download_java(app.clone(), expected_java_major)
+                .await
+                .map_err(|error| format!("Не удалось подготовить Temurin JDK {expected_java_major}: {error}"))?;
+            (path, true)
+        }
     };
 
     // 3. Разрешаем версию (с загрузчиком) и ставим всё нужное.
@@ -441,8 +462,13 @@ pub async fn launch_instance(
     // while per-instance mods, worlds and settings stay untouched.
     status("resolve", "Проверяю Minecraft и совместимость загрузчика…");
     let client = http();
-    let mut prepared_only = downloaded_java
-        || !version_jar_path(&instance.mc_version).exists()
+    // Remove downloaded_java from prepared_only — it forced an early return
+    // every time Java was downloaded, even when all game files were ready.
+    // This caused the user to have to press Launch again after each Java
+    // download, and combined with the run_java version detection bug
+    // (fixed: now uses -version instead of -XshowSettings:all), this
+    // created the infinite Java installation loop.
+    let mut prepared_only = !version_jar_path(&instance.mc_version).exists()
         || !natives_dir(&instance.mc_version).exists();
 
     // Forge-family installers expect the shared launcher metadata and vanilla
@@ -525,7 +551,9 @@ pub async fn launch_instance(
             .map(|info| info.major_version == java_major && !info.architecture.eq_ignore_ascii_case("x86"))
             .unwrap_or(false);
         if !found_ok {
-            prepared_only = true;
+            // Don't set prepared_only=true here — download_java now checks
+            // for existing runtimes first, so this won't cause an infinite loop.
+            // If the runtime already exists, it will be reused immediately.
             status("java", &format!("Скачиваю Java {java_major}…"));
             crate::commands::jvm::download_java(app.clone(), java_major)
                 .await

@@ -1135,8 +1135,8 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
 function AuthorAvatarDot({ author, source }: { author?: string; source?: string }) {
   const avatar = useAuthorAvatar(author, source);
   return (
-    <span className="flex w-3.5 h-3.5 items-center justify-center rounded-full overflow-hidden shrink-0 text-[8px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>
-      {avatar ? <img src={avatar} alt="" className="w-full h-full object-cover" /> : (author?.slice(0, 1).toUpperCase() || '?')}
+    <span className="flex w-5 h-5 items-center justify-center rounded-full overflow-hidden shrink-0 text-[10px] font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>
+      {avatar ? <img src={avatar} alt="" className="w-full h-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /> : (author?.slice(0, 1).toUpperCase() || '?')}
     </span>
   );
 }

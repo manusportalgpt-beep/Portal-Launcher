@@ -157,14 +157,21 @@ pub fn find_java(major: u32) -> String {
 }
 
 pub fn run_java(java_path: &str) -> Option<JavaInfo> {
+    // Use -version only — -XshowSettings:all is Java 9+ only and fails on Java 8
+    // with "Unrecognized option", producing no version output and causing
+    // run_java to return None, which leads to infinite re-downloads.
     let out = crate::utils::create_hidden_command(java_path)
-        .arg("-XshowSettings:all").arg("-version")
+        .arg("-version")
         .output().ok()?;
+    // java -version prints version info to stderr by spec
     let text = String::from_utf8_lossy(&out.stderr).to_string()
              + &String::from_utf8_lossy(&out.stdout);
     
-    // Определяем версию
-    let ver_line = text.lines().find(|l| l.contains("java.version") || l.contains("version \""))?;
+    // Определяем версию: ищем строку с "java.version =" (не specification/runtime)
+    let ver_line = text.lines().find(|l| {
+        let trimmed = l.trim();
+        trimmed.starts_with("java.version =") || trimmed.contains("version \"")
+    })?;
     let ver = ver_line.split('"').nth(1)
         .or_else(|| ver_line.split('=').nth(1))
         .map(|s| s.trim().to_string())
@@ -177,22 +184,24 @@ pub fn run_java(java_path: &str) -> Option<JavaInfo> {
         ver.split('.').next().and_then(|s| s.parse().ok()).unwrap_or(0)
     };
     
-    // Определяем вендора
-    let vendor = text.lines()
-        .find(|l| l.contains("java.vendor ="))
-        .and_then(|l| l.split('=').nth(1))
-        .map(|s| s.trim().to_string())
-        .unwrap_or_default();
+    // Определяем вендора из вывода -version
+    // -version выводит: "OpenJDK Runtime Environment Temurin-17.0.9+9"
+    let vendor = if text.contains("Temurin") { "Temurin".to_string() }
+        else if text.contains("Zulu") { "Zulu".to_string() }
+        else if text.contains("Oracle") { "Oracle".to_string() }
+        else if text.contains("OpenJDK") { "OpenJDK".to_string() }
+        else { String::new() };
     
-    // Определяем архитектуру
-    let arch = text.lines()
-        .find(|l| l.contains("os.arch ="))
-        .and_then(|l| l.split('=').nth(1))
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|| std::env::consts::ARCH.to_string());
+    // Определяем архитектуру из вывода -version
+    // -version выводит: "OpenJDK 64-Bit Server VM" или "OpenJDK Server VM" (32-bit)
+    let arch = if text.contains("64-Bit") || text.contains("x86_64") || text.contains("amd64") { "x86_64".to_string() }
+        else if text.contains("32-Bit") || text.contains("i386") { "x86".to_string() }
+        else if text.contains("aarch64") { "aarch64".to_string() }
+        else { std::env::consts::ARCH.to_string() };
     
     // Определяем, является ли Java управляемой (managed)
-    let managed = java_path.contains("PortalLauncher") || java_path.contains("java") && !java_path.contains("Program");
+    let managed = java_path.contains("PortalLauncher")
+        || (java_path.contains("java") && !java_path.contains("Program"));
     
     log::info!("🔍 Java detected: path={}, version={}, major={}, vendor={}, managed={}", 
         java_path, ver, major, vendor, managed);
@@ -428,6 +437,38 @@ async fn download_temurin<F: Fn(u8, &str) + Send + Sync>(
 /// automatic Minecraft and loader preparation must use the same Temurin build.
 #[tauri::command]
 pub async fn download_java(app: tauri::AppHandle, major_version: u32) -> Result<String, String> {
+    // Check if a managed runtime for this version already exists.
+    // This prevents the infinite re-download loop where the launcher
+    // downloads Java, returns "prepared", and then re-downloads on
+    // the next launch attempt because run_java couldn't detect the
+    // version string in the expected format.
+    let base = java_base_dir();
+    if let Ok(entries) = std::fs::read_dir(&base) {
+        for entry in entries.flatten() {
+            if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) { continue; }
+            let bin = if cfg!(windows) { entry.path().join("bin").join("java.exe") }
+                      else { entry.path().join("bin").join("java") };
+            if !bin.exists() { continue; }
+            if let Some(info) = run_java(&bin.to_string_lossy()) {
+                if info.major_version == major_version {
+                    log::info!("✅ Reusing already-downloaded Java {} at {}", major_version, bin.display());
+                    return Ok(bin.to_string_lossy().to_string());
+                }
+            } else {
+                // run_java failed to parse version, but the binary exists.
+                // Try to infer the version from the directory name.
+                let dir_name = entry.file_name().to_string_lossy().to_string();
+                if dir_name.contains(&format!("jdk{}", major_version))
+                    || dir_name.contains(&format!("temurin-jdk{}", major_version))
+                    || dir_name.contains(&format!("zulu-jdk{}", major_version))
+                {
+                    log::info!("✅ Reusing Java {} (inferred from dir name) at {}", major_version, bin.display());
+                    return Ok(bin.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+
     let emit = move |pct: u8, msg: &str| {
         app.emit("java-download", serde_json::json!({
             "percent": pct, "message": msg, "version": major_version

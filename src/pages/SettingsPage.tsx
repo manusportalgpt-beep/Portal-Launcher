@@ -444,8 +444,8 @@ function AppearanceSection() {
         value={ui.navMode}
         options={[{ id: 'sidebar', label: 'Боковая панель' }, { id: 'notch', label: 'Notch-панель' }]}
         onChange={v => ui.set('navMode', v as any)} />
-      <Row label="Туториал лаунчера" desc="Коротко объясняет Главную, Обзор, Скины, Библиотеку и Настройки">
-        <button onClick={() => window.dispatchEvent(new Event('portal:open-onboarding-preview'))} className="px-3 py-2 text-xs font-bold" style={{ background:'var(--color-surface)', color:'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:2 }}>Открыть</button>
+      <Row label="Туториал лаунчера" desc="Подсказки по интерфейсу: Главная, Обзор, Скины, Библиотека, Настройки, Безопасность и многое другое">
+        <button onClick={() => window.dispatchEvent(new CustomEvent('portal:open-tutorial'))} className="px-3 py-2 text-xs font-bold" style={{ background:'var(--color-surface)', color:'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:2 }}>Открыть</button>
       </Row>
 
       <SegRow label="Стиль интерфейса" desc="Классический сохраняет более строгие поверхности, новый использует мягкие акценты и расширенные скругления — для Notch и Sidebar одинаково"
@@ -990,7 +990,11 @@ export function SettingsPage() {
               const active = activeSection === sec.id;
               return (
                 <button key={sec.id}
-                  onClick={() => { setActiveSection(sec.id); navigate(`/settings/${sec.id}`); }}
+                  onClick={() => {
+                    setActiveSection(sec.id);
+                    navigate(`/settings/${sec.id}`);
+                    window.dispatchEvent(new CustomEvent('portal:tutorial-navigation', { detail:`/settings/${sec.id}` }));
+                  }}
                   className="group relative flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors"
                   style={active
                     ? { background:'transparent', color:'var(--color-text)', border:'1px solid var(--color-primary)' }

@@ -26,6 +26,7 @@ import { NavigationPanelEditor } from '@/components/NavigationPanelEditor';
 import { JavaManager } from '@/components/JavaManager';
 import { playClick, playError, playNav, playSuccess, playManusClick } from '@/lib/soundEngine';
 import { useAchievementStore } from '@/stores/achievementStore';
+import { useUpdateStore } from '@/stores/updateStore';
 import { dialog } from '@/stores/dialogStore';
 import { HOTKEY_DEFAULTS, HOTKEY_LABELS, normaliseHotkey, useHotkeyStore, type HotkeyAction } from '@/stores/hotkeyStore';
 import manusAchievement from '@/assets/manus-achievement.png';
@@ -444,10 +445,6 @@ function AppearanceSection() {
         value={ui.navMode}
         options={[{ id: 'sidebar', label: 'Боковая панель' }, { id: 'notch', label: 'Notch-панель' }]}
         onChange={v => ui.set('navMode', v as any)} />
-      <Row label="Туториал лаунчера" desc="Подсказки по интерфейсу: Главная, Обзор, Скины, Библиотека, Настройки, Безопасность и многое другое">
-        <button onClick={() => window.dispatchEvent(new CustomEvent('portal:open-tutorial'))} className="px-3 py-2 text-xs font-bold" style={{ background:'var(--color-surface)', color:'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:2 }}>Открыть</button>
-      </Row>
-
       <SegRow label="Стиль интерфейса" desc="Классический сохраняет более строгие поверхности, новый использует мягкие акценты и расширенные скругления — для Notch и Sidebar одинаково"
         value={ui.uiMode}
         options={[{ id: 'old', label: 'Классический' }, { id: 'new', label: 'Новый' }]}
@@ -914,6 +911,7 @@ function AdvancedSection() {
 
 function AboutSection() {
   const language = useSettingsStore(s => s.language);
+  const notifications = useUpdateStore(s => s.notifications);
   const [clicks, setClicks] = useState(() => Number(localStorage.getItem('portal-easter-clicks') || 0));
   const [burst, setBurst] = useState(false);
   const [manusReveal, setManusReveal] = useState(false);
@@ -974,6 +972,24 @@ function AboutSection() {
         <span className="flex min-w-0 items-center gap-2"><Github className="h-4 w-4 shrink-0" /><span className="min-w-0"><span className="block text-xs font-black">GitHub проекта</span><span className="block truncate text-[10px]" style={{ color:'var(--color-text-secondary)' }}>manusportalgpt-beep/Portal-Launcher</span></span></span>
         <ExternalLink className="h-4 w-4 shrink-0" style={{ color:'var(--color-text-secondary)' }} />
       </a>
+      {notifications.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs font-semibold mb-2" style={{ color:'var(--color-text-secondary)' }}>Recent updates</p>
+          <div className="space-y-2">
+            {notifications.map(n => (
+              <div key={n.version} className="p-3" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', borderRadius: 6 }}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium" style={{ color:'var(--color-text)' }}>v{n.version}</span>
+                  <a href={n.htmlUrl} target="_blank" rel="noreferrer" className="text-[10px]" style={{ color:'var(--color-primary)' }}>GitHub</a>
+                </div>
+                <p className="text-[11px] leading-relaxed" style={{ color:'var(--color-text-tertiary)' }}>{n.body.split('\n').slice(0, 3).join('\n')}</p>
+                <p className="text-[10px] mt-1" style={{ color:'var(--color-text-tertiary)' }}>{new Date(n.publishedAt).toLocaleDateString()}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <AnimatePresence>
         {manusReveal && (
           <motion.div className="mb-4 flex items-center gap-3 p-3.5" initial={{ opacity:0, y:8, scale:0.98 }} animate={{ opacity:1, y:0, scale:1 }} exit={{ opacity:0, y:8, scale:0.98 }} style={{ borderRadius:'var(--radius-card)', background:'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 18%, var(--color-surface)), var(--color-surface-2))', border:'1px solid var(--color-primary)', boxShadow:'var(--shadow-md)' }}>
@@ -1037,7 +1053,6 @@ export function SettingsPage() {
                   onClick={() => {
                     setActiveSection(sec.id);
                     navigate(`/settings/${sec.id}`);
-                    window.dispatchEvent(new CustomEvent('portal:tutorial-navigation', { detail:`/settings/${sec.id}` }));
                   }}
                   className="group relative flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors"
                   style={active

@@ -27,6 +27,7 @@ import { BottomProgressBar } from '@/components/BottomProgressBar';
 import { InstallEffectOverlay } from '@/components/InstallEffectOverlay';
 import { DialogHost } from '@/components/DialogHost';
 import { AIAgent } from '@/components/ai/AIAgent';
+import { UpdateChecker } from '@/components/UpdateChecker';
 import { BackgroundMusicPlayer } from '@/components/BackgroundMusicPlayer';
 import { BackgroundVideo } from '@/components/BackgroundVideo';
 import { GlobalHotkeys } from '@/components/GlobalHotkeys';
@@ -203,6 +204,7 @@ function App() {
       <DialogHost />
       {!loading && <FirstLaunchExperience />}
       {!loading && aiOpen && <AIAgent onClose={() => setAiOpen(false)} />}
+      <UpdateChecker />
       </div>
       </div>
     </>

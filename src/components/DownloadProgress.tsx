@@ -9,6 +9,7 @@ interface DownloadEvent {
   total: number;
   message: string;
   percent: number;
+  isInstall?: boolean;
 }
 
 
@@ -25,18 +26,19 @@ export function DownloadProgressOverlay() {
   useEffect(() => {
     let uns: Array<() => void> = [];
 
-    const handleGameProgress = (payload: DownloadEvent) => {
+    const handleGameProgress = (payload: DownloadEvent, isInstall: boolean) => {
       setDlEvent({
         stage: payload.stage || 'install',
         current: Number(payload.current || 0),
         total: Number(payload.total || 0),
         message: payload.message || 'Загрузка Minecraft',
         percent: Math.max(0, Math.min(100, Number(payload.percent || 0))),
+        isInstall,
       });
       if (Number(payload.percent || 0) >= 100) setTimeout(() => setDlEvent(null), 3000);
     };
-    listen<DownloadEvent>('download-progress', e => handleGameProgress(e.payload)).then(f => uns.push(f));
-    listen<DownloadEvent>('install-progress', e => handleGameProgress(e.payload)).then(f => uns.push(f));
+    listen<DownloadEvent>('download-progress', e => handleGameProgress(e.payload, false)).then(f => uns.push(f));
+    listen<DownloadEvent>('install-progress', e => handleGameProgress(e.payload, true)).then(f => uns.push(f));
 
     listen<JavaDownloadEvent>('java-download', e => {
       setJavaEvt(e.payload);
@@ -64,6 +66,9 @@ export function DownloadProgressOverlay() {
               <motion.div className="h-full rounded-full" style={{ background: 'var(--color-primary)' }}
                 animate={{ width: `${dlEvent.percent}%` }} transition={{ type: 'spring', stiffness: 60 }} />
             </div>
+            {dlEvent.isInstall && dlEvent.total > 0 && (
+              <p className="text-[10px] mt-1.5" style={{ color: 'var(--color-text-tertiary)' }}>Файл {dlEvent.current} из {dlEvent.total}</p>
+            )}
             <p className="text-[10px] mt-1.5 truncate" style={{ color: 'var(--color-text-tertiary)' }}>{dlEvent.message}</p>
           </motion.div>
         )}

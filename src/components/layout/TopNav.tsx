@@ -153,7 +153,6 @@ function SidebarNav() {
       <div className="flex-1" />
       <div className="flex justify-center"><AccountButton vertical /></div>
       <DockButton item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} vertical scale={scale} appearance={appearance} />
-      <button title="AI Assistant" onClick={() => window.dispatchEvent(new CustomEvent('portal:toggle-ai'))} className="portal-sidebar flex items-center justify-center shrink-0 relative" style={{ width:40, height:40, color:'var(--color-primary)', background:'transparent', borderRadius:6 }}><Bot size={18} /></button>
     </aside>
   );
 }

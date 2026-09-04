@@ -761,13 +761,13 @@ function AdvancedSection() {
   const [proxyStatus, setProxyStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>('idle');
   const [proxyMessage, setProxyMessage] = useState('');
   const [saved, setSaved] = useState(false);
-  const [aiSettings, setAiSettings] = useState(() => { try { return JSON.parse(localStorage.getItem('portal-ai-settings') || '{}'); } catch { return {}; } });
+  const [aiSettings, setAiSettings] = useState(() => { try { const raw = JSON.parse(localStorage.getItem('portal-ai-settings') || '{}'); return { useProxy: true, ...raw }; } catch { return { useProxy: true }; } });
   const [aiSaved, setAiSaved] = useState(false);
   const PROVIDERS = [
-    { id: 'openai', name: 'ChatGPT (OpenAI)', endpoint: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4o-mini' },
-    { id: 'openrouter', name: 'OpenRouter', endpoint: 'https://openrouter.ai/api/v1/chat/completions', model: 'openai/gpt-4o-mini' },
-    { id: 'claude', name: 'Claude (Anthropic)', endpoint: 'https://api.anthropic.com/v1/messages', model: 'claude-3-5-haiku-20241022' },
-    { id: 'proxy', name: 'Custom / Proxy', endpoint: '', model: '' },
+    { id: 'openai', name: 'ChatGPT (OpenAI)', endpoint: 'https://api.openai.com/v1/chat/completions', models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1', 'gpt-4.1-mini', 'o3-mini', 'o4-mini'] },
+    { id: 'openrouter', name: 'OpenRouter', endpoint: 'https://openrouter.ai/api/v1/chat/completions', models: ['openai/gpt-4o-mini', 'openai/gpt-4o', 'openai/gpt-4.1', 'openai/gpt-4.1-mini', 'anthropic/claude-3.5-sonnet', 'anthropic/claude-3.5-haiku', 'meta-llama/llama-3.3-70b-instruct', 'meta-llama/llama-4-scout', 'deepseek/deepseek-chat', 'deepseek/deepseek-r1', 'google/gemini-2.5-flash', 'qwen/qwen3-32b', 'mistralai/codestral-2501', 'opencode/opencode', 'opencode/opencode-v2', 'opencode/opencode-thinking', 'zencode/zencode', 'zencode/zen-code', 'openai/codex-mini', 'openai/codex', 'x-ai/grok-beta', 'grok/grok-3'] },
+    { id: 'claude', name: 'Claude (Anthropic)', endpoint: 'https://api.anthropic.com/v1/messages', models: ['claude-3-5-haiku-20241022', 'claude-3-5-sonnet-20241022', 'claude-sonnet-4-20250514', 'claude-haiku-4-20250514'] },
+    { id: 'proxy', name: 'Custom / Proxy', endpoint: '', models: [] },
   ];
 
   function saveCfKey() {
@@ -788,7 +788,8 @@ function AdvancedSection() {
   function selectAiProvider(provider: any) {
     updateAiSetting('provider', provider.id);
     if (provider.endpoint) updateAiSetting('endpoint', provider.endpoint);
-    if (provider.model) updateAiSetting('model', provider.model);
+    const firstModel = provider.models?.[0] || '';
+    if (firstModel) updateAiSetting('model', firstModel);
   }
   async function testModrinthProxy() {
     const url = proxyUrl.trim().replace(/\/$/, '');
@@ -882,9 +883,25 @@ function AdvancedSection() {
               className="w-full px-3 py-2.5 text-sm" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)', borderRadius: 4 }} />
           </div>
           <div>
-            <label className="text-[11px] font-semibold block mb-1" style={{ color:'var(--color-text-tertiary)' }}>Model</label>
-            <input value={aiSettings.model || PROVIDERS.find(p => p.id === (aiSettings.provider || 'openai'))?.model || ''} onChange={e => updateAiSetting('model', e.target.value)}
-              className="w-full px-3 py-2.5 text-sm" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)', borderRadius: 4 }} />
+            <label className="text-[11px] font-semibold block mb-1" style={{ color:'var(--color-text-tertiary)' }}>Модель</label>
+            {(() => {
+              const p = PROVIDERS.find(x => x.id === (aiSettings.provider || 'openai'));
+              const models = p?.models || [];
+              const current = aiSettings.model || models[0] || '';
+              if (models.length > 0) {
+                return (
+                  <select value={current} onChange={e => updateAiSetting('model', e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)', borderRadius: 4 }}>
+                    {models.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                );
+              }
+              return (
+                <input value={aiSettings.model || ''} onChange={e => updateAiSetting('model', e.target.value)}
+                  placeholder="model-name"
+                  className="w-full px-3 py-2.5 text-sm" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)', borderRadius: 4 }} />
+              );
+            })()}
           </div>
           <div className="flex items-center gap-3 py-2">
             <label className="text-[11px] font-semibold" style={{ color:'var(--color-text-secondary)' }}>Use proxy (for Russia)</label>

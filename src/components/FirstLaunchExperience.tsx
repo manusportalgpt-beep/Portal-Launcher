@@ -12,23 +12,9 @@ import { MicrosoftAuthOAuth } from '@/components/auth/MicrosoftAuthOAuth';
 import { CustomThemeBuilder } from '@/components/CustomThemeBuilder';
 
 const SETUP_KEY = 'portal-first-launch-complete-v1';
-const TUTORIAL_KEY = 'portal-interface-tutorial-complete-v1';
 type StorageOverview = { usedBytes: number };
 
-const TUTORIAL_STEPS = [
-  { icon: House, title: 'Главная', to: '/home', action: 'Нажмите «Главная» в навигации.', text: 'Здесь запускается последняя сборка и видны основные действия.' },
-  { icon: Compass, title: 'Обзор', to: '/discover', action: 'Откройте «Обзор» в навигации.', text: 'Здесь ищут моды, модпаки, ресурс-паки и шейдеры.' },
-  { icon: Shirt, title: 'Скины', to: '/skins', action: 'Откройте «Скины» в навигации.', text: 'Здесь добавляют PNG и применяют скин по нику.' },
-  { icon: Library, title: 'Библиотека', to: '/library', action: 'Откройте «Библиотека» в навигации.', text: 'Здесь создают, импортируют, настраивают и запускают сборки.' },
-  { icon: Volume2, title: 'Настройки Аудио', to: '/settings/audio', action: 'Откройте Настройки → Аудио.', text: 'Здесь настраивают громкость, звуки и фоновую музыку лаунчера.' },
-  { icon: Gamepad2, title: 'Настройки управления', to: '/settings/controls', action: 'Откройте Настройки → Управление.', text: 'Здесь задают горячие клавиши и быстрые действия.' },
-  { icon: Key, title: 'CurseForge API', to: '/settings/advanced', action: 'Откройте Настройки → Дополнительно.', text: 'Здесь вставляют API-ключ CurseForge, чтобы работал поиск модов CurseForge. Ключ отрисовывается и применяется сразу после сохранения.' },
-  { icon: Settings2, title: 'Настройки', to: '/settings', action: 'Откройте «Настройки» в навигации.', text: 'Здесь находятся аккаунты, Java, оформление и управление.' },
-  { icon: Shield, title: 'Безопасность', to: '/settings/about', action: 'Откройте Настройки → О лаунчере.', text: 'Важная информация о безопасности лаунчера — прочтите внимательно!' },
-] as const;
-
-// Stage 10 is a special dialog step — not navigation-based
-const TUTORIAL_STAGE_DIALOG = 9; // 0-indexed, so step 10
+// Tutorial removed. // 0-indexed, so step 10
 
 const THEME_CHOICES: Array<{ id: ThemeId; label: string }> = [
   { id:'system', label:'Системная' }, { id:'dark', label:'Тёмная' }, { id:'glass-white', label:'Glass White' },
@@ -124,38 +110,14 @@ function SecurityDialog({ onClose }: { onClose: () => void }) {
   </motion.aside>;
 }
 
-function Tutorial({ onClose }: { onClose: () => void }) {
-  const [step, setStep] = useState(0);
 
-  // Stage 10 (index 9) — special dialog
-  if (step === TUTORIAL_STAGE_DIALOG) {
-    return <SecurityDialog onClose={onClose} />;
-  }
-
-  const current = TUTORIAL_STEPS[step];
-  const Icon = current.icon;
-  useEffect(() => {
-    document.body.dataset.portalTutorialTarget = current.to;
-    const completeStep = (event: Event) => {
-      const path = (event as CustomEvent<string>).detail;
-      if (path !== current.to) return;
-      if (step === TUTORIAL_STEPS.length) onClose(); else setStep(value => value + 1);
-    };
-    window.addEventListener('portal:tutorial-navigation', completeStep as EventListener);
-    return () => { delete document.body.dataset.portalTutorialTarget; window.removeEventListener('portal:tutorial-navigation', completeStep as EventListener); };
-  }, [current.to, onClose, step]);
-  return <motion.aside className="portal-glass-surface fixed bottom-5 right-5 z-[240] w-[min(360px,calc(100vw-2.5rem))] p-4" style={{ background:'var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-modal)', boxShadow:'var(--shadow-sm)' }} initial={{ opacity:0, y:14 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:14 }}>
-    <div className="flex items-start gap-3"><span className="portal-style-mark flex h-9 w-9 shrink-0 items-center justify-center" style={{ border:'1px solid var(--color-border)', color:'var(--color-primary)' }}><Icon className="h-4 w-4" /></span><div className="min-w-0 flex-1"><p className="text-xs font-bold">Шаг {step + 1}: {current.title}</p><p className="mt-1 text-xs font-semibold" style={{ color:'var(--color-text)' }}>{current.action}</p><p className="mt-1 text-xs leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>{current.text}</p></div><button onClick={onClose} className="p-1" title="Закрыть туториал" style={{ color:'var(--color-text-tertiary)' }}><X className="h-4 w-4" /></button></div>
-    <div className="mt-4 flex items-center justify-between"><span className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{step + 1} / {TUTORIAL_STEPS.length + 1}</span><span className="text-[10px]" style={{ color:'var(--color-text-secondary)' }}>Шаг продолжится после нажатия</span></div>
-  </motion.aside>;
-}
 
 export function FirstLaunchExperience() {
   const lang = useLanguageStore(state => state.lang);
   const setLang = useLanguageStore(state => state.setLang);
   const ui = useUiStore();
   const { themeId, setTheme, addCustomTheme } = useThemeStore();
-  const [mode, setMode] = useState<'checking' | 'setup' | 'tutorial' | 'none'>(() => localStorage.getItem(SETUP_KEY) ? (localStorage.getItem(TUTORIAL_KEY) ? 'none' : 'tutorial') : 'checking');
+  const [mode, setMode] = useState<'checking' | 'setup' | 'none'>(() => localStorage.getItem(SETUP_KEY) ? 'none' : 'checking');
   const [step, setStep] = useState(0);
   const [isPreview, setIsPreview] = useState(false);
   const [glassTone, setGlassTone] = useState<'black'|'white'>(themeId === 'glass-white' ? 'white' : 'black');
@@ -166,36 +128,19 @@ export function FirstLaunchExperience() {
     void invoke<StorageOverview>('get_launcher_storage_overview').then(overview => {
       if (!active) return;
       if (overview.usedBytes === 0) {
-        ui.set('stylePreset', 'glass');
+        ui.set('stylePreset', 'quadral');
         setTheme('dark');
         setMode('setup');
       } else {
-        // Even if storage is used, show the tutorial if it hasn't been completed.
-        // This fixes the issue where the tutorial never shows when the launcher
-        // has cached files (Java runtimes, assets, etc.) but the user hasn't
-        // seen the tutorial yet.
-        if (!localStorage.getItem(TUTORIAL_KEY)) {
-          setMode('tutorial');
-        } else {
-          setMode('none');
-        }
-      }
-    }).catch(() => { if (active) {
-      // On error, still show tutorial if not completed
-      if (!localStorage.getItem(TUTORIAL_KEY)) {
-        setMode('tutorial');
-      } else {
         setMode('none');
       }
-    } });
+    }).catch(() => { if (active) setMode('none'); });
     return () => { active = false; };
   }, [mode]);
   useEffect(() => {
-    const openTutorial = () => { setIsPreview(false); setMode('tutorial'); };
     const openPreview = () => { setIsPreview(true); setStep(0); setMode('setup'); };
-    window.addEventListener('portal:open-tutorial', openTutorial);
     window.addEventListener('portal:open-onboarding-preview', openPreview);
-    return () => { window.removeEventListener('portal:open-tutorial', openTutorial); window.removeEventListener('portal:open-onboarding-preview', openPreview); };
+    return () => { window.removeEventListener('portal:open-onboarding-preview', openPreview); };
   }, []);
   useEffect(() => {
     const previewOpen = mode === 'setup' && isPreview;
@@ -211,9 +156,8 @@ export function FirstLaunchExperience() {
     };
   }, [mode, isPreview]);
 
-  const finishSetup = () => { if (isPreview) { setMode('none'); return; } localStorage.setItem(SETUP_KEY, '1'); setMode('tutorial'); };
-  const finishTutorial = () => { localStorage.setItem(TUTORIAL_KEY, '1'); setMode('none'); };
-  const chooseStyle = (preset: StylePreset) => {
+  const finishSetup = () => { if (isPreview) { setMode('none'); return; } localStorage.setItem(SETUP_KEY, '1'); setMode('none'); };
+    const chooseStyle = (preset: StylePreset) => {
     if (isPreview) return;
     ui.set('stylePreset', preset);
     setTheme(preset === 'glass' && glassTone === 'white' ? 'glass-white' : STYLE_THEME[preset]);
@@ -232,8 +176,7 @@ export function FirstLaunchExperience() {
   };
 
   if (mode === 'checking' || mode === 'none') return null;
-  if (mode === 'tutorial') return <Tutorial onClose={finishTutorial} />;
-  const steps = ['Язык', 'Навигация', 'Фон', 'Стиль и тема', 'Аккаунт'];
+    const steps = ['Язык', 'Навигация', 'Фон', 'Стиль и тема', 'Аккаунт'];
   const currentBackground = ui.backgroundImage;
   return <AnimatePresence><motion.div className="clean-onboarding fixed inset-0 z-[230] grid place-items-center overflow-y-auto bg-black p-5" style={{ color:'var(--color-text)' }} initial={{ opacity:0 }} animate={{ opacity:1 }}>
     <motion.section className="clean-onboarding-surface portal-glass-surface portal-glass-outline my-auto w-full max-w-4xl" style={{ background:'var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-modal)', boxShadow:'var(--shadow-lg)' }} initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>

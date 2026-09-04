@@ -150,8 +150,8 @@ export interface UiState {
 }
 
 const defaults = {
-  stylePreset: 'glass' as StylePreset,
-  navMode: 'sidebar' as NavMode,
+  stylePreset: 'quadral' as StylePreset,
+  navMode: 'notch' as NavMode,
   notchSide: 'top' as NotchSide,
   notchHotzone: 46,
   notchPinned: false,

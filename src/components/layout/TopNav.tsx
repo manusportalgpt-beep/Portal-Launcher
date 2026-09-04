@@ -45,8 +45,6 @@ function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem
       end={item.end}
       title={label}
       data-testid={`nav-${item.labelKey}`}
-      data-tutorial-target={item.to}
-      onClick={() => window.dispatchEvent(new CustomEvent('portal:tutorial-navigation', { detail:item.to }))}
       className="group relative flex items-center justify-center gap-2 px-2.5 text-left"
       style={{ width: showLabel ? '100%' : (vertical ? 40 : 34) * scale / 100, minWidth: (vertical ? 40 : 34) * scale / 100, height: showLabel ? 42 * scale / 100 : (vertical ? 40 : 34) * scale / 100, borderRadius: interactionRadius, isolation:'isolate' }}
     >
@@ -167,7 +165,6 @@ function NotchNav() {
   const visualPanelVersion = uiMode === 'old' ? 'old' : panelVersion;
   const items = orderedNav(navItemOrder);
   const [hover, setHover] = useState(false);
-  const [tutorialPreview, setTutorialPreview] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(() => Boolean(document.body.dataset.portalOverlay));
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openNotch = () => { if (overlayOpen) return; if (closeTimer.current) clearTimeout(closeTimer.current); setHover(true); };
@@ -177,12 +174,8 @@ function NotchNav() {
     window.addEventListener('portal-overlay-change', syncOverlay);
     return () => { window.removeEventListener('portal-overlay-change', syncOverlay); if (closeTimer.current) clearTimeout(closeTimer.current); };
   }, []);
-  useEffect(() => {
-    const syncPreview = (event: Event) => setTutorialPreview(Boolean((event as CustomEvent<boolean>).detail));
-    window.addEventListener('portal:tutorial-preview-change', syncPreview as EventListener);
-    return () => window.removeEventListener('portal:tutorial-preview-change', syncPreview as EventListener);
-  }, []);
-  const open = tutorialPreview || (!overlayOpen && (hover || notchPinned));
+
+  const open = !overlayOpen && (hover || notchPinned);
   const vertical = notchSide === 'left' || notchSide === 'right';
   const isStart = notchSide === 'top' || notchSide === 'left';
   const align = appearance.alignment === 'start' ? 'flex-start' : appearance.alignment === 'end' ? 'flex-end' : 'center';
@@ -266,7 +259,6 @@ function NotchNav() {
               <div className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1`}>
                 <AccountButton vertical={vertical} />
                 <DockButton item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} vertical={vertical} scale={navItemScale} appearance={appearance} />
-      <button title="AI Assistant" onClick={() => window.dispatchEvent(new CustomEvent('portal:toggle-ai'))} className="portal-sidebar flex items-center justify-center shrink-0 relative" style={{ width:40, height:40, color:'var(--color-primary)', background:'transparent', borderRadius:6 }}><Bot size={18} /></button>
                 <button title="AI Assistant" onClick={() => window.dispatchEvent(new CustomEvent('portal:toggle-ai'))} className="flex items-center justify-center rounded-sm" style={{ width:28, height:28, color: 'var(--color-primary)', background:'transparent', border:'1px solid var(--color-border)' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><Bot size={16} /></button>
                 <button title="Назад" onClick={() => window.history.back()} className="flex items-center justify-center rounded-sm" style={{ width:28, height:28, color:'var(--color-text-secondary)', background:'transparent', border:'1px solid var(--color-border)' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronLeft size={18} /></button>
                 <button title="Вперёд" onClick={() => window.history.forward()} className="flex items-center justify-center rounded-sm" style={{ width:28, height:28, color:'var(--color-text-secondary)', background:'transparent', border:'1px solid var(--color-border)' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronRight size={18} /></button>

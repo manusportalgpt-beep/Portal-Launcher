@@ -1,16 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Send, X, ChevronDown, Loader2, Copy, Check, Trash2, Paperclip, Image as ImageIcon, Download, FileText, File, Settings, Globe } from 'lucide-react';
+import { Bot, Send, X, ChevronDown, Loader2, Copy, Check, Paperclip, Image as ImageIcon, Download, FileText, File, Plus, MessageSquare, Trash } from 'lucide-react';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { useAuthStore } from '@/stores/authStore';
 import { invoke } from '@/lib/invoke-shim';
+import { useChatHistory, type ChatMessage as StoredMessage } from '@/components/ai/ChatHistory';
+import { toastSuccess, toastError } from '@/components/ai/FileToast';
 
-interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: number;
-  attachments?: Attachment[];
-}
 
 interface Attachment {
   name: string;
@@ -27,15 +23,47 @@ interface ProviderPreset {
   id: string;
   name: string;
   endpoint: string;
-  model: string;
+  models: string[];
   icon: string;
 }
 
 const PROVIDERS: ProviderPreset[] = [
-  { id: 'openai', name: 'ChatGPT (OpenAI)', endpoint: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4o-mini', icon: 'AI' },
-  { id: 'openrouter', name: 'OpenRouter', endpoint: 'https://openrouter.ai/api/v1/chat/completions', model: 'openai/gpt-4o-mini', icon: 'OR' },
-  { id: 'claude', name: 'Claude (Anthropic)', endpoint: 'https://api.anthropic.com/v1/messages', model: 'claude-3-5-haiku-20241022', icon: 'CL' },
-  { id: 'proxy', name: 'Custom / Proxy', endpoint: '', model: '', icon: 'PR' },
+  {
+    id: 'openai', name: 'ChatGPT (OpenAI)',
+    endpoint: 'https://api.openai.com/v1/chat/completions',
+    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1', 'gpt-4.1-mini', 'o3-mini', 'o4-mini', 'gpt-4-turbo'],
+    icon: 'AI',
+  },
+  {
+    id: 'openrouter', name: 'OpenRouter',
+    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+    models: [
+      'openai/gpt-4o-mini', 'openai/gpt-4o', 'openai/gpt-4.1', 'openai/gpt-4.1-mini', 'openai/o3-mini', 'openai/o4-mini',
+      'anthropic/claude-3.5-sonnet', 'anthropic/claude-3.5-haiku', 'anthropic/claude-sonnet-4', 'anthropic/claude-haiku-4',
+      'meta-llama/llama-3.1-70b-instruct', 'meta-llama/llama-3.3-70b-instruct', 'meta-llama/llama-4-scout', 'meta-llama/llama-4-maverick',
+      'mistralai/mistral-large', 'mistralai/mistral-small', 'mistralai/codestral-2501',
+      'qwen/qwen-2.5-72b-instruct', 'qwen/qwen3-32b', 'qwen/qwen3-235b-a22b',
+      'google/gemini-2.0-flash', 'google/gemini-2.5-flash', 'google/gemini-2.5-pro',
+      'deepseek/deepseek-chat', 'deepseek/deepseek-r1', 'deepseek/deepseek-coder',
+      'openai/codex-mini', 'openai/codex',
+      'opencode/opencode', 'opencode/opencode-v2', 'opencode/opencode-thinking',
+      'zencode/zencode', 'zencode/zen-code', 'grok/grok-2', 'grok/grok-3',
+      'nousresearch/hermes-3', 'cohere/command-r', 'x-ai/grok-beta',
+    ],
+    icon: 'OR',
+  },
+  {
+    id: 'claude', name: 'Claude (Anthropic)',
+    endpoint: 'https://api.anthropic.com/v1/messages',
+    models: ['claude-3-5-haiku-20241022', 'claude-3-5-sonnet-20241022', 'claude-sonnet-4-20250514', 'claude-haiku-4-20250514', 'claude-opus-4-20250514'],
+    icon: 'CL',
+  },
+  {
+    id: 'proxy', name: 'Custom / Proxy',
+    endpoint: '',
+    models: [],
+    icon: 'PR',
+  },
 ];
 
 const PROXY_ENDPOINTS: Record<string, string> = {
@@ -44,22 +72,22 @@ const PROXY_ENDPOINTS: Record<string, string> = {
   'claude': 'https://api.anthropic-proxy.org/v1/messages',
 };
 
-const SYSTEM_PROMPT = `You are Portal Assistant, an AI built into Portal Launcher for Minecraft.
+const SYSTEM_PROMPT = `You are Portal Assistant (PTAgent), an AI built into Portal Launcher for Minecraft.
 
 Capabilities:
 - Answer questions about Minecraft modding, versions, loaders, Java
 - Recommend mods, resource packs, shaders
-- Help create/configure instances
+- Help create/configure instances (building full modpacks on a chosen loader with all dependencies)
 - Read and analyze game logs
-- Install content to instances
+- Install content to instances (mods, resource packs, shaders, data packs)
 - Generate images for modpack covers
+- Use web search when the user asks about external things or when unsure
 
-When helping:
-- You have access to the user's instance list
-- For installation, specify source (Modrinth/CurseForge) and target folder
-- Ask which source when not specified
-- Show current activity when performing actions
-- If user sends files/images, analyze them and respond appropriately
+When helping with instances:
+- The user may have selected a specific instance. Work within that instance only for file operations.
+- For file installation, ask which source to use (Modrinth or CurseForge) — say this in your own words in context when needed.
+- Show current activity when performing actions (e.g., which mod you're looking at).
+- If no instance is selected, you can still answer general questions, search the web, generate images, and help create a NEW instance.
 
 Format: clear headers, bullet points. No emojis. Respond in the user's language.`;
 
@@ -73,58 +101,58 @@ function getFileIcon(name: string) {
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
   if (['png','jpg','jpeg','gif','webp','svg','bmp'].includes(ext)) return ImageIcon;
   if (['txt','log','md','json','xml','yml','yaml','toml','cfg'].includes(ext)) return FileText;
-  if (['jar','zip','rar','7z','tar','gz'].includes(ext)) return File;
   return File;
 }
 
-function getCtx(instances: any[], user: any): string {
+function getCtx(instances: any[], user: any, selectedInstanceId?: string): string {
   const p: string[] = [];
-  if (user) p.push(`User: ${user.username} (${user.provider ?? 'microsoft'})`);
-  p.push(`Instances: ${instances.length}`);
-  for (const i of instances.slice(0, 6)) p.push(`- "${i.name}" (ID: ${i.id}): MC ${i.minecraftVersion}, ${i.modLoader}${i.modLoaderVersion ? ' ' + i.modLoaderVersion : ''}, RAM ${i.maxRam}MB`);
+  if (user) p.push(`Player: ${user.username}`);
+  const selected = instances.find(i => i.id === selectedInstanceId);
+  if (selected) {
+    p.push(`Selected instance: "${selected.name}" (ID: ${selected.id})`);
+    p.push(`  MC ${selected.minecraftVersion}, ${selected.modLoader}${selected.modLoaderVersion ? ' ' + selected.modLoaderVersion : ''}, RAM ${selected.maxRam}MB`);
+  }
+  p.push(`Total instances: ${instances.length}`);
+  for (const i of instances.slice(0, 8)) p.push(`- "${i.name}" (ID: ${i.id}): MC ${i.minecraftVersion}, ${i.modLoader}`);
   return p.join('\n');
 }
 
-async function callAI(messages: ChatMessage[], ctx: string, settings: any): Promise<string> {
+async function callAI(messages: StoredMessage[], ctx: string, settings: any): Promise<string> {
   const { provider, apiKey, model, endpoint, useProxy } = settings;
 
   if (!apiKey && provider !== 'proxy') {
     return 'API key is not set. Go to Settings > Advanced > AI Agent and configure your provider.';
   }
-
   if (!endpoint) {
     return 'Endpoint is not configured. Select a provider in Settings > Advanced > AI Agent.';
   }
 
   const systemMsg = { role: 'system' as const, content: SYSTEM_PROMPT + (ctx ? `\n\nUser context:\n${ctx}` : '') };
 
-  const chatMessages = messages.map(m => ({ role: m.role, content: m.content }));
-  if (messages[messages.length - 1]?.attachments?.length) {
-    const last = messages[messages.length - 1];
-    if (last.attachments?.length) {
-      for (const att of last.attachments) {
-        if (att.type.startsWith('image/') && att.base64) {
-          chatMessages[chatMessages.length - 1] = {
-            role: 'user',
-            content: [
-              { type: 'text', text: last.content },
-              { type: 'image_url', image_url: { url: att.dataUrl || `data:${att.type};base64,${att.base64}` } }
-            ] as any,
-          };
-        }
-      }
+  const chatMessages: any[] = messages.map(m => ({ role: m.role, content: m.content }));
+  const last = messages[messages.length - 1];
+  if (last?.attachments?.length) {
+    const images = last.attachments.filter(a => a.type.startsWith('image/') && (a.base64 || a.dataUrl));
+    if (images.length > 0) {
+      chatMessages[chatMessages.length - 1] = {
+        role: 'user',
+        content: [
+          { type: 'text', text: last.content },
+          ...images.map(a => ({ type: 'image_url', image_url: { url: a.dataUrl || `data:${a.type};base64,${a.base64}` } })),
+        ],
+      };
     }
   }
 
   const actualEndpoint = useProxy && PROXY_ENDPOINTS[provider] ? PROXY_ENDPOINTS[provider] : endpoint;
-  const actualModel = model || PROVIDERS.find(p => p.id === provider)?.model || 'gpt-4o-mini';
+  const actualModel = model || (PROVIDERS.find(p => p.id === provider)?.models[0]) || 'gpt-4o-mini';
 
   try {
     if (provider === 'claude') {
       const response = await fetch(actualEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model: actualModel, max_tokens: 2048, system: systemMsg.content, messages: chatMessages }),
+        body: JSON.stringify({ model: actualModel, max_tokens: 2048, system: systemMsg.content, messages: chatMessages.filter(m => m.role !== 'system') }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
@@ -161,13 +189,8 @@ function AttachmentChip({ att, onRemove }: { att: Attachment; onRemove?: () => v
   );
 }
 
-function FileInMessage({ att }: { att: Attachment }) {
-  const Icon = getFileIcon(att.name);
-  const isImage = att.type.startsWith('image/');
-  const [downloading, setDownloading] = useState(false);
-
-  const handleDownload = async () => {
-    setDownloading(true);
+function saveAttachment(att: Attachment) {
+  return async () => {
     try {
       if (att.url) {
         const response = await fetch(att.url);
@@ -177,15 +200,35 @@ function FileInMessage({ att }: { att: Attachment }) {
       } else if (att.base64) {
         const buf = Uint8Array.from(atob(att.base64), c => c.charCodeAt(0));
         await invoke('save_to_downloads', { filename: att.name, data: Array.from(buf) });
+      } else if (att.dataUrl) {
+        const base64 = att.dataUrl.split(',')[1] || '';
+        const buf = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+        await invoke('save_to_downloads', { filename: att.name, data: Array.from(buf) });
+      } else {
+        throw new Error('no data');
       }
-    } catch (e) { console.error(e); }
+      toastSuccess('Сохранено в Загрузки', att.name);
+    } catch (e) {
+      console.error(e);
+      toastError('Не удалось сохранить', att.name);
+    }
+  };
+}
+
+function FileInMessage({ att }: { att: Attachment }) {
+  const Icon = getFileIcon(att.name);
+  const isImage = att.type.startsWith('image/');
+  const [downloading, setDownloading] = useState(false);
+  const handleDownload = async () => {
+    setDownloading(true);
+    await saveAttachment(att)();
     setDownloading(false);
   };
 
   if (isImage) {
     return (
       <div className="mt-2 inline-block cursor-pointer" onClick={() => window.dispatchEvent(new CustomEvent('portal:image-view', { detail: att }))}>
-        <img src={att.dataUrl || att.url} alt={att.name} className="max-w-[300px] max-h-[200px] object-cover" style={{ borderRadius: 4, border: '1px solid var(--color-border)' }} />
+        <img src={att.dataUrl || att.url} alt={att.name} className="max-w-[280px] max-h-[200px] object-cover" style={{ borderRadius: 4, border: '1px solid var(--color-border)' }} />
         <div className="flex items-center gap-2 mt-1 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
           <span>{att.name}</span>
           <span>{formatBytes(att.size)}</span>
@@ -207,7 +250,7 @@ function FileInMessage({ att }: { att: Attachment }) {
       <button onClick={handleDownload} disabled={downloading}
         className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium"
         style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 3, opacity: downloading ? 0.5 : 1 }}>
-        <Download className="w-3 h-3" /> {downloading ? '...' : 'Download'}
+        <Download className="w-3 h-3" /> {downloading ? '...' : 'Скачать'}
       </button>
     </div>
   );
@@ -222,21 +265,6 @@ function ImageViewer() {
     return () => window.removeEventListener('portal:image-view', handler);
   }, []);
 
-  const handleDownload = async () => {
-    if (!image) return;
-    try {
-      if (image.url) {
-        const response = await fetch(image.url);
-        const blob = await response.blob();
-        const buf = Array.from(new Uint8Array(await blob.arrayBuffer()));
-        await invoke('save_to_downloads', { filename: image.name, data: buf });
-      } else if (image.base64) {
-        const buf = Uint8Array.from(atob(image.base64), c => c.charCodeAt(0));
-        await invoke('save_to_downloads', { filename: image.name, data: Array.from(buf) });
-      }
-    } catch (e) { console.error(e); }
-  };
-
   return (
     <AnimatePresence>
       {image && (
@@ -244,16 +272,16 @@ function ImageViewer() {
           className="fixed inset-0 z-[1000] flex items-center justify-center p-8"
           style={{ background: 'rgba(0,0,0,0.8)' }}
           onClick={() => setImage(null)}>
-          <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
-            className="relative max-w-[80vw] max-h-[80vh] flex flex-col"
+          <motion.div initial={{ scale: 0.96 }} animate={{ scale: 1 }} exit={{ scale: 0.96 }}
+            className="relative max-w-[70vw] max-h-[80vh] flex flex-col"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3 px-1">
               <span className="text-[12px] font-medium" style={{ color: '#ccc' }}>{image.name} — {formatBytes(image.size)}</span>
               <div className="flex items-center gap-2">
-                <button onClick={handleDownload}
+                <button onClick={() => void saveAttachment(image)()}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium"
                   style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', borderRadius: 4 }}>
-                  <Download className="w-3.5 h-3.5" /> Save
+                  <Download className="w-3.5 h-3.5" /> В Загрузки
                 </button>
                 <button onClick={() => setImage(null)} className="p-1.5" style={{ color: '#888' }}>
                   <X className="w-4 h-4" />
@@ -269,14 +297,30 @@ function ImageViewer() {
   );
 }
 
+function InstanceIcon({ instance }: { instance: any }) {
+  if (instance.iconPath) {
+    return (
+      <img src={instance.iconPath} alt="" className="w-6 h-6 object-cover shrink-0" style={{ borderRadius: 4, background: 'var(--color-surface-2)' }} />
+    );
+  }
+  return (
+    <div className="w-6 h-6 flex items-center justify-center shrink-0 text-[10px] font-bold"
+      style={{ background: instance.color || 'var(--color-primary)', color: '#fff', borderRadius: 4 }}>
+      {(instance.name || '?')[0].toUpperCase()}
+    </div>
+  );
+}
+
 export function AIAgent({ onClose }: AIAgentProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const { sessions, activeSessionId, createSession, deleteSession, setActiveSession, addMessage, getActiveSession, setInstanceForSession } = useChatHistory();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [showProviderMenu, setShowProviderMenu] = useState(false);
+  const [showSessions, setShowSessions] = useState(false);
+  const [showInstanceMenu, setShowInstanceMenu] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -284,11 +328,15 @@ export function AIAgent({ onClose }: AIAgentProps) {
   const instances = useInstanceStore(s => s.instances);
   const user = useAuthStore(s => s.user);
 
+  const activeSession = getActiveSession();
+  const messages: StoredMessage[] = activeSession?.messages ?? [];
+
   const getSettings = () => {
     try {
       const raw = localStorage.getItem('portal-ai-settings');
-      return raw ? JSON.parse(raw) : {};
-    } catch { return {}; }
+      const parsed = raw ? JSON.parse(raw) : {};
+      return { ...parsed, useProxy: parsed.useProxy ?? true };
+    } catch { return { useProxy: true }; }
   };
 
   const saveSettings = (s: any) => {
@@ -299,9 +347,15 @@ export function AIAgent({ onClose }: AIAgentProps) {
   const currentProvider = PROVIDERS.find(p => p.id === settings.provider) ?? PROVIDERS[0];
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-  useEffect(() => { if (!minimized) setTimeout(() => inputRef.current?.focus(), 200); }, [minimized]);
+  useEffect(() => {
+    if (!minimized) setTimeout(() => inputRef.current?.focus(), 200);
+    if (!activeSession) createSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addAttachment = useCallback((file: File) => {
+    const maxSize = 8 * 1024 * 1024;
+    if (file.size > maxSize) { toastError('Файл слишком большой', 'Максимум 8 МБ'); return; }
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
@@ -316,21 +370,44 @@ export function AIAgent({ onClose }: AIAgentProps) {
     for (const file of Array.from(e.dataTransfer.files)) addAttachment(file);
   }, [addAttachment]);
 
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file) { e.preventDefault(); addAttachment(file); }
+      }
+    }
+  }, [addAttachment]);
+
   const sendMessage = useCallback(async () => {
+    if (!activeSession) return;
     const text = input.trim();
     if ((!text && attachments.length === 0) || loading) return;
-    const userMsg: ChatMessage = { role: 'user', content: text || '(attachments)', timestamp: Date.now(), attachments: attachments.length > 0 ? [...attachments] : undefined };
-    setMessages(prev => [...prev, userMsg]);
+
+    const userMsg: StoredMessage = {
+      role: 'user',
+      content: text || '(вложения)',
+      timestamp: Date.now(),
+      attachments: attachments.length > 0 ? [...attachments.map(({ name, type, size, dataUrl }) => ({ name, type, size, dataUrl }))] : undefined,
+    };
+    addMessage(activeSession.id, userMsg);
     setInput('');
     setAttachments([]);
     setLoading(true);
+
+    const sessionInstanceId = activeSession.instanceId;
+    const prior = [...messages, userMsg];
     try {
-      const reply = await callAI([...messages, userMsg], getCtx(instances, user), { ...settings, provider: settings.provider || 'openai', apiKey: settings.apiKey || '', model: settings.model || currentProvider.model, endpoint: settings.endpoint || currentProvider.endpoint });
-      setMessages(prev => [...prev, { role: 'assistant', content: reply, timestamp: Date.now() }]);
+      const ctx = getCtx(instances, user, sessionInstanceId);
+      const reply = await callAI(prior, ctx, { ...settings, provider: settings.provider || 'openai', apiKey: settings.apiKey || '', model: settings.model || currentProvider.models[0] || "gpt-4o-mini", endpoint: settings.endpoint || currentProvider.endpoint, useProxy: settings.useProxy ?? true });
+      addMessage(activeSession.id, { role: 'assistant', content: reply, timestamp: Date.now() });
     } catch (e: any) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${String(e)}`, timestamp: Date.now() }]);
+      addMessage(activeSession.id, { role: 'assistant', content: `Error: ${String(e)}`, timestamp: Date.now() });
     } finally { setLoading(false); }
-  }, [input, loading, messages, attachments, instances, user, settings, currentProvider]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input, loading, messages, attachments, instances, user, settings, activeSession, currentProvider]);
 
   const updateSetting = (key: string, value: any) => {
     const next = { ...settings, [key]: value };
@@ -341,9 +418,16 @@ export function AIAgent({ onClose }: AIAgentProps) {
   const selectProvider = (provider: ProviderPreset) => {
     updateSetting('provider', provider.id);
     if (provider.endpoint) updateSetting('endpoint', provider.endpoint);
-    if (provider.model) updateSetting('model', provider.model);
+    if (provider.models[0]) updateSetting('model', provider.models[0]);
     setShowProviderMenu(false);
   };
+
+  const selectInstance = (id: string | undefined) => {
+    if (activeSession) setInstanceForSession(activeSession.id, id);
+    setShowInstanceMenu(false);
+  };
+
+  const selectedInstance = activeSession?.instanceId ? instances.find(i => i.id === activeSession.instanceId) : undefined;
 
   if (minimized) {
     return (
@@ -353,7 +437,7 @@ export function AIAgent({ onClose }: AIAgentProps) {
         style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 6, boxShadow: '0 2px 12px rgba(0,0,0,0.2)' }}
         whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }}>
         <Bot className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-        Assistant
+        PTAgent
       </motion.button>
     );
   }
@@ -363,15 +447,67 @@ export function AIAgent({ onClose }: AIAgentProps) {
       <ImageViewer />
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
         className="fixed bottom-5 right-5 z-[900] flex flex-col overflow-hidden"
-        style={{ width: 420, height: 540, background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 8, boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}
+        style={{ width: 440, height: 560, background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 8, boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}
         onDragOver={e => e.preventDefault()} onDrop={handleFileDrop}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
-          <div className="flex items-center gap-2.5">
-            <Bot className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-            <span className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>Portal Assistant</span>
+          <div className="flex items-center gap-2 relative">
+            <button
+              onClick={() => { if (activeSession) deleteSession(activeSession.id); createSession(); }}
+              className="flex items-center justify-center w-7 h-7 hover:opacity-80" title="Новый чат"
+              style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 4, color: 'var(--color-primary)' }}>
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setShowSessions(!showSessions)}
+              className="flex items-center gap-1.5 px-2 py-1.5 text-[12px] font-medium hover:opacity-80" title="История чатов"
+              style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 4, color: 'var(--color-text)' }}>
+              <MessageSquare className="w-3.5 h-3.5" style={{ color: 'var(--color-text-secondary)' }} />
+              <span className="max-w-[110px] truncate">{activeSession?.title || 'Chat'}</span>
+            </button>
+
+            {/* Instance selector — right of the + button */}
             <div className="relative">
+              <button onClick={() => setShowInstanceMenu(!showInstanceMenu)}
+                className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium hover:opacity-80"
+                style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 4, color: 'var(--color-text)' }}>
+                {selectedInstance
+                  ? <><InstanceIcon instance={selectedInstance} /><span className="max-w-[90px] truncate">{selectedInstance.name}</span></>
+                  : <><span className="w-6 h-6 flex items-center justify-center text-[10px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', borderRadius: 4 }}>?</span><span>Нет сборки</span></>
+                }
+                <ChevronDown className="w-3 h-3" style={{ color: 'var(--color-text-tertiary)' }} />
+              </button>
+              {showInstanceMenu && (
+                <div className="absolute top-full left-0 mt-1 w-60 z-50 py-1 max-h-72 overflow-y-auto"
+                  style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
+                  <button onClick={() => selectInstance(undefined)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-left hover:opacity-80"
+                    style={{ color: 'var(--color-text)' }}>
+                    <span className="w-6 h-6 flex items-center justify-center text-[10px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', borderRadius: 4 }}>?</span>
+                    <span className="flex-1">
+                      <span className="block font-medium">Нет сборки</span>
+                      <span className="block text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>Создать или просто спросить</span>
+                    </span>
+                  </button>
+                  {instances.map(i => (
+                    <button key={i.id} onClick={() => selectInstance(i.id)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-left hover:opacity-80"
+                      style={{ color: 'var(--color-text)' }}>
+                      <InstanceIcon instance={i} />
+                      <span className="flex-1 min-w-0">
+                        <span className="block font-medium truncate">{i.name}</span>
+                        <span className="block text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>{i.modLoader} {i.minecraftVersion}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <div className="relative mr-1">
               <button onClick={() => setShowProviderMenu(!showProviderMenu)}
                 className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium"
                 style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', borderRadius: 3 }}>
@@ -379,7 +515,7 @@ export function AIAgent({ onClose }: AIAgentProps) {
                 <ChevronDown className="w-3 h-3" />
               </button>
               {showProviderMenu && (
-                <div className="absolute top-full left-0 mt-1 w-56 z-50 py-1"
+                <div className="absolute top-full right-0 mt-1 w-64 z-50 py-1 max-h-80 overflow-y-auto"
                   style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.3)' }}>
                   {PROVIDERS.map(p => (
                     <button key={p.id} onClick={() => selectProvider(p)}
@@ -388,36 +524,70 @@ export function AIAgent({ onClose }: AIAgentProps) {
                       <span className="w-5 h-5 flex items-center justify-center text-[9px] font-bold"
                         style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 3 }}>{p.icon}</span>
                       {p.name}
+                      {p.models.length > 0 && <span className="ml-auto text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>{p.models.length} моделей</span>}
                     </button>
                   ))}
                 </div>
               )}
             </div>
-          </div>
-          <div className="flex items-center gap-1">
-            {messages.length > 0 && <button onClick={() => setMessages([])} className="p-1 hover:opacity-70"><Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--color-text-tertiary)' }} /></button>}
             <button onClick={() => setMinimized(true)} className="p-1 hover:opacity-70"><ChevronDown className="w-4 h-4" style={{ color: 'var(--color-text-secondary)' }} /></button>
             <button onClick={onClose} className="p-1 hover:opacity-70"><X className="w-4 h-4" style={{ color: 'var(--color-text-secondary)' }} /></button>
           </div>
         </div>
+
+        {/* Sessions sidebar */}
+        <AnimatePresence>
+          {showSessions && (
+            <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
+              className="shrink-0 overflow-hidden" style={{ borderBottom: '1px solid var(--color-border)' }}>
+              <div className="px-2 py-2 max-h-52 overflow-y-auto">
+                <p className="px-2 pb-1.5 text-[10px] font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>История чатов</p>
+                {sessions.length === 0 && <p className="px-2 py-2 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>Нет сохранённых чатов</p>}
+                {sessions.map(s => {
+                  const inst = s.instanceId ? instances.find(i => i.id === s.instanceId) : undefined;
+                  const isActive = s.id === activeSession?.id;
+                  return (
+                    <div key={s.id} className="flex items-center gap-1.5 rounded-sm px-2 py-1.5 cursor-pointer hover:opacity-80"
+                      style={{ background: isActive ? 'var(--color-surface-2)' : 'transparent', border: isActive ? '1px solid var(--color-border)' : '1px solid transparent' }}
+                      onClick={() => { setActiveSession(s.id); setShowSessions(false); }}>
+                      <InstanceIcon instance={inst || { name: '?' }} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-medium truncate" style={{ color: 'var(--color-text)' }}>{s.title}</p>
+                        <p className="text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                          {s.messages.length} сообщ. · {new Date(s.updatedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <button onClick={e => { e.stopPropagation(); deleteSession(s.id); }} className="p-1 hover:opacity-70"><Trash className="w-3.5 h-3.5" style={{ color: 'var(--color-text-tertiary)' }} /></button>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <Bot className="w-8 h-8 mb-3" style={{ color: 'var(--color-text-tertiary)' }} />
-              <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>Portal Assistant</p>
-              <p className="text-xs mt-1 max-w-[260px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-                Select a provider and add your API key in Settings to start.
-              </p>
+              <p className="text-sm font-medium" style={{ color: 'var(--color-text)' }}>PTAgent</p>
+              {selectedInstance
+                ? <p className="text-xs mt-1 max-w-[260px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>Работаю со сборкой «{selectedInstance.name}» — можно ставить моды, смотреть логи, настраивать.</p>
+                : <p className="text-xs mt-1 max-w-[260px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>Задай вопрос, попроси создать сборку или выбрать её для установки файлов.</p>
+              }
               <div className="flex flex-wrap gap-1.5 mt-4 justify-center">
-                {['Recommend mods', 'Create instance', 'Fix crash', 'Install mod'].map(hint => (
-                  <button key={hint} onClick={() => setInput(hint)}
-                    className="px-2.5 py-1.5 text-[11px] font-medium"
-                    style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', borderRadius: 4 }}>
-                    {hint}
-                  </button>
-                ))}
+                {selectedInstance
+                  ? ['Порекомендуй моды', 'Посмотри логи', 'Почини краш', 'Установи мод'].map(hint => (
+                      <button key={hint} onClick={() => setInput(hint)}
+                        className="px-2.5 py-1.5 text-[11px] font-medium"
+                        style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', borderRadius: 4 }}>{hint}</button>
+                    ))
+                  : ['Создай сборку', 'Порекомендуй моды', 'Что за краш?', 'Найди шейдеры'].map(hint => (
+                      <button key={hint} onClick={() => setInput(hint)}
+                        className="px-2.5 py-1.5 text-[11px] font-medium"
+                        style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)', borderRadius: 4 }}>{hint}</button>
+                    ))}
               </div>
             </div>
           )}
@@ -434,7 +604,7 @@ export function AIAgent({ onClose }: AIAgentProps) {
                   }}>
                   {msg.content}
                 </div>
-                {msg.attachments?.map((att, i) => <FileInMessage key={i} att={att} />)}
+                {msg.attachments?.map((att, i) => (<FileInMessage key={i} att={att as any} />))}
                 {msg.role === 'assistant' && (
                   <button onClick={() => { navigator.clipboard.writeText(msg.content); setCopiedIdx(idx); setTimeout(() => setCopiedIdx(null), 1500); }}
                     className="absolute -top-2 -right-2 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -445,12 +615,13 @@ export function AIAgent({ onClose }: AIAgentProps) {
               </div>
             </div>
           ))}
+
           {loading && (
             <div className="flex justify-start">
               <div className="flex items-center gap-2 px-3 py-2 text-[13px]"
                 style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 6, color: 'var(--color-text-secondary)' }}>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--color-primary)' }} />
-                Processing...
+                Думаю...
               </div>
             </div>
           )}
@@ -479,7 +650,8 @@ export function AIAgent({ onClose }: AIAgentProps) {
             <textarea ref={inputRef} value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder="Ask something..."
+              onPaste={handlePaste}
+              placeholder="Спросить что-нибудь..."
               rows={1}
               className="flex-1 resize-none px-3 py-2.5 text-[13px] outline-none"
               style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', borderRadius: 6, maxHeight: 72, minHeight: 36 }}
@@ -492,10 +664,10 @@ export function AIAgent({ onClose }: AIAgentProps) {
           </div>
           <div className="flex items-center justify-between mt-1.5">
             <p className="text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>
-              {settings.apiKey ? `${currentProvider.name} — configured` : 'No API key — set in Settings'}
+              {settings.apiKey ? `${currentProvider.name} — настроен` : 'Нет API-ключа — добавь в Настройках'}
             </p>
             <p className="text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>
-              Drop files to attach
+              Файлы: перетащи или вставь из буфера
             </p>
           </div>
         </div>

@@ -378,7 +378,6 @@ html[data-theme="glass-white"] ::-webkit-scrollbar-thumb:hover {
   background: rgba(16,24,40,0.32);
 }
 
-
 /* ==============================================
    New UI shell — isolated from the legacy layout
    ============================================== */
@@ -521,86 +520,7 @@ html[data-design-system="clean"] {
 }
 html[data-design-system="clean"] button:not([data-allow-fill]),
 html[data-design-system="clean"] [role="button"] { border-radius:2px; }
-body[data-portal-tutorial-target="/home"] a[data-tutorial-target="/home"],
-body[data-portal-tutorial-target="/discover"] a[data-tutorial-target="/discover"],
-body[data-portal-tutorial-target="/skins"] a[data-tutorial-target="/skins"],
-body[data-portal-tutorial-target="/library"] a[data-tutorial-target="/library"],
-body[data-portal-tutorial-target="/settings"] a[data-tutorial-target="/settings"] { outline:1px solid var(--color-border-strong); outline-offset:2px; }
 
-@keyframes portal-ribbon-down { from { transform:translateY(-50%); } to { transform:translateY(0); } }
-@keyframes portal-ribbon-up { from { transform:translateY(0); } to { transform:translateY(-50%); } }
-.project-screenshot-ribbons { position:relative; }
-.project-ribbon-track { display:flex; min-width:0; flex-direction:column; gap:12px; padding:12px; animation:portal-ribbon-down 22s linear infinite; }
-.project-ribbon-track.project-ribbon-up { animation-name:portal-ribbon-up; }
-.project-ribbon-item { display:block; aspect-ratio:16/9; overflow:hidden; border:1px solid var(--color-border); background:var(--color-bg); }
-.project-ribbon-item img { width:100%; height:100%; display:block; object-fit:cover; }
-.project-screenshot-ribbons:hover .project-ribbon-track { animation-play-state:paused; }
-@media (prefers-reduced-motion: reduce) { .project-ribbon-track { animation:none; } }
-@media (max-width: 760px) {
-  html[data-design-system="clean"] .portal-sidebar { width:48px !important; padding-left:8px !important; padding-right:8px !important; }
-  html[data-design-system="clean"] .portal-sidebar .nav-identity-label,
-  html[data-design-system="clean"] .portal-sidebar .nav-dock-label { display:none !important; }
-  html[data-design-system="clean"] .portal-sidebar a[data-testid^="nav-"] { width:32px !important; min-width:32px !important; height:32px !important; }
-  html[data-design-system="clean"] .portal-sidebar .nav-identity { justify-content:center; padding-left:0; padding-right:0; }
-}
-html[data-design-system="clean"] :is(.uppercase.tracking-widest, .uppercase.tracking-wider, .uppercase.tracking-wide) { letter-spacing:0.04em !important; font-size:0.6875rem !important; }
-
-
-/* Portal Launcher soft UI layer: shared rounded surfaces without changing layout. */
-html:not([data-theme="pixel"]) .rounded,
-html:not([data-theme="pixel"]) .rounded-md { border-radius: min(var(--radius-md), 25%) !important; }
-html:not([data-theme="pixel"]) .rounded-lg { border-radius: min(var(--radius-lg), 25%) !important; }
-html:not([data-theme="pixel"]) .rounded-xl { border-radius: min(var(--radius-xl), 25%) !important; }
-html:not([data-theme="pixel"]) .rounded-2xl { border-radius: min(var(--radius-card), 25%) !important; }
-html:not([data-theme="pixel"]) .rounded-3xl { border-radius: min(var(--radius-modal), 25%) !important; }
-/* Controls use the button radius and never become pill-shaped accidentally. */
-html:not([data-theme="pixel"]) :where(button, a, [role="button"]).rounded,
-html:not([data-theme="pixel"]) :where(button, a, [role="button"]).rounded-md,
-html:not([data-theme="pixel"]) :where(button, a, [role="button"]).rounded-lg,
-html:not([data-theme="pixel"]) :where(button, a, [role="button"]).rounded-xl,
-html:not([data-theme="pixel"]) :where(button, a, [role="button"]).rounded-2xl,
-html:not([data-theme="pixel"]) :where(button, a, [role="button"]).rounded-3xl { border-radius: min(var(--radius-button), 25%) !important; }
-html:not([data-theme="pixel"]) button:not(.rounded-full):hover,
-html:not([data-theme="pixel"]) [role="button"]:hover { filter:none; }
-html:not([data-theme="pixel"]) input:focus,
-html:not([data-theme="pixel"]) textarea:focus,
-html:not([data-theme="pixel"]) select:focus { border-color: var(--color-primary) !important; box-shadow: 0 0 0 3px var(--color-primary-dim); }
-.soft-surface { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-card); box-shadow: var(--shadow-sm); }
-.soft-surface-hover { transition:background-color 160ms linear, border-color 160ms linear; }
-.soft-surface-hover:hover { background:var(--color-surface-hover); border-color:var(--color-border-strong); box-shadow:none; }
-
-/* Clean mode applies the studied principles to every routed page without
-   changing data, Java, installers or platform integrations. */
-html[data-theme="clean"] .glass { background:var(--color-surface); backdrop-filter:none; -webkit-backdrop-filter:none; }
-html[data-theme="clean"] .portal-instance-card::before,
-html[data-theme="clean"] .clean-home-hero > span[aria-hidden],
-html[data-theme="clean"] .clean-home-instance > span[aria-hidden] { display:none !important; }
-html[data-theme="clean"] .portal-instance-card:hover,
-html[data-theme="clean"] .card-hover:hover,
-html[data-theme="clean"] .soft-surface-hover:hover { transform:none; box-shadow:var(--shadow-sm); border-color:var(--color-border-strong); }
-html[data-theme="clean"] .text-gradient { background:none; -webkit-text-fill-color:currentColor; color:var(--color-text); }
-html[data-theme="clean"] .clean-nav { background:var(--color-bg) !important; backdrop-filter:none !important; -webkit-backdrop-filter:none !important; box-shadow:none !important; }
-html[data-theme="clean"] .clean-home-hero,
-html[data-theme="clean"] .clean-home-next,
-html[data-theme="clean"] .clean-home-panel,
-html[data-theme="clean"] .clean-home-stat,
-html[data-theme="clean"] .clean-home-instance { background:transparent !important; border-color:var(--color-border) !important; box-shadow:none !important; }
-html[data-theme="clean"] .clean-home-hero { border-left:1px solid var(--color-border) !important; }
-html[data-theme="clean"] .clean-home-hero .rounded-full { border-radius:var(--radius-button) !important; }
-html[data-theme="clean"] .clean-onboarding { background:var(--color-bg) !important; }
-html[data-theme="clean"] .clean-onboarding-surface { background:var(--color-surface) !important; box-shadow:var(--shadow-md) !important; }
-html[data-theme="clean"] .clean-onboarding-surface > div:first-child { background:var(--color-primary) !important; }
-html[data-theme="clean"] [style*="radial-gradient"],
-html[data-theme="clean"] [style*="linear-gradient"] { background:var(--color-surface) !important; }
-html[data-theme="clean"] [style*="radial-gradient"][class*="fixed"] { background:var(--color-bg) !important; }
-
-/* Files stays one compact square workspace: destination, action and drop
-   feedback live in the same outlined object instead of separate panels. */
-html[data-design-system="clean"] .portal-files-workspace,
-html[data-design-system="clean"] .portal-files-workspace :is(.rounded-lg, .rounded-xl, .rounded-2xl),
-html[data-design-system="clean"] .portal-files-drop,
-html[data-design-system="clean"] .portal-files-drop > div,
-html[data-design-system="clean"] .portal-about-github { border-radius:0 !important; }
 html[data-design-system="clean"] .portal-files-workspace .group:hover { transform:none !important; }
 html[data-design-system="clean"] .portal-about-github:hover { background:var(--color-surface-hover) !important; border-color:var(--color-border-strong) !important; }
 
@@ -616,8 +536,7 @@ html[data-portal-style="glass"] .clean-nav {
 html[data-portal-style="glass"] .portal-glass-outline { border-color:color-mix(in srgb, var(--color-border-strong) 72%, white 28%) !important; }
 html[data-portal-style="falloff"] .portal-style-mark { transform:rotate(45deg); border-radius:3px !important; }
 html[data-portal-style="falloff"] .portal-style-mark > svg { transform:rotate(-45deg); }
-html[data-portal-style="falloff"] .portal-sidebar a[data-tutorial-target] > span:first-child,
-html[data-portal-style="falloff"] .portal-notch a[data-tutorial-target] > span:first-child { clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%); border-radius:0 !important; }
+
 html[data-portal-style="abouts"] .portal-workspace-material { box-shadow:var(--shadow-sm); }
 @media (prefers-reduced-transparency: reduce) {
   html[data-portal-style="glass"] .portal-workspace-material,

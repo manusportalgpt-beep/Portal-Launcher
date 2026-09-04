@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Cpu, Palette,
   LogIn, RefreshCw, Trash2, Check, X,
-  Volume2, Code, Shield, Save, Layout, Upload, Gamepad2, Globe, Github, ExternalLink, Search, SlidersHorizontal,
+  Volume2, Code, Shield, Save, Layout, Upload, Gamepad2, Globe, Github, ExternalLink, Search, SlidersHorizontal, Bot,
 } from 'lucide-react';
 import { invoke } from '@/lib/invoke-shim';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -764,11 +764,27 @@ function AdvancedSection() {
   const [proxyStatus, setProxyStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>('idle');
   const [proxyMessage, setProxyMessage] = useState('');
   const [saved, setSaved] = useState(false);
+  const [aiEndpoint, setAiEndpoint] = useState(() => { try { return JSON.parse(localStorage.getItem('portal-settings') || '{}').aiEndpoint ?? ''; } catch { return ''; } });
+  const [aiModel, setAiModel] = useState(() => { try { return JSON.parse(localStorage.getItem('portal-settings') || '{}').aiModel ?? 'gpt-4o-mini'; } catch { return 'gpt-4o-mini'; } });
+  const [aiApiKey, setAiApiKey] = useState(() => { try { return JSON.parse(localStorage.getItem('portal-settings') || '{}').aiApiKey ?? ''; } catch { return ''; } });
+  const [aiSaved, setAiSaved] = useState(false);
 
   function saveCfKey() {
     s.setSetting('curseforgeApiKey', cfKey);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+  function saveAiSettings() {
+    try {
+      const raw = localStorage.getItem('portal-settings') || '{}';
+      const parsed = JSON.parse(raw);
+      parsed.aiEndpoint = aiEndpoint;
+      parsed.aiModel = aiModel;
+      parsed.aiApiKey = aiApiKey;
+      localStorage.setItem('portal-settings', JSON.stringify(parsed));
+    } catch {}
+    setAiSaved(true);
+    setTimeout(() => setAiSaved(false), 2000);
   }
   async function testModrinthProxy() {
     const url = proxyUrl.trim().replace(/\/$/, '');
@@ -829,6 +845,34 @@ function AdvancedSection() {
             ● Ключ настроен ({cfKey.length} символов)
           </p>
         )}
+      </div>
+
+      {/* AI Agent Settings */}
+      <div className="py-3.5" style={{ borderBottom:'1px solid var(--color-border)' }}>
+        <div className="flex items-center gap-2 mb-1">
+          <Bot className="w-4 h-4" style={{ color:'var(--color-primary)' }} />
+          <p className="text-sm font-semibold" style={{ color:'var(--color-text)' }}>AI Agent</p>
+        </div>
+        <p className="text-xs mb-3" style={{ color:'var(--color-text-secondary)' }}>
+          Подключите OpenAI-совместимый API для расширенных ответов Portal Assistant. Без ключа работает базовый режим с встроенными ответами.
+        </p>
+        <div className="space-y-2.5">
+          <div>
+            <label className="text-[11px] font-semibold block mb-1" style={{ color:'var(--color-text-tertiary)' }}>API Endpoint</label>
+            <input value={aiEndpoint} onChange={e => setAiEndpoint(e.target.value)} placeholder="https://api.openai.com/v1/chat/completions" className="w-full px-3 py-2.5 rounded-xl text-sm" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }} />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold block mb-1" style={{ color:'var(--color-text-tertiary)' }}>Model</label>
+            <input value={aiModel} onChange={e => setAiModel(e.target.value)} placeholder="gpt-4o-mini" className="w-full px-3 py-2.5 rounded-xl text-sm" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }} />
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold block mb-1" style={{ color:'var(--color-text-tertiary)' }}>API Key</label>
+            <input type="password" value={aiApiKey} onChange={e => setAiApiKey(e.target.value)} placeholder="sk-..." className="w-full px-3 py-2.5 rounded-xl text-sm" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }} />
+          </div>
+          <button onClick={saveAiSettings} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold transition-all" style={{ background: aiSaved ? 'rgba(46,204,113,0.15)' : 'var(--color-primary)', color: aiSaved ? '#2ECC71' : 'var(--color-primary-text)', border: aiSaved ? '1px solid #2ECC7144' : 'none' }}>
+            {aiSaved ? <><Check className="w-4 h-4" />Сохранено</> : <><Save className="w-4 h-4" />Сохранить</>}
+          </button>
+        </div>
       </div>
 
       <Row label="Автоочистка удалённых материалов" desc="Удалённые сборки, моды, ресурс-паки, шейдеры, дата-паки и миры можно восстановить до окончания выбранного срока.">

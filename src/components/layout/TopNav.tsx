@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  House, Search, Boxes, Shirt, SlidersHorizontal, PanelsTopLeft, LogIn, Pin, ChevronLeft, ChevronRight,
+  House, Search, Boxes, Shirt, SlidersHorizontal, PanelsTopLeft, LogIn, Pin, ChevronLeft, ChevronRight, Bot,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -155,6 +155,7 @@ function SidebarNav() {
       <div className="flex-1" />
       <div className="flex justify-center"><AccountButton vertical /></div>
       <DockButton item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} vertical scale={scale} appearance={appearance} />
+      <button title="AI Assistant" onClick={() => window.dispatchEvent(new CustomEvent('portal:toggle-ai'))} className="portal-sidebar flex items-center justify-center shrink-0 relative" style={{ width:40, height:40, color:'var(--color-primary)', background:'transparent', borderRadius:6 }}><Bot size={18} /></button>
     </aside>
   );
 }
@@ -265,6 +266,8 @@ function NotchNav() {
               <div className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1`}>
                 <AccountButton vertical={vertical} />
                 <DockButton item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} vertical={vertical} scale={navItemScale} appearance={appearance} />
+      <button title="AI Assistant" onClick={() => window.dispatchEvent(new CustomEvent('portal:toggle-ai'))} className="portal-sidebar flex items-center justify-center shrink-0 relative" style={{ width:40, height:40, color:'var(--color-primary)', background:'transparent', borderRadius:6 }}><Bot size={18} /></button>
+                <button title="AI Assistant" onClick={() => window.dispatchEvent(new CustomEvent('portal:toggle-ai'))} className="flex items-center justify-center rounded-sm" style={{ width:28, height:28, color: 'var(--color-primary)', background:'transparent', border:'1px solid var(--color-border)' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><Bot size={16} /></button>
                 <button title="Назад" onClick={() => window.history.back()} className="flex items-center justify-center rounded-sm" style={{ width:28, height:28, color:'var(--color-text-secondary)', background:'transparent', border:'1px solid var(--color-border)' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronLeft size={18} /></button>
                 <button title="Вперёд" onClick={() => window.history.forward()} className="flex items-center justify-center rounded-sm" style={{ width:28, height:28, color:'var(--color-text-secondary)', background:'transparent', border:'1px solid var(--color-border)' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronRight size={18} /></button>
                 <button title={t('notch.pin')} onClick={() => set('notchPinned', !notchPinned)}

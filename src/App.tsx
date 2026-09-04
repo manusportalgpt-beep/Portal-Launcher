@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { SplashScreen } from '@/components/splash/SplashScreen';
@@ -26,6 +26,7 @@ import i18n from '@/i18n';
 import { BottomProgressBar } from '@/components/BottomProgressBar';
 import { InstallEffectOverlay } from '@/components/InstallEffectOverlay';
 import { DialogHost } from '@/components/DialogHost';
+import { AIAgent } from '@/components/ai/AIAgent';
 import { BackgroundMusicPlayer } from '@/components/BackgroundMusicPlayer';
 import { BackgroundVideo } from '@/components/BackgroundVideo';
 import { GlobalHotkeys } from '@/components/GlobalHotkeys';
@@ -39,6 +40,7 @@ import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 const WELCOME_KEY = 'portal-welcome-shown';
+const AI_PANEL_KEY = 'portal-ai-panel-open';
 
 function App() {
   const [loading, setLoading] = useState(false);
@@ -108,6 +110,13 @@ function App() {
     };
   }, []);
   useUiEffects();
+  const [aiOpen, setAiOpen] = useState(() => localStorage.getItem(AI_PANEL_KEY) === '1');
+  const toggleAi = useCallback(() => { setAiOpen(prev => { localStorage.setItem(AI_PANEL_KEY, !prev ? '1' : '0'); return !prev; }); }, []);
+  useEffect(() => {
+    const handler = () => toggleAi();
+    window.addEventListener('portal:toggle-ai', handler);
+    return () => window.removeEventListener('portal:toggle-ai', handler);
+  }, [toggleAi]);
   const addNotif = useNotifStore(s => s.add);
   const instances = useInstanceStore(s => s.instances);
   const authAccounts = useAuthStore(s => s.accounts);
@@ -193,6 +202,7 @@ function App() {
       {!loading && <BackgroundMusicPlayer />}
       <DialogHost />
       {!loading && <FirstLaunchExperience />}
+      {!loading && aiOpen && <AIAgent onClose={() => setAiOpen(false)} />}
       </div>
       </div>
     </>

@@ -246,13 +246,15 @@ pub async fn get_curseforge_mod_files(
 
 /// Get the direct download URL for a specific CurseForge file
 pub fn curseforge_download_url_candidates(url: &str) -> Vec<String> {
-    const PRIMARY: &str = "edge.curseforgecdn.com";
+        const PRIMARY: &str = "edge.curseforgecdn.com";
+    const LEGACY: &str = "edge.forgecdn.net";
     const FALLBACK: &str = "mediafilez.forgecdn.net";
     let primary = url
         .replace("edge.forgecdn.net", PRIMARY)
         .replace(FALLBACK, PRIMARY);
+    let legacy = primary.replace(PRIMARY, LEGACY);
     let fallback = primary.replace(PRIMARY, FALLBACK);
-    if fallback == primary { vec![primary] } else { vec![primary, fallback] }
+    if fallback == primary { vec![primary] } else { vec![primary, fallback, legacy] }
 }
 
 #[tauri::command]

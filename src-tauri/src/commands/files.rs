@@ -121,6 +121,16 @@ pub async fn write_file_bytes(path: String, data: Vec<u8>) -> Result<(), String>
     std::fs::write(&path, &data).map_err(|e| format!("Write error: {e}"))
 }
 
+
+#[tauri::command]
+pub async fn save_to_downloads(filename: String, data: Vec<u8>) -> Result<String, String> {
+    let downloads = dirs_next::download_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    std::fs::create_dir_all(&downloads).map_err(|e| e.to_string())?;
+    let path = downloads.join(&filename);
+    std::fs::write(&path, &data).map_err(|e| format!("Write error: {e}"))?;
+    Ok(path.to_string_lossy().to_string())
+}
+
 /// Open the live Modrinth server catalog inside a Tauri WebView window.
 #[tauri::command]
 pub fn open_modrinth_servers_webview(app: AppHandle) -> Result<(), String> {

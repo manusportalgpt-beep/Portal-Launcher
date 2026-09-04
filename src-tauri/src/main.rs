@@ -247,6 +247,7 @@ fn main() {
             commands::files::pick_java_executable,
             commands::files::read_file_bytes,
             commands::files::write_file_bytes,
+            commands::files::save_to_downloads,
             commands::files::open_url,
             commands::files::open_modrinth_servers_webview,
             commands::files::open_file_path,

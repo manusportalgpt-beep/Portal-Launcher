@@ -746,7 +746,8 @@ export function ModDetail() {
   const color = project?.color ? '#' + project.color.toString(16).padStart(6, '0') : '#6C5CE7';
   const letter = project?.title?.[0]?.toUpperCase() ?? '?';
   const allDeps = versions[0]?.dependencies ?? [];
-  const requiredDeps = allDeps.filter(d => d.dependency_type === 'required');
+  const LOADER_PROJECTS = ['neoforge', 'forge', 'fabric', 'quilt', 'fabric-api', 'cloth-config', 'architectury', 'forge-config-api-port', 'fabric-language-kotlin'];
+  const requiredDeps = allDeps.filter(d => d.dependency_type === 'required' && d.project_id && !LOADER_PROJECTS.includes(d.project_id.toLowerCase()));
   const incompatibleDeps = allDeps.filter(d => d.dependency_type === 'incompatible');
   const otherDeps = allDeps.filter(d => d.dependency_type !== 'required' && d.dependency_type !== 'incompatible');
 

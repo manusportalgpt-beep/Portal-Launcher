@@ -559,12 +559,27 @@ async fn install_mod_dependencies_internal(client: &reqwest::Client, app: &tauri
     let (mc_version, loader) = get_instance_meta(instance_id);
     let mut installed = vec![];
 
+    // Known loader/library projects that MUST NOT be auto-downloaded as mods.
+    // NeoForge, Forge, Fabric Loader and Quilt Loader are installed by the
+    // launcher itself as loaders; fetching them from Modrinth as a mod would
+    // drop a duplicate/broken jar into mods/ and break the game launch.
+    const LOADER_PROJECTS: &[&str] = &[
+        "neoforge", "forge", "fabric", "quilt",
+        "fabric-api", "fabric_api", "cloth-config", "architectury",
+        "forge-config-api-port", "fabric-language-kotlin", "kotlinlib",
+    ];
+    // Also match by numeric id if a dependency refers to a loader by id.
+    const LOADER_ID_SLUG: &[&str] = LOADER_PROJECTS;
+
     if let Some(deps) = version_data["dependencies"].as_array() {
         for dep in deps {
             if dep["dependency_type"].as_str() != Some("required") { continue; }
             let dep_pid = dep["project_id"].as_str().unwrap_or("").to_string();
             let dep_vid = dep["version_id"].as_str().map(|s| s.to_string());
             if dep_pid.is_empty() { continue; }
+
+            // Skip known loader/library projects (NeoForge itself, Fabric API, etc.)
+            if LOADER_PROJECTS.contains(&dep_pid.to_lowercase().as_str()) { continue; }
 
             let mods_folder = game_dir(instance_id).join("mods");
             let _already = std::fs::read_dir(&mods_folder).ok()

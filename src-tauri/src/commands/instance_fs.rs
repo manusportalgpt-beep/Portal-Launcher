@@ -5,6 +5,10 @@
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
+use tokio::task::JoinHandle;
 
 use crate::mc::launch::instance_game_dir;
 use crate::mc::nbt;
@@ -111,6 +115,141 @@ pub struct WorldInfo {
     pub last_played: Option<i64>,
     pub size_mb: u64,
     pub game_mode: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct LanRelayInfo {
+    pub active: bool,
+    pub public_host: Option<String>,
+    pub public_port: Option<u16>,
+    pub local_port: Option<u16>,
+    pub session_id: Option<String>,
+    pub error: Option<String>,
+}
+
+struct ActiveLanRelay {
+    session_id: String,
+    public_host: String,
+    public_port: u16,
+    local_port: u16,
+    task: JoinHandle<()>,
+}
+
+static LAN_RELAY: once_cell::sync::Lazy<Mutex<Option<ActiveLanRelay>>> = once_cell::sync::Lazy::new(|| Mutex::new(None));
+
+fn lan_port_from_log(instance_id: &str) -> Option<u16> {
+    let path = instance_game_dir(instance_id).join("logs").join("latest.log");
+    let text = std::fs::read_to_string(path).ok()?;
+    let patterns = [
+        "Published LAN server on port",
+        "Local game hosted on port",
+        "Started serving on",
+        "Hosting on port",
+        "Open to LAN",
+    ];
+    for line in text.lines().rev() {
+        let lower = line.to_ascii_lowercase();
+        if patterns.iter().any(|marker| lower.contains(&marker.to_ascii_lowercase())) {
+            let digits: String = line.chars().rev().take_while(|c| c.is_ascii_digit()).collect::<String>().chars().rev().collect();
+            if let Ok(port) = digits.parse::<u16>() { if port > 0 { return Some(port); } }
+            if let Some(value) = line.split(|c: char| !c.is_ascii_digit()).filter(|part| !part.is_empty()).last() {
+                if let Ok(port) = value.parse::<u16>() { if port > 0 { return Some(port); } }
+            }
+        }
+    }
+    None
+}
+
+async fn relay_json(
+    client: &reqwest::Client,
+    base: &str,
+    path: &str,
+    token: &str,
+    method: reqwest::Method,
+    body: Option<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    let mut request = client.request(method, format!("{base}/client/api/relay{path}"))
+        .bearer_auth(token)
+        .header("User-Agent", "PortalLauncher")
+        .header("Accept", "application/json");
+    if let Some(body) = body { request = request.json(&body); }
+    let response = request.send().await.map_err(|e| format!("Relay network: {e}"))?;
+    let status = response.status();
+    let value = response.json::<serde_json::Value>().await.unwrap_or_default();
+    if !status.is_success() { return Err(value["error"].as_str().unwrap_or("Relay request failed").to_string()); }
+    Ok(value)
+}
+
+async fn run_lan_relay(session_id: String, tunnel_token: String, tunnel_host: String, tunnel_port: u16, local_port: u16) {
+    let Ok(mut control) = TcpStream::connect((tunnel_host.as_str(), tunnel_port)).await else { return; };
+    if control.write_all(format!("HOST {session_id} {tunnel_token}\n").as_bytes()).await.is_err() { return; }
+    let mut lines = tokio::io::BufReader::new(control);
+    let mut line = String::new();
+    if lines.read_line(&mut line).await.is_err() || !line.trim_start().to_ascii_uppercase().starts_with("OK HOST") { return; }
+    let control = lines.into_inner();
+    let (reader, _writer) = control.into_split();
+    let mut control_lines = tokio::io::BufReader::new(reader).lines();
+    while let Ok(Some(line)) = control_lines.next_line().await {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() == 2 && parts[0].eq_ignore_ascii_case("CONNECT") {
+            let host = tunnel_host.clone();
+            let sid = session_id.clone();
+            let token = tunnel_token.clone();
+            let connection_id = parts[1].to_string();
+            tokio::spawn(async move {
+                let Ok(mut remote) = TcpStream::connect((host.as_str(), tunnel_port)).await else { return; };
+                if remote.write_all(format!("DATA {sid} {token} {connection_id}\n").as_bytes()).await.is_err() { return; }
+                let mut response = String::new();
+                let mut buffered = tokio::io::BufReader::new(remote);
+                if buffered.read_line(&mut response).await.is_err() || !response.trim_start().to_ascii_uppercase().starts_with("OK DATA") { return; }
+                let mut remote = buffered.into_inner();
+                let Ok(mut local) = TcpStream::connect(("127.0.0.1", local_port)).await else { return; };
+                let _ = tokio::io::copy_bidirectional(&mut remote, &mut local).await;
+            });
+        } else if parts.len() >= 1 && parts[0].eq_ignore_ascii_case("CLOSE") { break; }
+    }
+}
+
+#[tauri::command]
+pub async fn get_lan_relay_status(instance_id: String) -> Result<LanRelayInfo, String> {
+    let port = lan_port_from_log(&instance_id);
+    let active = LAN_RELAY.lock().ok().and_then(|state| state.as_ref().map(|relay| LanRelayInfo {
+        active: true, public_host: Some(relay.public_host.clone()), public_port: Some(relay.public_port),
+        local_port: Some(relay.local_port), session_id: Some(relay.session_id.clone()), error: None,
+    }));
+    Ok(active.unwrap_or(LanRelayInfo { active: false, public_host: None, public_port: None, local_port: port, session_id: None, error: None }))
+}
+
+#[tauri::command]
+pub async fn start_lan_relay(instance_id: String, token: String) -> Result<LanRelayInfo, String> {
+    let local_port = lan_port_from_log(&instance_id).ok_or("Minecraft LAN-порт не найден. Сначала откройте мир для сети в игре.")?;
+    if TcpStream::connect(("127.0.0.1", local_port)).await.is_err() {
+        return Err("LAN-порт найден в логе, но Minecraft больше его не слушает. Откройте мир для сети заново.".into());
+    }
+    if let Ok(mut state) = LAN_RELAY.lock() {
+        if let Some(previous) = state.take() { previous.task.abort(); }
+    }
+    let client = reqwest::Client::new();
+    let data = relay_json(&client, "https://uprojects.site", "/sessions", token.trim(), reqwest::Method::POST, Some(serde_json::json!({ "localPort": local_port }))).await?;
+    let session_id = data["sessionId"].as_str().ok_or("Relay не вернул sessionId")?.to_string();
+    let tunnel_token = data["tunnelToken"].as_str().ok_or("Relay не вернул tunnelToken")?.to_string();
+    let public_host = data["publicHost"].as_str().ok_or("Relay не вернул publicHost")?.to_string();
+    let public_port = data["publicPort"].as_u64().ok_or("Relay не вернул publicPort")? as u16;
+    let tunnel_host = data["tunnelHost"].as_str().unwrap_or("uprojects.site").to_string();
+    let tunnel_port = data["tunnelPort"].as_u64().unwrap_or(25570) as u16;
+    let task = tokio::spawn(run_lan_relay(session_id.clone(), tunnel_token, tunnel_host, tunnel_port, local_port));
+    if let Ok(mut state) = LAN_RELAY.lock() { *state = Some(ActiveLanRelay { session_id: session_id.clone(), public_host: public_host.clone(), public_port, local_port, task }); }
+    Ok(LanRelayInfo { active: true, public_host: Some(public_host), public_port: Some(public_port), local_port: Some(local_port), session_id: Some(session_id), error: None })
+}
+
+#[tauri::command]
+pub async fn stop_lan_relay(token: String) -> Result<(), String> {
+    let relay = LAN_RELAY.lock().ok().and_then(|mut state| state.take());
+    if let Some(relay) = relay {
+        relay.task.abort();
+        let _ = relay_json(&reqwest::Client::new(), "https://uprojects.site", &format!("/sessions/{}", urlencoding::encode(&relay.session_id)), token.trim(), reqwest::Method::DELETE, None).await;
+    }
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

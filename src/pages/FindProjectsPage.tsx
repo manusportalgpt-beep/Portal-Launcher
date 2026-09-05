@@ -19,6 +19,7 @@ import { toIconSrc } from '@/lib/icon-src';
 import { consumeSearchReturn, targetSearchScroll } from '@/lib/search-navigation';
 import { useUiStore } from '@/stores/uiStore';
 import { useLaunchStore } from '@/stores/launchStore';
+import { useAuthorAvatar } from '@/lib/author-avatar';
 
 type ProjectType = 'mods' | 'resourcepacks' | 'shaders';
 type SortOrder = 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated';
@@ -426,19 +427,17 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
           throw new Error(t('findProjects.install.curseforgeNoUrl'));
         }
 
-        await invoke('install_mod', {
+        await invoke('install_curseforge_mod', {
           instanceId,
-          downloadUrl,
+          modId: numericProjectId,
+          fileId: Number(selectedFile.id),
           fileName: selectedFile.fileName,
-          modId: installProject.id,
           modName: installProject.title,
           modVersion: selectedFile.displayName ?? selectedFile.fileName,
-          versionId: String(selectedFile.id),
-          source: 'curseforge',
           modType: contentType,
-          projectId: installProject.id,
           author: installProject.author || null,
           iconUrl: installProject.iconUrl || null,
+          apiKey: cfApiKey,
         });
         useInstalledStore.getState().mark(instanceId, [installProject.id, installProject.title, installProject.slug]);
         triggerInstallEffect({ name: installProject.title, iconUrl: installProject.iconUrl, contentType });
@@ -490,6 +489,14 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
   );
 }
 
+function ProjectAuthorAvatar({ project }: { project: Project }) {
+  const avatar = useAuthorAvatar(project.author, project.platform === 'curseforge' ? 'curseforge' : 'modrinth');
+  const src = project.authorAvatarUrl || avatar;
+  return src
+    ? <img src={src} alt="" className="h-3.5 w-3.5 shrink-0 rounded-full object-cover" onError={event => { event.currentTarget.style.display = 'none'; }} />
+    : <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full" style={{ background:'var(--color-surface-2)' }}>{project.author.slice(0, 1).toUpperCase()}</span>;
+}
+
 // ── Project Card ─────────────────────────────────────────────────────────────
 function ProjectCard({ p, view, instanceId, mcVersion, loader, onClick }: {
   p: Project; view: 'grid'|'list'; instanceId: string; mcVersion: string; loader: string;
@@ -522,7 +529,7 @@ function ProjectCard({ p, view, instanceId, mcVersion, loader, onClick }: {
             <Star className="w-3 h-3" />{fmtNum(p.follows)}
           </span>
           <span className="flex min-w-0 items-center gap-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>
-            {p.authorAvatarUrl ? <img src={p.authorAvatarUrl} alt="" className="h-3.5 w-3.5 rounded-full object-cover" /> : <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full" style={{ background:'var(--color-surface-2)' }}>{p.author.slice(0, 1).toUpperCase()}</span>}
+            <ProjectAuthorAvatar project={p} />
             <span className="truncate">{t('findProjects.byAuthor', { author: p.author })}</span>
           </span>
         </div>

@@ -600,20 +600,35 @@ export function ModDetail() {
             ? 'datapack'
             : 'mod';
 
-    await invoke('install_mod', {
-      instanceId,
-      downloadUrl: primaryFile.url,
-      fileName: primaryFile.filename,
-      modId: project?.id ?? modId ?? '',
-      modName: project?.title ?? '',
-      modVersion: bestVersion.version_number,
-      versionId: bestVersion.id,
-      source: source ?? 'modrinth',
-      modType,
-      projectId: project?.id,
-      author: project?.author ?? null,
-      iconUrl: project?.icon_url ?? null,
-    });
+    if (source === 'curseforge') {
+      await invoke('install_curseforge_mod', {
+        instanceId,
+        modId: Number(project?.id ?? modId),
+        fileId: Number(bestVersion.id),
+        fileName: primaryFile.filename,
+        modName: project?.title ?? '',
+        modVersion: bestVersion.version_number,
+        modType,
+        author: project?.author ?? null,
+        iconUrl: project?.icon_url ?? null,
+        apiKey: cfApiKey,
+      });
+    } else {
+      await invoke('install_mod', {
+        instanceId,
+        downloadUrl: primaryFile.url,
+        fileName: primaryFile.filename,
+        modId: project?.id ?? modId ?? '',
+        modName: project?.title ?? '',
+        modVersion: bestVersion.version_number,
+        versionId: bestVersion.id,
+        source: source ?? 'modrinth',
+        modType,
+        projectId: project?.id,
+        author: project?.author ?? null,
+        iconUrl: project?.icon_url ?? null,
+      });
+    }
 
     useInstalledStore.getState().mark(instanceId, [project?.id, project?.slug, project?.title, modId]);
     triggerInstallEffect({

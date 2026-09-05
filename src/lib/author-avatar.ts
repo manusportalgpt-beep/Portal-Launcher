@@ -12,8 +12,10 @@ async function fetchAvatar(username: string, source?: string): Promise<string | 
   const cacheKey = `${source ?? 'unknown'}:${username}`;
   // CurseForge: use crafatar as fallback (CurseForge authors have Minecraft usernames)
   if (source === 'curseforge') {
-    // Try crafatar first (works for Minecraft usernames)
-    return `https://crafatar.com/avatars/${encodeURIComponent(username)}?size=64&overlay`;
+    // CurseForge exposes an author id/name but usually no avatar URL. Use a
+    // stable Minecraft-head provider instead of the often blocked Crafatar
+    // endpoint, which rendered as a gray placeholder in the WebView.
+    return `https://mc-heads.net/avatar/${encodeURIComponent(username)}/64.png`;
   }
 
   if (cache.has(cacheKey)) {
@@ -34,7 +36,7 @@ async function fetchAvatar(username: string, source?: string): Promise<string | 
       });
       if (!res.ok) {
         // Fallback to crafatar for Modrinth users too (they have MC usernames)
-        const fallback = `https://crafatar.com/avatars/${encodeURIComponent(username)}?size=64&overlay`;
+        const fallback = `https://mc-heads.net/avatar/${encodeURIComponent(username)}/64.png`;
         cache.set(cacheKey, fallback);
         cacheTimestamps.set(cacheKey, Date.now());
         return fallback;
@@ -42,13 +44,13 @@ async function fetchAvatar(username: string, source?: string): Promise<string | 
       const data = await res.json();
       const url = typeof data?.avatar_url === 'string' && data.avatar_url.length > 0
         ? data.avatar_url
-        : `https://crafatar.com/avatars/${encodeURIComponent(username)}?size=64&overlay`;
+        : `https://mc-heads.net/avatar/${encodeURIComponent(username)}/64.png`;
       cache.set(cacheKey, url);
       cacheTimestamps.set(cacheKey, Date.now());
       return url;
     } catch {
       // Fallback to crafatar instead of caching null permanently
-      const fallback = `https://crafatar.com/avatars/${encodeURIComponent(username)}?size=64&overlay`;
+      const fallback = `https://mc-heads.net/avatar/${encodeURIComponent(username)}/64.png`;
       cache.set(cacheKey, fallback);
       cacheTimestamps.set(cacheKey, Date.now());
       return fallback;

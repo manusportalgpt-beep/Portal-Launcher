@@ -887,6 +887,13 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         {/* ---------- Worlds & Servers ---------- */}
         {mainTab === 'worlds' && (
           <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3" style={cardStyle}>
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <Link className="h-4 w-4 shrink-0" style={{ color:'var(--color-primary)' }} />
+                <div className="min-w-0"><p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>Мир / LAN</p><p className="text-[11px]" style={{ color:'var(--color-text-secondary)' }}>{lanRelay?.local_port ? `Порт Minecraft: ${lanRelay.local_port}` : 'Сначала откройте мир для сети в Minecraft'}</p></div>
+              </div>
+              {lanRelay?.active && lanRelay.public_host && lanRelay.public_port ? <button onClick={() => navigator.clipboard?.writeText(`${lanRelay.public_host}:${lanRelay.public_port}`)} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Copy className="h-3.5 w-3.5" />{lanRelay.public_host}:{lanRelay.public_port}</button> : <button onClick={() => void toggleLanRelay()} disabled={lanBusy || !currentUser?.accessToken || !lanRelay?.local_port} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold disabled:opacity-50" style={{ background:'var(--color-surface-2)', color:'var(--color-text)', border:'1px solid var(--color-border)' }} title={!currentUser?.accessToken ? 'Войдите в аккаунт' : !lanRelay?.local_port ? 'Порт ещё не найден' : 'Создать адрес LAN'}><Link className="h-3.5 w-3.5" />{lanBusy ? 'Подключаю…' : 'Открыть LAN'}</button>}
+            </div>
             {filteredWorlds.map(w => {
               const worldIcon = toIconSrc(w.icon);
               return (

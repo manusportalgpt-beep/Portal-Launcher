@@ -138,9 +138,23 @@ struct ActiveLanRelay {
 static LAN_RELAY: once_cell::sync::Lazy<Mutex<Option<ActiveLanRelay>>> = once_cell::sync::Lazy::new(|| Mutex::new(None));
 
 fn lan_port_from_log(instance_id: &str) -> Option<u16> {
-    let path = instance_game_dir(instance_id).join("logs").join("latest.log");
-    let text = std::fs::read_to_string(path).ok()?;
-    let patterns = ["published lan", "local game hosted", "started serving", "hosting on port", "open to lan", "lan server"];
+    let logs_dir = instance_game_dir(instance_id).join("logs");
+    let mut paths = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&logs_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|ext| ext.to_str()).map(|ext| ext.eq_ignore_ascii_case("log")).unwrap_or(false) {
+                paths.push(path);
+            }
+        }
+    }
+    paths.sort_by_key(|path| std::fs::metadata(path).and_then(|meta| meta.modified()).ok());
+    let mut text = String::new();
+    for path in paths.into_iter().rev().take(3) {
+        if let Ok(contents) = std::fs::read_to_string(path) { text.push_str(&contents); text.push('\n'); }
+    }
+    if text.is_empty() { return None; }
+    let patterns = ["published lan", "local game hosted", "started serving", "hosting on port", "open to lan", "open to the lan", "lan server", "порт" ];
     for line in text.lines().rev() {
         let lower = line.to_ascii_lowercase();
         if !patterns.iter().any(|marker| lower.contains(marker)) { continue; }

@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { invoke } from '@/lib/invoke-shim';
 import { useChatHistory, type ChatMessage as StoredMessage } from '@/components/ai/ChatHistory';
 import { toastSuccess, toastError } from '@/components/ai/FileToast';
+import { PROVIDERS, PROXY_ENDPOINTS, endpointFor, defaultModelFor, modelGroups, type ProviderPreset } from '@/lib/ai-providers';
 
 
 interface Attachment {
@@ -18,59 +19,6 @@ interface Attachment {
 }
 
 interface AIAgentProps { onClose: () => void }
-
-interface ProviderPreset {
-  id: string;
-  name: string;
-  endpoint: string;
-  models: string[];
-  icon: string;
-}
-
-const PROVIDERS: ProviderPreset[] = [
-  {
-    id: 'openai', name: 'ChatGPT (OpenAI)',
-    endpoint: 'https://api.openai.com/v1/chat/completions',
-    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1', 'gpt-4.1-mini', 'o3-mini', 'o4-mini', 'gpt-4-turbo'],
-    icon: 'AI',
-  },
-  {
-    id: 'openrouter', name: 'OpenRouter',
-    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-    models: [
-      'openai/gpt-4o-mini', 'openai/gpt-4o', 'openai/gpt-4.1', 'openai/gpt-4.1-mini', 'openai/o3-mini', 'openai/o4-mini',
-      'anthropic/claude-3.5-sonnet', 'anthropic/claude-3.5-haiku', 'anthropic/claude-sonnet-4', 'anthropic/claude-haiku-4',
-      'meta-llama/llama-3.1-70b-instruct', 'meta-llama/llama-3.3-70b-instruct', 'meta-llama/llama-4-scout', 'meta-llama/llama-4-maverick',
-      'mistralai/mistral-large', 'mistralai/mistral-small', 'mistralai/codestral-2501',
-      'qwen/qwen-2.5-72b-instruct', 'qwen/qwen3-32b', 'qwen/qwen3-235b-a22b',
-      'google/gemini-2.0-flash', 'google/gemini-2.5-flash', 'google/gemini-2.5-pro',
-      'deepseek/deepseek-chat', 'deepseek/deepseek-r1', 'deepseek/deepseek-coder',
-      'openai/codex-mini', 'openai/codex',
-      'opencode/opencode', 'opencode/opencode-v2', 'opencode/opencode-thinking',
-      'zencode/zencode', 'zencode/zen-code', 'grok/grok-2', 'grok/grok-3',
-      'nousresearch/hermes-3', 'cohere/command-r', 'x-ai/grok-beta',
-    ],
-    icon: 'OR',
-  },
-  {
-    id: 'claude', name: 'Claude (Anthropic)',
-    endpoint: 'https://api.anthropic.com/v1/messages',
-    models: ['claude-3-5-haiku-20241022', 'claude-3-5-sonnet-20241022', 'claude-sonnet-4-20250514', 'claude-haiku-4-20250514', 'claude-opus-4-20250514'],
-    icon: 'CL',
-  },
-  {
-    id: 'proxy', name: 'Custom / Proxy',
-    endpoint: '',
-    models: [],
-    icon: 'PR',
-  },
-];
-
-const PROXY_ENDPOINTS: Record<string, string> = {
-  'openai': 'https://api.openai-proxy.org/v1/chat/completions',
-  'openrouter': 'https://openrouter.ai/api/v1/chat/completions',
-  'claude': 'https://api.anthropic-proxy.org/v1/messages',
-};
 
 const SYSTEM_PROMPT = `You are Portal Assistant (PTAgent), an AI built into Portal Launcher for Minecraft.
 
@@ -144,8 +92,16 @@ async function callAI(messages: StoredMessage[], ctx: string, settings: any): Pr
     }
   }
 
-  const actualEndpoint = useProxy && PROXY_ENDPOINTS[provider] ? PROXY_ENDPOINTS[provider] : endpoint;
-  const actualModel = model || (PROVIDERS.find(p => p.id === provider)?.models[0]) || 'gpt-4o-mini';
+  const actualEndpoint = (useProxy && PROXY_ENDPOINTS[provider]) ? PROXY_ENDPOINTS[provider] : (endpoint || endpointFor(provider, false));
+  const actualModel = model || defaultModelFor(provider) || 'gpt-4o-mini';
+
+  const fail = (status: number) => {
+    const label = PROVIDERS.find(p => p.id === provider)?.name ?? provider;
+    if (status === 401 || status === 403) {
+      return `Ошибка ${status} — неверный или отсутствует API-ключ для «${label}». Проверь ключ в Настройках → AI Agent.`;
+    }
+    return `HTTP ${status} — провайдер «${label}» не ответил. Проверь endpoint, прокси и ключ.`;
+  };
 
   try {
     if (provider === 'claude') {
@@ -154,7 +110,7 @@ async function callAI(messages: StoredMessage[], ctx: string, settings: any): Pr
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({ model: actualModel, max_tokens: 2048, system: systemMsg.content, messages: chatMessages.filter(m => m.role !== 'system') }),
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) throw new Error(fail(response.status));
       const data = await response.json();
       return data.content?.[0]?.text ?? 'No response.';
     }
@@ -164,7 +120,7 @@ async function callAI(messages: StoredMessage[], ctx: string, settings: any): Pr
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({ model: actualModel, messages: [systemMsg, ...chatMessages], max_tokens: 2048, temperature: 0.7 }),
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) throw new Error(fail(response.status));
     const data = await response.json();
     return data.choices?.[0]?.message?.content ?? 'No response.';
   } catch (e: any) {
@@ -417,8 +373,9 @@ export function AIAgent({ onClose }: AIAgentProps) {
 
   const selectProvider = (provider: ProviderPreset) => {
     updateSetting('provider', provider.id);
-    if (provider.endpoint) updateSetting('endpoint', provider.endpoint);
-    if (provider.models[0]) updateSetting('model', provider.models[0]);
+    updateSetting('endpoint', endpointFor(provider.id, settings.useProxy ?? true));
+    const firstModel = defaultModelFor(provider.id);
+    if (firstModel) updateSetting('model', firstModel);
     setShowProviderMenu(false);
   };
 
@@ -501,6 +458,22 @@ export function AIAgent({ onClose }: AIAgentProps) {
                       </span>
                     </button>
                   ))}
+                  {currentProvider.models.length > 0 && (
+                    <>
+                      <div className="px-3 pt-2 pb-1 text-[9px] font-black uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Модель</div>
+                      <div className="px-2 pb-1.5">
+                        <select value={settings.model || currentProvider.models[0] || ''} onChange={event => updateSetting('model', event.target.value)}
+                          className="w-full px-2 py-1.5 text-[11px] outline-none"
+                          style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 3 }}>
+                          {modelGroups(currentProvider).map(group => (
+                            <optgroup key={group.label} label={group.label}>
+                              {group.models.map(m => <option key={m} value={m}>{m}{group.label === 'Бесплатные' ? ' · Free' : ''}</option>)}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -664,7 +637,7 @@ export function AIAgent({ onClose }: AIAgentProps) {
           </div>
           <div className="flex items-center justify-between mt-1.5">
             <p className="text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>
-              {settings.apiKey ? `${currentProvider.name} — настроен` : 'Нет API-ключа — добавь в Настройках'}
+              {settings.apiKey ? `${currentProvider.name} · ${settings.model || defaultModelFor(currentProvider.id) || 'модель'}` : 'Нет API-ключа — добавь в Настройках'}
             </p>
             <p className="text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>
               Файлы: перетащи или вставь из буфера

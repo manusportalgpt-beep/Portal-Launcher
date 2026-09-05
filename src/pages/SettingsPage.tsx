@@ -8,6 +8,7 @@ import {
   Volume2, Code, Shield, Save, Layout, Upload, Gamepad2, Globe, Github, ExternalLink, Search, SlidersHorizontal, Bot,
 } from 'lucide-react';
 import { invoke } from '@/lib/invoke-shim';
+import { PROVIDERS, endpointFor, defaultModelFor, modelGroups } from '@/lib/ai-providers';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useCurrentUser, useIsAuthenticated, useAuthStore } from '@/stores/authStore';
@@ -763,13 +764,6 @@ function AdvancedSection() {
   const [saved, setSaved] = useState(false);
   const [aiSettings, setAiSettings] = useState(() => { try { const raw = JSON.parse(localStorage.getItem('portal-ai-settings') || '{}'); return { useProxy: true, ...raw }; } catch { return { useProxy: true }; } });
   const [aiSaved, setAiSaved] = useState(false);
-  const PROVIDERS = [
-    { id: 'openai', name: 'ChatGPT (OpenAI)', endpoint: 'https://api.openai.com/v1/chat/completions', models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1', 'gpt-4.1-mini', 'o3-mini', 'o4-mini'] },
-    { id: 'openrouter', name: 'OpenRouter', endpoint: 'https://openrouter.ai/api/v1/chat/completions', models: ['openai/gpt-4o-mini', 'openai/gpt-4o', 'openai/gpt-4.1', 'openai/gpt-4.1-mini', 'anthropic/claude-3.5-sonnet', 'anthropic/claude-3.5-haiku', 'meta-llama/llama-3.3-70b-instruct', 'meta-llama/llama-4-scout', 'deepseek/deepseek-chat', 'deepseek/deepseek-r1', 'google/gemini-2.5-flash', 'qwen/qwen3-32b', 'mistralai/codestral-2501', 'opencode/opencode', 'opencode/opencode-v2', 'opencode/opencode-thinking', 'zencode/zencode', 'zencode/zen-code', 'openai/codex-mini', 'openai/codex', 'x-ai/grok-beta', 'grok/grok-3'] },
-    { id: 'claude', name: 'Claude (Anthropic)', endpoint: 'https://api.anthropic.com/v1/messages', models: ['claude-3-5-haiku-20241022', 'claude-3-5-sonnet-20241022', 'claude-sonnet-4-20250514', 'claude-haiku-4-20250514'] },
-    { id: 'proxy', name: 'Custom / Proxy', endpoint: '', models: [] },
-  ];
-
   function saveCfKey() {
     s.setSetting('curseforgeApiKey', cfKey);
     setSaved(true);
@@ -787,8 +781,8 @@ function AdvancedSection() {
   }
   function selectAiProvider(provider: any) {
     updateAiSetting('provider', provider.id);
-    if (provider.endpoint) updateAiSetting('endpoint', provider.endpoint);
-    const firstModel = provider.models?.[0] || '';
+    updateAiSetting('endpoint', endpointFor(provider.id, aiSettings.useProxy ?? true));
+    const firstModel = defaultModelFor(provider.id);
     if (firstModel) updateAiSetting('model', firstModel);
   }
   async function testModrinthProxy() {
@@ -886,13 +880,17 @@ function AdvancedSection() {
             <label className="text-[11px] font-semibold block mb-1" style={{ color:'var(--color-text-tertiary)' }}>Модель</label>
             {(() => {
               const p = PROVIDERS.find(x => x.id === (aiSettings.provider || 'openai'));
-              const models = p?.models || [];
-              const current = aiSettings.model || models[0] || '';
-              if (models.length > 0) {
+              const groups = p ? modelGroups(p) : [];
+              const current = aiSettings.model || p?.models?.[0] || '';
+              if (groups.length > 0) {
                 return (
                   <select value={current} onChange={e => updateAiSetting('model', e.target.value)}
                     className="w-full px-3 py-2.5 text-sm" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)', borderRadius: 4 }}>
-                    {models.map(m => <option key={m} value={m}>{m}</option>)}
+                    {groups.map(group => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.models.map(m => <option key={m} value={m}>{m}{group.label === 'Бесплатные' ? ' · Free' : ''}</option>)}
+                      </optgroup>
+                    ))}
                   </select>
                 );
               }
@@ -905,7 +903,7 @@ function AdvancedSection() {
           </div>
           <div className="flex items-center gap-3 py-2">
             <label className="text-[11px] font-semibold" style={{ color:'var(--color-text-secondary)' }}>Use proxy (for Russia)</label>
-            <button onClick={() => updateAiSetting('useProxy', !aiSettings.useProxy)}
+            <button onClick={() => { const next = !aiSettings.useProxy; updateAiSetting('useProxy', next); updateAiSetting('endpoint', endpointFor(aiSettings.provider || 'openai', next)); }}
               className="relative" style={{ width: 38, height: 20 }}>
               <div className="absolute inset-0" style={{ background: aiSettings.useProxy ? 'var(--color-primary)' : 'var(--color-surface-2)', border: `1px solid ${aiSettings.useProxy ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRadius: 10 }} />
               <div className="absolute top-0.5 transition-[left]" style={{ width: 12, height: 12, background: '#fff', borderRadius: 6, left: aiSettings.useProxy ? 22 : 3 }} />

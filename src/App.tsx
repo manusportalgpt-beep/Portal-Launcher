@@ -112,7 +112,7 @@ function App() {
     };
   }, []);
   useUiEffects();
-  const [aiOpen, setAiOpen] = useState(() => localStorage.getItem(AI_PANEL_KEY) === '1');
+  const [aiOpen, setAiOpen] = useState(false);
   const toggleAi = useCallback(() => { setAiOpen(prev => { localStorage.setItem(AI_PANEL_KEY, !prev ? '1' : '0'); return !prev; }); }, []);
   useEffect(() => {
     const handler = () => toggleAi();

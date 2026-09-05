@@ -147,6 +147,7 @@ fn main() {
             commands::authors::get_curseforge_author,
             // Файловая система сборки
             commands::instance_fs::instance_list_dir,
+            commands::instance_fs::instance_search_files,
             commands::instance_fs::instance_read_text,
             commands::instance_fs::instance_write_text,
             commands::instance_fs::instance_mkdir,

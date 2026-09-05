@@ -62,6 +62,8 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [fileQuery, setFileQuery] = useState('');
+  const [globalHits, setGlobalHits] = useState<FsEntry[]>([]);
+  const [searching, setSearching] = useState(false);
   const [integrity, setIntegrity] = useState<IntegrityReport | null>(null);
   const [checkingIntegrity, setCheckingIntegrity] = useState(false);
   const [publishingLog, setPublishingLog] = useState(false);
@@ -82,6 +84,27 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
       return name.includes(query) || extension === extensionQuery || extension.includes(extensionQuery);
     });
   }, [entries, fileQuery]);
+
+  const isGlobalSearch = fileQuery.trim().length >= 2;
+
+  // Глобальный поиск по всей сборке (по имени файла/папки).
+  useEffect(() => {
+    const query = fileQuery.trim();
+    if (query.length < 2) { setGlobalHits([]); setSearching(false); return; }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const hits = await invoke<FsEntry[]>('instance_search_files', { instanceId, query });
+        if (!cancelled) setGlobalHits(hits);
+      } catch {
+        if (!cancelled) setGlobalHits([]);
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [fileQuery, instanceId]);
 
   const loadDir = async (path = cwd) => {
     setError('');
@@ -253,7 +276,7 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
       <div className="border-b px-2 py-2" style={{ borderColor: 'var(--color-border)' }}>
         <label className="flex items-center gap-2 rounded-lg px-2 py-1.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
           <Search className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />
-          <input value={fileQuery} onChange={event => setFileQuery(event.target.value)} placeholder="Поиск по имени или расширению…" className="min-w-0 flex-1 bg-transparent text-[10px] outline-none" style={{ color: 'var(--color-text)' }} />
+          <input value={fileQuery} onChange={event => setFileQuery(event.target.value)} placeholder="Поиск по всей сборке…" className="min-w-0 flex-1 bg-transparent text-[10px] outline-none" style={{ color: 'var(--color-text)' }} />
           {fileQuery && <button type="button" onClick={() => setFileQuery('')} className="rounded-md p-0.5" title="Очистить поиск"><X className="h-3 w-3" /></button>}
         </label>
       </div>
@@ -266,7 +289,19 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
         {!!integrity.missingFolders.length && <p className="mt-1" style={{ color: 'var(--color-text-secondary)' }}>Папки: {integrity.missingFolders.join(', ')}</p>}
       </div>}
       <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-        {visible.length === 0 ? <p className="m-1 rounded-xl border border-dashed p-4 text-center text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }}>Папка пуста</p> : visible.map(entry => { const visual = entry.is_dir ? folderVisual(entry.name) : fileVisual(entry.name); const MainIcon = visual.Icon; const BadgeIcon = visual.badge; const codeLabel = 'codeLabel' in visual ? visual.codeLabel : undefined; return <div key={entry.path} draggable onDragStart={event => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', entry.path); }} onDragOver={event => { if (entry.is_dir && event.dataTransfer.types.includes('text/plain')) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; } }} onDrop={event => { if (entry.is_dir) void moveEntryIntoFolder(event, entry.path); }} className="group flex items-center gap-1 rounded-xl px-2 py-1.5 transition-all duration-200 hover:-translate-y-px hover:bg-white/5" style={{ background: selected?.path === entry.path ? 'var(--color-primary-dim)' : 'transparent', boxShadow: selected?.path === entry.path ? '0 0 0 1px color-mix(in srgb, var(--color-primary) 28%, transparent)' : undefined }}>
+        {isGlobalSearch ? (
+        <>
+          {searching ? <p className="m-1 rounded-xl border border-dashed p-4 text-center text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }}><LoaderCircle className="mx-auto h-4 w-4 animate-spin" />Ищу по сборке…</p> : globalHits.length === 0 ? <p className="m-1 rounded-xl border border-dashed p-4 text-center text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }}>Ничего не найдено по всей сборке</p> : <p className="mb-1 px-1 text-[9px] font-black uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>По всей сборке · {globalHits.length}</p>}
+          {searching || globalHits.length === 0 ? null : globalHits.map(entry => { const visual = entry.is_dir ? folderVisual(entry.name) : fileVisual(entry.name); const MainIcon = visual.Icon; const BadgeIcon = visual.badge; return (
+            <div key={entry.path} className="group flex items-center gap-1 rounded-xl px-2 py-1.5 transition-all duration-200 hover:bg-white/5" style={{ background: selected?.path === entry.path ? 'var(--color-primary-dim)' : 'transparent' }}>
+              <button onClick={() => void open(entry)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                <span className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-lg" style={{ color: visual.color, background: entry.is_dir ? 'var(--color-surface-2)' : 'transparent', border: entry.is_dir ? '1px solid var(--color-border)' : undefined }}><MainIcon className="h-3.5 w-3.5" />{BadgeIcon && <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full" style={{ background: 'var(--color-surface)', color: visual.color }}><BadgeIcon className="h-2.5 w-2.5" /></span>}</span>
+                <span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium" style={{ color: 'var(--color-text)' }}>{entry.name}</span><span className="block truncate text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>{entry.path}</span></span>
+              </button>
+              <button onClick={() => void open(entry)} className="rounded-md px-1.5 py-1 text-[9px] font-bold opacity-0 group-hover:opacity-100" style={{ color: 'var(--color-primary)', background: 'var(--color-primary-dim)' }}>{entry.is_dir ? 'Открыть' : 'Открыть файл'}</button>
+            </div>); })}
+        </>
+      ) : visible.length === 0 ? <p className="m-1 rounded-xl border border-dashed p-4 text-center text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }}>Папка пуста</p> : visible.map(entry => { const visual = entry.is_dir ? folderVisual(entry.name) : fileVisual(entry.name); const MainIcon = visual.Icon; const BadgeIcon = visual.badge; const codeLabel = 'codeLabel' in visual ? visual.codeLabel : undefined; return <div key={entry.path} draggable onDragStart={event => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', entry.path); }} onDragOver={event => { if (entry.is_dir && event.dataTransfer.types.includes('text/plain')) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; } }} onDrop={event => { if (entry.is_dir) void moveEntryIntoFolder(event, entry.path); }} className="group flex items-center gap-1 rounded-xl px-2 py-1.5 transition-all duration-200 hover:-translate-y-px hover:bg-white/5" style={{ background: selected?.path === entry.path ? 'var(--color-primary-dim)' : 'transparent', boxShadow: selected?.path === entry.path ? '0 0 0 1px color-mix(in srgb, var(--color-primary) 28%, transparent)' : undefined }}>
           <button onClick={() => void open(entry)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
             <span className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-lg" style={{ color: visual.color, background: entry.is_dir ? 'var(--color-surface-2)' : 'transparent', border: entry.is_dir ? '1px solid var(--color-border)' : undefined }}>{codeLabel ? <span className="font-mono text-[9px] font-black tracking-tighter">{codeLabel}</span> : <MainIcon className="h-3.5 w-3.5" />}{BadgeIcon && <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full" style={{ background:'var(--color-surface)', color:visual.color }}><BadgeIcon className="h-2.5 w-2.5" /></span>}</span>
             <span className="min-w-0 flex-1 truncate text-xs font-medium" style={{ color: 'var(--color-text)' }}>{entry.name}</span>

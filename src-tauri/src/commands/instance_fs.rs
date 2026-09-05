@@ -222,6 +222,63 @@ pub fn instance_list_dir(instance_id: String, path: Option<String>) -> Result<Ve
     Ok(out)
 }
 
+/// Рекурсивный поиск по файлам сборки (по имени/расширению).
+/// Пропускает скрытые папки и тяжёлые миры (`saves`) ради скорости.
+#[tauri::command]
+pub fn instance_search_files(instance_id: String, query: String) -> Result<Vec<FsEntry>, String> {
+    let root = safe_join(&instance_id, "")?;
+    let q = query.trim().to_lowercase();
+    if q.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    fn walk(dir: &Path, rel: &str, q: &str, out: &mut Vec<FsEntry>, scanned: &mut u32) {
+        if *scanned >= 80_000 || out.len() >= 300 {
+            return;
+        }
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for entry in entries.flatten() {
+            if *scanned >= 80_000 || out.len() >= 300 {
+                return;
+            }
+            *scanned += 1;
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') {
+                continue;
+            }
+            let p = entry.path();
+            let is_dir = p.is_dir();
+            // Миры — десятки тысяч бинарных файлов, их поиск почти не нужен.
+            if is_dir && name.eq_ignore_ascii_case("saves") {
+                continue;
+            }
+            let rel_path = if rel.is_empty() {
+                name.clone()
+            } else {
+                format!("{}/{}", rel, name)
+            };
+            if name.to_lowercase().contains(q) {
+                out.push(FsEntry {
+                    name,
+                    path: rel_path.clone(),
+                    is_dir,
+                    size: entry.metadata().map(|m| m.len()).unwrap_or(0),
+                    modified: None,
+                    kind: kind_of(&p),
+                });
+            }
+            if is_dir {
+                walk(&p, &rel_path, q, out, scanned);
+            }
+        }
+    }
+
+    let mut out = Vec::new();
+    let mut scanned = 0u32;
+    walk(&root, "", &q, &mut out, &mut scanned);
+    Ok(out)
+}
+
 #[tauri::command]
 pub fn instance_read_text(instance_id: String, path: String) -> Result<String, String> {
     let p = safe_join(&instance_id, &path)?;

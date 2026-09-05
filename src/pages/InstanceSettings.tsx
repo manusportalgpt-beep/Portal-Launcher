@@ -234,13 +234,22 @@ export function InstanceSettings() {
     const gameCoreChanged = form.minecraftVersion !== inst.minecraftVersion || form.modLoader !== inst.modLoader;
     if (gameCoreChanged) {
       try {
-        const incompatible = await invoke<Array<{ name: string }>>('check_instance_target_mod_compatibility', {
+        const compat = await invoke<Array<{ name: string; source: string; file_name: string; status: string; detail: string }>>('check_instance_target_mod_compatibility', {
           instanceId: inst.id, targetVersion: form.minecraftVersion, targetLoader: form.modLoader,
         });
-        if (incompatible.length) {
-          const names = incompatible.map(item => item.name).slice(0, 8).join(', ');
-          const subject = incompatible.length === 1 ? 'Этот мод не работает' : 'Эти моды не работают';
-          const approved = await dialog.confirm(`${subject} на Minecraft ${form.minecraftVersion} с ${form.modLoader}: ${names}${incompatible.length > 8 ? ' и другие' : ''}.\n\nЕсли продолжить, моды останутся в сборке: mclo.gs сможет показать их в диагностике запуска.`, { title: 'Предупреждение о совместимости модов', confirmLabel: 'Изменить всё равно', cancelLabel: 'Отмена', danger: true });
+        const needUpdate = compat.filter(item => item.status === 'update');
+        const unstable = compat.filter(item => item.status === 'unstable');
+        if (needUpdate.length || unstable.length) {
+          const parts: string[] = [];
+          if (needUpdate.length) {
+            const names = needUpdate.map(item => item.name).slice(0, 8).join(', ');
+            parts.push(`Требуют обновления (${needUpdate.length}): ${names}${needUpdate.length > 8 ? ' и другие' : ''}`);
+          }
+          if (unstable.length) {
+            const names = unstable.map(item => item.name).slice(0, 8).join(', ');
+            parts.push(`Могут работать нестабильно (${unstable.length}): ${names}${unstable.length > 8 ? ' и другие' : ''}`);
+          }
+          const approved = await dialog.confirm(`${parts.join('\n\n')}\n\nПродолжить смену ядра на Minecraft ${form.minecraftVersion} с ${form.modLoader}? После сохранения запустится проверка обновлений модов.`, { title: 'Предупреждение о совместимости модов', confirmLabel: 'Изменить всё равно', cancelLabel: 'Отмена', danger: true });
           if (!approved) return;
         }
       } catch {

@@ -1471,32 +1471,90 @@ pub async fn check_instance_target_mod_compatibility(
     let mods = get_instance_mods(instance_id).await?;
     let client = reqwest::Client::builder().user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
     let cf_loader = match target_loader.as_str() { "forge" => Some(1), "fabric" => Some(4), "quilt" => Some(5), "neoforge" => Some(6), _ => None };
-    let mut incompatible = Vec::new();
+    let mut result = Vec::new();
 
     for item in mods.into_iter().filter(|item| item.mod_type == "mod") {
-        let compatible = match item.source.as_str() {
+        let mut status = "ok".to_string();
+        let mut detail = String::new();
+
+        match item.source.as_str() {
             "modrinth" if !item.id.trim().is_empty() => {
-                let url = format!("https://api.modrinth.com/v2/project/{}/version?game_versions=[\"{}\"]&loaders=[\"{}\"]", item.id, target_version, target_loader);
-                match client.get(url).send().await {
+                let url = format!("https://api.modrinth.com/v2/project/{}/version?limit=100", item.id);
+                match client.get(&url).send().await {
                     Ok(response) => match response.json::<serde_json::Value>().await {
-                        Ok(value) => value.as_array().map(|versions| !versions.is_empty()).unwrap_or(true),
-                        Err(_) => true,
+                        Ok(value) => {
+                            let versions = value.as_array();
+                            let mut supported_versions: Vec<String> = vec![];
+                            let mut supported_loaders: Vec<String> = vec![];
+                            if let Some(list) = versions {
+                                for v in list {
+                                    if let Some(gv) = v["game_versions"].as_array() {
+                                        for x in gv { if let Some(xs) = x.as_str() { supported_versions.push(xs.to_string()); } }
+                                    }
+                                    if let Some(ld) = v["loaders"].as_array() {
+                                        for x in ld { if let Some(xs) = x.as_str() { supported_loaders.push(xs.to_string()); } }
+                                    }
+                                }
+                            }
+                            if let Some(list) = versions {
+                                if list.is_empty() {
+                                    status = "unstable".into();
+                                    detail = "автор снял файлы, проверить нельзя".into();
+                                } else if !supported_versions.iter().any(|v| v == &target_version) {
+                                    status = "update".into();
+                                    detail = format!("нет версии для Minecraft {target_version}");
+                                } else if !supported_loaders.is_empty() && !supported_loaders.iter().any(|l| l == &target_loader) {
+                                    status = "unstable".into();
+                                    detail = format!("есть для {target_version}, но лоадер {target_loader} не заявлен");
+                                }
+                            } else {
+                                status = "unstable".into();
+                                detail = "не удалось получить метаданные".into();
+                            }
+                        }
+                        Err(_) => { status = "unstable".into(); detail = "ошибка ответа Modrinth".into(); }
                     },
-                    Err(_) => true,
+                    Err(_) => { status = "unstable".into(); detail = "нет сети для проверки".into(); }
                 }
             }
             "curseforge" if item.id.parse::<u64>().is_ok() => {
                 let id = item.id.parse::<u64>().unwrap_or_default();
-                super::curseforge::get_curseforge_mod_files(id, Some(target_version.clone()), cf_loader, String::new()).await
-                    .ok()
-                    .and_then(|value| value["data"].as_array().map(|files| !files.is_empty()))
-                    .unwrap_or(true)
+                match super::curseforge::get_curseforge_mod_files(id, Some(target_version.clone()), cf_loader, String::new()).await {
+                    Ok(file_list) => {
+                        let has = file_list["data"].as_array().map(|files| !files.is_empty()).unwrap_or(false);
+                        if has {
+                            status = "ok".into();
+                        } else {
+                            match super::curseforge::get_curseforge_mod_files(id, Some(target_version.clone()), None, String::new()).await {
+                                Ok(all_for_version) => {
+                                    if all_for_version["data"].as_array().map(|files| !files.is_empty()).unwrap_or(false) {
+                                        status = "unstable".into();
+                                        detail = format!("есть для {target_version}, но лоадер {target_loader} не заявлен");
+                                    } else {
+                                        status = "update".into();
+                                        detail = format!("нет версии для Minecraft {target_version}");
+                                    }
+                                }
+                                Err(_) => { status = "unstable".into(); detail = "не удалось проверить CurseForge".into(); }
+                            }
+                        }
+                    }
+                    Err(_) => { status = "unstable".into(); detail = "CurseForge: нет ключа или сети".into(); }
+                }
             }
-            _ => true,
-        };
-        if !compatible {
-            incompatible.push(serde_json::json!({"name": item.name, "source": item.source, "file_name": item.file_name}));
+            _ => { status = "unstable".into(); detail = "ручной файл — совместимость не проверить".into(); }
+        }
+
+        if status != "ok" {
+            result.push(serde_json::json!({
+                "name": item.name,
+                "source": item.source,
+                "file_name": item.file_name,
+                "status": status,
+                "detail": detail,
+            }));
         }
     }
-    Ok(incompatible)
+    Ok(result)
 }
+

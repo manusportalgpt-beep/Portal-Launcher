@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { isTauri } from '@/lib/invoke-shim';
 import { Minus, Square, Copy, X } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useUiStore } from '@/stores/uiStore';
@@ -12,11 +13,19 @@ const portalIcon = '/launcher-icon.png?rev=portal-square-2';
 /** Три кастомные кнопки Windows: свернуть / развернуть / закрыть. */
 export function WindowControls() {
   const [maximized, setMaximized] = useState(false);
-  const win = getCurrentWindow();
+  let win: ReturnType<typeof getCurrentWindow> | null = null;
+  try {
+    if (isTauri()) win = getCurrentWindow();
+  } catch {
+    win = null;
+  }
 
   useEffect(() => {
+    if (!win) return;
     win.isMaximized().then(setMaximized).catch(() => {});
   }, [win]);
+
+  if (!win) return null;
 
   const btn =
     'h-6 w-8 inline-flex items-center justify-center text-[var(--color-text)]/65 transition-colors duration-150 hover:text-[var(--color-text)] hover:bg-white/10 active:scale-[0.96]';

@@ -37,7 +37,7 @@ import { useNotifStore } from '@/stores/notificationStore';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useLaunchStore } from '@/stores/launchStore';
-import { invoke } from '@/lib/invoke-shim';
+import { invoke, isTauri } from '@/lib/invoke-shim';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
@@ -74,6 +74,7 @@ function App() {
   // launcher shell while that instance is starting so the shortcut behaves as
   // a direct Minecraft launch, then show Portal Launcher after the game exits.
   useEffect(() => {
+    if (!isTauri()) return;
     let disposed = false;
     let shortcutLaunch = false;
     const win = getCurrentWindow();
@@ -172,7 +173,7 @@ function App() {
       <BackgroundVideo />
       <div className="relative z-10 flex h-full min-h-0 flex-col" style={{ opacity: 'var(--portal-interface-opacity, 1)' }}>
       <GlobalHotkeys />
-      <TitleBar />
+      {isTauri() && <TitleBar />}
       <AnimatePresence>
         {loading ? <SplashScreen onComplete={() => setLoading(false)} /> : null}
       </AnimatePresence>

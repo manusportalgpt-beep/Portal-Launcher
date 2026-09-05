@@ -118,7 +118,11 @@ async function callAI(messages: StoredMessage[], ctx: string, settings: any): Pr
 
     const response = await fetch(actualEndpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        ...(provider === 'openrouter' ? { 'HTTP-Referer': 'https://portal-launcher.local', 'X-Title': 'Portal Launcher PTAgent' } : {}),
+      },
       body: JSON.stringify({ model: actualModel, messages: [systemMsg, ...chatMessages], max_tokens: 2048, temperature: 0.7 }),
     });
     if (!response.ok) throw new Error(fail(response.status));
@@ -295,7 +299,13 @@ export function AIAgent({ onClose }: AIAgentProps) {
     try {
       const raw = localStorage.getItem('portal-ai-settings');
       const parsed = raw ? JSON.parse(raw) : {};
-      return { ...parsed, useProxy: parsed.useProxy ?? false };
+      return {
+        provider: parsed.provider || 'openrouter',
+        endpoint: parsed.endpoint || endpointFor('openrouter', false),
+        model: parsed.model || defaultModelFor('openrouter'),
+        useProxy: parsed.useProxy ?? true,
+        ...parsed,
+      };
     } catch { return { useProxy: false }; }
   };
 

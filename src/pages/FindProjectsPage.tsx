@@ -477,7 +477,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
   return (
     <div className="flex items-center gap-1.5">
       {sourceChoiceAvailable && <div className="flex overflow-hidden" style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}>
-        {(['modrinth','curseforge'] as SourcePlatform[]).map(source => <button key={source} title={source === 'modrinth' ? 'Скачать с Modrinth' : 'Скачать с CurseForge'} onClick={event => { event.stopPropagation(); setSelectedSource(source); }} className="px-1.5 py-1 text-[9px] font-bold" style={{ background:selectedSource === source ? 'var(--color-primary-dim)' : 'transparent', color:selectedSource === source ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>{source === 'modrinth' ? 'MR' : 'CF'}</button>)}
+        {(['modrinth','curseforge'] as SourcePlatform[]).map(source => <button key={source} title={source === 'modrinth' ? 'Скачать с Modrinth' : 'Скачать с CurseForge'} onClick={event => { event.stopPropagation(); setSelectedSource(source); }} className="flex items-center justify-center px-1.5 py-1" style={{ background:selectedSource === source ? 'var(--color-primary-dim)' : 'transparent', color:selectedSource === source ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>{source === 'modrinth' ? <ModrinthLogo size={14} /> : <img src={curseforgeAnvil} width={14} height={14} alt="CurseForge" className="object-contain" />}</button>)}
       </div>}
     <button onClick={doInstall}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold hover:opacity-90 transition-all"
@@ -784,7 +784,7 @@ export function FindProjectsPage() {
           projectType: TYPE_DEFS[pt].modrinthFacet,
         });
         const mapped = (res.hits || []).map(h => fromModrinth(h));
-        setResults(mapped);
+        setResults(previous => pg === 0 ? mapped : dedupeCombinedProjects([...previous, ...mapped]));
         setTotal(res.total_hits);
         setReachableTotal(null);
         setCapped(false);
@@ -804,7 +804,7 @@ export function FindProjectsPage() {
           apiKey: cfApiKey,
         });
         const mapped = (res.data || []).map(m => fromCurseForge(m));
-        setResults(mapped);
+        setResults(previous => pg === 0 ? mapped : dedupeCombinedProjects([...previous, ...mapped]));
         setTotal(res.pagination?.total_count ?? 0);
         setReachableTotal(res.reachable_count ?? null);
         setCapped(!!res.capped);
@@ -843,7 +843,7 @@ export function FindProjectsPage() {
         const combinedTotal = (mr?.total_hits ?? 0) + (cf?.pagination?.total_count ?? 0);
         const combinedReachable = cf?.reachable_count == null ? null : (mr?.total_hits ?? 0) + cf.reachable_count;
         const combinedCapped = Boolean(cf?.capped);
-        setResults(mapped);
+        setResults(previous => pg === 0 ? mapped : dedupeCombinedProjects([...previous, ...mapped]));
         setTotal(combinedTotal);
         setReachableTotal(combinedReachable);
         setCapped(combinedCapped);

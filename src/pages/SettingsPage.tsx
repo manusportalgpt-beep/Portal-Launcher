@@ -762,7 +762,7 @@ function AdvancedSection() {
   const [proxyStatus, setProxyStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>('idle');
   const [proxyMessage, setProxyMessage] = useState('');
   const [saved, setSaved] = useState(false);
-  const [aiSettings, setAiSettings] = useState(() => { try { const raw = JSON.parse(localStorage.getItem('portal-ai-settings') || '{}'); return { useProxy: true, ...raw }; } catch { return { useProxy: true }; } });
+  const [aiSettings, setAiSettings] = useState(() => { try { const raw = JSON.parse(localStorage.getItem('portal-ai-settings') || '{}'); return { useProxy: false, ...raw }; } catch { return { useProxy: false }; } });
   const [aiSaved, setAiSaved] = useState(false);
   function saveCfKey() {
     s.setSetting('curseforgeApiKey', cfKey);
@@ -781,7 +781,7 @@ function AdvancedSection() {
   }
   function selectAiProvider(provider: any) {
     updateAiSetting('provider', provider.id);
-    updateAiSetting('endpoint', endpointFor(provider.id, aiSettings.useProxy ?? true));
+    updateAiSetting('endpoint', endpointFor(provider.id, false));
     const firstModel = defaultModelFor(provider.id);
     if (firstModel) updateAiSetting('model', firstModel);
   }
@@ -901,14 +901,17 @@ function AdvancedSection() {
               );
             })()}
           </div>
-          <div className="flex items-center gap-3 py-2">
-            <label className="text-[11px] font-semibold" style={{ color:'var(--color-text-secondary)' }}>Use proxy (for Russia)</label>
-            <button onClick={() => { const next = !aiSettings.useProxy; updateAiSetting('useProxy', next); updateAiSetting('endpoint', endpointFor(aiSettings.provider || 'openai', next)); }}
+          <div className="flex items-center gap-3 py-1">
+            <label className="text-[11px] font-semibold" style={{ color:'var(--color-text-secondary)' }}>Прокси включён</label>
+            <button onClick={() => { const next = !aiSettings.useProxy; updateAiSetting('useProxy', next); if (next) { updateAiSetting('endpoint', aiSettings.endpoint); } else { updateAiSetting('endpoint', endpointFor(aiSettings.provider || 'openai', false)); } }}
               className="relative" style={{ width: 38, height: 20 }}>
               <div className="absolute inset-0" style={{ background: aiSettings.useProxy ? 'var(--color-primary)' : 'var(--color-surface-2)', border: `1px solid ${aiSettings.useProxy ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRadius: 10 }} />
               <div className="absolute top-0.5 transition-[left]" style={{ width: 12, height: 12, background: '#fff', borderRadius: 6, left: aiSettings.useProxy ? 22 : 3 }} />
             </button>
           </div>
+          <p className="text-[10px] leading-4" style={{ color:'var(--color-text-tertiary)' }}>
+            Встроенных прокси-адресов нет. Если ключ не работает из РФ, укажи в поле Endpoint рабочий адрес своего прокси (или ключа-прокси): обычно он выдаётся вместе с ключом и заканчивается на <code style={{ fontFamily:'monospace' }}>/v1/chat/completions</code>.
+          </p>
           <button onClick={saveAiSettings} className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold transition-all" style={{ background: aiSaved ? 'rgba(46,204,113,0.15)' : 'var(--color-primary)', color: aiSaved ? '#2ECC71' : 'var(--color-primary-text)', borderRadius: 4, border: aiSaved ? '1px solid #2ECC7144' : 'none' }}>
             {aiSaved ? <><Check className="w-4 h-4" />Saved</> : <><Save className="w-4 h-4" />Save</>}
           </button>

@@ -67,18 +67,15 @@ export const PROVIDERS: ProviderPreset[] = [
   },
 ];
 
-/** Прокси для обхода региональных блокировок (РФ и др.). */
-export const PROXY_ENDPOINTS: Record<string, string> = {
-  'openai': 'https://api.openai-proxy.org/v1/chat/completions',
-  'openrouter': 'https://openrouter.ai/api/v1/chat/completions',
-  'claude': 'https://api.anthropic-proxy.org/v1/messages',
-};
-
-/** Endpoint, который должен стоять у провайдера с учётом прокси. */
-export function endpointFor(providerId: string, useProxy: boolean): string {
+/**
+ * Endpoint провайдера по умолчанию.
+ * Поскольку встроенных надёжных прокси-хостов нет, endpoint всегда
+ * официальный: для работы из РФ используй готовый прокси-ключ
+ * (часто его выдают прямо в виде endpoint) или провайдер «Custom / Proxy».
+ */
+export function endpointFor(providerId: string, _useProxy: boolean): string {
   const preset = PROVIDERS.find(p => p.id === providerId);
   if (!preset) return '';
-  if (useProxy && PROXY_ENDPOINTS[preset.id]) return PROXY_ENDPOINTS[preset.id];
   return preset.endpoint;
 }
 

@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { invoke } from '@/lib/invoke-shim';
 import { useChatHistory, type ChatMessage as StoredMessage } from '@/components/ai/ChatHistory';
 import { toastSuccess, toastError } from '@/components/ai/FileToast';
-import { PROVIDERS, PROXY_ENDPOINTS, endpointFor, defaultModelFor, modelGroups, type ProviderPreset } from '@/lib/ai-providers';
+import { PROVIDERS, endpointFor, defaultModelFor, modelGroups, type ProviderPreset } from '@/lib/ai-providers';
 
 
 interface Attachment {
@@ -92,18 +92,19 @@ async function callAI(messages: StoredMessage[], ctx: string, settings: any): Pr
     }
   }
 
-  const actualEndpoint = (useProxy && PROXY_ENDPOINTS[provider]) ? PROXY_ENDPOINTS[provider] : (endpoint || endpointFor(provider, false));
+  const actualEndpoint = endpoint || endpointFor(provider, false);
   const actualModel = model || defaultModelFor(provider) || 'gpt-4o-mini';
 
   const fail = (status: number) => {
     const label = PROVIDERS.find(p => p.id === provider)?.name ?? provider;
     if (status === 401 || status === 403) {
-      return `Ошибка ${status} — неверный или отсутствует API-ключ для «${label}». Проверь ключ в Настройках → AI Agent.`;
+      return `Ошибка ${status} — «${label}» отклонил ключ. Причины: неверный/просроченный ключ, регион РФ или нерабочий прокси-адрес. Проверь ключ и Endpoint в Настройках → AI Agent; из РФ нужен рабочий прокси-ключ (его endpoint вставь в поле Endpoint).`;
     }
     return `HTTP ${status} — провайдер «${label}» не ответил. Проверь endpoint, прокси и ключ.`;
   };
 
   try {
+
     if (provider === 'claude') {
       const response = await fetch(actualEndpoint, {
         method: 'POST',
@@ -124,7 +125,10 @@ async function callAI(messages: StoredMessage[], ctx: string, settings: any): Pr
     const data = await response.json();
     return data.choices?.[0]?.message?.content ?? 'No response.';
   } catch (e: any) {
-    return `Error: ${String(e)}`;
+    if (e instanceof TypeError && /failed to fetch|network/i.test(String(e))) {
+      return 'Не удалось подключиться к провайдеру. Проверь интернет и корректность Endpoint в Настройках.';
+    }
+    return `Ошибка: ${String(e)}`;
   }
 }
 
@@ -291,8 +295,8 @@ export function AIAgent({ onClose }: AIAgentProps) {
     try {
       const raw = localStorage.getItem('portal-ai-settings');
       const parsed = raw ? JSON.parse(raw) : {};
-      return { ...parsed, useProxy: parsed.useProxy ?? true };
-    } catch { return { useProxy: true }; }
+      return { ...parsed, useProxy: parsed.useProxy ?? false };
+    } catch { return { useProxy: false }; }
   };
 
   const saveSettings = (s: any) => {
@@ -357,7 +361,7 @@ export function AIAgent({ onClose }: AIAgentProps) {
     const prior = [...messages, userMsg];
     try {
       const ctx = getCtx(instances, user, sessionInstanceId);
-      const reply = await callAI(prior, ctx, { ...settings, provider: settings.provider || 'openai', apiKey: settings.apiKey || '', model: settings.model || currentProvider.models[0] || "gpt-4o-mini", endpoint: settings.endpoint || currentProvider.endpoint, useProxy: settings.useProxy ?? true });
+      const reply = await callAI(prior, ctx, { ...settings, provider: settings.provider || 'openai', apiKey: settings.apiKey || '', model: settings.model || currentProvider.models[0] || "gpt-4o-mini", endpoint: settings.endpoint || currentProvider.endpoint, useProxy: settings.useProxy ?? false });
       addMessage(activeSession.id, { role: 'assistant', content: reply, timestamp: Date.now() });
     } catch (e: any) {
       addMessage(activeSession.id, { role: 'assistant', content: `Error: ${String(e)}`, timestamp: Date.now() });
@@ -373,7 +377,7 @@ export function AIAgent({ onClose }: AIAgentProps) {
 
   const selectProvider = (provider: ProviderPreset) => {
     updateSetting('provider', provider.id);
-    updateSetting('endpoint', endpointFor(provider.id, settings.useProxy ?? true));
+    updateSetting('endpoint', endpointFor(provider.id, false));
     const firstModel = defaultModelFor(provider.id);
     if (firstModel) updateSetting('model', firstModel);
     setShowProviderMenu(false);

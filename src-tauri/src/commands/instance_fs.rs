@@ -140,21 +140,17 @@ static LAN_RELAY: once_cell::sync::Lazy<Mutex<Option<ActiveLanRelay>>> = once_ce
 fn lan_port_from_log(instance_id: &str) -> Option<u16> {
     let path = instance_game_dir(instance_id).join("logs").join("latest.log");
     let text = std::fs::read_to_string(path).ok()?;
-    let patterns = [
-        "Published LAN server on port",
-        "Local game hosted on port",
-        "Started serving on",
-        "Hosting on port",
-        "Open to LAN",
-    ];
+    let patterns = ["published lan", "local game hosted", "started serving", "hosting on port", "open to lan", "lan server"];
     for line in text.lines().rev() {
         let lower = line.to_ascii_lowercase();
-        if patterns.iter().any(|marker| lower.contains(&marker.to_ascii_lowercase())) {
-            let digits: String = line.chars().rev().take_while(|c| c.is_ascii_digit()).collect::<String>().chars().rev().collect();
-            if let Ok(port) = digits.parse::<u16>() { if port > 0 { return Some(port); } }
-            if let Some(value) = line.split(|c: char| !c.is_ascii_digit()).filter(|part| !part.is_empty()).last() {
-                if let Ok(port) = value.parse::<u16>() { if port > 0 { return Some(port); } }
-            }
+        if !patterns.iter().any(|marker| lower.contains(marker)) { continue; }
+        let candidates: Vec<u16> = line.split(|c: char| !c.is_ascii_digit())
+            .filter_map(|part| part.parse::<u16>().ok())
+            .filter(|port| (1024..=65535).contains(port))
+            .collect();
+        if let Some(port) = candidates.last() { return Some(*port); }
+        if let Some(port) = line.split(|c: char| !c.is_ascii_digit()).filter_map(|part| part.parse::<u16>().ok()).last() {
+            if port > 0 { return Some(port); }
         }
     }
     None

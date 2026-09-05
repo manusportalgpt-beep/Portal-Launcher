@@ -725,6 +725,9 @@ pub async fn launch_instance(
         "-XX:+UseG1GC".into(),
         "-XX:+ParallelRefProcEnabled".into(),
         "-XX:MaxGCPauseMillis=200".into(),
+        "-XX:G1ReservePercent=20".into(),
+        "-XX:InitiatingHeapOccupancyPercent=15".into(),
+        "-XX:+UseStringDeduplication".into(),
         "-XX:+DisableExplicitGC".into(),
     ]);
 
@@ -852,19 +855,16 @@ pub async fn launch_instance(
     for variable in ["_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS"] {
         cmd.env_remove(variable);
     }
-    // Linux hybrid graphics: Mesa PRIME selects the discrete adapter with
-    // DRI_PRIME=1. NVIDIA's proprietary PRIME offload additionally needs its
-    // vendor and Vulkan-layer hints. Only add those NVIDIA-specific variables
-    // when the driver is actually present, otherwise Intel/AMD systems keep
-    // their normal Mesa device selection.
+    // Keep Linux GPU selection with the desktop/driver, as Modrinth App does.
+    // Forcing DRI_PRIME=1 here can select the wrong adapter, disable a user's
+    // tuned profile, or even reduce performance on systems with one GPU. Users
+    // who explicitly choose PRIME retain their existing environment.
     #[cfg(target_os = "linux")]
     {
-        cmd.env("DRI_PRIME", "1");
-        if Path::new("/proc/driver/nvidia/version").exists() {
-            cmd.env("__NV_PRIME_RENDER_OFFLOAD", "1");
-            cmd.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia");
-            cmd.env("__VK_LAYER_NV_optimus", "NVIDIA_only");
-        }
+        log::info!(
+            "Linux GPU selection is delegated to the desktop driver (DRI_PRIME={:?})",
+            std::env::var("DRI_PRIME").ok()
+        );
     }
     // Windows stores GPU preference per executable. Modrinth documents this
     // as the way to prevent Minecraft from silently using an integrated GPU.

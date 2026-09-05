@@ -208,8 +208,17 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    void invoke<LanRelayInfo>('get_lan_relay_status', { instanceId }).then(status => { if (!cancelled) setLanRelay(status); }).catch(() => undefined);
-    return () => { cancelled = true; };
+    const refreshLan = () => {
+      void invoke<LanRelayInfo>('get_lan_relay_status', { instanceId })
+        .then(status => { if (!cancelled) setLanRelay(status); })
+        .catch(() => undefined);
+    };
+    refreshLan();
+    // Minecraft writes the LAN port only after the user presses "Open to LAN".
+    // Poll while the worlds tab is mounted so the action becomes available
+    // without leaving and reopening the instance page.
+    const timer = window.setInterval(refreshLan, 1500);
+    return () => { cancelled = true; window.clearInterval(timer); };
   }, [instanceId]);
 
   const toggleLanRelay = async () => {

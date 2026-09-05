@@ -71,7 +71,7 @@ interface ModrinthHit {
 interface ModrinthResult { hits: ModrinthHit[]; total_hits: number; }
 interface CfMod {
   id: number; name: string; summary: string;
-  authors: { id?: number; name: string }[];
+  authors: { id?: number; name: string; avatar_url?: string }[];
   download_count: number; thumbs_up_count: number;
   logo?: { thumbnail_url: string };
   categories: { name: string }[];
@@ -81,7 +81,7 @@ interface CfMod {
 interface CfResult { data: CfMod[]; pagination: { total_count: number }; reachable_count?: number; capped?: boolean }
 interface Project {
   id: string; slug: string; title: string; description: string;
-  author: string; authorId?: number; downloads: number; follows: number; iconUrl?: string;
+  author: string; authorId?: number; authorAvatarUrl?: string; downloads: number; follows: number; iconUrl?: string;
   categories: string[]; gameVersions: string[]; loaders: string[];
   dateModified: string; platform: Platform; projectType: ProjectType;
   sources?: SourcePlatform[];
@@ -243,8 +243,8 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
   const [state, setState] = useState<'idle'|'busy'|'done'|'err'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmRunningInstall, setConfirmRunningInstall] = useState(false);
-  const sourceChoiceAvailable = project.sources?.length === 2 && (project.projectType === 'resourcepacks' || project.projectType === 'shaders');
-  const [selectedSource, setSelectedSource] = useState<SourcePlatform>((project.platform === 'curseforge' ? 'curseforge' : 'modrinth') as SourcePlatform);
+  const sourceChoiceAvailable = project.sources?.length === 2;
+  const [selectedSource, setSelectedSource] = useState<SourcePlatform>((project.sources?.includes('modrinth') ? 'modrinth' : project.platform) as SourcePlatform);
   const installProject = project.sourceProjects?.[selectedSource] ?? project;
   const isInstalled = useIsInstalled(instanceId, [project.id, project.title, project.slug, ...Object.values(project.sourceProjects ?? {}).map(candidate => candidate.id)]);
   const cfApiKey = useSettingsStore(s => s.curseforgeApiKey);
@@ -477,7 +477,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
   return (
     <div className="flex items-center gap-1.5">
       {sourceChoiceAvailable && <div className="flex overflow-hidden" style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}>
-        {(['modrinth','curseforge'] as SourcePlatform[]).map(source => <button key={source} title={source === 'modrinth' ? 'Скачать с Modrinth' : 'Скачать с CurseForge'} onClick={event => { event.stopPropagation(); setSelectedSource(source); }} className="px-1.5 py-1 text-[9px] font-bold" style={{ background:selectedSource === source ? 'var(--color-primary-dim)' : 'transparent', color:selectedSource === source ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>{source === 'modrinth' ? 'MR' : 'CF'}</button>)}
+        {(['modrinth','curseforge'] as SourcePlatform[]).map(source => <button key={source} title={source === 'modrinth' ? 'Скачать с Modrinth' : 'Скачать с CurseForge'} aria-label={source === 'modrinth' ? 'Скачать с Modrinth' : 'Скачать с CurseForge'} onClick={event => { event.stopPropagation(); setSelectedSource(source); }} className="flex h-7 w-7 items-center justify-center" style={{ background:selectedSource === source ? 'var(--color-primary-dim)' : 'transparent', opacity:selectedSource === source ? 1 : .55 }}><PlatformMark platform={source} size={16} /></button>)}
       </div>}
     <button onClick={doInstall}
       className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold hover:opacity-90 transition-all"
@@ -521,7 +521,10 @@ function ProjectCard({ p, view, instanceId, mcVersion, loader, onClick }: {
           <span className="flex items-center gap-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>
             <Star className="w-3 h-3" />{fmtNum(p.follows)}
           </span>
-          <span className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{t('findProjects.byAuthor', { author: p.author })}</span>
+          <span className="flex min-w-0 items-center gap-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>
+            {p.authorAvatarUrl ? <img src={p.authorAvatarUrl} alt="" className="h-3.5 w-3.5 rounded-full object-cover" /> : <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full" style={{ background:'var(--color-surface-2)' }}>{p.author.slice(0, 1).toUpperCase()}</span>}
+            <span className="truncate">{t('findProjects.byAuthor', { author: p.author })}</span>
+          </span>
         </div>
       </div>
       <div onClick={e => e.stopPropagation()}>
@@ -747,7 +750,7 @@ export function FindProjectsPage() {
     const lmap: Record<number,string> = {0:'any',1:'forge',2:'cauldron',3:'liteloader',4:'fabric',5:'quilt',6:'neoforge'};
     return {
       id: String(m.id), slug: m.slug, title: m.name, description: m.summary,
-      author: (m.authors ?? [])[0]?.name ?? 'Неизвестный автор', authorId: (m.authors ?? [])[0]?.id, downloads: m.download_count ?? 0, follows: m.thumbs_up_count ?? 0,
+      author: (m.authors ?? [])[0]?.name ?? 'Неизвестный автор', authorId: (m.authors ?? [])[0]?.id, authorAvatarUrl: (m.authors ?? [])[0]?.avatar_url, downloads: m.download_count ?? 0, follows: m.thumbs_up_count ?? 0,
       iconUrl: m.logo?.thumbnail_url,
       categories: (m.categories ?? []).map(c => c.name),
       gameVersions: [...new Set((m.latest_files_indexes ?? []).map(f => f.game_version).filter(Boolean))],
@@ -760,7 +763,7 @@ export function FindProjectsPage() {
     const cacheKey = findProjectsCacheKey(q, pt, pl, s, pg, cats, ldrs, vers);
     const cached = readFindProjectsCache(cacheKey);
     if (cached) {
-      setResults(cached.results);
+      setResults(pg === 0 ? cached.results : previous => dedupeCombinedProjects([...previous, ...cached.results]));
       setTotal(cached.total);
       setReachableTotal(cached.reachableTotal);
       setCapped(cached.capped);
@@ -784,7 +787,7 @@ export function FindProjectsPage() {
           projectType: TYPE_DEFS[pt].modrinthFacet,
         });
         const mapped = (res.hits || []).map(h => fromModrinth(h));
-        setResults(mapped);
+        setResults(pg === 0 ? mapped : previous => dedupeCombinedProjects([...previous, ...mapped]));
         setTotal(res.total_hits);
         setReachableTotal(null);
         setCapped(false);
@@ -804,7 +807,7 @@ export function FindProjectsPage() {
           apiKey: cfApiKey,
         });
         const mapped = (res.data || []).map(m => fromCurseForge(m));
-        setResults(mapped);
+        setResults(pg === 0 ? mapped : previous => dedupeCombinedProjects([...previous, ...mapped]));
         setTotal(res.pagination?.total_count ?? 0);
         setReachableTotal(res.reachable_count ?? null);
         setCapped(!!res.capped);
@@ -843,7 +846,7 @@ export function FindProjectsPage() {
         const combinedTotal = (mr?.total_hits ?? 0) + (cf?.pagination?.total_count ?? 0);
         const combinedReachable = cf?.reachable_count == null ? null : (mr?.total_hits ?? 0) + cf.reachable_count;
         const combinedCapped = Boolean(cf?.capped);
-        setResults(mapped);
+        setResults(pg === 0 ? mapped : previous => dedupeCombinedProjects([...previous, ...mapped]));
         setTotal(combinedTotal);
         setReachableTotal(combinedReachable);
         setCapped(combinedCapped);
@@ -902,6 +905,12 @@ export function FindProjectsPage() {
   // It must therefore retain the deepest source page (not divide the sum by two),
   // otherwise a 373-page Modrinth result is incorrectly displayed as 187 pages.
   const totalPages = Math.ceil(effectiveTotal / PAGE_SIZE);
+  const handleResultsScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const node = event.currentTarget;
+    if (!loading && node.scrollHeight - node.scrollTop - node.clientHeight < 480 && page < totalPages - 1) {
+      setPage(current => current + 1);
+    }
+  };
   const mcVer  = selectedVersions[0] ?? instance?.minecraftVersion ?? '';
   const loader = selectedLoaders[0]  ?? instance?.modLoader ?? '';
   // Установка ВСЕГДА идёт под реальную версию/загрузчик сборки — а не под
@@ -1081,7 +1090,7 @@ export function FindProjectsPage() {
           )}
 
           {/* Results */}
-          <div ref={resultsScrollRef} className="flex-1 overflow-y-auto px-4 pb-4">
+          <div ref={resultsScrollRef} onScroll={handleResultsScroll} className="flex-1 overflow-y-auto px-4 pb-4">
             {/* CurseForge API key missing — visible inline banner */}
             {platform !== 'modrinth' && !cfApiKey && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl mb-3 text-xs"
@@ -1159,27 +1168,12 @@ export function FindProjectsPage() {
               )
             )}
 
-            {/* Pagination */}
-            {totalPages>1 && !loading && (
-              <div className="flex flex-col items-center gap-1.5 py-4">
-              <div className="flex items-center justify-center gap-2">
-                <button onClick={() => setPage(p=>Math.max(0,p-1))} disabled={page===0}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold disabled:opacity-40"
-                  style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-                  ← Prev
-                </button>
-                <span className="text-xs" style={{ color:'var(--color-text-secondary)' }}>Page {page+1} of {totalPages}</span>
-                <button onClick={() => setPage(p=>Math.min(totalPages-1,p+1))} disabled={page>=totalPages-1}
-                  className="px-3 py-1.5 rounded-xl text-xs font-semibold disabled:opacity-40"
-                  style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-                  Next →
-                </button>
-              </div>
-              {capped && platform !== 'modrinth' && (
+            {loading && results.length > 0 && <p className="py-4 text-center text-xs" style={{ color:'var(--color-text-tertiary)' }}>Загружаю ещё модификации…</p>}
+            {capped && platform !== 'modrinth' && (
+              <div className="py-4 text-center">
                 <p className="text-[11px] text-center max-w-md" style={{ color:'var(--color-text-tertiary)' }}>
                   CurseForge показывает только первые {(reachableTotal ?? 20000).toLocaleString()} результатов; сузьте фильтры, чтобы найти больше.
                 </p>
-              )}
               </div>
             )}
           </div>

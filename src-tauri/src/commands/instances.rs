@@ -345,7 +345,11 @@ pub async fn update_instance(id: String, updates: serde_json::Value) -> Result<I
     let mut inst = load_instance(&id).ok_or("Instance not found")?;
     if let Some(v) = updates["name"].as_str() { inst.name = v.to_string(); }
     if let Some(v) = updates["description"].as_str() { inst.description = v.to_string(); }
-    if let Some(v) = updates["mc_version"].as_str().or_else(|| updates["minecraft_version"].as_str()) { inst.mc_version = v.to_string(); }
+    if let Some(v) = updates["mc_version"].as_str()
+        .or_else(|| updates["minecraft_version"].as_str())
+        .or_else(|| updates["minecraftVersion"].as_str())
+        .or_else(|| updates["version"].as_str())
+    { inst.mc_version = v.to_string(); }
     if let Some(v) = updates["loader"].as_str().or_else(|| updates["mod_loader"].as_str()) { inst.loader = v.to_string(); }
     if let Some(v) = updates["min_ram"].as_u64() { inst.min_ram = v as u32; }
     if let Some(v) = updates["max_ram"].as_u64() { inst.max_ram = v as u32; }
@@ -2009,7 +2013,7 @@ pub async fn download_project_screenshot(url: String, file_name: String, instanc
     if !content_type.starts_with("image/") { return Err("Сервер вернул не изображение".to_string()); }
     let bytes = response.bytes().await.map_err(|e| format!("Не удалось прочитать скриншот: {e}"))?;
     if bytes.is_empty() || bytes.len() > 24 * 1024 * 1024 { return Err("Размер скриншота должен быть от 1 байта до 24 МБ".to_string()); }
-    let extension = if content_type.contains("jpeg") || content_type.contains("jpg") { "jpg" } else if content_type.contains("webp") { "webp" } else { "png" };
+    let extension = if content_type.contains("jpeg") || content_type.contains("jpg") { "jpg" } else { "png" };
     let stem: String = file_name.chars().filter(|value| value.is_ascii_alphanumeric() || matches!(value, '-' | '_')).collect();
     let name = format!("{}.{}", if stem.is_empty() { format!("project-screenshot-{}", chrono::Utc::now().timestamp()) } else { stem }, extension);
     let target_dir = match instance_id.filter(|id| !id.trim().is_empty()) {
@@ -2021,7 +2025,15 @@ pub async fn download_project_screenshot(url: String, file_name: String, instanc
     };
     std::fs::create_dir_all(&target_dir).map_err(|e| format!("Не удалось открыть папку сохранения: {e}"))?;
     let target = target_dir.join(name);
-    std::fs::write(&target, bytes).map_err(|e| format!("Не удалось сохранить скриншот: {e}"))?;
+    if content_type.contains("webp") {
+        // Minecraft's gallery and editor deliberately support PNG/JPEG only.
+        // Decode WebP and re-encode it as PNG instead of leaving an unusable
+        // .webp file in Downloads or the instance screenshots directory.
+        let image = image::load_from_memory(&bytes).map_err(|e| format!("Не удалось преобразовать WebP: {e}"))?;
+        image.save_with_format(&target, image::ImageFormat::Png).map_err(|e| format!("Не удалось сохранить PNG: {e}"))?;
+    } else {
+        std::fs::write(&target, bytes).map_err(|e| format!("Не удалось сохранить скриншот: {e}"))?;
+    }
     Ok(target.to_string_lossy().to_string())
 }
 

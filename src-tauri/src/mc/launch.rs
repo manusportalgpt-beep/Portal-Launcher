@@ -662,21 +662,6 @@ pub async fn launch_instance(
             still_missing.join("\n")
         ));
     }
-    if prepared_only {
-        let message = "Minecraft подготовлен. Нажмите Launch ещё раз, чтобы запустить игру.";
-        status("prepared", message);
-        app.emit("instance-prepared", serde_json::json!({
-            "instance_id": &instance_id,
-            "message": message,
-        })).ok();
-        return Ok(LaunchResult {
-            success: true,
-            pid: None,
-            message: message.to_string(),
-            command: String::new(),
-        });
-    }
-
     let classpath_str = classpath.join(sep());
 
     let asset_index = version["assetIndex"]["id"]
@@ -732,6 +717,16 @@ pub async fn launch_instance(
         "-Dminecraft.launcher.brand=PortalLauncher".into(),
         format!("-Dminecraft.launcher.version={}", env!("CARGO_PKG_VERSION")),
     ];
+
+    // Keep this launcher-owned baseline stable: it avoids explicit full-GC
+    // pauses and matches the low-pause defaults used by modern launchers.
+    // Custom JVM arguments must not replace these performance settings.
+    jvm_args.extend([
+        "-XX:+UseG1GC".into(),
+        "-XX:+ParallelRefProcEnabled".into(),
+        "-XX:MaxGCPauseMillis=200".into(),
+        "-XX:+DisableExplicitGC".into(),
+    ]);
 
     if is_elyby {
         status("auth", "Подключаю Ely.by authentication agent…");
@@ -856,6 +851,20 @@ pub async fn launch_instance(
     // Temurin command for this Minecraft profile.
     for variable in ["_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS"] {
         cmd.env_remove(variable);
+    }
+    // Linux hybrid graphics: Mesa PRIME selects the discrete adapter with
+    // DRI_PRIME=1. NVIDIA's proprietary PRIME offload additionally needs its
+    // vendor and Vulkan-layer hints. Only add those NVIDIA-specific variables
+    // when the driver is actually present, otherwise Intel/AMD systems keep
+    // their normal Mesa device selection.
+    #[cfg(target_os = "linux")]
+    {
+        cmd.env("DRI_PRIME", "1");
+        if Path::new("/proc/driver/nvidia/version").exists() {
+            cmd.env("__NV_PRIME_RENDER_OFFLOAD", "1");
+            cmd.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia");
+            cmd.env("__VK_LAYER_NV_optimus", "NVIDIA_only");
+        }
     }
     // Windows stores GPU preference per executable. Modrinth documents this
     // as the way to prevent Minecraft from silently using an integrated GPU.

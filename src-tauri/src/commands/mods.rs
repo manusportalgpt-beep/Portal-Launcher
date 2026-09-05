@@ -1115,7 +1115,7 @@ pub async fn undo_last_mod_action(instance_id: String) -> Result<Option<ModHisto
     Ok(Some(entry))
 }
 
-/// Check for updates — CurseForge mods are SKIPPED (no auto-update to avoid conflicts)
+/// Check for updates for both Modrinth and CurseForge content.
 /// Enables or disables Safe Mode for an instance by temporarily renaming JAR mods.
 /// Resource packs, shader packs, worlds and config are deliberately kept untouched.
 #[tauri::command]
@@ -1148,8 +1148,7 @@ pub async fn check_mod_updates(instance_id: String) -> Result<Vec<InstalledMod>,
         .and_then(|v| v["mods"].as_array().cloned()).unwrap_or_default();
 
     for m in &mut mods {
-        // CurseForge mods: skip updates entirely (source separation)
-        if m.source == "curseforge" || m.source == "manual" {
+        if m.source == "manual" {
             m.update_available = false;
             continue;
         }
@@ -1162,6 +1161,30 @@ pub async fn check_mod_updates(instance_id: String) -> Result<Vec<InstalledMod>,
         let project_id = stored_entry.and_then(|s| s["id"].as_str()).unwrap_or("").to_string();
         let current_vid = stored_entry.and_then(|s| s["version_id"].as_str()).unwrap_or("").to_string();
         if project_id.is_empty() { continue; }
+
+        if m.source == "curseforge" {
+            let Ok(project_id) = project_id.parse::<u64>() else { continue; };
+            let loader_type = match loader.to_ascii_lowercase().as_str() {
+                "forge" => Some(1), "fabric" => Some(4), "quilt" => Some(5),
+                "neoforge" => Some(6), _ => None,
+            };
+            let key = crate::commands::settings::read_curseforge_api_key();
+            if key.is_empty() { continue; }
+            let mut request = client.get(format!("https://api.curseforge.com/v1/mods/{project_id}/files"))
+                .header("x-api-key", &key).query(&[("pageSize", "50"), ("sortOrder", "desc"), ("gameVersion", mc_version.as_str())]);
+            if let Some(loader_type) = loader_type { request = request.query(&[("modLoaderType", loader_type.to_string())]); }
+            let Ok(response) = request.send().await else { continue; };
+            let Ok(payload) = response.json::<serde_json::Value>().await else { continue; };
+            let Some(latest) = payload["data"].as_array().and_then(|files| files.first()) else { continue; };
+            let latest_id = latest["id"].as_u64().map(|id| id.to_string()).unwrap_or_default();
+            if latest_id.is_empty() || latest_id == current_vid { continue; }
+            let latest_url = crate::commands::curseforge::get_curseforge_file_download_url(project_id, latest["id"].as_u64().unwrap_or_default(), key, None).await.ok();
+            m.update_available = latest_url.is_some();
+            m.latest_version = latest["displayName"].as_str().map(String::from).or_else(|| latest["fileName"].as_str().map(String::from));
+            m.latest_version_id = Some(latest_id);
+            m.latest_download_url = latest_url;
+            continue;
+        }
 
         let url = format!("https://api.modrinth.com/v2/project/{}/version?game_versions=[\"{}\"]&loaders=[\"{}\"]", project_id, mc_version, loader);
         if let Ok(resp) = client.get(&url).send().await {
@@ -1333,8 +1356,7 @@ pub async fn restore_update_snapshot(instance_id: String, snapshot_id: String, m
     Ok(restored)
 }
 
-/// Update all Modrinth mods — download, validate and activate each artifact atomically.
-/// CurseForge and manual files are excluded from auto-update.
+/// Update Modrinth and CurseForge mods atomically.
 #[tauri::command]
 pub async fn update_all_mods(app: tauri::AppHandle, instance_id: String, mod_id: Option<String>) -> Result<Vec<UpdateResult>, String> {
     let client = reqwest::Client::builder().user_agent("PortalLauncher/1.1").build().map_err(|e| e.to_string())?;
@@ -1342,7 +1364,7 @@ pub async fn update_all_mods(app: tauri::AppHandle, instance_id: String, mod_id:
     let updatable: Vec<_> = mods.iter().filter(|m| {
         let file_name = m.file_name.trim_end_matches(".disabled");
         m.update_available
-            && m.source == "modrinth"
+            && (m.source == "modrinth" || m.source == "curseforge")
             && mod_id.as_deref().map(|requested| {
                 requested == m.id
                     || requested == m.name

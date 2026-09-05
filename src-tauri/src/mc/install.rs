@@ -307,7 +307,14 @@ pub async fn resolve_version(
             if loader == "neoforge" {
                 include_neoforge_runtime(&mut child);
             }
-            return Ok((merge_inherited(&child, &vanilla), profile_id));
+            let mut resolved = merge_inherited(&child, &vanilla);
+            if loader == "neoforge" {
+                // The merge rebuilds the libraries array. Apply this after
+                // inheritance as well, so the first launch always sees the
+                // NeoForge universal system-mod on its classpath.
+                include_neoforge_runtime(&mut resolved);
+            }
+            return Ok((resolved, profile_id));
         }
     }
 
@@ -382,7 +389,11 @@ pub async fn resolve_version(
             if loader == "neoforge" {
                 include_neoforge_runtime(&mut child);
             }
-            return Ok((merge_inherited(&child, &vanilla), profile_id));
+            let mut resolved = merge_inherited(&child, &vanilla);
+            if loader == "neoforge" {
+                include_neoforge_runtime(&mut resolved);
+            }
+            return Ok((resolved, profile_id));
         }
         return Err(format!("{loader} {} установлен, но не создал профиль запуска для {version_id}. Повторите запуск.", result.version));
     }

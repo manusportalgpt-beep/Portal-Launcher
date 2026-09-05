@@ -2,7 +2,7 @@ use super::settings::read_curseforge_api_key;
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CfAuthor { pub name: String, pub id: Option<u64> }
+pub struct CfAuthor { pub name: String, pub id: Option<u64>, pub avatar_url: Option<String> }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CfLogo { pub thumbnail_url: String }
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -52,6 +52,7 @@ fn parse_mod(m: &serde_json::Value) -> CurseforgeMod {
         authors: m["authors"].as_array().map(|a| a.iter().map(|au| CfAuthor {
             name: au["name"].as_str().unwrap_or("").to_string(),
             id: au["id"].as_u64(),
+            avatar_url: au["avatarUrl"].as_str().or_else(|| au["avatar_url"].as_str()).map(String::from),
         }).collect()).unwrap_or_default(),
         download_count: m["downloadCount"].as_u64().unwrap_or(0),
         thumbs_up_count: m["thumbsUpCount"].as_u64().unwrap_or(0),

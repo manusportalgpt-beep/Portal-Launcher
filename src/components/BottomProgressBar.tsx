@@ -92,7 +92,9 @@ export function BottomProgressBar() {
   const instanceIcon = toIconSrc(instance?.iconPath);
   const progressIcon = instanceIcon || toIconSrc(event?.iconPath);
   const [speed, setSpeed] = useState(0);
+  const [etaSeconds, setEtaSeconds] = useState<number | null>(null);
   const last = useRef<{ t: number; bytes: number } | null>(null);
+  const itemProgressStart = useRef<{ stage: string; at: number } | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearLater = (delay = 1300) => {
@@ -101,7 +103,9 @@ export function BottomProgressBar() {
       setEvent(null);
       setLaunching(null);
       setSpeed(0);
+      setEtaSeconds(null);
       last.current = null;
+      itemProgressStart.current = null;
     }, delay);
   };
 
@@ -109,6 +113,17 @@ export function BottomProgressBar() {
     const unsubs: Array<() => void> = [];
     const push = (next: ProgressEvent) => {
       if (hideTimer.current) clearTimeout(hideTimer.current);
+      const current = Number(next.current ?? 0);
+      const total = Number(next.total ?? 0);
+      if (!itemProgressStart.current || itemProgressStart.current.stage !== next.stage || current === 0) {
+        itemProgressStart.current = { stage: next.stage, at: performance.now() };
+      }
+      if (total > 0 && current > 0 && current < total) {
+        const elapsed = (performance.now() - itemProgressStart.current.at) / 1000;
+        setEtaSeconds(elapsed > 0 ? Math.ceil((elapsed / current) * (total - current)) : null);
+      } else {
+        setEtaSeconds(null);
+      }
       setEvent(next);
     };
 
@@ -249,6 +264,9 @@ export function BottomProgressBar() {
   const current = event?.current ?? 0;
   const isByteProgress = event?.source === 'download' && total > 1024 * 1024;
   const itemCounter = total > 0 && !isByteProgress ? `${Math.min(current, total)}/${total} files` : null;
+  const etaLabel = etaSeconds == null || etaSeconds <= 0
+    ? ''
+    : etaSeconds < 60 ? `примерно ${etaSeconds} сек.` : `примерно ${Math.ceil(etaSeconds / 60)} мин.`;
   const cancelTarget = event?.source === 'instance' ? event.instanceId : launching;
   const canCancelInstallation = Boolean(cancelTarget) && event?.source === 'instance';
   const hasError = event?.source === 'launch' && event.stage === 'error';
@@ -289,7 +307,7 @@ export function BottomProgressBar() {
                 {instance?.name || event?.instanceName || event?.message || 'Preparing Minecraft…'}
               </p>
               <p className="mt-1 text-[10px] leading-none truncate" style={{ color: 'var(--color-text-secondary)' }}>
-                {event ? `${stageLabel(event)} · ${event.message || 'Подготавливаю…'}${itemCounter ? ` · ${itemCounter}` : ''}` : 'Подготавливаю запуск'}
+                {event ? `${stageLabel(event)} · ${event.message || 'Подготавливаю…'}${itemCounter ? ` · Файл ${itemCounter}` : ''}${etaLabel ? ` · осталось ${etaLabel}` : ''}` : 'Подготавливаю запуск'}
               </p>
             </div>
             <span className="text-[11px] font-black tabular-nums shrink-0" style={{ color: hasError ? 'var(--color-error)' : percent >= 100 ? 'var(--color-success, var(--color-primary))' : 'var(--color-primary)' }}>{hasError ? 'Ошибка' : `${percent}%`}</span>

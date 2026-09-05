@@ -483,7 +483,8 @@ export function DiscoverPage() {
           projectType: facetType,
         }), 22_000);
         if (requestId !== searchRequestId.current) return;
-        setResults((res.hits || []).map(h => fromModrinth(h, pt)));
+        const mapped = (res.hits || []).map(h => fromModrinth(h, pt));
+        setResults(pg === 0 ? mapped : previous => [...previous, ...mapped]);
         setTotal(res.total_hits);
       } else {
         if (!cfApiKey) {
@@ -505,7 +506,7 @@ export function DiscoverPage() {
         const mapped = cfData.map(m => fromCurseForge(m, pt));
         const categoryFiltered = cats.length === 0 ? mapped : mapped.filter(project => project.categories.some(category => cats.some(selected => category.toLowerCase().includes(selected.toLowerCase()) || selected.toLowerCase().includes(category.toLowerCase()))));
         if (requestId !== searchRequestId.current) return;
-        setResults(categoryFiltered);
+        setResults(pg === 0 ? categoryFiltered : previous => [...previous, ...categoryFiltered]);
         setTotal(cats.length > 0 ? categoryFiltered.length : (res.pagination?.total_count ?? cfData.length));
       }
     } catch (e: any) {
@@ -518,7 +519,8 @@ export function DiscoverPage() {
             ? t('discover.runtime.network')
             : msg || t('discover.runtime.searchFailed');
         setError(message);
-        setResults([]); setTotal(0);
+        if (pg === 0) setResults([]);
+        setTotal(pg === 0 ? 0 : total);
       }
     } finally {
       if (requestId === searchRequestId.current) setLoading(false);
@@ -564,6 +566,12 @@ export function DiscoverPage() {
 
   const hasFilters = selectedCats.length>0 || selectedLoaders.length>0 || selectedVersions.length>0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const handleResultsScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const node = event.currentTarget;
+    if (!loading && node.scrollHeight - node.scrollTop - node.clientHeight < 480 && page < totalPages - 1) {
+      setPage(current => current + 1);
+    }
+  };
 
   function togglePlatform() {
     setPlatform(p => p === 'modrinth' ? 'curseforge' : 'modrinth');
@@ -691,7 +699,7 @@ export function DiscoverPage() {
         </AnimatePresence>
 
         {/* Results */}
-        <div ref={resultsScrollRef} className="flex-1 min-w-0 overflow-y-auto p-4">
+        <div ref={resultsScrollRef} onScroll={handleResultsScroll} className="flex-1 min-w-0 overflow-y-auto p-4">
           {/* Stats bar */}
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs" style={{ color:'var(--color-text-tertiary)' }}>
@@ -731,24 +739,7 @@ export function DiscoverPage() {
             </div>
           )}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-6 pb-2">
-              <button onClick={() => setPage(p => Math.max(0,p-1))} disabled={page===0}
-                className="px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-40"
-                style={{ background:'var(--color-surface-2)', color:'var(--color-text)', border:'1px solid var(--color-border)' }}>
-                {t('discover.runtime.previous')}
-              </button>
-              <span className="text-xs px-3" style={{ color:'var(--color-text-secondary)' }}>
-                {t('discover.runtime.page', { page: page + 1, total: totalPages })}
-              </span>
-              <button onClick={() => setPage(p => Math.min(totalPages-1,p+1))} disabled={page>=totalPages-1}
-                className="px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-40"
-                style={{ background:'var(--color-surface-2)', color:'var(--color-text)', border:'1px solid var(--color-border)' }}>
-                {t('discover.runtime.next')}
-              </button>
-            </div>
-          )}
+          {loading && results.length > 0 && <p className="py-5 text-center text-xs" style={{ color:'var(--color-text-tertiary)' }}>Загружаю ещё модификации…</p>}
         </div>
       </div>
     </div>

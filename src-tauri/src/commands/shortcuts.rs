@@ -162,7 +162,7 @@ pub fn create_instance_shortcut(
     let label = safe_file_stem(&instance_name);
     let executable = std::env::current_exe().map_err(|e| format!("Не удалось определить Portal Launcher.exe: {e}"))?;
     let instance_icon = crate::mc::launch::instance_game_dir(&instance_id).join("icon.png");
-    let stored_instance_icon = crate::commands::version_manager::instances_dir().join(&instance_id).join("icon.png");
+    let stored_instance_icon = crate::commands::version_manager::mc_base_dir().join("instances").join(&instance_id).join("icon.png");
     let shortcut_icon = shortcut_icon_dir()?.join(format!("{}.ico", safe_file_stem(&instance_id)));
     let legacy_desktop_icon = desktop.join(format!("{label}.ico"));
     let has_instance_icon = icon_ico_data_url

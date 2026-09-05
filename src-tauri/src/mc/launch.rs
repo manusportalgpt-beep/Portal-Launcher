@@ -718,17 +718,9 @@ pub async fn launch_instance(
         format!("-Dminecraft.launcher.version={}", env!("CARGO_PKG_VERSION")),
     ];
 
-    // Keep this launcher-owned baseline stable: it avoids explicit full-GC
-    // pauses and matches the low-pause defaults used by modern launchers.
-    // Custom JVM arguments must not replace these performance settings.
-    jvm_args.extend([
-        "-XX:+UseG1GC".into(),
-        "-XX:+ParallelRefProcEnabled".into(),
-        "-XX:MaxGCPauseMillis=200".into(),
-        "-XX:G1ReservePercent=20".into(),
-        "-XX:InitiatingHeapOccupancyPercent=15".into(),
-        "-XX:+DisableExplicitGC".into(),
-    ]);
+    // Java 17+ already uses G1GC by default. Keep the JVM close to the
+    // profile used by Modrinth App instead of forcing tuning values that can
+    // increase CPU/GC work for a particular modpack.
 
     if is_elyby {
         status("auth", "Подключаю Ely.by authentication agent…");
@@ -845,7 +837,17 @@ pub async fn launch_instance(
 
     // 7. Собираем команду
     check_cancelled()?;
-    let mut cmd = crate::utils::create_hidden_command(&java_path);
+    #[cfg(windows)]
+    let game_java_path = Path::new(&java_path)
+        .parent()
+        .map(|dir| dir.join("javaw.exe"))
+        .filter(|path| path.exists())
+        .map(|path| path.to_string_lossy().to_string())
+        .unwrap_or_else(|| java_path.clone());
+    #[cfg(not(windows))]
+    let game_java_path = java_path.clone();
+
+    let mut cmd = crate::utils::create_hidden_command(&game_java_path);
     cmd.current_dir(&game_dir);
     // Do not inherit global JVM switches from another launcher, IDE or Java
     // installation. Those environment variables can inject a second heap size,
@@ -872,7 +874,7 @@ pub async fn launch_instance(
     #[cfg(windows)]
     {
         let java_file = Path::new(&java_path);
-        let mut gpu_targets = vec![java_file.to_path_buf()];
+        let mut gpu_targets = vec![java_file.to_path_buf(), Path::new(&game_java_path).to_path_buf()];
         if let Some(bin_dir) = java_file.parent() {
             gpu_targets.push(bin_dir.join("javaw.exe"));
         }
@@ -918,9 +920,10 @@ pub async fn launch_instance(
         .unwrap_or(0);
     let java_info = crate::commands::jvm::run_java(&java_path);
     log::info!(
-        "Конфигурация производительности Minecraft: Java {} (требуется {}), vendor={}, arch={}, adaptive heap, Xmx={} MiB, CPU={} (автоопределение JVM)",
+        "Конфигурация производительности Minecraft: Java {} (требуется {}), executable={}, vendor={}, arch={}, Xmx={} MiB, CPU={} (JVM default GC)",
         java_info.as_ref().map(|info| info.major_version).unwrap_or(0),
         java_major,
+        game_java_path,
         java_info.as_ref().map(|info| info.vendor.as_str()).unwrap_or("неизвестно"),
         java_info.as_ref().map(|info| info.architecture.as_str()).unwrap_or("неизвестно"),
         max_ram,
@@ -928,7 +931,7 @@ pub async fn launch_instance(
     );
 
     let printable = format!(
-        "{java_path} {} -cp <{} entries> {main_class} {}",
+        "{game_java_path} {} -cp <{} entries> {main_class} {}",
         jvm_args.join(" "),
         classpath.len(),
         game_args
@@ -942,7 +945,7 @@ pub async fn launch_instance(
     status("starting", "Запускаю Minecraft…");
     let mut child = cmd
         .spawn()
-        .map_err(|e| format!("Не удалось запустить Java ({java_path}): {e}"))?;
+        .map_err(|e| format!("Не удалось запустить Java ({game_java_path}): {e}"))?;
     let pid = child.id();
     RUNNING.lock().unwrap().insert(instance_id.clone(), pid);
     LOGS.lock().unwrap().insert(instance_id.clone(), Vec::new());

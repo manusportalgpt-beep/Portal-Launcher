@@ -727,7 +727,6 @@ pub async fn launch_instance(
         "-XX:MaxGCPauseMillis=200".into(),
         "-XX:G1ReservePercent=20".into(),
         "-XX:InitiatingHeapOccupancyPercent=15".into(),
-        "-XX:+UseStringDeduplication".into(),
         "-XX:+DisableExplicitGC".into(),
     ]);
 
@@ -900,8 +899,6 @@ pub async fn launch_instance(
                 if updated { "high performance" } else { "unchanged" },
             );
         }
-        cmd.env("NV_OPTIMUS_ENABLEMENT", "0x00000001");
-        cmd.env("AMD_SWITCHABLE_GRAPHICS", "1");
     }
     cmd.args(&jvm_args);
     if !jvm_args.iter().any(|a| a == "-cp" || a == "-classpath") {

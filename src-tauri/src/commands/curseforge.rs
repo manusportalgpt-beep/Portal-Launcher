@@ -252,6 +252,7 @@ pub fn curseforge_download_url_candidates(url: &str) -> Vec<String> {
     const FALLBACK: &str = "mediafilez.forgecdn.net";
     let primary = url
         .replace("edge.forgecdn.net", PRIMARY)
+        .replace("edge.curseforgecdn.com", PRIMARY)
         .replace(FALLBACK, PRIMARY);
     let legacy = primary.replace(PRIMARY, LEGACY);
     let fallback = primary.replace(PRIMARY, FALLBACK);

@@ -510,10 +510,10 @@ function ProjectCard({ p, view, instanceId, mcVersion, loader, onClick }: {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="font-bold text-sm truncate" style={{ color:'var(--color-text)' }}>{p.title}</p>
+          <p className="font-bold text-sm truncate" title={p.title} style={{ color:'var(--color-text)' }}>{p.title}</p>
           <PlatformMark platform={p.sources?.length === 2 ? 'combined' : p.platform} size={14} />
         </div>
-        <p className="text-xs mt-0.5 truncate" style={{ color:'var(--color-text-secondary)' }}>{p.description}</p>
+        <p className="text-xs mt-0.5 truncate" title={p.description} style={{ color:'var(--color-text-secondary)' }}>{p.description}</p>
         <div className="flex items-center gap-3 mt-1">
           <span className="flex items-center gap-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>
             <Download className="w-3 h-3" />{fmtNum(p.downloads)}
@@ -543,8 +543,8 @@ function ProjectCard({ p, view, instanceId, mcVersion, loader, onClick }: {
           ? <img src={p.iconUrl} className="w-full h-full object-cover" alt="" />
           : <span className="text-4xl font-black" style={{ color: accent }}>{p.title[0]}</span>}
       </div>
-      <div className="mb-0.5 flex items-center gap-1.5"><p className="min-w-0 flex-1 truncate text-sm font-bold" style={{ color:'var(--color-text)' }}>{p.title}</p><PlatformMark platform={p.sources?.length === 2 ? 'combined' : p.platform} size={13} /></div>
-      <p className="text-xs mb-2 line-clamp-2 flex-1" style={{ color:'var(--color-text-secondary)' }}>{p.description}</p>
+      <div className="mb-0.5 flex items-center gap-1.5"><p className="min-w-0 flex-1 truncate text-sm font-bold" title={p.title} style={{ color:'var(--color-text)' }}>{p.title}</p><PlatformMark platform={p.sources?.length === 2 ? 'combined' : p.platform} size={13} /></div>
+      <p className="text-xs mb-2 line-clamp-2 flex-1" title={p.description} style={{ color:'var(--color-text-secondary)' }}>{p.description}</p>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>

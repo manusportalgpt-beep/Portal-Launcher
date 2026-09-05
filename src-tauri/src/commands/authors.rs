@@ -43,7 +43,7 @@ fn http() -> reqwest::Client {
 pub async fn get_modrinth_author(user: String) -> Result<AuthorProfile, String> {
     let client = http();
     let u: serde_json::Value = client
-        .get(format!("https://api.modrinth.com/v2/user/{user}"))
+        .get(format!("https://api.modrinth.com/v2/user/{}", urlencoding::encode(&user)))
         .send()
         .await
         .map_err(|e| format!("Modrinth: {e}"))?
@@ -53,7 +53,7 @@ pub async fn get_modrinth_author(user: String) -> Result<AuthorProfile, String> 
 
     let id = u["id"].as_str().unwrap_or(&user).to_string();
     let projects_raw: serde_json::Value = client
-        .get(format!("https://api.modrinth.com/v2/user/{id}/projects"))
+        .get(format!("https://api.modrinth.com/v2/user/{}/projects", urlencoding::encode(&id)))
         .send()
         .await
         .map_err(|e| format!("Modrinth projects: {e}"))?

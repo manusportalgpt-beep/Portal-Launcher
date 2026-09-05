@@ -147,7 +147,18 @@ export async function getModrinthProjectGateway(projectId: string | undefined): 
   const id = encodeURIComponent(normalized);
   const attempts: Array<Promise<any>> = [withTimeout(invoke<any>('get_modrinth_project', { projectId: normalized }), REQUEST_TIMEOUT_MS)];
   if (configuredGatewayUrl()) attempts.unshift(gatewayJson<any>(`/v2/project/${id}`));
-  try { return await Promise.any(attempts); }
+  try {
+    const project = await Promise.any(attempts);
+    // A raw Modrinth project has only a team id. Prefer the Rust command's
+    // enriched response when the gateway returned no resolved author.
+    if (!project?.author && project?.team) {
+      try {
+        const enriched = await withTimeout(invoke<any>('get_modrinth_project', { projectId: normalized }), REQUEST_TIMEOUT_MS);
+        if (enriched?.author) return { ...project, ...enriched };
+      } catch { /* keep the gateway project when the fallback is unavailable */ }
+    }
+    return project;
+  }
   catch { throw new Error('Modrinth project metadata is unavailable'); }
 }
 

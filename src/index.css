@@ -147,6 +147,10 @@ button:active:not(:disabled), [role="button"]:active:not([aria-disabled="true"])
 
 .no-transition, .no-transition * { transition: none !important; }
 
+/* Keep centered gallery controls centered even when an older card rule adds a hover transform. */
+button.absolute.top-1\/2.-translate-y-1\/2:hover,
+button.absolute.top-1\/2.-translate-y-1\/2:active { transform: translateY(-50%) !important; }
+
 input[type="range"] {
   -webkit-appearance: none;
   height: 4px;
@@ -159,7 +163,7 @@ input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 14px;
   height: 14px;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--color-primary);
   cursor: pointer;
   border: 1px solid var(--color-bg);
@@ -170,6 +174,13 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transform: none;
   box-shadow: none;
   background: var(--color-primary-hover);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--color-bg);
+  border-radius: 0;
+  background: var(--color-primary);
 }
 
 /* One solid surface; translucency belongs only to user-selected background media. */

@@ -400,7 +400,7 @@ pub async fn install_mod(
     let curseforge_resource_pack = curseforge_content && mod_type_folder(mtype) == "resourcepacks";
     let bytes = if curseforge_content {
         let api_key = crate::commands::settings::read_curseforge_api_key();
-        if curseforge_resource_pack && api_key.trim().is_empty() {
+        if (curseforge_resource_pack || mod_type_folder(mtype) == "shaderpacks") && api_key.trim().is_empty() {
             return Err("Для загрузки resource pack с CurseForge нужен API key. Добавьте его в Настройки → Дополнительно.".to_string());
         }
         download_curseforge_bytes_with_fallback(&client, &download_url, &api_key).await?
@@ -409,8 +409,8 @@ pub async fn install_mod(
             .map_err(|error| format!("Скачивание файла: {error}"))?
             .bytes().await.map_err(|error| format!("Чтение файла: {error}"))?
     };
-    if curseforge_resource_pack && !bytes.starts_with(b"PK") {
-        return Err(format!("CurseForge вернул не ZIP-архив для resource pack {file_name}."));
+    if (curseforge_resource_pack || mod_type_folder(mtype) == "shaderpacks") && !bytes.starts_with(b"PK") {
+        return Err(format!("CurseForge вернул не ZIP-архив для {mtype} {file_name}."));
     }
     let file_size = bytes.len() as u64;
     std::fs::write(dir.join(&file_name), &bytes).map_err(|e| format!("Write: {e}"))?;
@@ -1387,10 +1387,21 @@ pub async fn update_all_mods(app: tauri::AppHandle, instance_id: String, mod_id:
         let percent = if total == 0 { 100 } else { (i * 100 / total) as u8 };
         app.emit("mod-progress", serde_json::json!({"name":m.name,"percent":percent,"message":format!("Downloading {} ({}/{})", m.name, i+1, total)})).ok();
 
-        let result: Result<InstalledMod, String> = match client.get(&url).send().await {
-            Ok(response) => match response.error_for_status() {
-                Ok(response) => match response.bytes().await {
-                    Ok(bytes) => {
+        let result: Result<InstalledMod, String> = {
+            let bytes_result = if m.source == "curseforge" {
+                let key = crate::commands::settings::read_curseforge_api_key();
+                download_curseforge_bytes_with_fallback(&client, &url, &key).await
+            } else {
+                match client.get(&url).send().await {
+                    Ok(response) => match response.error_for_status() {
+                        Ok(response) => response.bytes().await.map_err(|error| format!("Read downloaded update: {error}")),
+                        Err(error) => Err(format!("Download returned HTTP error: {error}")),
+                    },
+                    Err(error) => Err(format!("Download update: {error}")),
+                }
+            };
+            match bytes_result {
+                Ok(bytes) => {
                         let dir = mods_dir_for(&instance_id, &m.mod_type);
                         if let Err(error) = validate_downloaded_content(&bytes, &new_file_name) {
                             Err(error)
@@ -1412,11 +1423,8 @@ pub async fn update_all_mods(app: tauri::AppHandle, instance_id: String, mod_id:
                             Ok(updated)
                         }
                     }
-                    Err(error) => Err(format!("Read downloaded update: {error}")),
-                },
-                Err(error) => Err(format!("Download returned HTTP error: {error}")),
-            },
-            Err(error) => Err(format!("Download update: {error}")),
+                Err(error) => Err(error),
+            }
         };
         match result {
             Ok(updated) => {

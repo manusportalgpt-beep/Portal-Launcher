@@ -453,7 +453,7 @@ export function ModDetail() {
           project_type: curseForgeProjectType(proj, passedProject),
           author: proj.authors?.[0]?.name ?? passedProject?.author,
           author_url: proj.authors?.[0]?.url ?? (proj.authors?.[0]?.name ? `https://www.curseforge.com/members/${encodeURIComponent(proj.authors[0].name)}` : undefined),
-          author_avatar_url: proj.authors?.[0]?.avatarUrl,
+          author_avatar_url: proj.authors?.[0]?.avatarUrl ?? proj.authors?.[0]?.avatar_url,
           gallery: Array.isArray(proj.screenshots) ? proj.screenshots.map((item: any) => ({ url: item.url, title: item.title, description: item.description })).filter((item: any) => item.url) : [],
         });
         setVersions(mapped);

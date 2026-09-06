@@ -159,6 +159,7 @@ fn main() {
             commands::instance_fs::get_lan_relay_status,
             commands::instance_fs::start_lan_relay,
             commands::instance_fs::stop_lan_relay,
+            commands::instance_fs::get_relay_health,
             commands::instance_fs::instance_list_servers,
             commands::instance_fs::instance_delete_world,
             commands::instance_fs::instance_add_server,

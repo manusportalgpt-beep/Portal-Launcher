@@ -193,7 +193,7 @@ async fn relay_json(
 ) -> Result<serde_json::Value, String> {
     let mut request = client.request(method, format!("{base}/client/api/relay{path}"))
         .bearer_auth(token)
-        .header("User-Agent", "PortalLauncher")
+        .header("User-Agent", "Undefined-Client")
         .header("Accept", "application/json");
     if let Some(body) = body { request = request.json(&body); }
     let response = request.send().await.map_err(|e| format!("Relay network: {e}"))?;
@@ -266,29 +266,28 @@ pub async fn start_lan_relay(
         }
     }
 
-    // Relay принимает токен авторизованного аккаунта. Для Microsoft/Ely.by это
-    // accessToken входа, для офлайн/никнейм-профилей (у которых токена нет)
-    // отдаём стабильный portal-идентификатор, чтобы relay мог сопоставить
-    // сессию с игроком, а друзья заходили по сгенерированному адресу.
     let requested_uuid = account_uuid.as_deref();
-    let resolved_token = resolve_relay_token(&app, &token, requested_uuid).await;
+    // Получаем messenger-токен (POST /client/api/messenger/session).
+    // Для offline-никнейм аккаунтов вернётся ошибка — relay не поддерживает такие аккаунты.
+    let resolved_token = match resolve_messenger_token(&app, &token, requested_uuid).await {
+        Ok(t) => t,
+        Err(e) => return Err(e),
+    };
     let client = reqwest::Client::new();
-    // Пробуем токен активного аккаунта фронтенда. Если relay отверг его
-    // (токен мог устареть, пока бэкенд уже обновил сессию в auth.json),
-    // повторяем запрос со свежим токеном из хранилища аккаунтов.
+    // Создаём relay-сессию, передавая messenger-токен.
     let data = match relay_json(&client, "https://uprojects.site", "/sessions", &resolved_token, reqwest::Method::POST, Some(serde_json::json!({ "localPort": local_port }))).await {
         Ok(data) => data,
-        Err(error) if !token.trim().is_empty() => {
-            let fresh_token = resolve_relay_token(&app, "", requested_uuid).await;
-            if fresh_token != resolved_token {
-                relay_json(&client, "https://uprojects.site", "/sessions", &fresh_token, reqwest::Method::POST, Some(serde_json::json!({ "localPort": local_port })))
-                    .await
-                    .map_err(|retry_error| relay_auth_error(&retry_error))?
-            } else {
-                return Err(relay_auth_error(&error));
+        Err(error) => {
+            // Пробуем заново получить messenger-токен (мог устареть).
+            match resolve_messenger_token(&app, "", requested_uuid).await {
+                Ok(fresh_token) if fresh_token != resolved_token => {
+                    relay_json(&client, "https://uprojects.site", "/sessions", &fresh_token, reqwest::Method::POST, Some(serde_json::json!({ "localPort": local_port })))
+                        .await
+                        .map_err(|retry_error| relay_auth_error(&retry_error))?
+                }
+                _ => return Err(relay_auth_error(&error)),
             }
         }
-        Err(error) => return Err(relay_auth_error(&error)),
     };
     let session_id = data["sessionId"].as_str().ok_or("Relay не вернул sessionId")?.to_string();
     let tunnel_token = data["tunnelToken"].as_str().ok_or("Relay не вернул tunnelToken")?.to_string();
@@ -301,36 +300,115 @@ pub async fn start_lan_relay(
     Ok(LanRelayInfo { active: true, public_host: Some(public_host), public_port: Some(public_port), local_port: Some(local_port), session_id: Some(session_id), error: None })
 }
 
-async fn resolve_relay_token(app: &tauri::AppHandle, passed_token: &str, requested_uuid: Option<&str>) -> String {
-    // Активный аккаунт фронтенда уже авторизован — его токен приоритетный.
-    if !passed_token.trim().is_empty() {
-        return passed_token.trim().to_string();
+/// Получить токен мессенджера uprojects.site (нужен для relay-сессий).
+/// Сервер принимает {provider:"msa"/"ely", accessToken, skinUrl} и возвращает
+/// отдельный messenger token, который авторизует /client/api/relay/*
+async fn get_messenger_token(
+    client: &reqwest::Client,
+    provider: &str,
+    access_token: &str,
+    skin_url: Option<&str>,
+) -> Result<String, String> {
+    let body = serde_json::json!({
+        "provider": provider,
+        "accessToken": access_token,
+        "skinUrl": skin_url,
+    });
+    let response = client
+        .post("https://uprojects.site/client/api/messenger/session")
+        .header("User-Agent", "Undefined-Client")
+        .header("Accept", "application/json")
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Messenger network: {e}"))?;
+    let status = response.status();
+    let data = response.json::<serde_json::Value>().await.unwrap_or_default();
+    if !status.is_success() {
+        let code = data["code"].as_str().unwrap_or("");
+        return Err(match code {
+            "ely_token_invalid" => "Ely.by токен недействителен. Обновите вход в Ely.by и попробуйте снова.".into(),
+            "msa_token_invalid" | "microsoft_token_invalid" => "Microsoft токен недействителен. Обновите вход в Microsoft и попробуйте снова.".into(),
+            _ => format!("Мессенджер отклонил токен: {}", data["error"].as_str().unwrap_or("unknown")),
+        });
     }
-    // Иначе берём свежий токен из auth.json (обновление Microsoft-сессии
-    // делается тут же, не полагаясь на устаревший токен фронтенда).
-    if let Some(account) = crate::auth::msa::ensure_fresh_token(app).await {
-        let uuid_matches = requested_uuid.map(|uuid| account.uuid == uuid).unwrap_or(true);
-        if uuid_matches && !account.access_token.trim().is_empty() {
-            return account.access_token;
+    data["token"]
+        .as_str()
+        .map(String::from)
+        .ok_or_else(|| "Мессенджер не вернул токен".into())
+}
+
+async fn resolve_messenger_token(
+    app: &tauri::AppHandle,
+    _passed_token: &str,
+    requested_uuid: Option<&str>,
+) -> Result<String, String> {
+    // Фронтенд передаёт голый accessToken Minecraft — его нельзя использовать как
+    // messenger-токен relay. Поэтому всегда получаем аккаунт из auth.json
+    // (там JSON-свежий токен + провайдер) и обмениваем его на messenger-токен.
+    let account = crate::auth::msa::ensure_fresh_token(app).await;
+    let account = match account {
+        Some(acc) if requested_uuid.map(|u| u == acc.uuid).unwrap_or(true) => acc,
+        _ => {
+            if let Some(uuid) = requested_uuid {
+                return Err(format!(
+                    "Relay поддерживает только Microsoft и Ely.by аккаунты. Аккаунт {uuid} является офлайн/никнейм-профилем и не может создать relay-сессию."
+                ));
+            }
+            return Err("Аккаунт не найден. Войдите через Microsoft или Ely.by.".into());
         }
-        if uuid_matches {
-            return format!("portal-offline:{}", account.uuid);
+    };
+    // Определяем провайдер
+    let provider = match account.provider.as_deref() {
+        Some("elyby") | Some("ely") => "ely",
+        Some("microsoft") | Some("msa") => "msa",
+        Some("offline") | Some("nickname") => {
+            return Err(
+                "Relay поддерживает только Microsoft и Ely.by аккаунты. Офлайн/никнейм-профили не могут создать публичную relay-сессию.".into()
+            );
         }
+        _ => "msa", // по умолчанию Microsoft
+    };
+    if account.access_token.trim().is_empty() {
+        return Err("Токен аккаунта пуст. Обновите вход в аккаунт.".into());
     }
-    if let Some(uuid) = requested_uuid {
-        return format!("portal-offline:{uuid}");
-    }
-    "portal-offline:guest".to_string()
+    let client = reqwest::Client::new();
+    let token = get_messenger_token(
+        &client,
+        provider,
+        &account.access_token,
+        account.skin_url.as_deref(),
+    ).await?;
+    Ok(token)
 }
 
 #[tauri::command]
-pub async fn stop_lan_relay(token: String) -> Result<(), String> {
+pub async fn stop_lan_relay(app: tauri::AppHandle, token: String) -> Result<(), String> {
+    let _ = &token;
     let relay = LAN_RELAY.lock().ok().and_then(|mut state| state.take());
     if let Some(relay) = relay {
         relay.task.abort();
-        let _ = relay_json(&reqwest::Client::new(), "https://uprojects.site", &format!("/sessions/{}", urlencoding::encode(&relay.session_id)), token.trim(), reqwest::Method::DELETE, None).await;
+        let resolved = resolve_messenger_token(&app, "", None).await?;
+        let _ = relay_json(&reqwest::Client::new(), "https://uprojects.site", &format!("/sessions/{}", urlencoding::encode(&relay.session_id)), &resolved, reqwest::Method::DELETE, None).await;
     }
     Ok(())
+}
+
+/// Получить токен мессенджера (public для фронтенда, для debug/health).
+#[tauri::command]
+pub async fn get_relay_health(app: tauri::AppHandle) -> Result<String, String> {
+    let account = crate::auth::msa::ensure_fresh_token(&app).await;
+    let account = account.ok_or("Аккаунт не найден")?;
+    let provider = match account.provider.as_deref() {
+        Some("elyby") | Some("ely") => "ely",
+        _ => "msa",
+    };
+    if account.access_token.trim().is_empty() {
+        return Err("Токен пуст".into());
+    }
+    let client = reqwest::Client::new();
+    get_messenger_token(&client, provider, &account.access_token, account.skin_url.as_deref()).await
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -1049,7 +1049,7 @@ function AboutSection() {
         { label:'Создатель', value:'Portalrolls' },
         { label:'Версия Tauri', value:'2.x' },
         { label:'Версия React', value:'18.x' },
-        { label:'Лицензия', value:'MIT' },
+        { label:'Лицензия', value:'GPL-3.0' },
       ].map(r => (
         <div key={r.label} className="flex items-center justify-between py-3" style={{ borderBottom:'1px solid var(--color-border)' }}>
           <p className="text-sm" style={{ color:'var(--color-text-secondary)' }}>{r.label}</p>

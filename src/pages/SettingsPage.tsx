@@ -110,7 +110,7 @@ function RangeRow({ label, desc, value, min, max, unit, onChange }: { label:stri
         <span className="text-sm font-bold" style={{ color:'var(--color-primary)' }}>{value}{unit}</span>
       </div>
       <input type="range" min={min} max={max} value={value} onChange={e => onChange(+e.target.value)}
-        className="w-full" style={{ accentColor:'var(--color-primary)' }} />
+        className="w-full" />
     </div>
   );
 }

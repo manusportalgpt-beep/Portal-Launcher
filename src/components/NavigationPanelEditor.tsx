@@ -130,6 +130,6 @@ export function NavigationPanelEditor() {
 function Range({ label, value, min, max, step, unit, onChange }: { label: string; value: number; min: number; max: number; step: number; unit: string; onChange: (value: number) => void }) {
   return <label className="rounded-sm p-2.5" style={{ background: 'transparent', border: '1px solid var(--color-border)' }}>
     <span className="mb-1.5 flex items-center justify-between text-[10px] font-bold" style={{ color: 'var(--color-text)' }}><span>{label}</span><span style={{ color: 'var(--color-primary)' }}>{value}{unit}</span></span>
-    <input className="w-full accent-current" style={{ accentColor: 'var(--color-primary)' }} type="range" value={value} min={min} max={max} step={step} onChange={event => onChange(Number(event.target.value))} />
+    <input className="w-full" type="range" value={value} min={min} max={max} step={step} onChange={event => onChange(Number(event.target.value))} />
   </label>;
 }

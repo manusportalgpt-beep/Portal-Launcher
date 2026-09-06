@@ -102,13 +102,14 @@ export function CustomThemeBuilder() {
     <div className="mt-3">
       <button
         onClick={() => setOpen(value => !value)}
-        className="group flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-left transition-colors"
-        style={{ borderColor: 'var(--color-border)', background: 'transparent' }}
+        className="group flex w-full items-center gap-3 rounded-md border-2 border-dashed px-3 py-2.5 text-left transition-colors"
+        style={{ borderColor: 'color-mix(in srgb, var(--color-primary) 42%, var(--color-border))', background: 'color-mix(in srgb, var(--color-primary) 4%, transparent)' }}
       >
-        <span className="flex h-8 w-8 items-center justify-center rounded-sm" style={{ background: 'transparent', color: 'var(--color-primary)', border:'1px solid var(--color-border)' }}>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm" style={{ background: 'transparent', color: 'var(--color-primary)', border:'1.5px dashed var(--color-primary)' }}>
           {open ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
         </span>
-        <span>
+        <span className="h-px min-w-4 flex-1 border-t border-dashed group-hover:border-primary" style={{ borderColor: 'var(--color-border)' }} />
+        <span className="shrink-0">
           <span className="block text-sm font-black" style={{ color: 'var(--color-text)' }}>Добавить тему</span>
           <span className="mt-0.5 block text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>Создай свою палитру Portal Launcher</span>
         </span>

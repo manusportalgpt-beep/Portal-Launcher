@@ -154,18 +154,31 @@ fn lan_port_from_log(instance_id: &str) -> Option<u16> {
         if let Ok(contents) = std::fs::read_to_string(path) { text.push_str(&contents); text.push('\n'); }
     }
     if text.is_empty() { return None; }
-    let patterns = ["published lan", "local game hosted", "started serving", "hosting on port", "open to lan", "open to the lan", "lan server", "порт" ];
+    // Ваниль и моды пишут порт по-разному: английские и русские маркеры,
+    // любой регистр ("PORT", "Порт", "порт"). Для русских строк используем
+    // Unicode-lowercase (ASCII-lowercase не трогает кириллицу).
+    let patterns: &[&str] = &[
+        "published lan", "local game hosted", "started serving", "hosting on port",
+        "open to lan", "open to the lan", "lan server", "lan world",
+        "now hosting", "hosted lan", "started lan", "listening on port",
+        "порт", "порту", "открыт lan",
+    ];
     for line in text.lines().rev() {
-        let lower = line.to_ascii_lowercase();
-        if !patterns.iter().any(|marker| lower.contains(marker)) { continue; }
+        let lower = line.to_lowercase();
+        let Some(marker) = patterns.iter().find(|marker| lower.contains(**marker)) else { continue };
+        // Число сразу после маркера: "on port 25565", "на порту 25565"
+        let marker_pos = lower.find(*marker).unwrap_or(0);
+        let tail = &line[marker_pos + marker.len()..];
+        if let Some(port) = tail.split(|c: char| !c.is_ascii_digit())
+            .filter_map(|part| part.parse::<u16>().ok())
+            .find(|port| (1024..=65535).contains(port) && *port > 0) {
+            return Some(port);
+        }
         let candidates: Vec<u16> = line.split(|c: char| !c.is_ascii_digit())
             .filter_map(|part| part.parse::<u16>().ok())
             .filter(|port| (1024..=65535).contains(port))
             .collect();
-        if let Some(port) = candidates.last() { return Some(*port); }
-        if let Some(port) = line.split(|c: char| !c.is_ascii_digit()).filter_map(|part| part.parse::<u16>().ok()).last() {
-            if port > 0 { return Some(port); }
-        }
+        if let Some(port) = candidates.first().copied().or_else(|| candidates.last().copied()) { return Some(port); }
     }
     None
 }

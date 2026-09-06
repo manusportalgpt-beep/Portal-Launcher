@@ -1427,7 +1427,6 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
   const [files, setFiles] = useState<any[]>([]);
   const [cwd, setCwd] = useState('');
   const [worlds, setWorlds] = useState<any[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [updatingAll, setUpdatingAll] = useState(false);
   const [updatingItemId, setUpdatingItemId] = useState<string | null>(null);
   const [updateProgress, setUpdateProgress] = useState<{ percent: number; message: string } | null>(null);
@@ -1447,23 +1446,21 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
-  function handleFilesPicked(ev: React.ChangeEvent<HTMLInputElement>) {
-    const paths: string[] = [];
-    for (const f of Array.from(ev.target.files || [])) {
-      const p = (f as any).path as string | undefined;
-      if (p) paths.push(p);
-    }
-    ev.target.value = '';
-    if (!paths.length) return;
-    invoke('instance_drop_files', {
-      instanceId: inst.id,
-      files: paths,
-      targetDir: tab === 'files' ? (cwd || null) : null,
-    })
-      .then(() => { loadContent(); if (tab === 'files') loadFiles(cwd); })
-      .catch(error => {
-        dialog.alert(t('instancePage.fileAddFailed', { error: String(error) }), { title: t('instancePage.files'), danger: true });
+  async function addFilesToInstance() {
+    try {
+      const paths = await invoke<string[]>('pick_local_files');
+      if (!paths?.length) return;
+      const added = await invoke<string[]>('instance_drop_files', {
+        instanceId: inst.id,
+        files: paths,
+        targetDir: tab === 'files' ? cwd : null,
       });
+      if (!added?.length) throw new Error('Файлы не были добавлены в сборку');
+      if (tab === 'content') await loadContent();
+      if (tab === 'files') await loadFiles(cwd);
+    } catch (error) {
+      dialog.alert(t('instancePage.fileAddFailed', { error: String(error) }), { title: t('instancePage.files'), danger: true });
+    }
   }
 
   useEffect(() => {
@@ -1941,9 +1938,8 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
             <Plus className="w-3.5 h-3.5" />{t('instancePage.findProjects')}
           </button>
         )}
-        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFilesPicked} />
         {(tab==='content' || tab==='files') && (
-          <button onClick={() => fileInputRef.current?.click()}
+          <button onClick={() => void addFilesToInstance()}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all"
             style={{ color:'var(--color-text-secondary)',border:'1px solid var(--color-border)' }}>
             <FolderPlus className="w-3.5 h-3.5" />{t('instancePage.addFiles')}

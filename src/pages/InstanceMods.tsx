@@ -10,6 +10,7 @@ import { getModrinthProjectGateway } from '@/lib/modrinth-gateway';
 import { toIconSrc } from '@/lib/icon-src';
 import { ScreenshotEditor } from '@/components/ScreenshotEditor';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
+import { toastSuccess } from '@/components/ai/FileToast';
 import {
   Package, FolderTree, Globe,
   Folder, FileText, Upload, Trash2, RefreshCw, Home, Search, Image as ImageIcon, Sparkles, Braces, Archive,
@@ -574,7 +575,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       const added = await invoke<string[]>('instance_drop_files', {
         instanceId,
         files: paths,
-        targetDir: !forceClassification && mainTab === 'files' ? (cwd || null) : null,
+        targetDir: !forceClassification && mainTab === 'files' ? cwd : null,
       });
       if (!added?.length) {
         throw new Error('Выбранные файлы не были добавлены в сборку');
@@ -599,9 +600,12 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
     if (!from) return;
     ev.preventDefault();
     ev.stopPropagation();
+    setDragOver(false);
     try {
       await invoke('instance_move_path', { instanceId, from, toDir });
       await loadFiles(cwd);
+      const name = from.split('/').pop() || from;
+      toastSuccess(`Файл «${name}» успешно перенесён`, `В папку «${toDir || '.minecraft'}»`);
     } catch (e: any) {
       setError(e?.toString() ?? 'Не удалось переместить файл');
     }
@@ -615,7 +619,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       const p = (item as any).path as string | undefined;
       if (p) paths.push(p);
     }
-    if (!paths.length) { setError('Перетащите файлы из Проводника или файлового менеджера'); return; }
+    if (!paths.length) return;
     importPaths(paths);
   }
 

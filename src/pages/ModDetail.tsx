@@ -393,16 +393,24 @@ export function ModDetail() {
         });
         setVersions(Array.isArray(vers) ? vers : []);
       } else if (source === 'curseforge') {
-        // ВАЖНО: modId из URL — это slug ("iris", "sodium" и т.п.), потому что
-        // навигация с карточки всегда использует p.slug. Modrinth принимает
-        // slug вместо id, а вот CurseForge API — НЕТ, ему нужен числовой id.
-        // Раньше тут стоял Number(modId), и для любого некорректно
-        // распознаваемого modId (не число) это давало NaN → ошибка "modID".
-        // Настоящий числовой id уже есть в location.state (передаётся с
-        // карточки поиска) — берём его в приоритете.
-        const numericId = Number(passedProject?.id) || Number(modId);
+        // ВАЖНО: modId из URL может быть slug ("iris", "sodium и т.п.), а
+        // CurseForge API принимает только числовой id. Настоящий числовой id
+        // есть в location.state (передаётся с карточки поиска) — берём его в
+        // приоритете, а если страница открыта напрямую по slug, ищем точный
+        // проект через поиск по имени slug.
+        let numericId = Number(passedProject?.id) || Number(modId);
         if (!numericId || Number.isNaN(numericId)) {
-          throw new Error('Не удалось определить ID мода CurseForge — откройте его заново со страницы поиска.');
+          const slug = decodeURIComponent(modId ?? '');
+          const slugSearch = await invoke<any>('search_curseforge', {
+            query: slug,
+            apiKey: cfApiKey,
+            limit: 20,
+          }).catch(() => null);
+          const exact = (slugSearch?.data ?? []).find((m: any) => String(m.slug).toLowerCase() === slug.toLowerCase());
+          if (!exact?.id) {
+            throw new Error('Не удалось определить ID мода CurseForge — откройте его заново со страницы поиска.');
+          }
+          numericId = Number(exact.id);
         }
         const [proj, filesResp] = await Promise.all([
           invoke<any>('get_curseforge_mod', { projectId: numericId, apiKey: cfApiKey }),

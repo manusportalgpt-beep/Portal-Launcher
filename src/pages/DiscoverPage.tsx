@@ -732,7 +732,7 @@ export function DiscoverPage() {
             <div className={view==='grid' ? 'grid grid-cols-2 gap-3' : 'space-y-2'}>
               {results.map(p => (
                 <ProjectCard key={`${p.platform}-${p.id}`} p={p} view={view}
-                  onClick={() => navigate(`/discover/${p.platform}/${p.slug || p.id}`, {
+                  onClick={() => navigate(`/discover/${p.platform}/${p.platform === 'curseforge' ? p.id : (p.slug || p.id)}`, {
                     state: { ...p, searchOrigin: { storageKey: discoverFilterKey(contextInstanceId), scrollTop: resultsScrollRef.current?.scrollTop ?? 0 } },
                   })} />
               ))}

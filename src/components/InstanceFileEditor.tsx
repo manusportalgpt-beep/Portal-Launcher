@@ -3,6 +3,7 @@ import { getCurrentWebview, type DragDropEvent } from '@tauri-apps/api/webview';
 import { AlertTriangle, Archive, CheckCircle2, ChevronRight, ExternalLink, FileCode2, FilePlus2, Folder, FolderCog, FolderOpen, FolderPlus, Home, ImagePlus, LoaderCircle, Map, PackagePlus, Pencil, Save, Search, Settings2, Share2, ShieldCheck, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { invoke } from '@/lib/invoke-shim';
 import { dialog } from '@/stores/dialogStore';
+import { toastSuccess } from '@/components/ai/FileToast';
 
 type FsEntry = { name: string; path: string; is_dir: boolean; size?: number; modified?: string | null; kind?: string };
 
@@ -179,16 +180,25 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
       await invoke('instance_move_path', { instanceId, from, toDir });
       await loadDir(cwd);
       await onContentChanged?.();
+      const name = from.split('/').pop() || from;
+      toastSuccess(`Файл «${name}» успешно перенесён`, `В папку «${toDir || '.minecraft'}»`);
     } catch (e) { setError(String(e)); }
   };
   const dropExternalFiles = async (paths: string[]) => {
     if (!paths.length) return;
+    setExternalDropActive(false);
     setBusy(true); setError('');
     try {
       const copied = await invoke<string[]>('instance_drop_files', { instanceId, files: paths, targetDir: cwd });
       if (!copied.length) throw new Error('Не удалось получить файлы из операции перетаскивания.');
       await loadDir(cwd);
       await onContentChanged?.();
+      const first = copied[0]?.split('/').pop() || '';
+      if (copied.length === 1) {
+        toastSuccess(`Файл «${first}» добавлен`, `В папку «${cwd || '.minecraft'}»`);
+      } else {
+        toastSuccess(`Добавлено файлов: ${copied.length}`, `В папку «${cwd || '.minecraft'}»`);
+      }
     } catch (e) { setError(`Не удалось добавить файлы в ${cwd || '.minecraft'}: ${String(e)}`); }
     finally { setBusy(false); }
   };

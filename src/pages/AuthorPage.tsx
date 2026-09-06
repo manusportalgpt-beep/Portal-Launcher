@@ -64,7 +64,7 @@ export function AuthorPage() {
             {profile.projects.map((p) => (
               <button
                 key={p.id || p.slug}
-                onClick={() => navigate(`/discover/${p.source}/${p.slug || p.id}`)}
+                onClick={() => navigate(`/discover/${p.source}/${p.source === 'curseforge' ? p.id : (p.slug || p.id)}`)}
                 className="flex gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-left transition hover:border-white/25 hover:bg-white/10"
               >
                 {p.icon_url ? (

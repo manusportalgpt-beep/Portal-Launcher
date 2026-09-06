@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, Square } from 'lucide-react';
 import { invoke } from '@/lib/invoke-shim';
+import { listen } from '@tauri-apps/api/event';
 import { toIconSrc } from '@/lib/icon-src';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { useCurrentUser } from '@/stores/authStore';
@@ -25,6 +26,23 @@ export default function InstanceManage() {
 
   const [status, setStatus] = useState<'idle' | 'launching' | 'running'>('idle');
   const [error, setError] = useState('');
+
+  // Sync with backend on mount and listen for launch events so that the
+  // running/stopped state survives tab switches.
+  useEffect(() => {
+    if (!id) return;
+    invoke<string[]>('get_running_instances')
+      .then(running => { if (running.includes(id)) setStatus('running'); })
+      .catch(() => {});
+    const unlisten = listen<{ instance_id?: string; status?: string }>('launch-status', e => {
+      if (e.payload.instance_id !== id) return;
+      const s = e.payload.status;
+      if (['launching','preparing','downloading','classpath'].includes(s)) setStatus('launching');
+      if (s === 'running') setStatus('running');
+      if (s === 'stopped' || s === 'error' || s === 'crashed') setStatus('idle');
+    });
+    return () => { unlisten.then(fn => fn()); };
+  }, [id]);
 
   const launch = useCallback(async () => {
     if (!inst || status !== 'idle') return;

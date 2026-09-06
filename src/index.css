@@ -558,8 +558,8 @@ html[data-portal-style="glass"] .clean-nav {
   -webkit-backdrop-filter:blur(var(--portal-glass-blur, 22px)) saturate(1.14);
 }
 html[data-portal-style="glass"] .portal-glass-outline { border-color:color-mix(in srgb, var(--color-border-strong) 72%, white 28%) !important; }
-html[data-portal-style="falloff"] .portal-style-mark { transform:rotate(45deg); border-radius:3px !important; }
-html[data-portal-style="falloff"] .portal-style-mark > svg { transform:rotate(-45deg); }
+html[data-portal-style="falloff"] .portal-style-mark { transform:none; border-radius:50% !important; }
+html[data-portal-style="falloff"] .portal-style-mark > svg { transform:none; }
 
 html[data-portal-style="abouts"] .portal-workspace-material { box-shadow:var(--shadow-sm); }
 @media (prefers-reduced-transparency: reduce) {

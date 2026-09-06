@@ -25,10 +25,10 @@ const styleTokens: Record<StylePreset, Record<string, string>> = {
     '--shadow-sm': 'none', '--shadow-md': 'none', '--shadow-lg': 'none', '--portal-glass-blur': '0px',
   },
   falloff: {
-    '--radius-xs': '4px', '--radius-sm': '6px', '--radius-md': '10px', '--radius-lg': '14px', '--radius-xl': '18px',
-    '--radius-button': '8px', '--radius-card': '12px', '--radius-modal': '16px',
-    '--shadow-sm': '0 2px 5px rgba(0, 0, 0, 0.13)', '--shadow-md': '0 8px 22px rgba(0, 0, 0, 0.18)',
-    '--shadow-lg': '0 20px 48px rgba(0, 0, 0, 0.24)', '--portal-glass-blur': '0px',
+    '--radius-xs': '10px', '--radius-sm': '14px', '--radius-md': '20px', '--radius-lg': '28px', '--radius-xl': '36px',
+    '--radius-button': '9999px', '--radius-card': '24px', '--radius-modal': '32px',
+    '--shadow-sm': '0 2px 8px rgba(0, 0, 0, 0.14)', '--shadow-md': '0 10px 30px rgba(0, 0, 0, 0.20)',
+    '--shadow-lg': '0 24px 56px rgba(0, 0, 0, 0.28)', '--portal-glass-blur': '0px',
   },
   abouts: {
     '--radius-xs': '2px', '--radius-sm': '3px', '--radius-md': '4px', '--radius-lg': '6px', '--radius-xl': '8px',

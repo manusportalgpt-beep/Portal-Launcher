@@ -30,13 +30,14 @@ export default function InstanceManage() {
   // Sync with backend on mount and listen for launch events so that the
   // running/stopped state survives tab switches.
   useEffect(() => {
-    if (!id) return;
+    const iid = id;
+    if (!iid) return;
     invoke<string[]>('get_running_instances')
-      .then(running => { if (running.includes(id)) setStatus('running'); })
+      .then(running => { if (running.includes(iid)) setStatus('running'); })
       .catch(() => {});
     const unlisten = listen<{ instance_id?: string; status?: string }>('launch-status', e => {
-      if (e.payload.instance_id !== id) return;
-      const s = e.payload.status;
+      if (e.payload.instance_id !== iid) return;
+      const s = e.payload.status ?? '';
       if (['launching','preparing','downloading','classpath'].includes(s)) setStatus('launching');
       if (s === 'running') setStatus('running');
       if (s === 'stopped' || s === 'error' || s === 'crashed') setStatus('idle');

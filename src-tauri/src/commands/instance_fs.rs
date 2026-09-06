@@ -231,7 +231,12 @@ pub async fn get_lan_relay_status(instance_id: String) -> Result<LanRelayInfo, S
 }
 
 #[tauri::command]
-pub async fn start_lan_relay(instance_id: String, token: String) -> Result<LanRelayInfo, String> {
+pub async fn start_lan_relay(
+    app: tauri::AppHandle,
+    instance_id: String,
+    token: String,
+    account_uuid: Option<String>,
+) -> Result<LanRelayInfo, String> {
     let local_port = lan_port_from_log(&instance_id).ok_or("Minecraft LAN-порт не найден. Сначала откройте мир для сети в игре.")?;
     if TcpStream::connect(("127.0.0.1", local_port)).await.is_err() {
         return Err("LAN-порт найден в логе, но Minecraft больше его не слушает. Откройте мир для сети заново.".into());
@@ -239,8 +244,39 @@ pub async fn start_lan_relay(instance_id: String, token: String) -> Result<LanRe
     if let Ok(mut state) = LAN_RELAY.lock() {
         if let Some(previous) = state.take() { previous.task.abort(); }
     }
+    fn relay_auth_error(error: &str) -> String {
+        let lower = error.to_lowercase();
+        if lower.contains("unauthorized") || lower.contains("forbidden") {
+            "Relay-сервер не принял токен аккаунта. Обновите вход в аккаунт (Microsoft / Ely.by / ник) и попробуйте снова.".to_string()
+        } else {
+            error.to_string()
+        }
+    }
+
+    // Relay принимает токен авторизованного аккаунта. Для Microsoft/Ely.by это
+    // accessToken входа, для офлайн/никнейм-профилей (у которых токена нет)
+    // отдаём стабильный portal-идентификатор, чтобы relay мог сопоставить
+    // сессию с игроком, а друзья заходили по сгенерированному адресу.
+    let requested_uuid = account_uuid.as_deref();
+    let resolved_token = resolve_relay_token(&app, &token, requested_uuid).await;
     let client = reqwest::Client::new();
-    let data = relay_json(&client, "https://uprojects.site", "/sessions", token.trim(), reqwest::Method::POST, Some(serde_json::json!({ "localPort": local_port }))).await?;
+    // Пробуем токен активного аккаунта фронтенда. Если relay отверг его
+    // (токен мог устареть, пока бэкенд уже обновил сессию в auth.json),
+    // повторяем запрос со свежим токеном из хранилища аккаунтов.
+    let data = match relay_json(&client, "https://uprojects.site", "/sessions", &resolved_token, reqwest::Method::POST, Some(serde_json::json!({ "localPort": local_port }))).await {
+        Ok(data) => data,
+        Err(error) if !token.trim().is_empty() => {
+            let fresh_token = resolve_relay_token(&app, "", requested_uuid).await;
+            if fresh_token != resolved_token {
+                relay_json(&client, "https://uprojects.site", "/sessions", &fresh_token, reqwest::Method::POST, Some(serde_json::json!({ "localPort": local_port })))
+                    .await
+                    .map_err(|retry_error| relay_auth_error(&retry_error))?
+            } else {
+                return Err(relay_auth_error(&error));
+            }
+        }
+        Err(error) => return Err(relay_auth_error(&error)),
+    };
     let session_id = data["sessionId"].as_str().ok_or("Relay не вернул sessionId")?.to_string();
     let tunnel_token = data["tunnelToken"].as_str().ok_or("Relay не вернул tunnelToken")?.to_string();
     let public_host = data["publicHost"].as_str().ok_or("Relay не вернул publicHost")?.to_string();
@@ -250,6 +286,28 @@ pub async fn start_lan_relay(instance_id: String, token: String) -> Result<LanRe
     let task = tokio::spawn(run_lan_relay(session_id.clone(), tunnel_token, tunnel_host, tunnel_port, local_port));
     if let Ok(mut state) = LAN_RELAY.lock() { *state = Some(ActiveLanRelay { session_id: session_id.clone(), public_host: public_host.clone(), public_port, local_port, task }); }
     Ok(LanRelayInfo { active: true, public_host: Some(public_host), public_port: Some(public_port), local_port: Some(local_port), session_id: Some(session_id), error: None })
+}
+
+async fn resolve_relay_token(app: &tauri::AppHandle, passed_token: &str, requested_uuid: Option<&str>) -> String {
+    // Активный аккаунт фронтенда уже авторизован — его токен приоритетный.
+    if !passed_token.trim().is_empty() {
+        return passed_token.trim().to_string();
+    }
+    // Иначе берём свежий токен из auth.json (обновление Microsoft-сессии
+    // делается тут же, не полагаясь на устаревший токен фронтенда).
+    if let Some(account) = crate::auth::msa::ensure_fresh_token(app).await {
+        let uuid_matches = requested_uuid.map(|uuid| account.uuid == uuid).unwrap_or(true);
+        if uuid_matches && !account.access_token.trim().is_empty() {
+            return account.access_token;
+        }
+        if uuid_matches {
+            return format!("portal-offline:{}", account.uuid);
+        }
+    }
+    if let Some(uuid) = requested_uuid {
+        return format!("portal-offline:{uuid}");
+    }
+    "portal-offline:guest".to_string()
 }
 
 #[tauri::command]

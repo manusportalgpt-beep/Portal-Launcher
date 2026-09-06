@@ -21,6 +21,7 @@ import { listen } from '@tauri-apps/api/event';
 import { fetchMcVersionIds, MC_VERSIONS_FALLBACK } from '@/lib/mc-versions';
 import { InstanceFileEditor } from '@/components/InstanceFileEditor';
 import { InstanceScreenshotManager } from '@/components/InstanceScreenshotManager';
+import { LanRelayBanner, LanRelayAddressChip } from '@/components/LanRelayControls';
 import { ModpackManifestPreview, type ModpackPreview } from '@/components/ModpackManifestPreview';
 import { useUiStore } from '@/stores/uiStore';
 import modrinthWrench from '@/assets/modrinth-wrench-clean.png';
@@ -1981,6 +1982,7 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
           <InstanceScreenshotManager instanceId={inst.id} />
         ) : tab==='worlds' ? (
           <div className="p-4 space-y-2">
+            <LanRelayBanner instanceId={inst.id} />
             {worlds.filter((w:any) => !search || w.name.toLowerCase().includes(search.toLowerCase())).map((w: any) => (
               <div key={w.folder} className="flex items-center justify-between gap-3 p-3 rounded-xl"
                 style={{ background:'var(--color-surface-2)',border:'1px solid var(--color-border)' }}>
@@ -2001,6 +2003,7 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  <LanRelayAddressChip instanceId={inst.id} />
                   <button onClick={() => invoke('launch_instance', { instanceId: inst.id, accessToken: user?.accessToken || '', uuid: user?.uuid, username: user?.username, provider: user?.provider, quickPlay: { world: w.folder } }).catch(()=>{})}
                     className="px-3 py-1.5 rounded-xl text-xs font-bold" style={{ background:'var(--color-primary)',color:'#fff' }}>
                     Играть

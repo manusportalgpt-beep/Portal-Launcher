@@ -5,16 +5,16 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@/lib/invoke-shim';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAuthorAvatar } from '@/lib/author-avatar';
-import { useCurrentUser } from '@/stores/authStore';
 import { getModrinthProjectGateway } from '@/lib/modrinth-gateway';
 import { toIconSrc } from '@/lib/icon-src';
+import { LanRelayBanner, LanRelayAddressChip } from '@/components/LanRelayControls';
 import { ScreenshotEditor } from '@/components/ScreenshotEditor';
 import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { toastSuccess } from '@/components/ai/FileToast';
 import {
   Package, FolderTree, Globe,
   Folder, FileText, Upload, Trash2, RefreshCw, Home, Search, Image as ImageIcon, Sparkles, Braces, Archive,
-  Compass, FolderPlus, X, Sword, Blocks, Skull, Eye, ArrowUpDown, ShieldAlert, CheckCircle2, History, Undo2, Camera, Save, Edit3, ChevronLeft, ChevronRight, Copy, Link,
+  Compass, FolderPlus, X, Sword, Blocks, Skull, Eye, ArrowUpDown, ShieldAlert, CheckCircle2, History, Undo2, Camera, Save, Edit3, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
 type ModEntry = {
@@ -36,8 +36,6 @@ type ModEntry = {
 
 type FsEntry = { name: string; path: string; is_dir: boolean; size: number; modified?: string; kind: string };
 type WorldInfo = { folder: string; name: string; icon?: string; last_played?: number; size_mb: number; game_mode?: string; hardcore?: boolean };
-type LanRelayInfo = { active: boolean; public_host?: string; public_port?: number; local_port?: number; error?: string };
-
 type ScreenshotItem = { path: string; name: string; url: string };
 type MainTab = 'content' | 'files' | 'worlds' | 'screenshots';
 type ContentFilter = 'all' | 'mods' | 'resourcepacks' | 'shaders' | 'updates' | 'disabled' | 'deleted';
@@ -197,45 +195,12 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeInstanceIdRef = useRef(instanceId);
   const curseforgeApiKey = useSettingsStore(s => s.curseforgeApiKey);
-  const currentUser = useCurrentUser();
-  const [lanRelay, setLanRelay] = useState<LanRelayInfo | null>(null);
-  const [lanBusy, setLanBusy] = useState(false);
 
   useEffect(() => {
     activeInstanceIdRef.current = instanceId;
     setMods([]); setDeletedMods([]); setWorlds([]); setScreenshots([]); setFiles([]); setProgressMap({});
     setSelectedModIds(new Set()); setContentFilter('all'); setSearch(''); setCwd(''); setError(null);
   }, [instanceId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const refreshLan = () => {
-      void invoke<LanRelayInfo>('get_lan_relay_status', { instanceId })
-        .then(status => { if (!cancelled) setLanRelay(status); })
-        .catch(() => undefined);
-    };
-    refreshLan();
-    // Minecraft writes the LAN port only after the user presses "Open to LAN".
-    // Poll while the worlds tab is mounted so the action becomes available
-    // without leaving and reopening the instance page.
-    const timer = window.setInterval(refreshLan, 1500);
-    return () => { cancelled = true; window.clearInterval(timer); };
-  }, [instanceId]);
-
-  const toggleLanRelay = async () => {
-    setLanBusy(true);
-    try {
-      if (lanRelay?.active) {
-        await invoke('stop_lan_relay', { token: currentUser?.accessToken ?? '' });
-        setLanRelay({ active: false });
-      } else {
-        const status = await invoke<LanRelayInfo>('start_lan_relay', { instanceId, token: currentUser?.accessToken ?? '' });
-        setLanRelay(status);
-      }
-    } catch (reason) {
-      setError(String(reason));
-    } finally { setLanBusy(false); }
-  };
 
   const enrichMissingMetadata = useCallback(async (items: ModEntry[]) => {
     const candidates = items.filter(item =>
@@ -891,13 +856,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         {/* ---------- Worlds & Servers ---------- */}
         {mainTab === 'worlds' && (
           <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl px-4 py-3" style={cardStyle}>
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <Link className="h-4 w-4 shrink-0" style={{ color:'var(--color-primary)' }} />
-                <div className="min-w-0"><p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>Мир / LAN</p><p className="text-[11px]" style={{ color:'var(--color-text-secondary)' }}>{lanRelay?.local_port ? `Порт Minecraft: ${lanRelay.local_port}` : 'Сначала откройте мир для сети в Minecraft'}</p></div>
-              </div>
-              {lanRelay?.active && lanRelay.public_host && lanRelay.public_port ? <button onClick={() => navigator.clipboard?.writeText(`${lanRelay.public_host}:${lanRelay.public_port}`)} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Copy className="h-3.5 w-3.5" />{lanRelay.public_host}:{lanRelay.public_port}</button> : <button onClick={() => void toggleLanRelay()} disabled={lanBusy || !currentUser?.accessToken || !lanRelay?.local_port} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold disabled:opacity-50" style={{ background:'var(--color-surface-2)', color:'var(--color-text)', border:'1px solid var(--color-border)' }} title={!currentUser?.accessToken ? 'Войдите в аккаунт' : !lanRelay?.local_port ? 'Порт ещё не найден' : 'Создать адрес LAN'}><Link className="h-3.5 w-3.5" />{lanBusy ? 'Подключаю…' : 'Открыть LAN'}</button>}
-            </div>
+            <LanRelayBanner instanceId={instanceId} />
             {filteredWorlds.map(w => {
               const worldIcon = toIconSrc(w.icon);
               return (
@@ -929,20 +888,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <GameModeBadge mode={w.game_mode} hardcore={w.hardcore} />
-                  {lanRelay?.active && lanRelay.public_host && lanRelay.public_port && (
-                    <button onClick={() => navigator.clipboard?.writeText(`${lanRelay.public_host}:${lanRelay.public_port}`)}
-                      className="flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[10px] font-bold"
-                      style={{ background:'var(--color-primary-dim)', color:'var(--color-primary)', border:'1px solid var(--color-primary)' }}
-                      title="Скопировать адрес LAN relay">
-                      <Copy className="h-3 w-3" />{lanRelay.public_host}:{lanRelay.public_port}
-                    </button>
-                  )}
-                  <button onClick={() => void toggleLanRelay()} disabled={lanBusy || !currentUser?.accessToken || (!lanRelay?.active && !lanRelay?.local_port)}
-                    className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold disabled:opacity-50"
-                    style={{ background:lanRelay?.active ? 'rgba(231,76,60,.12)' : 'var(--color-surface-2)', color:lanRelay?.active ? 'var(--color-error)' : 'var(--color-text)', border:'1px solid var(--color-border)' }}
-                    title={!currentUser?.accessToken ? 'Войдите в аккаунт для relay' : !lanRelay?.active && !lanRelay?.local_port ? 'Сначала откройте мир для сети в Minecraft' : 'Открыть мир через relay'}>
-                    <Link className="h-3.5 w-3.5" />{lanBusy ? 'Подключаю…' : lanRelay?.active ? 'Закрыть LAN' : 'Открыть LAN'}
-                  </button>
+                  <LanRelayAddressChip instanceId={instanceId} />
                   <button onClick={() => invoke('launch_instance', { instanceId, quickPlay: { world: w.folder } }).catch(e => setError(String(e)))}
                     className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold"
                     style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>

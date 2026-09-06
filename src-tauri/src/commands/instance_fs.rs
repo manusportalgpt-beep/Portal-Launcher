@@ -267,8 +267,8 @@ pub async fn start_lan_relay(
     }
 
     let requested_uuid = account_uuid.as_deref();
-    // Получаем messenger-токен (POST /client/api/messenger/session).
-    // Для offline-никнейм аккаунтов вернётся ошибка — relay не поддерживает такие аккаунты.
+    // Получаем токен для relay: messenger-токен (Microsoft/Ely.by) или
+    // portal-offline:<uuid> для никнейм-аккаунтов.
     let resolved_token = match resolve_messenger_token(&app, &token, requested_uuid).await {
         Ok(t) => t,
         Err(e) => return Err(e),
@@ -347,40 +347,40 @@ async fn resolve_messenger_token(
     // Фронтенд передаёт голый accessToken Minecraft — его нельзя использовать как
     // messenger-токен relay. Поэтому всегда получаем аккаунт из auth.json
     // (там JSON-свежий токен + провайдер) и обмениваем его на messenger-токен.
+    // Для Microsoft/Ely.by обмениваем access-token на messenger-токен relay.
+    // Для offline/никнейм-аккаунтов (нет access-token) используем стабильный
+    // portal-offline:<uuid> — relay-сервер принимает его как Bearer, позволяя
+    // всем игрокам (включая офлайн по нику) создавать и подключаться к LAN.
     let account = crate::auth::msa::ensure_fresh_token(app).await;
-    let account = match account {
-        Some(acc) if requested_uuid.map(|u| u == acc.uuid).unwrap_or(true) => acc,
+    match account {
+        Some(acc) if requested_uuid.map(|u| u == acc.uuid).unwrap_or(true) => {
+            let provider = match acc.provider.as_deref() {
+                Some("elyby") | Some("ely") => "ely",
+                _ => "msa",
+            };
+            if !acc.access_token.trim().is_empty() {
+                let client = reqwest::Client::new();
+                if let Ok(token) = get_messenger_token(
+                    &client,
+                    provider,
+                    &acc.access_token,
+                    acc.skin_url.as_deref(),
+                ).await {
+                    return Ok(token);
+                }
+            }
+            // Не удалось обменять на messenger-токен (offline/никнейм или ошибка
+            // сети) — всё равно разрешаем через стабильный portal-идентификатор.
+            Ok(format!("portal-offline:{}", acc.uuid))
+        }
         _ => {
             if let Some(uuid) = requested_uuid {
-                return Err(format!(
-                    "Relay поддерживает только Microsoft и Ely.by аккаунты. Аккаунт {uuid} является офлайн/никнейм-профилем и не может создать relay-сессию."
-                ));
+                Ok(format!("portal-offline:{uuid}"))
+            } else {
+                Ok("portal-offline:guest".to_string())
             }
-            return Err("Аккаунт не найден. Войдите через Microsoft или Ely.by.".into());
         }
-    };
-    // Определяем провайдер
-    let provider = match account.provider.as_deref() {
-        Some("elyby") | Some("ely") => "ely",
-        Some("microsoft") | Some("msa") => "msa",
-        Some("offline") | Some("nickname") => {
-            return Err(
-                "Relay поддерживает только Microsoft и Ely.by аккаунты. Офлайн/никнейм-профили не могут создать публичную relay-сессию.".into()
-            );
-        }
-        _ => "msa", // по умолчанию Microsoft
-    };
-    if account.access_token.trim().is_empty() {
-        return Err("Токен аккаунта пуст. Обновите вход в аккаунт.".into());
     }
-    let client = reqwest::Client::new();
-    let token = get_messenger_token(
-        &client,
-        provider,
-        &account.access_token,
-        account.skin_url.as_deref(),
-    ).await?;
-    Ok(token)
 }
 
 #[tauri::command]

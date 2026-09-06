@@ -682,7 +682,11 @@ pub async fn launch_instance(
     vars.insert("auth_session".into(), format!("token:{token}:{}", uuid.replace('-', "")));
     vars.insert("auth_xuid".into(), xuid.clone());
     vars.insert("clientid".into(), "PortalLauncher".into());
-    vars.insert("user_type".into(), user_type.clone());
+    // Версии <1.13 не понимают user_type=msa — Mojang-серверы требуют "mojang".
+    // Без этого серверы отклоняют подключение даже с валидным токеном.
+    let mc_minor: u32 = mc_id.split('.').nth(1).and_then(|m| m.parse().ok()).unwrap_or(20);
+    let effective_user_type = if mc_minor < 13 && user_type == "msa" { "mojang" } else { user_type.as_str() };
+    vars.insert("user_type".into(), effective_user_type.to_string());
     vars.insert("user_properties".into(), "{}".into());
     vars.insert(
         "version_type".into(),

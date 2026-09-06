@@ -226,7 +226,9 @@ pub fn build_launch_args(
     let is_offline = auth.access_token.is_empty() || auth.access_token == "0";
     let effective_uuid = if is_offline { offline_uuid(&auth.username) } else { uuid_clean };
     let effective_token = if is_offline { "0".to_string() } else { auth.access_token.clone() };
-    let user_type = if is_offline { "legacy" } else { "msa" };
+    // Версии <1.13 не понимают user_type=msa — серверы требуют "mojang".
+    let mc_minor: u32 = instance.mc_version.split('.').nth(1).and_then(|m| m.parse().ok()).unwrap_or(20);
+    let user_type = if is_offline { "legacy" } else if mc_minor < 13 { "mojang" } else { "msa" };
     
     let asset_index = determine_asset_index(&instance.mc_version, versions_dir, assets_dir)?;
     let resource_path = assets_dir.to_string_lossy().to_string();

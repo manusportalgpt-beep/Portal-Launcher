@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pencil, Eraser, Pipette, PaintBucket, Eye, EyeOff, X, Check, RotateCcw, Save } from 'lucide-react';
+import { Pencil, Eraser, Pipette, PaintBucket, Eye, EyeOff, X, Check, RotateCcw, Save, Box } from 'lucide-react';
 import { SkinStand3D, type SkinModel } from './SkinStand3D';
+import { SkinEditor3D } from './SkinEditor3D';
 
 /**
  * Pixel skin editor (64×64 Minecraft sheet) with BlockBench-style tools:
@@ -89,6 +90,7 @@ export function SkinPixelEditor({ open, initialDataUrl, model, onClose, onSave }
   const drawing = useRef(false);
 
   const [tool, setTool] = useState<Tool>('pen');
+  const [editMode, setEditMode] = useState<'2d' | '3d'>('2d');
   const [color, setColor] = useState('#FFFFFF');
   const [recent, setRecent] = useState<string[]>([]);
   const [zoom, setZoom] = useState(8);
@@ -360,6 +362,18 @@ export function SkinPixelEditor({ open, initialDataUrl, model, onClose, onSave }
                   </button>
                 ))}
               </div>
+              <div className="mt-3 grid grid-cols-2 gap-1.5">
+                <button onClick={() => setEditMode('2d')}
+                  className="flex items-center justify-center gap-1.5 rounded-xl py-1.5 text-[10px] font-semibold"
+                  style={{ background: editMode === '2d' ? 'var(--color-primary)' : 'var(--color-surface-2)', color: editMode === '2d' ? 'var(--color-primary-text)' : 'var(--color-text)', border: `1px solid ${editMode === '2d' ? 'var(--color-primary)' : 'var(--color-border)'}` }}>
+                  🖼️ Лист
+                </button>
+                <button onClick={() => setEditMode('3d')}
+                  className="flex items-center justify-center gap-1.5 rounded-xl py-1.5 text-[10px] font-semibold"
+                  style={{ background: editMode === '3d' ? 'var(--color-primary)' : 'var(--color-surface-2)', color: editMode === '3d' ? 'var(--color-primary-text)' : 'var(--color-text)', border: `1px solid ${editMode === '3d' ? 'var(--color-primary)' : 'var(--color-border)'}` }}>
+                  <Box className="h-3 w-3" /> 3D модель
+                </button>
+              </div>
               <div className="mt-3 flex items-center gap-2">
                 <label className="text-[10px] font-semibold" style={{ color: 'var(--color-text-secondary)' }}>Лупа</label>
                 <input type="range" min={4} max={16} step={1} value={zoom} onChange={e => setZoom(Number(e.target.value))} className="flex-1" style={{ accentColor: 'var(--color-primary)' }} />
@@ -399,16 +413,49 @@ export function SkinPixelEditor({ open, initialDataUrl, model, onClose, onSave }
 
           {/* Центр: холст */}
           <div className="flex min-h-0 flex-col items-center justify-center gap-3 overflow-auto p-4">
-            <canvas
-              ref={canvasRef}
-              className="max-h-full max-w-full cursor-crosshair"
-              style={{ imageRendering: 'pixelated', aspectRatio: '1/1', touchAction: 'none', maxWidth: 'min(100%, 56vh)', maxHeight: '56vh' }}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerLeave={onPointerLeave}
-            />
-            <p className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>Лист 64×64 · режим: {toolLabel(tool)}</p>
+            {editMode === '2d' ? (
+              <>
+                <canvas
+                  ref={canvasRef}
+                  className="max-h-full max-w-full cursor-crosshair"
+                  style={{ imageRendering: 'pixelated', aspectRatio: '1/1', touchAction: 'none', maxWidth: 'min(100%, 56vh)', maxHeight: '56vh' }}
+                  onPointerDown={onPointerDown}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={onPointerUp}
+                  onPointerLeave={onPointerLeave}
+                />
+                <p className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>Лист 64×64 · режим: {toolLabel(tool)}</p>
+              </>
+            ) : (
+              <>
+                <SkinEditor3D
+                  skinUrl={initialDataUrl}
+                  model={savedModel}
+                  color={color}
+                  tool={tool}
+                  height={Math.min(420, window.innerHeight * 0.56)}
+                  pixelData={pixelData.current!}
+                  onPaint={(px, py, paintColor) => {
+                    if (!pixelData.current) return;
+                    const idx = (py * SHEET_W + px) * 4;
+                    if (paintColor === null) {
+                      pixelData.current.data[idx + 3] = 0;
+                    } else {
+                      const r = parseInt(paintColor.slice(1, 3), 16);
+                      const g = parseInt(paintColor.slice(3, 5), 16);
+                      const b = parseInt(paintColor.slice(5, 7), 16);
+                      pixelData.current.data[idx] = r;
+                      pixelData.current.data[idx + 1] = g;
+                      pixelData.current.data[idx + 2] = b;
+                      pixelData.current.data[idx + 3] = 255;
+                    }
+                    renderCanvas();
+                    refreshLive();
+                  }}
+                />
+                <p className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>3D модель · рисуйте прямо на модели · ПКМ + мышь для вращения</p>
+              </>
+            )}
           </div>
 
           {/* Право: части тела + предпросмотр */}

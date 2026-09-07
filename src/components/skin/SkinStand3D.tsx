@@ -312,9 +312,10 @@ export function SkinStand3D({
         transparent: true,
         alphaTest: 0.02,
         side: THREE.DoubleSide,
+        depthWrite: false,
         polygonOffset: true,
-        polygonOffsetFactor: -2,
-        polygonOffsetUnits: -2,
+        polygonOffsetFactor: -4,
+        polygonOffsetUnits: -4,
       });
 
       const add = (geo: BufferGeometry, mat: Material, pos: [number, number, number], parent: Object3D, region?: string) => {
@@ -336,11 +337,11 @@ export function SkinStand3D({
       st.player.add(head);
       st.head = head;
       add(boxPart([8, 8, 8], [0, 0]), solid(), [0, 0, 0], head, 'head');
-      if (overlay) add(boxPart([8, 8, 8], [32, 0], 0.6), layer(), [0, 0, 0], head, 'headLayer');
+      if (overlay) add(boxPart([8, 8, 8], [32, 0], 0.8), layer(), [0, 0, 0], head, 'headLayer');
 
       // Тело
       add(boxPart([8, 12, 4], [16, 16]), solid(), [0, 2, 0], st.player, 'body');
-      if (overlay) add(boxPart([8, 12, 4], [16, 32], 0.5), layer(), [0, 2, 0], st.player, 'bodyLayer');
+      if (overlay) add(boxPart([8, 12, 4], [16, 32], 0.8), layer(), [0, 2, 0], st.player, 'bodyLayer');
 
       // Руки: pivot у плеча; центр руки находится на y=2, как у тела.
       const mkArm = (side: 'left' | 'right') => {
@@ -351,7 +352,7 @@ export function SkinStand3D({
         const uv: [number, number] = side === 'right' ? [40, 16] : [32, 48];
         const uvOverlay: [number, number] = side === 'right' ? [40, 32] : [48, 48];
         add(boxPart([armW, 12, 4], uv), solid(), [0, -6, 0], pivot, side === 'right' ? 'rightArm' : 'leftArm');
-        if (overlay) add(boxPart([armW, 12, 4], uvOverlay, 0.5), layer(), [0, -6, 0], pivot, side === 'right' ? 'rightArmLayer' : 'leftArmLayer');
+        if (overlay) add(boxPart([armW, 12, 4], uvOverlay, 0.8), layer(), [0, -6, 0], pivot, side === 'right' ? 'rightArmLayer' : 'leftArmLayer');
         return pivot;
       };
       st.arms = { right: mkArm('right'), left: mkArm('left') };
@@ -365,7 +366,7 @@ export function SkinStand3D({
         const uv: [number, number] = side === 'right' ? [0, 16] : [16, 48];
         const overlayUv: [number, number] = side === 'right' ? [0, 32] : [0, 48];
         add(boxPart([4, 12, 4], uv), solid(), [0, -6, 0], pivot, side === 'right' ? 'rightLeg' : 'leftLeg');
-        if (overlay) add(boxPart([4, 12, 4], overlayUv, 0.5), layer(), [0, -6, 0], pivot, side === 'right' ? 'rightLegLayer' : 'leftLegLayer');
+        if (overlay) add(boxPart([4, 12, 4], overlayUv, 0.8), layer(), [0, -6, 0], pivot, side === 'right' ? 'rightLegLayer' : 'leftLegLayer');
         return pivot;
       };
       st.legs = { right: mkLeg('right'), left: mkLeg('left') };

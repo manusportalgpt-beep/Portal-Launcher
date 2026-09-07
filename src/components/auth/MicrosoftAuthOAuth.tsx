@@ -59,6 +59,15 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel, preview = false }: {
     setAltBusy(true); setErrorMsg('');
     try {
       const profile = await invoke<any>('login_offline', { username: offlineName.trim() });
+      await invoke('save_frontend_account', {
+        uuid: profile.uuid,
+        username: profile.username,
+        skinUrl: profile.skin_url ?? null,
+        accessToken: profile.access_token ?? '',
+        refreshToken: profile.refresh_token ?? '',
+        expiresAt: Math.floor(Date.now() / 1000) + (profile.expires_in ?? 86400),
+        provider: 'offline',
+      });
       addProfile(profile, 'offline');
     } catch (e: any) {
       setErrorMsg(e?.message || (typeof e === 'string' ? e : String(e)));

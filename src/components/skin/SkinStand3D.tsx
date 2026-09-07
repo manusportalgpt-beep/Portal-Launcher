@@ -132,11 +132,11 @@ export function SkinStand3D({
     renderer.domElement.style.pointerEvents = interactive || trackCursor ? 'auto' : 'none';
     renderer.domElement.style.display = 'block';
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x101521, 1.1));
-    const key = new THREE.DirectionalLight(0xffffff, 1.35);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x101521, 1.7));
+    const key = new THREE.DirectionalLight(0xffffff, 2.0);
     key.position.set(-5, 28, 22);
     scene.add(key);
-    const topGlow = new THREE.PointLight(0xffffff, 0.62, 70, 2);
+    const topGlow = new THREE.PointLight(0xffffff, 0.95, 70, 2);
     topGlow.position.set(0, 26, 10);
     scene.add(topGlow);
 
@@ -308,8 +308,8 @@ export function SkinStand3D({
         alphaTest: 0.02,
         side: THREE.DoubleSide,
         polygonOffset: true,
-        polygonOffsetFactor: 1,
-        polygonOffsetUnits: 1,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
       });
 
       const add = (geo: BufferGeometry, mat: Material, pos: [number, number, number], parent: Object3D) => {

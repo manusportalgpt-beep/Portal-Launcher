@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore, useCurrentUser } from '@/stores/authStore';
 import { SkinStand3D, type SkinModel } from '@/components/skin/SkinStand3D';
+import { SkinPixelEditor } from '@/components/skin/SkinPixelEditor';
 
 interface CapeInfo { id: string; url: string; alias: string; active: boolean }
 interface ProfileTextures {
@@ -241,6 +242,8 @@ export function SkinSelectorPage() {
   const [selectedSkinId, setSelectedSkinId] = useState<string | null>(loadSelectedSkinId);
   const [applySequence, setApplySequence] = useState(0);
   const [activeTextureHash, setActiveTextureHash] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorSource, setEditorSource] = useState<string | null>(null);
 
   useEffect(() => { persistSelectedSkinId(selectedSkinId); }, [selectedSkinId]);
   useEffect(() => {
@@ -409,6 +412,25 @@ export function SkinSelectorPage() {
     } catch (e: any) { setError(String(e?.message ?? e)); }
   };
 
+  const openEditor = () => {
+    setEditorSource(liveSkinUrl || null);
+    setEditorOpen(true);
+  };
+
+  const handleEditorSave = async (dataUrl: string) => {
+    setEditorOpen(false);
+    try {
+      const response = await fetch(dataUrl);
+      const bytes = Array.from(new Uint8Array(await response.arrayBuffer()));
+      const textureHash = await hashTexture(bytes);
+      setPendingModel(model);
+      setPendingName('Edited skin');
+      setPendingCapeId(activeCape?.id ?? null);
+      setPreviewError('');
+      setPending({ dataUrl, bytes, textureHash });
+    } catch (e: any) { setError(String(e?.message ?? 'Не удалось подготовить отредактированный скин.')); }
+  };
+
   const deleteHistorySkin = (skin: SavedSkin) => {
     const next = skinHistory.filter(item => item.id !== skin.id);
     setSkinHistory(next);
@@ -432,6 +454,12 @@ export function SkinSelectorPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <button onClick={openEditor} disabled={!liveSkinUrl}
+            className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold"
+            style={{ borderRadius: 'var(--radius-button)', background: 'var(--color-primary)', color: 'var(--color-primary-text)', opacity: liveSkinUrl ? 1 : 0.5, border: '1px solid var(--color-primary)' }}
+            title="Открыть пиксельный редактор 64×64">
+            <Pencil className="w-3.5 h-3.5" />Редактор
+          </button>
           <button onClick={loadProfile} disabled={!canView || loading}
             className="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold"
             style={{ borderRadius: 'var(--radius-button)', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}>
@@ -583,6 +611,14 @@ export function SkinSelectorPage() {
           />
         )}
       </AnimatePresence>
+
+      <SkinPixelEditor
+        open={editorOpen}
+        initialDataUrl={editorSource}
+        model={model}
+        onClose={() => setEditorOpen(false)}
+        onSave={handleEditorSave}
+      />
     </div>
   );
 }

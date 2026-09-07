@@ -38,6 +38,8 @@ interface Props {
   applySequence?: number;
   /** Голова модели плавно следует за курсором внутри стенда. */
   trackCursor?: boolean;
+  /** Идентификаторы частей тела, которые нужно скрыть (head, headLayer, body, bodyLayer, rightArm, leftArm, rightLeg, leftLeg, cape). */
+  hiddenParts?: string[];
 }
 
 const TEX_W = 64;
@@ -109,9 +111,12 @@ export function SkinStand3D({
   cameraDistance = 60,
   applySequence = 0,
   trackCursor = false,
+  hiddenParts = [],
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<any>(null);
+  const hiddenPartsRef = useRef(hiddenParts);
+  hiddenPartsRef.current = hiddenParts;
   const themeId = useThemeStore(state => state.themeId);
 
   // Инициализация сцены — один раз на монтирование или смену базовых параметров.
@@ -312,9 +317,10 @@ export function SkinStand3D({
         polygonOffsetUnits: -2,
       });
 
-      const add = (geo: BufferGeometry, mat: Material, pos: [number, number, number], parent: Object3D) => {
+      const add = (geo: BufferGeometry, mat: Material, pos: [number, number, number], parent: Object3D, region?: string) => {
         const mesh = new THREE.Mesh(geo, mat);
         mesh.position.set(...pos);
+        if (region) mesh.userData.regionId = region;
         parent.add(mesh);
         st.meshes.push(mesh);
         st.meshMaterials.push(mat);
@@ -329,12 +335,12 @@ export function SkinStand3D({
       head.position.set(0, 12, 0);
       st.player.add(head);
       st.head = head;
-      add(boxPart([8, 8, 8], [0, 0]), solid(), [0, 0, 0], head);
-      if (overlay) add(boxPart([8, 8, 8], [32, 0], 0.6), layer(), [0, 0, 0], head);
+      add(boxPart([8, 8, 8], [0, 0]), solid(), [0, 0, 0], head, 'head');
+      if (overlay) add(boxPart([8, 8, 8], [32, 0], 0.6), layer(), [0, 0, 0], head, 'headLayer');
 
       // Тело
-      add(boxPart([8, 12, 4], [16, 16]), solid(), [0, 2, 0], st.player);
-      if (overlay) add(boxPart([8, 12, 4], [16, 32], 0.5), layer(), [0, 2, 0], st.player);
+      add(boxPart([8, 12, 4], [16, 16]), solid(), [0, 2, 0], st.player, 'body');
+      if (overlay) add(boxPart([8, 12, 4], [16, 32], 0.5), layer(), [0, 2, 0], st.player, 'bodyLayer');
 
       // Руки: pivot у плеча; центр руки находится на y=2, как у тела.
       const mkArm = (side: 'left' | 'right') => {
@@ -344,8 +350,8 @@ export function SkinStand3D({
         st.player.add(pivot);
         const uv: [number, number] = side === 'right' ? [40, 16] : [32, 48];
         const uvOverlay: [number, number] = side === 'right' ? [40, 32] : [48, 48];
-        add(boxPart([armW, 12, 4], uv), solid(), [0, -6, 0], pivot);
-        if (overlay) add(boxPart([armW, 12, 4], uvOverlay, 0.5), layer(), [0, -6, 0], pivot);
+        add(boxPart([armW, 12, 4], uv), solid(), [0, -6, 0], pivot, side === 'right' ? 'rightArm' : 'leftArm');
+        if (overlay) add(boxPart([armW, 12, 4], uvOverlay, 0.5), layer(), [0, -6, 0], pivot, side === 'right' ? 'rightArmLayer' : 'leftArmLayer');
         return pivot;
       };
       st.arms = { right: mkArm('right'), left: mkArm('left') };
@@ -358,8 +364,8 @@ export function SkinStand3D({
         st.player.add(pivot);
         const uv: [number, number] = side === 'right' ? [0, 16] : [16, 48];
         const overlayUv: [number, number] = side === 'right' ? [0, 32] : [0, 48];
-        add(boxPart([4, 12, 4], uv), solid(), [0, -6, 0], pivot);
-        if (overlay) add(boxPart([4, 12, 4], overlayUv, 0.5), layer(), [0, -6, 0], pivot);
+        add(boxPart([4, 12, 4], uv), solid(), [0, -6, 0], pivot, side === 'right' ? 'rightLeg' : 'leftLeg');
+        if (overlay) add(boxPart([4, 12, 4], overlayUv, 0.5), layer(), [0, -6, 0], pivot, side === 'right' ? 'rightLegLayer' : 'leftLegLayer');
         return pivot;
       };
       st.legs = { right: mkLeg('right'), left: mkLeg('left') };
@@ -388,12 +394,21 @@ export function SkinStand3D({
           alphaTest: 0.02,
         }));
         mesh.position.set(0, -8, 0.5);
+        mesh.userData.regionId = 'cape';
         pivot.add(mesh);
         st.meshes.push(mesh);
         st.cape = pivot;
       }
 
       st.player.scale.setScalar(slim ? 1.02 : 1);
+      applyHidden();
+    };
+
+    const applyHidden = () => {
+      st.meshes.forEach((m: any) => {
+        const region = m?.userData?.regionId;
+        if (region && hiddenPartsRef.current.includes(region)) m.visible = false; else if (m) m.visible = true;
+      });
     };
 
     const loadTex = (url?: string | null) => new Promise<Texture | null>(resolve => {
@@ -409,6 +424,17 @@ export function SkinStand3D({
 
     return () => { cancelled = true; };
   }, [skinUrl, capeUrl, model, overlay]);
+
+  // Применяем скрытие/показ частей тела при изменении списка.
+  useEffect(() => {
+    const st = stateRef.current;
+    if (!st || !st.meshes) return;
+    st.meshes.forEach((m: any) => {
+      const region = m?.userData?.regionId;
+      if (!region) { m.visible = true; return; }
+      m.visible = !hiddenParts.includes(region);
+    });
+  }, [hiddenParts]);
 
   return (
     <div

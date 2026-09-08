@@ -19,6 +19,7 @@ export interface Instance {
   totalPlayTime: number;
   color: string;
   group?: string;
+  installStatus?: 'idle' | 'partial';
 }
 
 interface InstanceState {

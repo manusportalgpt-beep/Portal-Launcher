@@ -485,6 +485,7 @@ pub async fn launch_instance(
             .map_err(|error| format!("Не удалось подготовить Vanilla {} до установки {}: {error}", instance.mc_version, instance.loader))?;
         status("install", "Подготавливаю Vanilla-файлы для установщика загрузчика…");
         install_version(&app, &vanilla, &instance.mc_version, &instance.mc_version).await?;
+        check_cancelled()?;
         if requested_loader == "neoforge" {
             let required = required_neoforge_version_from_mod_metadata(&instance_game_dir(&instance_id));
             let version_is_old = required.as_ref().map(|minimum| !crate::commands::loader_installer::neoforge_version_satisfies(&effective_loader_version, minimum)).unwrap_or(false);
@@ -510,6 +511,7 @@ pub async fn launch_instance(
                 effective_loader_version = installed.version;
                 persist_neoforge_loader_version(&instance_id, &effective_loader_version);
                 prepared_only = true;
+                check_cancelled()?;
             }
         }
     }
@@ -600,6 +602,7 @@ pub async fn launch_instance(
     // распаковку. Восстанавливаем папку до запуска, а не передаём LWJGL пустой путь.
     if !has_lwjgl_dll() {
         prepared_only = true;
+        check_cancelled()?;
         status("natives", "Восстанавливаю native-библиотеки LWJGL…");
         let _ = std::fs::remove_dir_all(&natives);
         install_version(&app, &version, &profile_id, &instance.mc_version).await?;

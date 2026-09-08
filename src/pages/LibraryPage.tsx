@@ -908,9 +908,9 @@ function InstanceCard({ inst, onClick, onDropOnGroup }: {
       <div className="w-full aspect-[4/3] rounded-lg overflow-hidden flex items-center justify-center font-black text-xl relative pointer-events-none"
         style={{ background: inst.color ? `${inst.color}15` : 'var(--color-surface-2)', color: inst.color || 'var(--color-text-tertiary)' }}>
         {inst.iconPath ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" draggable={false} /> : inst.name[0]?.toUpperCase()}
-        {launchStatus !== 'idle' && (
+        {(launchStatus !== 'idle' || inst.installStatus === 'partial') && (
           <span className="absolute bottom-1.5 right-1.5 w-2.5 h-2.5 rounded-full "
-            style={{ background: launchStatus==='running' ? '#2ECC71' : 'var(--color-primary)' }} />
+            style={{ background: launchStatus==='running' ? '#2ECC71' : inst.installStatus === 'partial' ? '#F39C12' : 'var(--color-primary)' }} />
         )}
       </div>
       <div className="min-w-0 w-full pointer-events-none">
@@ -1285,6 +1285,7 @@ function installStageName(event: InstanceInstallEvent) {
 }
 
 function InstanceInstallProgress({ instanceId, active }: { instanceId: string; active: boolean }) {
+  const update = useInstanceStore(s => s.update);
   const [progress, setProgress] = useState<InstanceInstallEvent | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const completionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1322,6 +1323,10 @@ function InstanceInstallProgress({ instanceId, active }: { instanceId: string; a
         percent: computedPercent,
       });
       const terminalStage = /^(?:done|complete|completed|installed|error|cancelled|canceled)$/i.test(String(payload?.stage ?? ''));
+      if (terminalStage && /^(?:done|complete|completed|installed)$/i.test(String(payload?.stage ?? ''))) {
+        // Install finished successfully
+        void update(instanceId, { installStatus: 'idle' });
+      }
       if (computedPercent >= 100 || terminalStage) dismissAfterCompletion();
     };
 
@@ -1489,7 +1494,7 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
       if (e.payload.instance_id !== inst.id) return;
       const s = e.payload.status;
       if (['launching','preparing','downloading','classpath'].includes(s)) setLaunchStatus('launching');
-      if (s==='running') { setLaunchStatus('running'); sessionStart.current = Date.now(); }
+      if (s==='running') { setLaunchStatus('running'); sessionStart.current = Date.now(); update(inst.id, { installStatus: 'idle' }); }
       if (s==='stopped') {
         setLaunchStatus('idle'); setHasLogs(true);
         if (sessionStart.current) {
@@ -1642,16 +1647,20 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
   const stop = useCallback(async () => {
     // Stop must never wait for taskkill or a child process tree in the UI.
     // The backend returns immediately and emits terminal launch-status later.
+    const wasInstalling = launchStatus === 'launching';
     setLaunchError('');
     try {
       await invoke('cancel_launch', { instanceId: inst.id });
       setLaunchStatus('idle');
+      if (wasInstalling) {
+        update(inst.id, { installStatus: 'partial' });
+      }
     } catch (error) {
       setLaunchStatus('idle');
       setLaunchError(String(error));
       setTimeout(() => setLaunchError(''), 5000);
     }
-  }, [inst.id, launchStatus]);
+  }, [inst.id, launchStatus, update]);
 
   const updateItems = [...mods,...shaders,...resourcepacks].filter(m => m.updateAvailable);
   const disabledItems = [...mods,...shaders,...resourcepacks].filter(m => m.enabled === false);
@@ -1758,6 +1767,19 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
               style={{ background:'rgba(231,76,60,0.15)',color:'var(--color-error)' }}>
               <Square className="w-3.5 h-3.5 fill-current" />{launchStatus==='launching' ? t('instancePage.cancel') : t('instancePage.stop')}
             </button>
+          ) : inst.installStatus === 'partial' ? (
+            <>
+              <button onClick={launch}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition-all"
+                style={{ background:'var(--color-primary)',color:'#fff' }}>
+                <Download className="w-3.5 h-3.5" />{t('instancePage.continueDownload')}
+              </button>
+              <button onClick={() => { update(inst.id, { installStatus: 'idle' }); launch(); }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition-all"
+                style={{ background:'var(--color-surface-2)',color:'var(--color-text)',border:'1px solid var(--color-border)' }}>
+                <Play className="w-3.5 h-3.5 fill-current" />{t('instancePage.startAnyway')}
+              </button>
+            </>
           ) : (
             <button onClick={launch}
               className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition-all"

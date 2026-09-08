@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import { Home, Compass, User, Package, Settings, Bell, LogIn, X, Plus, Shirt } from 'lucide-react';
+import { useUiStore } from '@/stores/uiStore';
 import { useCurrentUser, useIsAuthenticated, useAuthStore } from '@/stores/authStore';
 import { useNotifStore } from '@/stores/notificationStore';
 import { useInstanceStore } from '@/stores/instanceStore';
@@ -182,7 +183,7 @@ function AccountDropdown({ onClose }: { onClose: () => void }) {
             <p className="font-bold text-sm" style={{ color:'var(--color-text)' }}>Not signed in</p>
             <p className="text-xs mt-0.5" style={{ color:'var(--color-text-secondary)' }}>Sign in to play Minecraft</p>
           </div>
-          <button onClick={() => { navigate('/settings/account'); onClose(); }}
+          <button onClick={() => { (() => { useUiStore.getState().set('settingsSection' as any, 'account'); useUiStore.getState().set('settingsOverlayOpen' as any, true); })(); onClose(); }}
             className="w-full py-2 rounded-xl text-sm font-semibold"
             style={{ background:'var(--color-primary)', color:'white' }}>
             Sign in with Microsoft
@@ -208,7 +209,7 @@ function AccountDropdown({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           <div className="p-2">
-            <button onClick={() => { navigate('/settings/account'); onClose(); }}
+            <button onClick={() => { (() => { useUiStore.getState().set('settingsSection' as any, 'account'); useUiStore.getState().set('settingsOverlayOpen' as any, true); })(); onClose(); }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm hover:bg-white/5 text-left"
               style={{ color:'var(--color-text-secondary)' }}>
               <LogIn className="w-3.5 h-3.5" />Account Settings
@@ -320,7 +321,7 @@ export function LeftSidebar() {
 
       {/* Logo — click to go to About */}
       <motion.button
-        onClick={() => navigate('/settings/about')}
+        onClick={() => (() => { useUiStore.getState().set('settingsSection' as any, 'about'); useUiStore.getState().set('settingsOverlayOpen' as any, true); })()}
         whileHover={{ scale: 1.06, rotate: 4 }}
         whileTap={{ scale: 0.92, rotate: -4 }}
         transition={{ type: 'spring', stiffness: 400, damping: 18 }}
@@ -383,51 +384,29 @@ export function LeftSidebar() {
         </AnimatePresence>
       </div>
 
-      {/* Settings */}
-      <NavLink
-        to="/settings"
+      {/* Settings — overlay */}
+      <button
+        onClick={() => { useUiStore.getState().set('settingsOverlayOpen' as any, true); }}
         title="Settings"
         data-testid="nav-settings"
-        className="group relative flex items-center justify-center w-12 h-12 rounded-2xl">
-        {({ isActive }) => (
-          <>
-            <motion.div
-              className="absolute inset-0 rounded-2xl"
-              initial={false}
-              animate={{ opacity: isActive ? 1 : 0, scale: isActive ? 1 : 0.85 }}
-              transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-              style={{
-                background: 'linear-gradient(135deg, #64748B, #475569)',
-                boxShadow: '0 6px 18px rgba(100,116,139,0.45), inset 0 1px 0 rgba(255,255,255,0.15)',
-              }}
-            />
-            {!isActive && (
-              <span className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{ background: 'var(--color-surface-active)' }} />
-            )}
-            <motion.div
-              whileHover={{ rotate: 90 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 18 }}
-              className="relative z-10">
-              <Settings
-                size={20}
-                strokeWidth={isActive ? 2.4 : 2}
-                style={{ color: isActive ? '#fff' : '#94A3B8' }}
-              />
-            </motion.div>
-            <div className="absolute left-full ml-3 px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap
-              opacity-0 pointer-events-none group-hover:opacity-100 transition-all z-50"
-              style={{
-                background: 'var(--color-surface-2)',
-                color: 'var(--color-text)',
-                border: '1px solid var(--color-border)',
-                boxShadow: 'var(--shadow-md)',
-              }}>
-              Settings
-            </div>
-          </>
-        )}
-      </NavLink>
+        className="group relative flex items-center justify-center w-12 h-12 rounded-2xl hover:bg-white/5 transition-all">
+        <motion.div
+          whileHover={{ rotate: 90 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 18 }}
+          className="relative z-10">
+          <Settings size={20} strokeWidth={2} style={{ color: '#94A3B8' }} />
+        </motion.div>
+        <div className="absolute left-full ml-3 px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap
+          opacity-0 pointer-events-none group-hover:opacity-100 transition-all z-50"
+          style={{
+            background: 'var(--color-surface-2)',
+            color: 'var(--color-text)',
+            border: '1px solid var(--color-border)',
+            boxShadow: 'var(--shadow-md)',
+          }}>
+          Settings
+        </div>
+      </button>
     </aside>
   );
 }

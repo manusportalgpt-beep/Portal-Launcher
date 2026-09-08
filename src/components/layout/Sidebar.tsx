@@ -3,13 +3,14 @@ import { Compass, Library, Settings, Layers } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
+import { useUiStore } from '@/stores/uiStore';
 import { themes } from '@/lib/theme-engine';
 
 const items = [
   { to:'/discover', icon:Compass, key:'nav.discover' },
   { to:'/library', icon:Library, key:'nav.library' },
   { to:'/instances', icon:Layers, key:'instances.title' },
-  { to:'/settings', icon:Settings, key:'nav.settings' },
+  // settings is handled separately via overlay
 ];
 
 export function Sidebar() {
@@ -68,12 +69,25 @@ export function Sidebar() {
             )}
           </NavLink>
         ))}
+      {/* Settings — opens overlay */}
+      <div className="px-3 pb-1">
+        <button
+          onClick={() => { useUiStore.getState().set('settingsOverlayOpen' as any, true); }}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 w-full hover:bg-white/5"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          <Settings className="w-4 h-4 shrink-0" />
+          <span className="flex-1 text-left">{t('nav.settings')}</span>
+        </button>
+      </div>
+
       </nav>
 
       {/* User profile card */}
       <div className="p-3 flex-shrink-0" style={{borderTop:'1px solid var(--color-border)'}}>
-        <NavLink to="/settings/account"
-          className="flex items-center gap-3 p-2.5 rounded-xl transition-all hover:bg-white/5">
+        <button
+          onClick={() => { useUiStore.getState().set('settingsSection' as any, 'account'); useUiStore.getState().set('settingsOverlayOpen' as any, true); }}
+          className="flex items-center gap-3 p-2.5 rounded-xl transition-all hover:bg-white/5 w-full text-left">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold"
             style={{background: isAuthenticated && user
               ? 'linear-gradient(135deg,var(--color-primary),#E74C3C)'
@@ -94,7 +108,7 @@ export function Sidebar() {
               </p>
             </div>
           </div>
-        </NavLink>
+        </button>
       </div>
     </aside>
   );

@@ -99,6 +99,10 @@ export interface UiState {
   uiMode: UiMode;
   /** Безопасная версия визуального оформления Notch/Sidebar панели */
   panelVersion: PanelVersion;
+  /** Открыт ли overlay настроек */
+  settingsOverlayOpen: boolean;
+  /** Текущая секция в overlay настроек */
+  settingsSection: string;
   /** Общая прозрачность интерактивного интерфейса поверх background */
   interfaceOpacity: number;
   /** Плотность и материал поверхностей интерфейса */
@@ -187,6 +191,8 @@ const defaults = {
   searchDetailReturnPosition: 'remember' as SearchDetailReturnPosition,
   uiMode: 'new' as UiMode,
   panelVersion: 'new' as PanelVersion,
+  settingsOverlayOpen: false,
+  settingsSection: 'account',
   interfaceOpacity: 100,
   surfaceOpacity: 94,
   borderStrength: 100,

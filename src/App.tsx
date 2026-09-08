@@ -26,6 +26,7 @@ import i18n from '@/i18n';
 import { BottomProgressBar } from '@/components/BottomProgressBar';
 import { InstallEffectOverlay } from '@/components/InstallEffectOverlay';
 import { DialogHost } from '@/components/DialogHost';
+import { SettingsOverlay } from '@/components/SettingsOverlay';
 import { AIAgent } from '@/components/ai/AIAgent';
 import { FileToastHost } from '@/components/ai/FileToast';
 import { UpdateChecker } from '@/components/UpdateChecker';
@@ -202,6 +203,7 @@ function App() {
       )}
       <InstallEffectOverlay />
       {!loading && <BackgroundMusicPlayer />}
+      <SettingsOverlay />
       <DialogHost />
       {!loading && <FirstLaunchExperience />}
       {!loading && aiOpen && <AIAgent onClose={() => setAiOpen(false)} />}

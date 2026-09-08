@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
-import { Home, Compass, User, Package, Settings, Bell, LogIn, X, Plus } from 'lucide-react';
+import { Home, Compass, User, Package, Settings, Bell, LogIn, X, Plus, Shirt } from 'lucide-react';
 import { useCurrentUser, useIsAuthenticated, useAuthStore } from '@/stores/authStore';
 import { useNotifStore } from '@/stores/notificationStore';
 import { useInstanceStore } from '@/stores/instanceStore';
@@ -213,6 +213,13 @@ function AccountDropdown({ onClose }: { onClose: () => void }) {
               style={{ color:'var(--color-text-secondary)' }}>
               <LogIn className="w-3.5 h-3.5" />Account Settings
             </button>
+            {user?.provider === 'elyby' && (
+              <button onClick={() => { window.open('https://account.ely.by/#/profile', '_blank'); onClose(); }}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm hover:bg-white/5 text-left"
+                style={{ color:'var(--color-text-secondary)' }}>
+                <Shirt className="w-3.5 h-3.5" />Изменить скин (Ely.by)
+              </button>
+            )}
             {!confirm ? (
               <button onClick={() => setConfirm(true)}
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm hover:bg-red-500/10 text-left"

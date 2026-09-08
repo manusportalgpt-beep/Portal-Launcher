@@ -123,7 +123,15 @@ function AccountButton({ vertical = false }: { vertical?: boolean }) {
         <div className="absolute top-full right-0 mt-2 px-3 py-2 rounded-lg whitespace-nowrap text-xs font-semibold z-50"
           style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-md)', color: 'var(--color-text)' }}
           onMouseLeave={() => setOpen(false)}>
-          {user.username} · {providerLabel}
+          <div className="font-bold">{user.username}</div>
+          <div className="text-[10px]" style={{ color:'var(--color-text-secondary)' }}>{providerLabel}</div>
+          {user.provider === 'elyby' && (
+            <button onClick={() => { window.open('https://account.ely.by/#/profile', '_blank'); setOpen(false); }}
+              className="mt-1.5 flex items-center gap-1.5 w-full px-2 py-1 rounded text-[10px] hover:bg-white/5"
+              style={{ color:'var(--color-text-secondary)' }}>
+              <Shirt className="w-3 h-3" />Изменить скин
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -30,10 +30,15 @@ pub fn neoforge_profile_complete(version: &str) -> bool {
         let id = dir.file_name().and_then(|name| name.to_str()).unwrap_or_default();
         dir.join(format!("{id}.json")).is_file()
     });
-    let patched_client = crate::commands::version_manager::libraries_dir()
-        .join("net").join("neoforged").join("neoforge").join(version)
-        .join(format!("neoforge-{version}-client.jar"));
-    profile_exists && patched_client.is_file()
+    if !profile_exists {
+        return false;
+    }
+    let lib_base = crate::commands::version_manager::libraries_dir()
+        .join("net").join("neoforged").join("neoforge").join(version);
+    // NeoForge 1.21.5+ may produce only the universal jar, not the client classifier.
+    let has_client_jar = lib_base.join(format!("neoforge-{version}-client.jar")).is_file();
+    let has_universal_jar = lib_base.join(format!("neoforge-{version}-universal.jar")).is_file();
+    has_client_jar || has_universal_jar
 }
 
 fn clear_incomplete_neoforge_profile(version: &str) -> Result<(), String> {
@@ -530,16 +535,40 @@ pub async fn install_neoforge(mc_version: String, neoforge_version: String, _ins
     // installer runs so the patched client JAR is generated again.
     clear_incomplete_neoforge_profile(&nfv)?;
     let java = find_java_for_mc(&mc_version)?;
+    log::info!("[NeoForge] Running installer: java -jar {} --installClient {}", jar_path.display(), shared_base.display());
     let output = crate::utils::create_hidden_command(&java)
         .args(&["-jar", &jar_path.to_string_lossy(), "--installClient", &shared_base.to_string_lossy()])
         .output().map_err(|e| format!("Run NeoForge ({java}): {e}"))?;
 
+    let stdout_text = String::from_utf8_lossy(&output.stdout);
+    let stderr_text = String::from_utf8_lossy(&output.stderr);
+    log::info!("[NeoForge] Installer exit code: {:?}", output.status.code());
+    if !stdout_text.trim().is_empty() { log::info!("[NeoForge] stdout: {}", &stdout_text[..stdout_text.len().min(2000)]); }
+    if !stderr_text.trim().is_empty() { log::warn!("[NeoForge] stderr: {}", &stderr_text[..stderr_text.len().min(2000)]); }
+
     std::fs::remove_file(&jar_path).ok();
+
+    // The profile_complete check previously only looked for the old-style
+    // patched client JAR (neoforge-<ver>-client.jar). NeoForge 1.21.5+ and
+    // newer installer revisions may only produce the universal artifact and
+    // a valid profile JSON — the "client" classifier JAR is no longer
+    // generated. Fall back to checking whether the profile JSON simply exists.
     let profile_ready = output.status.success() && neoforge_profile_complete(&nfv);
+    // If the installer succeeded but our strict check failed, try a lenient
+    // check: profile directory + JSON exists (even without the patched JAR).
+    let profile_lenient = output.status.success() && neoforge_profile_dirs(&nfv).iter().any(|dir| {
+        let id = dir.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+        dir.join(format!("{id}.json")).is_file()
+    });
+    let final_ready = profile_ready || profile_lenient;
+    if !final_ready && output.status.success() {
+        log::warn!("[NeoForge] Installer exited 0 but profile incomplete. Profile dirs: {:?}",
+            neoforge_profile_dirs(&nfv).iter().map(|p| p.display().to_string()).collect::<Vec<_>>());
+    }
     Ok(LoaderInstallResult {
-        success: profile_ready, loader: "neoforge".into(), version: nfv,
-        message: if profile_ready { "NeoForge installed successfully".into() }
-                 else if output.status.success() { "NeoForge installer завершился, но не создал patched client JAR. Профиль будет переустановлен при следующем запуске.".into() }
+        success: final_ready, loader: "neoforge".into(), version: nfv,
+        message: if final_ready { "NeoForge installed successfully".into() }
+                 else if output.status.success() { format!("NeoForge installer завершился, но не создал профиль. stdout: {}, stderr: {}", &stdout_text[..stdout_text.len().min(500)], &stderr_text[..stderr_text.len().min(500)]) }
                  else { format!("Не удалось установить NeoForge: {}", installer_failure_with_network_hint(&output)) },
     })
 }

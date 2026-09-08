@@ -79,8 +79,24 @@ pub async fn download_file(
                 }
             }
             None => {
-                if std::fs::metadata(dest).map(|m| m.len() > 0).unwrap_or(false) {
-                    return Ok(());
+                if let Ok(meta) = std::fs::metadata(dest) {
+                    if meta.len() > 0 {
+                        // JAR/WAR files are ZIP archives. Verify the magic
+                        // bytes so a truncated download is not treated as OK.
+                        if let Ok(mut file) = std::fs::File::open(dest) {
+                            use std::io::Read;
+                            let mut header = [0u8; 4];
+                            let valid = file.read_exact(&mut header).is_ok()
+                                && (header.starts_with(b"PK\x03\x04")
+                                    || header.starts_with(b"PK\x05\x06")
+                                    || header.starts_with(b"PK\x07\x08"));
+                            if valid {
+                                return Ok(());
+                            }
+                        } else {
+                            return Ok(());
+                        }
+                    }
                 }
             }
         }
@@ -246,29 +262,73 @@ fn include_neoforge_runtime(profile: &mut serde_json::Value) {
         return;
     };
 
-    let runtime = format!("net.neoforged:neoforge:{version}:universal");
     if !profile["libraries"].is_array() {
         profile["libraries"] = serde_json::Value::Array(Vec::new());
     }
     let Some(libraries) = profile["libraries"].as_array_mut() else {
         return;
     };
-    if libraries.iter().any(|library| {
+
+    let neoforge_base = crate::commands::version_manager::libraries_dir()
+        .join("net").join("neoforged").join("neoforge").join(&version);
+
+    // Always include the universal system-mod — it carries the NeoForge launch
+    // layer and must be on the classpath even when the profile omits it.
+    let universal = format!("net.neoforged:neoforge:{version}:universal");
+    let has_universal = libraries.iter().any(|library| {
         library["name"]
             .as_str()
-            .map(|name| name.trim_end_matches("@jar") == runtime)
+            .map(|name| name.trim_end_matches("@jar") == universal)
             .unwrap_or(false)
-    }) {
-        return;
+    });
+    if !has_universal {
+        let universal_jar = neoforge_base.join(format!("neoforge-{version}-universal.jar"));
+        let downloads = if universal_jar.is_file() {
+            Some(serde_json::json!({
+                "artifact": {
+                    "path": format!("net/neoforged/neoforge/{version}/neoforge-{version}-universal.jar"),
+                    "url": format!("https://maven.neoforged.net/releases/net/neoforged/neoforge/{version}/neoforge-{version}-universal.jar"),
+                    "size": std::fs::metadata(&universal_jar).map(|m| m.len()).unwrap_or(0),
+                }
+            }))
+        } else { None };
+        let mut entry = serde_json::json!({
+            "name": universal,
+            "url": "https://maven.neoforged.net/releases/"
+        });
+        if let Some(dl) = downloads {
+            entry["downloads"] = dl;
+        }
+        libraries.insert(0, entry);
     }
 
-    libraries.insert(
-        0,
-        serde_json::json!({
-            "name": runtime,
-            "url": "https://maven.neoforged.net/releases/"
-        }),
-    );
+    // NeoForge 1.21.5+ may produce a patched client JAR (:client classifier)
+    // instead of embedding it in the universal jar. The game needs this on the
+    // classpath to find patched Minecraft classes.
+    let client_coord = format!("net.neoforged:neoforge:{version}:client");
+    let has_client = libraries.iter().any(|library| {
+        library["name"]
+            .as_str()
+            .map(|name| name.trim_end_matches("@jar") == client_coord)
+            .unwrap_or(false)
+    });
+    if !has_client {
+        let client_jar = neoforge_base.join(format!("neoforge-{version}-client.jar"));
+        if client_jar.is_file() {
+            let entry = serde_json::json!({
+                "name": client_coord,
+                "url": "https://maven.neoforged.net/releases/",
+                "downloads": {
+                    "artifact": {
+                        "path": format!("net/neoforged/neoforge/{version}/neoforge-{version}-client.jar"),
+                        "url": format!("https://maven.neoforged.net/releases/net/neoforged/neoforge/{version}/neoforge-{version}-client.jar"),
+                        "size": std::fs::metadata(&client_jar).map(|m| m.len()).unwrap_or(0),
+                    }
+                }
+            });
+            libraries.insert(0, entry);
+        }
+    }
 }
 
 /// Полностью разрешённый version.json (с наследованием) для инстанса.

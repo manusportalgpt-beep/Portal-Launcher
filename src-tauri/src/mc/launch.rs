@@ -191,29 +191,31 @@ fn expand_args(
 }
 
 fn neoforge_profile_owns_client_jar(version: &serde_json::Value) -> bool {
-    // NeoForge 1.21+ creates its client JAR through installer processors. The
-    // generated JAR is not guaranteed to be listed in version.json libraries,
-    // so inspecting only Maven coordinates misses the exact 21.1.99 profile
-    // reported by Portal users. Its child profile id survives merge_inherited.
-    let generated_client_profile = version["id"]
+    // NeoForge 1.21+ creates its client JAR through installer processors.
+    // Check the actual filesystem: either the patched client.jar or the
+    // universal artifact may be present depending on the NeoForge build.
+    let Some(neoforge_version) = version["id"]
         .as_str()
         .and_then(|id| id.strip_prefix("neoforge-"))
-        .and_then(|build| build.split('.').next())
-        .and_then(|major| major.parse::<u32>().ok())
-        .is_some_and(|major| major >= 21);
-    if generated_client_profile {
-        return true;
-    }
+        .filter(|v| !v.trim().is_empty())
+    else {
+        // Not a NeoForge profile — fall back to coordinate inspection.
+        return version["libraries"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|library| library["name"].as_str())
+            .any(|name| {
+                let normalized = name.to_ascii_lowercase();
+                normalized.starts_with("net.neoforged:neoforge:") && normalized.ends_with(":client")
+            });
+    };
 
-    version["libraries"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|library| library["name"].as_str())
-        .any(|name| {
-            let normalized = name.to_ascii_lowercase();
-            normalized.starts_with("net.neoforged:neoforge:") && normalized.ends_with(":client")
-        })
+    let lib_base = crate::commands::version_manager::libraries_dir()
+        .join("net").join("neoforged").join("neoforge").join(neoforge_version);
+    // Check for either the :client classifier or the :universal artifact.
+    lib_base.join(format!("neoforge-{neoforge_version}-client.jar")).is_file()
+        || lib_base.join(format!("neoforge-{neoforge_version}-universal.jar")).is_file()
 }
 
 fn classpath_library_key(coordinate: &str) -> Option<String> {

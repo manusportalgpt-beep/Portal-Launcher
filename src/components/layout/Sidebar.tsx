@@ -26,7 +26,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 h-[60px]"
         style={{borderBottom:'1px solid var(--color-border)',flexShrink:0}}>
-        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
           style={{background:'var(--color-primary)'}}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <circle cx="7" cy="7" r="5.5" stroke="white" strokeWidth="1.5" />
@@ -54,7 +54,7 @@ export function Sidebar() {
         {items.map(({to,icon:Icon,key}) => (
           <NavLink key={to} to={to}
             className={({isActive}) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${isActive?'':'hover:bg-white/5'}`
+              `flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 ${isActive?'':'hover:bg-white/5'}`
             }
             style={({isActive}) => isActive
               ? {background:'var(--color-primary-dim)',color:'var(--color-primary)'}
@@ -88,7 +88,7 @@ export function Sidebar() {
         <button
           onClick={() => { useUiStore.getState().set('settingsSection' as any, 'account'); useUiStore.getState().set('settingsOverlayOpen' as any, true); }}
           className="flex items-center gap-3 p-2.5 rounded-xl transition-all hover:bg-white/5 w-full text-left">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold"
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-[11px] font-bold"
             style={{background: isAuthenticated && user
               ? 'var(--color-primary)'
               : 'var(--color-surface-2)',

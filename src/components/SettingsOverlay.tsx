@@ -201,9 +201,15 @@ export function SettingsOverlay() {
         {/* Content */}
         <div className="flex-1 min-w-0 overflow-y-auto p-6">
           <div className="max-w-2xl mx-auto">
-            <h1 className="text-base font-bold mb-4" style={{ color: 'var(--color-text)' }}>
-              {SECTIONS.find(s => s.id === active)?.label}
-            </h1>
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-base font-bold" style={{ color: 'var(--color-text)' }}>
+                {SECTIONS.find(s => s.id === active)?.label}
+              </h1>
+              <button onClick={close} className="w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-150 hover:opacity-70"
+                style={{ color: 'var(--color-text-tertiary)' }}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
             {renderSection()}
           </div>
         </div>

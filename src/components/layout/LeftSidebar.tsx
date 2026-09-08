@@ -35,7 +35,7 @@ function NavBtn({ item }: { item: NavItem }) {
       end={item.end}
       title={item.label}
       data-testid={`nav-${item.label.toLowerCase()}`}
-      className="group relative flex items-center justify-center w-12 h-12 rounded-2xl select-none">
+      className="group relative flex items-center justify-center w-11 h-11 rounded-xl select-none transition-all duration-150">
       {({ isActive }) => (
         <>
           <motion.div
@@ -264,11 +264,13 @@ function InstancesRail() {
   return (
     <div className="flex flex-col items-center gap-1.5 w-full overflow-y-auto" style={{ maxHeight: 240 }}>
       {instances.map(inst => (
-        <div
+        <button
           key={inst.id}
           title={inst.name}
-          className="pointer-events-none select-none relative flex items-center justify-center w-12 h-12 rounded-2xl shrink-0 overflow-hidden">
-          <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center text-xs font-bold shrink-0"
+          onClick={() => navigate(`/instances/${inst.id}`)}
+          className="relative flex items-center justify-center w-10 h-10 rounded-xl shrink-0 overflow-hidden transition-all duration-150 hover:scale-105 active:scale-95"
+          style={{ background: 'transparent' }}>
+          <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center text-[11px] font-bold shrink-0"
             style={{
               background: inst.color || 'var(--color-surface-2)',
               color: '#fff',
@@ -277,12 +279,12 @@ function InstancesRail() {
               ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" />
               : inst.name[0]?.toUpperCase()}
           </div>
-        </div>
+        </button>
       ))}
       <button
         onClick={() => navigate('/library?create=1')}
         title="Create instance"
-        className="flex items-center justify-center w-9 h-9 rounded-xl hover:bg-white/5 transition-colors shrink-0"
+        className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/5 transition-all duration-150 shrink-0"
         style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-tertiary)' }}>
         <Plus size={16} />
       </button>
@@ -319,17 +321,13 @@ export function LeftSidebar() {
         borderRight: '1px solid var(--color-border)',
       }}>
 
-      {/* Logo — click to go to About */}
-      <motion.button
-        onClick={() => (() => { useUiStore.getState().set('settingsSection' as any, 'about'); useUiStore.getState().set('settingsOverlayOpen' as any, true); })()}
-        whileHover={{ scale: 1.06, rotate: 4 }}
-        whileTap={{ scale: 0.92, rotate: -4 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 18 }}
-        className="w-12 h-12 rounded-2xl mb-2 shrink-0 overflow-hidden"
-        style={{ boxShadow: '0 8px 24px rgba(231,76,60,0.4)' }}
-        title="About Portal Launcher">
+      {/* Logo */}
+      <button
+        onClick={() => { useUiStore.getState().set('settingsSection' as any, 'about'); useUiStore.getState().set('settingsOverlayOpen' as any, true); }}
+        className="w-10 h-10 rounded-xl mb-1 shrink-0 overflow-hidden transition-opacity hover:opacity-80"
+        title="Portal Launcher">
         <img src="/launcher-icon.png" alt="Portal Launcher" className="w-full h-full object-cover" draggable={false} />
-      </motion.button>
+      </button>
 
       <div className="w-7 h-px my-1" style={{ background: 'var(--color-border)' }} />
 
@@ -347,7 +345,7 @@ export function LeftSidebar() {
       <div className="relative">
         <button
           onClick={() => { setShowNotifs(v => !v); setShowAccount(false); }}
-          className="group relative flex items-center justify-center w-12 h-12 rounded-2xl hover:bg-white/5 transition-colors"
+          className="group relative flex items-center justify-center w-11 h-11 rounded-xl hover:bg-white/5 transition-all duration-150"
           title="Notifications">
           <Bell size={20} strokeWidth={2} style={{ color: showNotifs ? 'var(--color-primary)' : '#94A3B8' }} />
           {unreadCount > 0 && (
@@ -367,7 +365,7 @@ export function LeftSidebar() {
         <button
           onClick={() => { setShowAccount(v => !v); setShowNotifs(false); }}
           title={isAuthenticated && user ? user.username : 'Sign in'}
-          className="relative w-12 h-12 rounded-2xl flex items-center justify-center hover:bg-white/5 transition-colors overflow-hidden"
+          className="relative w-11 h-11 rounded-xl flex items-center justify-center hover:bg-white/5 transition-all duration-150 overflow-hidden"
           style={{ background: 'var(--color-surface-2)' }}>
           {isAuthenticated && user
             ? <CachedPlayerFace user={user} className="w-full h-full" alt="" />
@@ -389,13 +387,8 @@ export function LeftSidebar() {
         onClick={() => { useUiStore.getState().set('settingsOverlayOpen' as any, true); }}
         title="Settings"
         data-testid="nav-settings"
-        className="group relative flex items-center justify-center w-12 h-12 rounded-2xl hover:bg-white/5 transition-all">
-        <motion.div
-          whileHover={{ rotate: 90 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 18 }}
-          className="relative z-10">
-          <Settings size={20} strokeWidth={2} style={{ color: '#94A3B8' }} />
-        </motion.div>
+        className="group relative flex items-center justify-center w-11 h-11 rounded-xl hover:bg-white/5 transition-all duration-150">
+        <Settings size={18} strokeWidth={2} style={{ color: '#94A3B8' }} />
         <div className="absolute left-full ml-3 px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap
           opacity-0 pointer-events-none group-hover:opacity-100 transition-all z-50"
           style={{

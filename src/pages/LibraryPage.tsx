@@ -920,7 +920,6 @@ function InstanceCard({ inst, onClick, onDropOnGroup }: {
           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>{inst.minecraftVersion}</span>
           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold capitalize" style={{ background:`${LOADER_COLOR[inst.modLoader] || 'var(--color-primary)'}12`, color:LOADER_COLOR[inst.modLoader] || 'var(--color-primary)' }}>{inst.modLoaderVersion ? `${inst.modLoader} ${inst.modLoaderVersion}` : inst.modLoader}</span>
         </div>
-        <PlayTimeChart totalPlayTime={inst.totalPlayTime} lastPlayed={inst.lastPlayed} />
       </div>
     </motion.div>
   );

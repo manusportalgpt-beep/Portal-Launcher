@@ -575,8 +575,46 @@ function FilterSidebar({ platform, projectType, selectedCats, selectedLoaders, s
   const { t } = useTranslation();
   const cats = platform === 'modrinth' ? (MODRINTH_CATS[projectType] ?? []) : [];
   const hasFilters = selectedCats.length>0||selectedLoaders.length>0||selectedVersions.length>0;
+  const [expandedSection, setExpandedSection] = useState<string|null>('selected');
   return (
-    <div className="flex h-full flex-col gap-4 overflow-hidden p-3">
+    <div className="flex h-full flex-col gap-3 overflow-hidden p-3">
+      {/* ── Active / Selected filters ── */}
+      {hasFilters && (
+        <div className="shrink-0">
+          <button onClick={() => setExpandedSection(s => s === 'selected' ? null : 'selected')}
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold"
+            style={{ background:'rgba(108,92,231,0.12)', color:'var(--color-primary)' }}>
+            <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5" />{t('findProjects.selectedFilters')}</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expandedSection === 'selected' ? 'rotate-180' : ''}`} />
+          </button>
+          {expandedSection === 'selected' && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {selectedCats.map(c => (
+                <span key={`s-c-${c}`} onClick={() => onCat(c)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-all hover:opacity-80"
+                  style={{ background:'var(--color-primary)', color:'#fff' }}>
+                  <X className="w-2.5 h-2.5" />{c}
+                </span>
+              ))}
+              {selectedLoaders.map(l => (
+                <span key={`s-l-${l}`} onClick={() => onLoader(l)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-all hover:opacity-80"
+                  style={{ background:'var(--color-primary)', color:'#fff' }}>
+                  <X className="w-2.5 h-2.5" />{l}
+                </span>
+              ))}
+              {selectedVersions.map(v => (
+                <span key={`s-v-${v}`} onClick={() => onVersion(v)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-all hover:opacity-80"
+                  style={{ background:'var(--color-primary)', color:'#fff' }}>
+                  <X className="w-2.5 h-2.5" />{v}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="mt-2 h-px" style={{ background:'var(--color-border)' }} />
+        </div>
+      )}
       {hasFilters && (
         <button onClick={onClear} className="w-full text-xs font-semibold py-1.5 rounded-lg hover:opacity-80"
           style={{ background:'rgba(231,76,60,0.1)', color:'var(--color-error)' }}>

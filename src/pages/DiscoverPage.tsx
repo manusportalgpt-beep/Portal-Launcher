@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  Search, Download, Star, X, ChevronDown, Grid, List,
+  Search, Download, Star, X, ChevronDown, Grid, List, Check,
   Package, Sparkles, Layers, SlidersHorizontal, RefreshCw, Wifi,
   Cpu, Image as ImageIcon, Database, Box, Compass, Wrench, Shield, BookOpen, Skull, Gauge, Globe2, Utensils, Archive, Map, Gamepad2, Palette,
 } from 'lucide-react';
@@ -292,8 +292,10 @@ function FilterSidebar({
   onCat: (c:string)=>void; onLoader: (l:string)=>void; onVersion: (v:string)=>void; onClear: ()=>void;
   showSnapshots: boolean; mcVersions: string[];
 }) {
+  const { t } = useTranslation();
   const cats = platform === 'modrinth' ? MODRINTH_CATEGORIES[projectType] : CURSEFORGE_CATEGORIES[projectType];
   const hasFilters = selectedCats.length>0 || selectedLoaders.length>0 || selectedVersions.length>0;
+  const [expandedSection, setExpandedSection] = useState<string|null>('selected');
 
   // Filter out snapshots if not enabled (snapshots have letters like 24w...)
   const SNAPSHOT_RE = /[a-zA-Z]/;
@@ -310,6 +312,43 @@ function FilterSidebar({
 
   return (
     <div className="flex flex-col h-full overflow-y-auto p-4">
+      {/* ── Active / Selected filters ── */}
+      {hasFilters && (
+        <div className="mb-4">
+          <button onClick={() => setExpandedSection(s => s === 'selected' ? null : 'selected')}
+            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold"
+            style={{ background:'rgba(108,92,231,0.12)', color:'var(--color-primary)' }}>
+            <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5" />{t('findProjects.selectedFilters')}</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expandedSection === 'selected' ? 'rotate-180' : ''}`} />
+          </button>
+          {expandedSection === 'selected' && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {selectedCats.map(c => (
+                <span key={`ds-c-${c}`} onClick={() => onCat(c)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-all hover:opacity-80"
+                  style={{ background:'var(--color-primary)', color:'#fff' }}>
+                  <X className="w-2.5 h-2.5" />{c}
+                </span>
+              ))}
+              {selectedLoaders.map(l => (
+                <span key={`ds-l-${l}`} onClick={() => onLoader(l)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-all hover:opacity-80"
+                  style={{ background:'var(--color-primary)', color:'#fff' }}>
+                  <X className="w-2.5 h-2.5" />{l}
+                </span>
+              ))}
+              {selectedVersions.map(v => (
+                <span key={`ds-v-${v}`} onClick={() => onVersion(v)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-all hover:opacity-80"
+                  style={{ background:'var(--color-primary)', color:'#fff' }}>
+                  <X className="w-2.5 h-2.5" />{v}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="mt-2 mb-1 h-px" style={{ background:'var(--color-border)' }} />
+         </div>
+       )}
       <Section Icon={platform === 'modrinth' ? Package : Layers} title={platform === 'modrinth' ? 'Modrinth categories' : 'CurseForge categories'}>
 
           <div className="space-y-0.5">

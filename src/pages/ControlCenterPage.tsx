@@ -31,7 +31,7 @@ export function ControlCenterPage() {
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="max-w-5xl mx-auto space-y-5">
-        <header className="rounded-3xl p-6 relative overflow-hidden" style={{ background:'linear-gradient(135deg, var(--color-surface), var(--color-surface-2))', border:'1px solid var(--color-border)' }}>
+        <header className="rounded-xl p-6 relative overflow-hidden" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
           <div className="absolute inset-0 pointer-events-none" style={{ background:'radial-gradient(circle at 85% 15%, var(--color-primary-dim), transparent 35%)' }} />
           <div className="relative flex flex-col sm:flex-row sm:items-end gap-4 justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-primary)' }}>Launcher control center</p><h1 className="text-2xl font-black mt-1" style={{ color:'var(--color-text)' }}>Your Minecraft progress</h1><p className="text-sm mt-2" style={{ color:'var(--color-text-secondary)' }}>Quickly check activity, unlock achievements, update your content or recover a setup.</p></div><button onClick={() => navigate('/library')} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Library className="w-4 h-4" />Open Library</button></div>
         </header>

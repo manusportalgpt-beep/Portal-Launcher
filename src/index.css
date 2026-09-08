@@ -1278,3 +1278,19 @@ input[type="range"]::-moz-range-thumb {
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
+
+/* Simple hover darken — subtle darkening on interactive elements */
+@media (hover: hover) and (pointer: fine) {
+  .hover-darken { transition: background-color 0.15s ease, opacity 0.15s ease; }
+  .hover-darken:hover { opacity: 0.85; }
+}
+
+/* Tab pill active indicator */
+.tab-pill-active {
+  background: var(--color-primary-dim);
+  color: var(--color-primary);
+}
+
+/* Smooth page transitions */
+.page-enter { opacity: 0; transform: translateY(4px); }
+.page-enter-active { opacity: 1; transform: translateY(0); transition: opacity 0.15s ease-out, transform 0.15s ease-out; }

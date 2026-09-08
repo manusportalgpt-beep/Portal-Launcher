@@ -867,7 +867,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 flex items-center justify-center"
                     title={w.icon ? 'Превью мира из Minecraft' : 'Minecraft не создал icon.png для этого мира'}
-                    style={{ background: 'linear-gradient(145deg, var(--color-surface-2), var(--color-surface))', border: '1px solid var(--color-border)' }}>
+                    style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
                     {worldIcon
                       ? <>
                           <img src={worldIcon} alt={`Превью мира ${w.name}`}
@@ -987,7 +987,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         {dragOver && (
           <motion.div
             key="drop-zone"
-            className="pointer-events-none absolute inset-2 z-30 flex items-center justify-center rounded-3xl border-2 border-dashed p-6 backdrop-blur-sm"
+            className="pointer-events-none absolute inset-2 z-30 flex items-center justify-center rounded-xl border-2 border-dashed p-6 backdrop-blur-sm"
             initial={{ opacity: 0, scale: 0.985, y: 10, borderColor: 'color-mix(in srgb, var(--color-primary) 20%, transparent)' }}
             animate={{ opacity: 1, scale: 1, y: 0, borderColor: 'var(--color-primary)' }}
             exit={{ opacity: 0, scale: 0.99, y: 6 }}

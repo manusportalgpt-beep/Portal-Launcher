@@ -253,7 +253,7 @@ function LogsToolbar({ logs, filter, setFilter, autoScroll, setAutoScroll, copie
 }) {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-wrap items-center gap-2.5 px-4 py-3.5 shrink-0" style={{ background:'linear-gradient(180deg, color-mix(in srgb, var(--color-surface-2) 55%, transparent), transparent)', borderBottom: '1px solid var(--color-border)' }}>
+    <div className="flex flex-wrap items-center gap-2.5 px-4 py-3.5 shrink-0" style={{ background:'var(--color-surface-2)', borderBottom: '1px solid var(--color-border)' }}>
       <Terminal className="w-4 h-4 shrink-0" style={{ color: 'var(--color-primary)' }} />
       <h2 className="font-bold text-sm flex-1" style={{ color: 'var(--color-text)' }}>
         {t('libraryRuntime.logs')}
@@ -1990,7 +1990,7 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 flex items-center justify-center"
                     title={w.icon ? 'Превью мира из Minecraft' : 'Minecraft не создал icon.png для этого мира'}
-                    style={{ background:'linear-gradient(145deg, var(--color-surface-2), var(--color-surface))', border:'1px solid var(--color-border)' }}>
+                    style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
                     {toIconSrc(w.icon)
                       ? <img src={toIconSrc(w.icon)} className="w-full h-full object-cover" style={{ imageRendering:'pixelated' }} alt={`Превью мира ${w.name}`} />
                       : <Globe className="w-4 h-4" style={{ color:'var(--color-text-tertiary)' }} />}

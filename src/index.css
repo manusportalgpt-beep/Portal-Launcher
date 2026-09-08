@@ -1071,3 +1071,63 @@ html[data-ui-mode="modern"] svg {
   transition: color 140ms var(--modern-ease),
               transform 160ms var(--modern-spring);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   MODERN UI — Settings & Controls
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Theme swatches — modern cards with lift */
+html[data-ui-mode="modern"] .theme-swatch-square {
+  border-radius: var(--modern-radius) !important;
+  transition: transform 160ms var(--modern-ease),
+              border-color 180ms var(--modern-ease),
+              box-shadow 180ms var(--modern-ease) !important;
+}
+html[data-ui-mode="modern"] .theme-swatch-square:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--modern-shadow-sm);
+}
+
+/* Section titles */
+html[data-ui-mode="modern"] .minimal-section-title {
+  border-radius: var(--modern-radius) !important;
+}
+
+/* Range sliders */
+html[data-ui-mode="modern"] input[type="range"] {
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+html[data-ui-mode="modern"] input[type="range"]::-webkit-slider-thumb {
+  transition: transform 120ms var(--modern-ease);
+}
+html[data-ui-mode="modern"] input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+/* Segmented primary button (selected) hover shrink slightly to feel tactile */
+html[data-ui-mode="modern"] button[style*="background: var(--color-primary)"]:hover {
+  filter: brightness(1.06);
+}
+
+/* Buttons with border — subtle glow on hover */
+html[data-ui-mode="modern"] button[style*="1px solid var(--color-border)"]:hover {
+  border-color: var(--modern-border-hover) !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Instance file/action buttons */
+html[data-ui-mode="modern"] [class*="instance-"] button,
+html[data-ui-mode="modern"] [class*="Instance"] button {
+  transition: transform 140ms var(--modern-ease),
+              background-color 180ms var(--modern-ease),
+              opacity 180ms var(--modern-ease) !important;
+}
+html[data-ui-mode="modern"] [class*="instance-"] button:hover,
+html[data-ui-mode="modern"] [class*="Instance"] button:hover {
+  transform: translateY(-1px);
+}
+html[data-ui-mode="modern"] [class*="instance-"] button:active,
+html[data-ui-mode="modern"] [class*="Instance"] button:active {
+  transform: scale(0.96);
+}

@@ -282,14 +282,19 @@ function InstallStep({ onComplete }: { onComplete: () => void }) {
 
 export function FirstLaunchExperience() {
   const [step, setStep] = useState(0);
-  const setupDone = localStorage.getItem(SETUP_KEY);
+  const [dismissed, setDismissed] = useState(() => {
+    // Check all possible keys from older versions
+    return localStorage.getItem(SETUP_KEY) === '1'
+      || localStorage.getItem('portal-first-launch-complete') === '1'
+      || localStorage.getItem('portal-onboarding-done') === '1';
+  });
 
   const finishSetup = () => {
     localStorage.setItem(SETUP_KEY, '1');
-    window.location.reload();
+    setDismissed(true);
   };
 
-  if (setupDone) return null;
+  if (dismissed) return null;
 
   const steps = [
     <LanguageStep onNext={() => setStep(1)} />,

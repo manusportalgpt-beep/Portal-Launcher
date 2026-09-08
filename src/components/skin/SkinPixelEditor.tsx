@@ -97,6 +97,7 @@ export function SkinPixelEditor({ open, initialDataUrl, model, onClose, onSave }
   const [activeRegion, setActiveRegion] = useState<string | null>(null);
   const [hiddenParts, setHiddenParts] = useState<Record<string, boolean>>({});
   const [liveUrl, setLiveUrl] = useState<string | null>(null);
+  const [renderTick, setRenderTick] = useState(0);
   const [savedModel, setSavedModel] = useState<SkinModel>(model);
 
   const regionForActive = useMemo(() => {
@@ -296,6 +297,7 @@ export function SkinPixelEditor({ open, initialDataUrl, model, onClose, onSave }
   // Обновление живого предпросмотра
   const refreshLive = () => {
     if (pixelData.current) setLiveUrl(dataUrlFromPixels(pixelData.current));
+    setRenderTick(t => t + 1);
   };
 
   const save = () => {
@@ -463,7 +465,7 @@ export function SkinPixelEditor({ open, initialDataUrl, model, onClose, onSave }
                   color={color}
                   tool={tool}
                   height={Math.min(420, window.innerHeight * 0.56)}
-                  pixelData={pixelData.current!}
+                  pixelData={pixelData.current!} renderTick={renderTick}
                   onPaint={(px, py, paintColor) => {
                     if (!pixelData.current) return;
                     const idx = (py * SHEET_W + px) * 4;

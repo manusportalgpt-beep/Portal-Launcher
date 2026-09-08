@@ -58,11 +58,12 @@ interface Props {
   tool: string;
   height?: number;
   pixelData: ImageData;   // current 64×64 pixel data
+  renderTick?: number;     // increment to force texture refresh
   /** Called after a pixel is painted so parent can refresh canvas/preview. */
   onPaint: (x: number, y: number, color: string | null) => void;
 }
 
-export function SkinEditor3D({ skinUrl, model, color, tool, height = 360, pixelData, onPaint }: Props) {
+export function SkinEditor3D({ skinUrl, model, color, tool, height = 360, pixelData, onPaint, renderTick }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef<any>(null);
 
@@ -191,6 +192,7 @@ export function SkinEditor3D({ skinUrl, model, color, tool, height = 360, pixelD
 
     let isDragPainting = false;
     const onDown = (e: any) => {
+      if (e.button === 2 || e.ctrlKey) return; // right-click = rotation, don't paint
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
       isDragPainting = true;
       const uv = getUV(e);
@@ -199,7 +201,7 @@ export function SkinEditor3D({ skinUrl, model, color, tool, height = 360, pixelD
       else onPaint(uv.px, uv.py, color);
     };
     const onMove = (e: any) => {
-      if (!isDragPainting) return;
+      if (!isDragPainting || e.button === 2 || e.ctrlKey) return;
       const uv = getUV(e);
       if (!uv) return;
       if (tool === 'eraser') onPaint(uv.px, uv.py, null);
@@ -279,7 +281,7 @@ export function SkinEditor3D({ skinUrl, model, color, tool, height = 360, pixelD
   // Update texture when pixelData changes externally
   useEffect(() => {
     stateRef.current?.updateTexture();
-  }, [pixelData]);
+  }, [pixelData, renderTick]);
 
   return (
     <div

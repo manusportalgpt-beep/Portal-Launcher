@@ -124,9 +124,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 button:active:not(:disabled), [role="button"]:active:not([aria-disabled="true"]) { filter:brightness(0.98); }
 
-.portal-instance-card { isolation:isolate; transition:border-color var(--motion-fast) linear, background-color var(--motion-fast) linear; }
+.portal-instance-card { isolation:isolate; transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
 .portal-instance-card::before { display:none; }
-.portal-instance-card:hover { border-color:var(--color-border-strong); background:var(--color-surface-hover); }
+.portal-instance-card:hover { border-color:var(--color-border-strong); background:var(--color-surface-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.portal-instance-card:active { transform: translateY(0) scale(0.98); }
 
 .surface-transition, .content-transition {
   transition: opacity var(--motion-base) var(--motion-ease-soft),
@@ -1236,3 +1237,44 @@ html[data-portal-style="standard"] span[class*="rounded-lg"] {
 html[data-portal-style="standard"] [class*="rounded-t"] {
   border-radius: var(--radius-xs) var(--radius-xs) 0 0 !important;
 }
+
+/* Smooth range sliders */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-surface-2);
+  outline: none;
+  transition: background 0.2s;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--color-primary);
+  cursor: pointer;
+  border: 2px solid var(--color-surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+input[type="range"]::-webkit-slider-thumb:active {
+  transform: scale(1.05);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--color-primary);
+  cursor: pointer;
+  border: 2px solid var(--color-surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+

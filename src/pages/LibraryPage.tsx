@@ -598,7 +598,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                   { id:'install', Icon:Download, title:'Установить или импортировать сборку', desc:'Найдите модпак в Discover, откройте .mrpack / .zip или перенесите сборку из другого лаунчера.' },
                 ].map(opt => (
                   <button type="button" key={opt.id} onClick={() => setStep(opt.id as CreateStep)}
-                    className="w-full flex items-center gap-4 p-3 rounded-md text-left outline-none transition-colors group focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                    className="w-full flex items-center gap-4 p-3.5 rounded-xl text-left outline-none transition-all duration-200 group hover:scale-[1.01] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
                     style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                     <span className="w-9 h-9 rounded-sm flex items-center justify-center shrink-0" style={{ background:'transparent', color:'var(--color-primary)', border:'1px solid var(--color-border)' }}><opt.Icon className="w-4 h-4" /></span>
                     <div className="flex-1 min-w-0"><p className="font-black text-sm" style={{ color:'var(--color-text)' }}>{opt.title}</p><p className="text-xs mt-0.5 leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>{opt.desc}</p></div>
@@ -639,8 +639,8 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                         <button key={core.id} onClick={() => setForm(f => ({ ...f, loader: core.id }))}
                           disabled={disabled}
                           title={disabled ? 'Требуется настоящий Microsoft-аккаунт' : undefined}
-                          className="relative flex items-center gap-2.5 p-2.5 rounded-md text-left outline-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
-                          style={{ background:selected ? 'transparent' : 'var(--color-surface-2)', border:`1px solid ${selected ? LOADER_COLOR[core.id] : 'var(--color-border)'}`, boxShadow:'none' }}>
+                          className="relative flex items-center gap-2.5 p-2.5 rounded-xl text-left outline-none transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                          style={{ background:selected ? `${LOADER_COLOR[core.id]}12` : 'var(--color-surface-2)', border:`1px solid ${selected ? LOADER_COLOR[core.id] : 'var(--color-border)'}`, boxShadow: selected ? `0 0 0 1px ${LOADER_COLOR[core.id]}40` : 'none' }}>
                           <span className="w-8 h-8 rounded-sm flex items-center justify-center shrink-0" style={{ background:'transparent', color:LOADER_COLOR[core.id] }}><LoaderGlyph id={core.id} Icon={core.Icon} /></span>
                           <span className="min-w-0"><span className="block text-xs font-bold truncate" style={{ color:'var(--color-text)' }}>{core.label}</span><span className="block text-[9px] truncate" style={{ color:'var(--color-text-tertiary)' }}>{core.desc}</span></span>
                         </button>
@@ -901,13 +901,13 @@ function InstanceCard({ inst, onClick, onDropOnGroup }: {
         if (target) onDropOnGroup(target.dataset.groupContainer || null);
       }}
       onClick={() => { if (!movedRef.current) onClick(); }}
-      whileHover={{ y: dragging ? 0 : -1.5 }}
+      whileHover={{ y: dragging ? 0 : -2, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}
       whileTap={{ scale: 0.985 }}
       transition={{ layout: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } }}
-      className="portal-instance-card flex flex-col items-start gap-2.5 p-3 rounded-2xl text-left relative overflow-hidden w-full cursor-grab active:cursor-grabbing"
-      style={{ background:'linear-gradient(145deg, color-mix(in srgb, var(--color-surface) 96%, var(--color-primary-dim)), var(--color-surface))', border:'1px solid var(--color-border)', touchAction: 'none' }}>
-      <div className="w-full aspect-square rounded-xl overflow-hidden flex items-center justify-center font-black text-2xl relative pointer-events-none"
-        style={{ background: inst.color ? `${inst.color}1A` : 'var(--color-surface-2)', color: inst.color || 'var(--color-text-tertiary)' }}>
+      className="portal-instance-card flex flex-col items-start gap-2 p-2.5 rounded-xl text-left relative overflow-hidden w-full cursor-grab active:cursor-grabbing transition-all duration-200"
+      style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', touchAction: 'none' }}>
+      <div className="w-full aspect-[4/3] rounded-lg overflow-hidden flex items-center justify-center font-black text-xl relative pointer-events-none"
+        style={{ background: inst.color ? `${inst.color}15` : 'var(--color-surface-2)', color: inst.color || 'var(--color-text-tertiary)' }}>
         {inst.iconPath ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" draggable={false} /> : inst.name[0]?.toUpperCase()}
         {launchStatus !== 'idle' && (
           <span className="absolute bottom-1.5 right-1.5 w-2.5 h-2.5 rounded-full animate-pulse"
@@ -917,8 +917,8 @@ function InstanceCard({ inst, onClick, onDropOnGroup }: {
       <div className="min-w-0 w-full pointer-events-none">
         <p className="text-sm font-bold truncate font-display" style={{ color:'var(--color-text)' }}>{inst.name}</p>
         <div className="flex flex-wrap gap-1.5 mt-1.5">
-          <span className="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[10px] font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><Box className="w-3 h-3" style={{ color:'var(--color-primary)' }} />{inst.minecraftVersion}</span>
-          <span className="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[10px] font-semibold capitalize" style={{ background:`${LOADER_COLOR[inst.modLoader] || 'var(--color-primary)'}18`, color:LOADER_COLOR[inst.modLoader] || 'var(--color-primary)', border:`1px solid ${LOADER_COLOR[inst.modLoader] || 'var(--color-primary)'}44` }}><Layers className="w-3 h-3" />{inst.modLoaderVersion ? `${inst.modLoader} ${inst.modLoaderVersion}` : inst.modLoader}</span>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>{inst.minecraftVersion}</span>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold capitalize" style={{ background:`${LOADER_COLOR[inst.modLoader] || 'var(--color-primary)'}12`, color:LOADER_COLOR[inst.modLoader] || 'var(--color-primary)' }}>{inst.modLoaderVersion ? `${inst.modLoader} ${inst.modLoaderVersion}` : inst.modLoader}</span>
         </div>
         <PlayTimeChart totalPlayTime={inst.totalPlayTime} lastPlayed={inst.lastPlayed} />
       </div>

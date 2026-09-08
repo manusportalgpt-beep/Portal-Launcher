@@ -74,19 +74,21 @@ function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem
 
 /** Быстрый доступ к сборкам — показывается сразу после Library. */
 function InstanceQuickAccess({ vertical }: { vertical: boolean }) {
+  const navigate = useNavigate();
   const instances = useInstanceStore(s => s.instances);
   const count = useUiStore(s => s.navInstanceCount);
   const shown = instances.slice(0, count);
   return (
     <div className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1`}>
       {shown.map(inst => (
-        <div key={inst.id} title={inst.name}
-          className="rounded-full overflow-hidden shrink-0 flex items-center justify-center font-bold text-[10px] pointer-events-none select-none"
+        <button key={inst.id} title={inst.name}
+          onClick={() => navigate(`/library/${inst.id}`)}
+          className="rounded-full overflow-hidden shrink-0 flex items-center justify-center font-bold text-[10px] select-none cursor-pointer transition-transform hover:scale-110"
           style={{ width: vertical ? 40 : 32, height: vertical ? 40 : 32, background: inst.color || 'var(--color-surface-2)', color: '#fff', border:'1px solid var(--color-border)' }}>
           {inst.iconPath
             ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" draggable={false} style={{ imageRendering:'auto', filter:'none', opacity:1 }} />
             : inst.name[0]?.toUpperCase()}
-        </div>
+        </button>
       ))}
     </div>
   );

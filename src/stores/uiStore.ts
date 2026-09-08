@@ -150,7 +150,7 @@ export interface UiState {
 }
 
 const defaults = {
-  stylePreset: 'quadral' as StylePreset,
+  stylePreset: 'standard' as StylePreset,
   navMode: 'notch' as NavMode,
   notchSide: 'top' as NotchSide,
   notchHotzone: 46,

@@ -1,194 +1,365 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Check, Compass, House, Image as ImageIcon, Library, Palette, PanelLeft, PanelTop, Settings2, Shirt, Sparkles, Volume2, Gamepad2, Key, Shield, AlertTriangle, X } from 'lucide-react';
-import { invoke } from '@/lib/invoke-shim';
+import {
+  ArrowRight, Check, Compass, Globe, Shield, Sparkles, Palette, X, Package,
+  ShieldCheck, Skull, Bug, Rocket,
+} from 'lucide-react';
 import { useLanguageStore, type Lang } from '@/stores/languageStore';
-import { useUiStore, type NavMode } from '@/stores/uiStore';
-import { useThemeStore, type CustomThemeColors } from '@/stores/themeStore';
+import { useUiStore } from '@/stores/uiStore';
+import { useThemeStore } from '@/stores/themeStore';
 import { type ThemeId } from '@/lib/theme-engine';
-import { ONBOARDING_BACKGROUNDS } from '@/lib/onboarding-backgrounds';
 import { STYLE_PRESETS, type StylePreset } from '@/lib/style-presets';
 import { MicrosoftAuthOAuth } from '@/components/auth/MicrosoftAuthOAuth';
-import { CustomThemeBuilder } from '@/components/CustomThemeBuilder';
 
 const SETUP_KEY = 'portal-first-launch-complete-v1';
-type StorageOverview = { usedBytes: number };
 
-// Tutorial removed. // 0-indexed, so step 10
-
-const THEME_CHOICES: Array<{ id: ThemeId; label: string }> = [
-  { id:'system', label:'Системная' }, { id:'dark', label:'Тёмная' }, { id:'glass-white', label:'Glass White' },
-  { id:'monochrome', label:'Монохром' }, { id:'purple-dark', label:'Тёмный фиолетовый' }, { id:'redstone', label:'RedStone' },
+const THEME_CHOICES: Array<{ id: ThemeId; label: string; preview: string }> = [
+  { id: 'dark', label: 'Тёмная', preview: 'linear-gradient(135deg, #0D1117, #1C2333)' },
+  { id: 'system', label: 'Системная', preview: 'linear-gradient(135deg, #0D1117 50%, #FFFFFF 50%)' },
+  { id: 'monochrome', label: 'Монохром', preview: 'linear-gradient(135deg, #0A0A0A, #282828)' },
+  { id: 'purple-dark', label: 'Тёмный фиолетовый', preview: 'linear-gradient(135deg, #080612, #1F183D)' },
+  { id: 'redstone', label: 'RedStone', preview: 'linear-gradient(135deg, #080000, #280707)' },
+  { id: 'ocean', label: 'Океан', preview: 'linear-gradient(135deg, #06131C, #16495B)' },
 ];
 
 const STYLE_THEME: Record<StylePreset, ThemeId> = {
-  glass: 'dark', quadral: 'monochrome', falloff: 'purple-dark', abouts: 'system',
+  standard: 'dark', glass: 'dark', quadral: 'monochrome', falloff: 'purple-dark', abouts: 'system',
 };
 
-function NavPreview({ mode }: { mode: NavMode }) {
-  const navItems = mode === 'sidebar'
-    ? <div className="flex w-[43%] flex-col gap-1.5 border-r p-2" style={{ borderColor:'var(--color-border)' }}><span className="flex items-center gap-1 text-[8px] font-bold"><House className="h-3 w-3" />Главная</span><span className="flex items-center gap-1 text-[8px] opacity-70"><Compass className="h-3 w-3" />Обзор</span><span className="flex items-center gap-1 text-[8px] opacity-70"><Library className="h-3 w-3" />Библиотека</span></div>
-    : <div className="mx-auto mt-2 flex h-8 w-[70%] items-center justify-around border px-2" style={{ borderColor:'var(--color-border)' }}><House className="h-3.5 w-3.5" /><Compass className="h-3.5 w-3.5" /><Library className="h-3.5 w-3.5" /></div>;
-  return <div className="h-28 overflow-hidden" style={{ background:'var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:6 }}>
-    <div className={mode === 'sidebar' ? 'flex h-full' : 'h-full'}>{navItems}{mode === 'sidebar' ? <div className="flex-1 p-3"><i className="block h-2 w-2/3 bg-current opacity-55" /><i className="mt-2 block h-2 w-full bg-current opacity-20" /><i className="mt-2 block h-2 w-4/5 bg-current opacity-20" /></div> : <div className="px-3 pt-5"><i className="block h-2 w-2/3 bg-current opacity-55" /><i className="mt-2 block h-2 w-full bg-current opacity-20" /></div>}</div>
-  </div>;
+const INSTALL_CONFIRMATIONS: Array<{ question: string; yesLabel: string; noLabel: string }> = [
+  { question: 'Вы хотите установить Portal Launcher?', yesLabel: 'Да', noLabel: 'Нет' },
+  { question: 'Вы уверены?', yesLabel: 'Да', noLabel: 'Нет' },
+  { question: 'Вы точно уверены?', yesLabel: 'Да', noLabel: 'Нет' },
+  { question: 'Вы абсолютно уверены?', yesLabel: 'Да', noLabel: 'Нет' },
+  { question: 'Серьёзно? Вы хотите установить лаунчер?', yesLabel: 'Да', noLabel: 'Нет' },
+  { question: 'А вдруг он вирусы?', yesLabel: 'Нет вирусов', noLabel: 'Страшно' },
+  { question: 'Ну ладно... Вы точно хотите?', yesLabel: 'ДА', noLabel: 'Хз' },
+  { question: 'Вы понимаете что это лаунчер для Minecraft?', yesLabel: 'Да', noLabel: 'А?' },
+  { question: 'В последний раз спрашиваю...', yesLabel: 'Ставь уже', noLabel: 'Нет' },
+  { question: 'Хорошо, устанавливаю! (на самом деле ещё нет)', yesLabel: 'ВПЕРЁД', noLabel: 'Подожди' },
+];
+
+function LanguageStep({ onNext }: { onNext: () => void }) {
+  const { lang, setLang } = useLanguageStore();
+  const [selected, setSelected] = useState<Lang>(lang);
+
+  const apply = () => {
+    setLang(selected);
+    onNext();
+  };
+
+  return (
+    <div className="flex flex-col items-center text-center max-w-md mx-auto">
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
+        style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
+        <Globe className="h-8 w-8" />
+      </div>
+      <h1 className="text-2xl font-black tracking-tight">Выберите язык</h1>
+      <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        Выберите язык интерфейса. Это можно изменить позже в настройках.
+      </p>
+      <div className="mt-6 flex gap-3">
+        {(['ru', 'en'] as Lang[]).map(l => (
+          <button key={l} onClick={() => setSelected(l)}
+            className="px-6 py-3 text-sm font-bold transition-all"
+            style={{
+              borderRadius: 'var(--radius-button)',
+              background: selected === l ? 'var(--color-primary)' : 'var(--color-surface)',
+              color: selected === l ? 'var(--color-primary-text)' : 'var(--color-text)',
+              border: `1px solid ${selected === l ? 'var(--color-primary)' : 'var(--color-border)'}`,
+            }}>
+            {l === 'ru' ? 'Русский' : 'English'}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-function SecurityDialog({ onClose }: { onClose: () => void }) {
-  const [stage, setStage] = useState(0);
-  const [agreed, setAgreed] = useState(false);
+function StyleStep({ onNext }: { onNext: () => void }) {
+  const ui = useUiStore();
+  const { themeId, setTheme } = useThemeStore();
+  const [selectedStyle, setSelectedStyle] = useState<StylePreset>(ui.stylePreset);
+  const [selectedTheme, setSelectedTheme] = useState<ThemeId>(themeId);
 
-  const stages = [
-    {
-      icon: Shield,
-      title: 'Безопасность лаунчера',
-      items: [
-        { icon: '🛡️', text: 'Этот лаунчер НЕ устанавливает Яндекс Браузер' },
-        { icon: '😈', text: 'Этот лаунчер НЕ хочет вам зла 360 Total Security' },
-        { icon: '🚗', text: 'Не скачивайте лучше MAX — не ловит даже на парковке!' },
-      ],
-    },
+  const apply = () => {
+    ui.set('stylePreset', selectedStyle);
+    setTheme(selectedTheme);
+    onNext();
+  };
+
+  return (
+    <div className="flex flex-col items-center text-center max-w-2xl mx-auto">
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
+        style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
+        <Palette className="h-8 w-8" />
+      </div>
+      <h1 className="text-2xl font-black tracking-tight">Стиль и оформление</h1>
+      <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        Выберите форму интерфейса и цветовую палитру. Всё можно изменить в настройках.
+      </p>
+
+      <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-2 w-full">
+        {STYLE_PRESETS.map(preset => (
+          <button key={preset.id} onClick={() => {
+            setSelectedStyle(preset.id);
+            setSelectedTheme(STYLE_THEME[preset.id]);
+          }}
+            className="p-3 text-left transition-all"
+            style={{
+              borderRadius: 'var(--radius-card)',
+              background: selectedStyle === preset.id ? 'var(--color-primary-dim)' : 'var(--color-surface)',
+              border: `1px solid ${selectedStyle === preset.id ? 'var(--color-primary)' : 'var(--color-border)'}`,
+            }}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold">{preset.title}</span>
+              {selectedStyle === preset.id && <Check className="h-3.5 w-3.5" style={{ color: 'var(--color-primary)' }} />}
+            </div>
+            <p className="mt-1 text-[10px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
+              {preset.description}
+            </p>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 w-full">
+        <p className="text-xs font-bold mb-2" style={{ color: 'var(--color-text-secondary)' }}>Тема</p>
+        <div className="flex gap-2 flex-wrap justify-center">
+          {THEME_CHOICES.map(t => (
+            <button key={t.id} onClick={() => setSelectedTheme(t.id)}
+              className="w-12 h-12 overflow-hidden transition-all"
+              style={{
+                borderRadius: 'var(--radius-button)',
+                border: `2px solid ${selectedTheme === t.id ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                background: t.preview,
+              }}
+              title={t.label} />
+          ))}
+        </div>
+      </div>
+
+      <button onClick={apply} className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold"
+        style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 'var(--radius-button)' }}>
+        Применить <ArrowRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function SecurityStep({ onNext }: { onNext: () => void }) {
+  const items = [
+    { icon: ShieldCheck, text: 'Лицензия GPL-3.0 на GitHub — весь код открыт', color: 'var(--color-success)' },
+    { icon: X, text: 'Без установки Яндекс Браузера', color: 'var(--color-text-secondary)' },
+    { icon: Skull, text: 'Без скачивания MAX — не ловит даже на парковке', color: 'var(--color-text-secondary)' },
+    { icon: Bug, text: 'Без 360 Total Security и прочего мусора', color: 'var(--color-text-secondary)' },
   ];
 
-  const s = stages[stage];
-  const Icon = s.icon;
-
-  return <motion.aside className="portal-glass-surface fixed bottom-5 right-5 z-[240] w-[min(420px,calc(100vw-2.5rem))] p-5" style={{ background:'var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-modal)', boxShadow:'var(--shadow-lg)' }} initial={{ opacity:0, y:14 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:14 }}>
-    <div className="flex items-start gap-3">
-      <span className="portal-style-mark flex h-9 w-9 shrink-0 items-center justify-center" style={{ border:'1px solid var(--color-border)', color:'var(--color-primary)' }}>
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-bold">Шаг 10: {s.title}</p>
-        <p className="mt-1 text-xs font-semibold" style={{ color:'var(--color-text)' }}>Прочтите важную информацию</p>
+  return (
+    <div className="flex flex-col items-center text-center max-w-md mx-auto">
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
+        style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
+        <Shield className="h-8 w-8" />
       </div>
-      <button onClick={onClose} className="p-1" title="Закрыть" style={{ color:'var(--color-text-tertiary)' }}>
-        <X className="h-4 w-4" />
-      </button>
-    </div>
-
-    <div className="mt-4 space-y-3">
-      {s.items.map((item, i) => (
-        <div key={i} className="flex items-start gap-3 rounded-lg p-3" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
-          <span className="text-lg shrink-0">{item.icon}</span>
-          <p className="text-xs leading-relaxed" style={{ color:'var(--color-text)' }}>{item.text}</p>
-        </div>
-      ))}
-    </div>
-
-    {/* NON-License Agreement */}
-    <div className="mt-4 rounded-lg p-3" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
-      <div className="flex items-start gap-2">
-        <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" style={{ color:'var(--color-warning)' }} />
-        <div className="min-w-0">
-          <p className="text-xs font-bold" style={{ color:'var(--color-text)' }}>НЕ-Лицензионное соглашение</p>
-          <p className="mt-1 text-[11px] leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>
-            Используя Portal Launcher, вы соглашаетесь с тем, что не соглашаетесь ни с чем.
-            Лаунчер не несёт ответственности за удовольствие от игры.
-            Все совпадения с реальностью — случайны. Все несовпадения — тоже.
-          </p>
-        </div>
+      <h1 className="text-2xl font-black tracking-tight">Безопасность</h1>
+      <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        Мы не устанавливаем мусор. Код лаунчера полностью открыт.
+      </p>
+      <div className="mt-6 space-y-3 w-full text-left">
+        {items.map((item, i) => (
+          <div key={i} className="flex items-center gap-3 p-3"
+            style={{ borderRadius: 'var(--radius-card)', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+            <item.icon className="h-5 w-5 shrink-0" style={{ color: item.color }} />
+            <span className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>{item.text}</span>
+          </div>
+        ))}
       </div>
     </div>
-
-    <label className="mt-4 flex items-center gap-2 cursor-pointer">
-      <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="shrink-0" style={{ accentColor:'var(--color-primary)' }} />
-      <span className="text-xs font-semibold" style={{ color:'var(--color-text)' }}>Я прочитал и не согласен</span>
-    </label>
-
-    <div className="mt-4 flex items-center justify-between">
-      <span className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>10 / 10</span>
-      <button
-        onClick={onClose}
-        disabled={!agreed}
-        className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold disabled:opacity-40"
-        style={{ background: agreed ? 'var(--color-primary)' : 'var(--color-surface)', color: agreed ? 'var(--color-primary-text)' : 'var(--color-text-secondary)', border: agreed ? 'none' : '1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}
-      >
-        Завершить <ArrowRight className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  </motion.aside>;
+  );
 }
 
+function AccountStep({ onNext }: { onNext: () => void }) {
+  return (
+    <div className="flex flex-col items-center text-center max-w-md mx-auto">
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
+        style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
+        <Sparkles className="h-8 w-8" />
+      </div>
+      <h1 className="text-2xl font-black tracking-tight">Войдите в аккаунт</h1>
+      <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        Выберите способ входа. Можно пропустить и добавить позже в настройках.
+      </p>
+      <div className="mt-6 w-full" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', padding: 16 }}>
+        <MicrosoftAuthOAuth onSuccess={onNext} />
+      </div>
+    </div>
+  );
+}
 
+function InstallStep({ onComplete }: { onComplete: () => void }) {
+  const [confirmStage, setConfirmStage] = useState(-1);
+  const [installed, setInstalled] = useState(false);
+
+  if (installed) {
+    return (
+      <div className="flex flex-col items-center text-center max-w-md mx-auto">
+        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+          className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6"
+          style={{ background: 'var(--color-success)', color: '#fff' }}>
+          <Check className="h-10 w-10" />
+        </motion.div>
+        <h1 className="text-2xl font-black tracking-tight">Готово!</h1>
+        <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+          Portal Launcher успешно установлен. Наслаждайтесь!
+        </p>
+        <button onClick={onComplete} className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold"
+          style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 'var(--radius-button)' }}>
+          Начать <Rocket className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  if (confirmStage >= 0 && confirmStage < INSTALL_CONFIRMATIONS.length) {
+    const c = INSTALL_CONFIRMATIONS[confirmStage];
+    return (
+      <div className="flex flex-col items-center text-center max-w-md mx-auto">
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
+          style={{ background: 'var(--color-warning)', color: '#000' }}>
+          <Package className="h-8 w-8" />
+        </div>
+        <h1 className="text-xl font-black tracking-tight">{c.question}</h1>
+        <p className="mt-2 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+          {confirmStage + 1} из {INSTALL_CONFIRMATIONS.length}
+        </p>
+        <div className="mt-6 flex gap-3">
+          <button onClick={() => setConfirmStage(prev => prev + 1)}
+            className="px-6 py-3 text-sm font-bold"
+            style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 'var(--radius-button)' }}>
+            {c.yesLabel}
+          </button>
+          <button onClick={() => {
+            if (confirmStage >= INSTALL_CONFIRMATIONS.length - 1) setInstalled(true);
+            else setConfirmStage(prev => prev + 1);
+          }}
+            className="px-6 py-3 text-sm font-bold"
+            style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-button)' }}>
+            {c.noLabel}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center text-center max-w-md mx-auto">
+      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
+        style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
+        <Package className="h-8 w-8" />
+      </div>
+      <h1 className="text-2xl font-black tracking-tight">Установка</h1>
+      <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        Размер лаунчера: ~16 МБ. Установка займёт несколько секунд.
+      </p>
+      <div className="mt-4 p-4 w-full text-left"
+        style={{ borderRadius: 'var(--radius-card)', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+        <div className="flex items-center justify-between text-xs">
+          <span style={{ color: 'var(--color-text-secondary)' }}>Размер</span>
+          <span className="font-bold" style={{ color: 'var(--color-text)' }}>~16 МБ</span>
+        </div>
+        <div className="flex items-center justify-between text-xs mt-2">
+          <span style={{ color: 'var(--color-text-secondary)' }}>Лицензия</span>
+          <span className="font-bold" style={{ color: 'var(--color-text)' }}>GPL-3.0</span>
+        </div>
+      </div>
+      <button onClick={() => setConfirmStage(0)} className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold"
+        style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 'var(--radius-button)' }}>
+        Установить <ArrowRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
 
 export function FirstLaunchExperience() {
-  const lang = useLanguageStore(state => state.lang);
-  const setLang = useLanguageStore(state => state.setLang);
-  const ui = useUiStore();
-  const { themeId, setTheme, addCustomTheme } = useThemeStore();
-  const [mode, setMode] = useState<'checking' | 'setup' | 'none'>(() => localStorage.getItem(SETUP_KEY) ? 'none' : 'checking');
   const [step, setStep] = useState(0);
-  const [isPreview, setIsPreview] = useState(false);
-  const [glassTone, setGlassTone] = useState<'black'|'white'>(themeId === 'glass-white' ? 'white' : 'black');
+  const setupDone = localStorage.getItem(SETUP_KEY);
 
-  useEffect(() => {
-    if (mode !== 'checking') return;
-    let active = true;
-    void invoke<StorageOverview>('get_launcher_storage_overview').then(overview => {
-      if (!active) return;
-      if (overview.usedBytes === 0) {
-        ui.set('stylePreset', 'quadral');
-        setTheme('dark');
-        setMode('setup');
-      } else {
-        setMode('none');
-      }
-    }).catch(() => { if (active) setMode('none'); });
-    return () => { active = false; };
-  }, [mode]);
-  useEffect(() => {
-    const openPreview = () => { setIsPreview(true); setStep(0); setMode('setup'); };
-    window.addEventListener('portal:open-onboarding-preview', openPreview);
-    return () => { window.removeEventListener('portal:open-onboarding-preview', openPreview); };
-  }, []);
-  useEffect(() => {
-    const previewOpen = mode === 'setup' && isPreview;
-    if (previewOpen) {
-      document.documentElement.dataset.portalTutorialPreview = 'true';
-      window.dispatchEvent(new CustomEvent('portal:tutorial-preview-change', { detail: true }));
-    }
-    return () => {
-      if (previewOpen) {
-        delete document.documentElement.dataset.portalTutorialPreview;
-        window.dispatchEvent(new CustomEvent('portal:tutorial-preview-change', { detail: false }));
-      }
-    };
-  }, [mode, isPreview]);
-
-  const finishSetup = () => { if (isPreview) { setMode('none'); return; } localStorage.setItem(SETUP_KEY, '1'); setMode('none'); };
-    const chooseStyle = (preset: StylePreset) => {
-    if (isPreview) return;
-    ui.set('stylePreset', preset);
-    setTheme(preset === 'glass' && glassTone === 'white' ? 'glass-white' : STYLE_THEME[preset]);
-  };
-  const chooseGlassTone = (tone: 'black'|'white') => {
-    if (isPreview) return;
-    setGlassTone(tone);
-    if (ui.stylePreset === 'glass') setTheme(tone === 'white' ? 'glass-white' : 'dark');
-  };
-  const createPortalTheme = () => {
-    if (isPreview) return;
-    const colors: CustomThemeColors = glassTone === 'white'
-      ? { background:'#EAF0FA', surface:'#FFFFFF', surfaceHover:'#F4F7FD', surfaceActive:'#DFE9F8', primary:'#4299E1', outline:'#CBD7EA', outlineStrong:'#9CB4D4', text:'#101828', mutedText:'#475467', success:'#2ECC71', warning:'#F39C12', error:'#E74C3C', info:'#3498DB' }
-      : { background:'#080A12', surface:'#121827', surfaceHover:'#1A2234', surfaceActive:'#242F48', primary:'#7C5CFC', outline:'#35415F', outlineStrong:'#596B95', text:'#F4F6FF', mutedText:'#9AA7C2', success:'#2ECC71', warning:'#F39C12', error:'#E74C3C', info:'#3498DB' };
-    addCustomTheme('Моя тема Portal', colors, { radiusScale: ui.stylePreset === 'quadral' ? 0.45 : 1, shadowStrength: ui.stylePreset === 'glass' ? 0.55 : 0.25, glowStrength: 0 });
+  const finishSetup = () => {
+    localStorage.setItem(SETUP_KEY, '1');
+    window.location.reload();
   };
 
-  if (mode === 'checking' || mode === 'none') return null;
-    const steps = ['Язык', 'Навигация', 'Фон', 'Стиль и тема', 'Аккаунт'];
-  const currentBackground = ui.backgroundImage;
-  return <AnimatePresence><motion.div className="clean-onboarding fixed inset-0 z-[230] grid place-items-center overflow-y-auto bg-black p-5" style={{ color:'var(--color-text)' }} initial={{ opacity:0 }} animate={{ opacity:1 }}>
-    <motion.section className="clean-onboarding-surface portal-glass-surface portal-glass-outline my-auto w-full max-w-4xl" style={{ background:'var(--color-bg)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-modal)', boxShadow:'var(--shadow-lg)' }} initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }}>
-      <header className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor:'var(--color-border)' }}><div><p className="text-sm font-bold">{isPreview ? 'Предпросмотр первого запуска' : 'Настройка Portal Launcher'}</p><p className="mt-0.5 text-xs" style={{ color:'var(--color-text-secondary)' }}>{steps[step]} · шаг {step + 1} из {steps.length}</p></div><span className="text-xs font-bold" style={{ color:'var(--color-primary)' }}>{step + 1} / {steps.length}</span></header>
-      <main className="min-h-[420px] p-5 sm:p-6">
-        {step === 0 && <div className="grid gap-5 md:grid-cols-2"><div><Sparkles className="h-5 w-5" style={{ color:'var(--color-primary)' }} /><h1 className="mt-3 text-2xl font-bold">Выберите язык</h1><p className="mt-2 text-sm" style={{ color:'var(--color-text-secondary)' }}>Настройка действует сразу для страниц, подсказок и первого tutorial.</p></div><div className="space-y-2">{([['ru','Русский'],['en','English']] as [Lang,string][]).map(([value,label]) => <button key={value} disabled={isPreview} onClick={() => setLang(value)} className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold disabled:cursor-default disabled:opacity-80" style={{ background:'transparent', color:'var(--color-text)', border:`1px solid ${lang === value ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRadius:'var(--radius-card)' }}>{label}{lang === value && <Check className="h-4 w-4" />}</button>)}</div></div>}
-        {step === 1 && <div><h1 className="text-2xl font-bold">Как открывать страницы?</h1><p className="mt-2 text-sm" style={{ color:'var(--color-text-secondary)' }}>Выбор можно сменить позже в Оформлении. В превью видно, где появятся ваши основные разделы.</p><div className="mt-5 grid gap-3 md:grid-cols-2">{([{ id:'sidebar', icon:PanelLeft, title:'Sidebar', text:'Постоянная вертикальная навигация слева. Удобна, когда все разделы должны быть под рукой.' }, { id:'notch', icon:PanelTop, title:'Notch Panel', text:'Компактная верхняя панель. Открывается по наведению и освобождает больше места для страницы.' }] as {id:NavMode;icon:any;title:string;text:string}[]).map(option => { const Icon = option.icon; return <button key={option.id} disabled={isPreview} onClick={() => ui.set('navMode', option.id)} className="p-3 text-left disabled:cursor-default disabled:opacity-80" style={{ background:'transparent', color:'var(--color-text)', border:`1px solid ${ui.navMode === option.id ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRadius:'var(--radius-card)' }}><NavPreview mode={option.id} /><div className="mt-3 flex items-center justify-between"><span className="flex items-center gap-2 text-sm font-bold"><Icon className="h-4 w-4" />{option.title}</span>{ui.navMode === option.id && <Check className="h-4 w-4" style={{ color:'var(--color-primary)' }} />}</div><p className="mt-1 text-xs leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>{option.text}</p></button>; })}</div></div>}
-        {step === 2 && <div><div className="flex items-start gap-3"><ImageIcon className="mt-1 h-5 w-5 shrink-0" style={{ color:'var(--color-primary)' }} /><div><h1 className="text-2xl font-bold">Выберите фон</h1><p className="mt-2 text-sm" style={{ color:'var(--color-text-secondary)' }}>Все изображения, которые вы прислали, доступны здесь как готовые фоны. Они применяются ко всему рабочему пространству и остаются после перезапуска.</p></div></div><div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">{ONBOARDING_BACKGROUNDS.map(background => <button key={background.id} disabled={isPreview} onClick={() => ui.set('backgroundImage', background.src)} className="group overflow-hidden text-left disabled:cursor-default" style={{ border:`2px solid ${currentBackground === background.src ? 'var(--color-primary)' : 'transparent'}`, borderRadius:'var(--radius-card)', background:'var(--color-surface)' }}><div className="aspect-[16/9] bg-cover bg-center transition-transform duration-200 group-hover:scale-[1.03]" style={{ backgroundImage:`url("${background.src}")` }} /><div className="flex items-center justify-between px-2 py-1.5"><span className="truncate text-[10px] font-bold">{background.name}</span>{currentBackground === background.src && <Check className="h-3.5 w-3.5 shrink-0" style={{ color:'var(--color-primary)' }} />}</div></button>)}</div></div>}
-        {step === 3 && <div><div className="flex items-start gap-3"><Palette className="mt-1 h-5 w-5 shrink-0" style={{ color:'var(--color-primary)' }} /><div><h1 className="text-2xl font-bold">Стиль и тема</h1><p className="mt-2 text-sm" style={{ color:'var(--color-text-secondary)' }}>Стиль отвечает за форму и материал интерфейса, а тема — за цвета. Любую тему позже можно изменить в Настройки → Оформление.</p></div></div><div className="mt-5 grid gap-2 sm:grid-cols-2">{STYLE_PRESETS.map(preset => <button key={preset.id} disabled={isPreview} onClick={() => chooseStyle(preset.id)} className="p-3 text-left disabled:cursor-default" style={{ background:ui.stylePreset === preset.id ? 'var(--color-primary-dim)' : 'transparent', border:`1px solid ${ui.stylePreset === preset.id ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRadius:'var(--radius-card)' }}><div className="flex items-center justify-between"><span className="text-sm font-bold">{preset.title}</span>{ui.stylePreset === preset.id && <Check className="h-4 w-4" style={{ color:'var(--color-primary)' }} />}</div><p className="mt-1 text-xs leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>{preset.description}</p></button>)}</div><div className="mt-4 grid gap-3 border-t pt-4 md:grid-cols-[1fr_auto]" style={{ borderColor:'var(--color-border)' }}><label className="text-xs font-bold">Тема из Оформления<select disabled={isPreview} value={themeId} onChange={event => setTheme(event.target.value as ThemeId)} className="mt-1.5 block w-full px-3 py-2 text-xs" style={{ background:'var(--color-surface-2)', color:'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}>{THEME_CHOICES.map(choice => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</select></label><div className="flex flex-wrap items-end gap-2">{ui.stylePreset === 'glass' && <div className="flex overflow-hidden" style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}><button disabled={isPreview} onClick={() => chooseGlassTone('black')} className="px-3 py-2 text-xs font-bold disabled:cursor-default" style={{ background: glassTone === 'black' ? 'var(--color-primary)' : 'transparent', color: glassTone === 'black' ? 'var(--color-primary-text)' : 'var(--color-text-secondary)' }}>Чёрное</button><button disabled={isPreview} onClick={() => chooseGlassTone('white')} className="px-3 py-2 text-xs font-bold disabled:cursor-default" style={{ background: glassTone === 'white' ? 'var(--color-primary)' : 'transparent', color: glassTone === 'white' ? 'var(--color-primary-text)' : 'var(--color-text-secondary)' }}>Белое</button></div>}{ui.stylePreset !== 'glass' && <button disabled={isPreview} onClick={createPortalTheme} className="px-3 py-2 text-xs font-bold disabled:cursor-default" style={{ background:'var(--color-surface)', color:'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}>Моя тема Portal</button>}</div></div></div>}
-        {step === 4 && <div className="mx-auto max-w-xl"><h1 className="text-2xl font-bold">Войдите в аккаунт</h1><p className="mt-2 text-sm" style={{ color:'var(--color-text-secondary)' }}>{isPreview ? 'Это read-only preview. Вход в нём не меняет аккаунты.' : 'Выберите Microsoft, Ely.by или вход по нику. Вход можно пропустить и добавить аккаунт позже в настройках.'}</p><div className="mt-5" style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-card)', padding:12 }}><MicrosoftAuthOAuth preview={isPreview} onSuccess={finishSetup} /></div></div>}
-      </main>
-      <footer className="flex items-center justify-between border-t px-5 py-4" style={{ borderColor:'var(--color-border)' }}><button onClick={() => step > 0 && setStep(value => value - 1)} className="px-3 py-2 text-xs font-bold disabled:opacity-0" style={{ color:'var(--color-text-secondary)' }} disabled={step === 0}>Назад</button>{step < steps.length - 1 ? <button onClick={() => setStep(value => value + 1)} className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold" style={{ background:'transparent', color:'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}>Далее <ArrowRight className="h-3.5 w-3.5" /></button> : <button onClick={finishSetup} className="inline-flex items-center gap-2 px-3 py-2 text-xs font-bold" style={{ background:'transparent', color:'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}>{isPreview ? 'Закрыть' : 'Пропустить и открыть лаунчер'} <ArrowRight className="h-3.5 w-3.5" /></button>}</footer>
-    </motion.section>
-  </motion.div></AnimatePresence>;
+  if (setupDone) return null;
+
+  const steps = [
+    <LanguageStep onNext={() => setStep(1)} />,
+    <StyleStep onNext={() => setStep(2)} />,
+    <SecurityStep onNext={() => setStep(3)} />,
+    <AccountStep onNext={() => setStep(4)} />,
+    <InstallStep onComplete={finishSetup} />,
+  ];
+
+  return (
+    <AnimatePresence>
+      <motion.div className="fixed inset-0 z-[300] flex flex-col"
+        style={{ background: 'var(--color-bg)' }}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+        {/* Title bar */}
+        <div className="flex items-center justify-between px-4 py-2"
+          style={{ borderBottom: '1px solid var(--color-border)', height: 'var(--titlebar-height, 32px)' }}>
+          <div className="flex items-center gap-2">
+            <img src="/launcher-icon.png" alt="" className="w-5 h-5 rounded" draggable={false} />
+            <span className="text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>Portal Launcher — Первый запуск</span>
+          </div>
+          <button onClick={finishSetup} className="p-1 rounded hover:bg-white/5" title="Пропустить">
+            <X className="h-4 w-4" style={{ color: 'var(--color-text-tertiary)' }} />
+          </button>
+        </div>
+
+        {/* Progress dots */}
+        <div className="flex items-center justify-center gap-2 py-4">
+          {steps.map((_, i) => (
+            <div key={i} className="h-1.5 transition-all"
+              style={{
+                width: i === step ? 24 : 8,
+                borderRadius: 9999,
+                background: i <= step ? 'var(--color-primary)' : 'var(--color-border)',
+              }} />
+          ))}
+        </div>
+
+        {/* Step content */}
+        <div className="flex-1 flex items-center justify-center px-6 overflow-y-auto">
+          <AnimatePresence mode="wait">
+            <motion.div key={step}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.18 }}
+              className="w-full py-8">
+              {steps[step]}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Skip button */}
+        <div className="flex items-center justify-between px-6 py-4"
+          style={{ borderTop: '1px solid var(--color-border)' }}>
+          <button onClick={() => step > 0 && setStep(s => s - 1)}
+            className="px-3 py-2 text-xs font-bold disabled:opacity-0"
+            style={{ color: 'var(--color-text-secondary)' }}
+            disabled={step === 0}>
+            Назад
+          </button>
+          {step < steps.length - 1 && (
+            <button onClick={() => setStep(s => s + 1)}
+              className="px-3 py-2 text-xs font-bold"
+              style={{ color: 'var(--color-text-secondary)' }}>
+              Далее
+            </button>
+          )}
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
 }

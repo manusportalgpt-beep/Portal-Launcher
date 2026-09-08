@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 
-export type StylePreset = 'glass' | 'quadral' | 'falloff' | 'abouts';
+export type StylePreset = 'standard' | 'glass' | 'quadral' | 'falloff' | 'abouts';
 
 export const STYLE_PRESETS: Array<{ id: StylePreset; title: string; description: string }> = [
+  { id: 'standard', title: 'Standard', description: 'Мягкие скругления во всём — как в iOS, macOS и современных лаунчерах.' },
   { id: 'glass', title: 'Glassmorphism', description: 'Прозрачные круглые панели с размытием и защищённой читаемостью.' },
   { id: 'quadral', title: 'Quadral', description: 'Чёткая квадратная схема Portal Launcher: линии, плотность и всё под рукой.' },
   { id: 'falloff', title: 'FallOff', description: 'Мягкая обычная схема с ромбовидными акцентами и наклонными маркерами.' },
@@ -10,6 +11,12 @@ export const STYLE_PRESETS: Array<{ id: StylePreset; title: string; description:
 ];
 
 const styleTokens: Record<StylePreset, Record<string, string>> = {
+  standard: {
+    '--radius-xs': '8px', '--radius-sm': '10px', '--radius-md': '12px', '--radius-lg': '16px', '--radius-xl': '20px',
+    '--radius-button': '10px', '--radius-card': '14px', '--radius-modal': '18px',
+    '--shadow-sm': '0 1px 3px rgba(0,0,0,0.10)', '--shadow-md': '0 4px 12px rgba(0,0,0,0.14)',
+    '--shadow-lg': '0 12px 32px rgba(0,0,0,0.20)', '--portal-glass-blur': '0px',
+  },
   glass: {
     '--radius-xs': '8px', '--radius-sm': '10px', '--radius-md': '14px', '--radius-lg': '18px', '--radius-xl': '24px',
     '--radius-button': '14px', '--radius-card': '18px', '--radius-modal': '24px',

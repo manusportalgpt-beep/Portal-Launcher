@@ -256,37 +256,20 @@ function InstancesRail() {
   return (
     <div className="flex flex-col items-center gap-1.5 w-full overflow-y-auto" style={{ maxHeight: 240 }}>
       {instances.map(inst => (
-        <NavLink
+        <div
           key={inst.id}
-          to={`/instances/${inst.id}/manage`}
           title={inst.name}
-          className="group relative flex items-center justify-center w-12 h-12 rounded-2xl shrink-0 overflow-hidden">
-          {({ isActive }) => (
-            <>
-              <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center text-xs font-bold shrink-0"
-                style={{
-                  background: inst.color || 'var(--color-surface-2)',
-                  color: '#fff',
-                  outline: isActive ? '2px solid var(--color-primary)' : 'none',
-                  outlineOffset: 2,
-                }}>
-                {inst.iconPath
-                  ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" />
-                  : inst.name[0]?.toUpperCase()}
-              </div>
-              <div className="absolute left-full ml-3 px-2.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap
-                opacity-0 pointer-events-none group-hover:opacity-100 transition-all z-50"
-                style={{
-                  background: 'var(--color-surface-2)',
-                  color: 'var(--color-text)',
-                  border: '1px solid var(--color-border)',
-                  boxShadow: 'var(--shadow-md)',
-                }}>
-                {inst.name}
-              </div>
-            </>
-          )}
-        </NavLink>
+          className="pointer-events-none select-none relative flex items-center justify-center w-12 h-12 rounded-2xl shrink-0 overflow-hidden">
+          <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center text-xs font-bold shrink-0"
+            style={{
+              background: inst.color || 'var(--color-surface-2)',
+              color: '#fff',
+            }}>
+            {inst.iconPath
+              ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" />
+              : inst.name[0]?.toUpperCase()}
+          </div>
+        </div>
       ))}
       <button
         onClick={() => navigate('/library?create=1')}

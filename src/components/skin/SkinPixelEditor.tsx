@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pencil, Eraser, Pipette, PaintBucket, Eye, EyeOff, X, Check, RotateCcw, Save, Box } from 'lucide-react';
+import { Pencil, Eraser, Pipette, PaintBucket, Eye, EyeOff, X, Check, RotateCcw, Redo2, Save, Box } from 'lucide-react';
 import { SkinStand3D, type SkinModel } from './SkinStand3D';
 import { SkinEditor3D } from './SkinEditor3D';
 
@@ -271,6 +271,15 @@ export function SkinPixelEditor({ open, initialDataUrl, model, onClose, onSave }
       historyPos.current--;
       pixelData.current = history.current[historyPos.current];
       renderCanvas();
+      refreshLive();
+    }
+  };
+  const redo = () => {
+    if (historyPos.current < history.current.length - 1) {
+      historyPos.current++;
+      pixelData.current = history.current[historyPos.current];
+      renderCanvas();
+      refreshLive();
     }
   };
 
@@ -318,6 +327,25 @@ export function SkinPixelEditor({ open, initialDataUrl, model, onClose, onSave }
   const onPointerUp = () => { drawing.current = false; refreshLive(); };
   const onPointerLeave = () => { drawing.current = false; };
 
+
+  // Keyboard shortcuts: B=pen, F=eraser, Space=pipette, L=fill, Ctrl+Z=undo, Ctrl+Shift+Z=redo
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      if (e.key === 'b' || e.key === 'B') setTool('pen');
+      else if (e.key === 'f' || e.key === 'F') setTool('eraser');
+      else if (e.key === ' ') { e.preventDefault(); setTool('picker'); }
+      else if (e.key === 'l' || e.key === 'L') setTool('fill');
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) { e.preventDefault(); redo(); }
+      else if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open, undo, redo]);
+
   if (!open) return null;
 
   return (
@@ -336,7 +364,8 @@ export function SkinPixelEditor({ open, initialDataUrl, model, onClose, onSave }
             <p className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>{model === 'slim' ? 'Slim' : 'Classic'} · 64×64 · щелчок — пиксель, заливка и пипетка справа</p>
           </div>
           <div className="flex items-center gap-1.5">
-            <button onClick={undo} title="Отменить" className="flex h-8 w-8 items-center justify-center" style={{ borderRadius: 8, background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}><RotateCcw className="h-4 w-4" /></button>
+            <button onClick={undo} title="Отменить (Ctrl+Z)" className="flex h-8 w-8 items-center justify-center" style={{ borderRadius: 8, background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}><RotateCcw className="h-4 w-4" /></button>
+            <button onClick={redo} title="Повторить (Ctrl+Shift+Z)" className="flex h-8 w-8 items-center justify-center" style={{ borderRadius: 8, background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}><Redo2 className="h-4 w-4" /></button>
             <button onClick={onClose} title="Закрыть" className="flex h-8 w-8 items-center justify-center" style={{ borderRadius: 8, background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}><X className="h-4 w-4" /></button>
           </div>
         </div>
@@ -349,10 +378,10 @@ export function SkinPixelEditor({ open, initialDataUrl, model, onClose, onSave }
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Инструменты</p>
               <div className="grid grid-cols-4 gap-1.5">
                 {([
-                  { id: 'pen' as Tool, icon: <Pencil className="h-4 w-4" />, label: 'Карандаш' },
-                  { id: 'eraser' as Tool, icon: <Eraser className="h-4 w-4" />, label: 'Стёрка' },
-                  { id: 'picker' as Tool, icon: <Pipette className="h-4 w-4" />, label: 'Пипетка' },
-                  { id: 'fill' as Tool, icon: <PaintBucket className="h-4 w-4" />, label: 'Заливка' },
+                  { id: 'pen' as Tool, icon: <Pencil className="h-4 w-4" />, label: 'Карандаш [B]' },
+                  { id: 'eraser' as Tool, icon: <Eraser className="h-4 w-4" />, label: 'Стёрка [F]' },
+                  { id: 'picker' as Tool, icon: <Pipette className="h-4 w-4" />, label: 'Пипетка [Space]' },
+                  { id: 'fill' as Tool, icon: <PaintBucket className="h-4 w-4" />, label: 'Заливка [L]' },
                 ]).map(t => (
                   <button key={t.id} onClick={() => setTool(t.id)} title={t.label}
                     className="flex flex-col items-center gap-1 rounded-xl py-2"

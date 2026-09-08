@@ -1131,3 +1131,108 @@ html[data-ui-mode="modern"] [class*="instance-"] button:active,
 html[data-ui-mode="modern"] [class*="Instance"] button:active {
   transform: scale(0.96);
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   STANDARD PRESET — force-rounded iOS/macOS aesthetic
+   ═══════════════════════════════════════════════════════════════ */
+
+html[data-portal-style="standard"] *,
+html[data-portal-style="standard"] *::before,
+html[data-portal-style="standard"] *::after {
+  border-radius: var(--radius-md) !important;
+}
+
+/* Specific elements get their own radius tokens */
+html[data-portal-style="standard"] button { border-radius: var(--radius-button) !important; }
+html[data-portal-style="standard"] input,
+html[data-portal-style="standard"] textarea,
+html[data-portal-style="standard"] select { border-radius: var(--radius-sm) !important; }
+
+/* Cards and modals */
+html[data-portal-style="standard"] [role="dialog"],
+html[data-portal-style="standard"] dialog {
+  border-radius: var(--radius-modal) !important;
+}
+
+/* Image thumbnails — soft round */
+html[data-portal-style="standard"] img {
+  border-radius: var(--radius-sm);
+}
+
+/* Sidebar / Notch */
+html[data-portal-style="standard"] .portal-sidebar,
+html[data-portal-style="standard"] .portal-notch {
+  border-radius: var(--radius-lg) !important;
+}
+
+/* Instance icons — pill shape */
+html[data-portal-style="standard"] .w-9.h-9,
+html[data-portal-style="standard"] .w-10.h-10,
+html[data-portal-style="standard"] .w-12.h-12 {
+  border-radius: var(--radius-lg) !important;
+}
+
+/* Nav icons */
+html[data-portal-style="standard"] [data-testid^="nav-"] {
+  border-radius: var(--radius-button) !important;
+}
+
+/* Screenshot viewer arrows */
+html[data-portal-style="standard"] [style*="left: 5"],
+html[data-portal-style="standard"] [style*="right: 5"] {
+  border-radius: var(--radius-button) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STANDARD + MODERN — Additional Polish
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Standard: force all rounded elements */
+html[data-portal-style="standard"] .portal-sidebar {
+  border-radius: var(--radius-lg) !important;
+  border-right: 1px solid var(--color-border) !important;
+  margin: 8px 0 8px 8px;
+}
+html[data-portal-style="standard"] .portal-sidebar .w-9,
+html[data-portal-style="standard"] .portal-sidebar [class*="rounded-2xl"] {
+  border-radius: var(--radius-md) !important;
+}
+
+/* Settings page section cards */
+html[data-ui-mode="modern"] .minimal-section-title {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.03);
+}
+
+/* Settings page: SegRow buttons rounded */
+html[data-ui-mode="modern"] button[style*="border-radius: 0"] {
+  border-radius: 0 !important;
+}
+
+/* Toggle switch modern */
+html[data-ui-mode="modern"] [role="switch"],
+html[data-ui-mode="modern"] input[type="checkbox"] {
+  accent-color: var(--color-primary);
+}
+
+/* Better hover on nav items */
+html[data-ui-mode="modern"] .portal-sidebar a[aria-current="page"] svg {
+  color: var(--color-primary) !important;
+  filter: drop-shadow(0 0 6px var(--color-primary));
+}
+
+/* Force standard: all cards rounded */
+html[data-portal-style="standard"] [style*="border: 1px solid var(--color-border)"] {
+  border-radius: var(--radius-card) !important;
+}
+
+/* Instance card in library: pill-shaped badges */
+html[data-portal-style="standard"] span[class*="rounded-lg"] {
+  border-radius: var(--radius-sm) !important;
+}
+
+/* PlayTimeChart bars in standard */
+html[data-portal-style="standard"] [class*="rounded-t"] {
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0 !important;
+}

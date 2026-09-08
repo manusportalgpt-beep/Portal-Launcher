@@ -24,6 +24,7 @@ import { InstanceScreenshotManager } from '@/components/InstanceScreenshotManage
 import { LanRelayBanner, LanRelayAddressChip } from '@/components/LanRelayControls';
 import { ModpackManifestPreview, type ModpackPreview } from '@/components/ModpackManifestPreview';
 import { useUiStore } from '@/stores/uiStore';
+import { PlayTimeChart } from '@/components/PlayTimeChart';
 import modrinthWrench from '@/assets/modrinth-wrench-clean.png';
 import curseforgeAnvil from '@/assets/curseforge-anvil.png';
 
@@ -919,7 +920,7 @@ function InstanceCard({ inst, onClick, onDropOnGroup }: {
           <span className="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[10px] font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}><Box className="w-3 h-3" style={{ color:'var(--color-primary)' }} />{inst.minecraftVersion}</span>
           <span className="inline-flex items-center gap-1 px-1.5 py-1 rounded-lg text-[10px] font-semibold capitalize" style={{ background:`${LOADER_COLOR[inst.modLoader] || 'var(--color-primary)'}18`, color:LOADER_COLOR[inst.modLoader] || 'var(--color-primary)', border:`1px solid ${LOADER_COLOR[inst.modLoader] || 'var(--color-primary)'}44` }}><Layers className="w-3 h-3" />{inst.modLoaderVersion ? `${inst.modLoader} ${inst.modLoaderVersion}` : inst.modLoader}</span>
         </div>
-        <div className="flex items-center gap-1.5 mt-2 pt-2 text-[10px]" style={{ color:'var(--color-text-tertiary)', borderTop:'1px solid var(--color-border)' }}><Clock className="w-3 h-3" />{formatPlayMinutes(inst.totalPlayTime)}</div>
+        <PlayTimeChart totalPlayTime={inst.totalPlayTime} lastPlayed={inst.lastPlayed} />
       </div>
     </motion.div>
   );

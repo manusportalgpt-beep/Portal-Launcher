@@ -946,3 +946,128 @@ html[data-ui-mode="modern"] .clean-nav {
     box-shadow: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   MODERN UI — Advanced Polish & Interactions
+   ═══════════════════════════════════════════════════════════════ */
+
+/* --- Sidebar active indicator: smooth pill --- */
+html[data-ui-mode="modern"] .portal-sidebar a[aria-current="page"] > span:first-child {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-radius: var(--modern-radius) !important;
+}
+html[data-ui-mode="modern"] .portal-sidebar a[aria-current="page"] svg {
+  color: var(--color-primary) !important;
+}
+
+/* --- Instance cards: subtle gradient on hover --- */
+html[data-ui-mode="modern"] .clean-home-instance:hover {
+  background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)) !important;
+}
+
+/* --- Action cards: icon scale on hover --- */
+html[data-ui-mode="modern"] section:last-child button:hover svg {
+  transform: scale(1.1);
+  transition: transform 160ms var(--modern-spring);
+}
+
+/* --- Hero badge --- */
+html[data-ui-mode="modern"] .clean-home-hero span[style*="border: 1px solid var(--color-primary)"] {
+  background: rgba(218, 42, 63, 0.08) !important;
+  border-radius: var(--modern-radius) !important;
+}
+
+/* --- Better segmented controls for modern --- */
+html[data-ui-mode="modern"] .flex.rounded-xl[style*="border: 1px solid"] {
+  border-radius: var(--modern-radius) !important;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 2px;
+}
+html[data-ui-mode="modern"] .flex.rounded-xl[style*="border: 1px solid"] > button {
+  border-radius: calc(var(--modern-radius) - 2px) !important;
+  transition: all 140ms var(--modern-ease) !important;
+}
+html[data-ui-mode="modern"] .flex.rounded-xl[style*="border: 1px solid"] > button[style*="background: var(--color-primary)"] {
+  box-shadow: 0 1px 4px rgba(218, 42, 63, 0.2);
+}
+
+/* --- Tab panels --- */
+html[data-ui-mode="modern"] [role="tab"] {
+  transition: color 140ms var(--modern-ease),
+              background 140ms var(--modern-ease);
+}
+html[data-ui-mode="modern"] [role="tab"]:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* --- Smooth page transitions --- */
+html[data-ui-mode="modern"] main > div {
+  animation: modern-page-enter 200ms var(--modern-ease) both;
+}
+@keyframes modern-page-enter {
+  from { opacity: 0.92; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Discover page project cards --- */
+html[data-ui-mode="modern"] [style*="1px solid var(--color-border)"][style*="cursor"] {
+  border-radius: var(--modern-radius-lg) !important;
+  transition: transform 160ms var(--modern-ease),
+              border-color 180ms var(--modern-ease),
+              box-shadow 180ms var(--modern-ease) !important;
+}
+html[data-ui-mode="modern"] [style*="1px solid var(--color-border)"][style*="cursor"]:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--modern-shadow-hover);
+}
+
+/* --- Better focus rings --- */
+html[data-ui-mode="modern"] button:focus-visible,
+html[data-ui-mode="modern"] input:focus-visible,
+html[data-ui-mode="modern"] select:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--modern-radius);
+}
+
+/* --- Loading shimmer --- */
+html[data-ui-mode="modern"] .animate-pulse {
+  animation: modern-pulse 1.4s ease-in-out infinite;
+}
+@keyframes modern-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+}
+
+/* --- Dialog backdrop blur --- */
+html[data-ui-mode="modern"] [role="dialog"] {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* --- Settings page sections --- */
+html[data-ui-mode="modern"] [style*="border-bottom: 1px solid var(--color-border)"] {
+  border-radius: var(--modern-radius-lg) !important;
+}
+
+/* --- Toast / notification --- */
+html[data-ui-mode="modern"] [style*="position: fixed"][style*="z-index: 100"] {
+  border-radius: var(--modern-radius-lg) !important;
+  border: 1px solid var(--modern-border) !important;
+  box-shadow: var(--modern-shadow-lg) !important;
+}
+
+/* --- Discover filter pills --- */
+html[data-ui-mode="modern"] [style*="1px solid var(--color-border)"][style*="rounded"] {
+  border-radius: var(--modern-radius) !important;
+  transition: all 140ms var(--modern-ease) !important;
+}
+html[data-ui-mode="modern"] [style*="1px solid var(--color-border)"][style*="rounded"]:hover {
+  border-color: var(--modern-border-hover) !important;
+}
+
+/* --- Smooth icon transitions throughout --- */
+html[data-ui-mode="modern"] svg {
+  transition: color 140ms var(--modern-ease),
+              transform 160ms var(--modern-spring);
+}

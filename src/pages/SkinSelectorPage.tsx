@@ -44,6 +44,8 @@ function addSkinToHistory(items: SavedSkin[], skin: SavedSkin) {
   const duplicate = items.find(item => (skin.textureHash && item.textureHash === skin.textureHash) || item.dataUrl === skin.dataUrl);
   const automaticCapture = skin.name.endsWith(' — active');
   const reused = duplicate ? { ...duplicate, name: automaticCapture ? duplicate.name : (skin.name || duplicate.name), model: skin.model, capeId: skin.capeId, capeUrl: skin.capeUrl, savedAt: skin.savedAt, textureHash: skin.textureHash ?? duplicate.textureHash } : skin;
+  // Нормализуем имя авто-суффикса в постоянном пресете.
+  if (!duplicate) { reused.name = displaySkinName(reused.name); }
   return [reused, ...items.filter(item => item.id !== duplicate?.id && item.dataUrl !== skin.dataUrl && (!skin.textureHash || item.textureHash !== skin.textureHash))].slice(0, MAX_AUTO_SKINS);
 }
 async function hashTexture(bytes: number[]): Promise<string> {
@@ -53,6 +55,10 @@ async function hashTexture(bytes: number[]): Promise<string> {
   }
   return btoa(String.fromCharCode(...bytes));
 }
+function displaySkinName(name: string) {
+  return name.endsWith(' — active') ? name.replace(/ — active$/, '') : name;
+}
+
 function makeSkinId() { return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
 
 /** Minecraft accepts the modern 64×64 sheet and the legacy 64×32 sheet only. */
@@ -284,7 +290,7 @@ export function SkinSelectorPage() {
       const active = profile.capes.find(cape => cape.active) ?? null;
       const textureHash = await hashTexture(bytes);
       setActiveTextureHash(textureHash);
-      return { id: makeSkinId(), name: profile.name || 'Skin', dataUrl, textureHash, model: profile.skin_variant === 'slim' ? 'slim' : 'classic', capeId: active?.id ?? null, capeUrl: active?.url ?? null, savedAt: Date.now() };
+      return { id: makeSkinId(), name: (profile.name || 'Player') + ' — active', dataUrl, textureHash, model: profile.skin_variant === 'slim' ? 'slim' : 'classic', capeId: active?.id ?? null, capeUrl: active?.url ?? null, savedAt: Date.now() };
     } catch { return null; }
   };
 
@@ -405,7 +411,7 @@ export function SkinSelectorPage() {
       const textureHash = skin.textureHash ?? await hashTexture(bytes);
       setSelectedSkinId(skin.id);
       setPendingModel(skin.model);
-      setPendingName(skin.name);
+      setPendingName(displaySkinName(skin.name));
       setPendingCapeId(skin.capeId ?? null);
       setPreviewError('');
       setPending({ dataUrl: skin.dataUrl, bytes, textureHash });
@@ -556,7 +562,7 @@ export function SkinSelectorPage() {
                             <SkinStand3D skinUrl={skin.dataUrl} capeUrl={skin.capeUrl ?? null} model={skin.model} height={112} cameraDistance={78} initialYaw={0.45} interactive={false} autoRotate />
                           </div>
                           <div className="px-1 pt-2">
-                            <span className="block truncate text-[11px] font-bold" style={{ color: 'var(--color-text)' }}>{skin.name}</span>
+                            <span className="block truncate text-[11px] font-bold" style={{ color: 'var(--color-text)' }}>{displaySkinName(skin.name)}</span>
                             <span className="block truncate pt-0.5 text-[9px]" style={{ color: selected ? 'var(--color-text)' : 'var(--color-text-secondary)' }}>{selected ? 'Выбран' : skin.model === 'slim' ? 'Slim' : 'Classic'}{skin.capeUrl ? ' · Cape' : ''}</span>
                           </div>
                         </button>

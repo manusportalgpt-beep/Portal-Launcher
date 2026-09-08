@@ -579,12 +579,11 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
         initial={{ scale:0.93,opacity:0,y:14 }} animate={{ scale:1,opacity:1,y:0 }} exit={{ scale:0.93,opacity:0,y:14 }}
         transition={{ type:'spring', stiffness:480, damping:34 }}>
 
-        <div className="relative shrink-0 px-5 pt-5 pb-3" style={{ borderBottom:'0', background:'transparent' }}>
+        <div className="relative shrink-0 px-5 pt-5 pb-3">
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="font-black text-lg" style={{ color:'var(--color-text)' }}>{step==='type'?t('libraryRuntime.create'):step==='custom'?t('libraryRuntime.customSetup'):step==='install'?'Установить или импортировать сборку':t('libraryRuntime.importInstance')}</h2>
-            </div>
-            <button type="button" onClick={onClose} aria-label="Закрыть студию сборок" className="relative w-8 h-8 flex items-center justify-center rounded-md outline-none transition-colors hover:bg-[var(--color-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ border:'1px solid var(--color-border)' }}><X className="w-4 h-4" style={{ color:'var(--color-text-secondary)' }} /></button>
+            <h2 className="text-sm font-bold" style={{ color:'var(--color-text)' }}>{step==='type'?t('libraryRuntime.create'):step==='custom'?t('libraryRuntime.customSetup'):step==='install'?'Установить или импортировать сборку':t('libraryRuntime.importInstance')}</h2>
+            <button type="button" onClick={onClose} aria-label="Закрыть" className="w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-150 hover:opacity-70"
+              style={{ color:'var(--color-text-tertiary)' }}><X className="w-4 h-4" /></button>
           </div>
         </div>
 
@@ -592,7 +591,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
           <AnimatePresence mode="wait">
             {step==='type' && (
               <motion.div key="type" initial={{ opacity:0,x:12 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-12 }} className="space-y-3">
-                <p className="text-sm font-medium mb-4" style={{ color:'var(--color-text)' }}>{t('libraryRuntime.chooseCreation')}</p>
+                <p className="text-xs mb-4" style={{ color:'var(--color-text)' }}>{t('libraryRuntime.chooseCreation')}</p>
                 {[
                   { id:'custom', Icon:Wrench, title:t('libraryRuntime.customSetup'), desc:'Выберите Minecraft, ядро, версию ядра и свою иконку.' },
                   { id:'install', Icon:Download, title:'Установить или импортировать сборку', desc:'Найдите модпак в Discover, откройте .mrpack / .zip или перенесите сборку из другого лаунчера.' },

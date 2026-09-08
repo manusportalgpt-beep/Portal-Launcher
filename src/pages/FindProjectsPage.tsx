@@ -1120,20 +1120,6 @@ export function FindProjectsPage() {
             </div>
           </div>
 
-          {hasFilters && (
-            <div className="flex items-center justify-end gap-1 px-4 py-1.5 shrink-0">
-              {[...selectedCats,...selectedLoaders,...selectedVersions].slice(0,4).map(tag => {
-                const TagIcon = CATEGORY_ICONS[tag] || (LOADERS.includes(tag) ? Sparkles : RefreshCw);
-                return <button key={tag}
-                  onClick={() => { setSelectedCats(s=>s.filter(x=>x!==tag)); setSelectedLoaders(s=>s.filter(x=>x!==tag)); setSelectedVersions(s=>s.filter(x=>x!==tag)); }}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold"
-                  style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-                  <TagIcon className="w-2.5 h-2.5 shrink-0" style={{ color:'var(--color-primary)' }} />{tag} <X className="w-2.5 h-2.5" />
-                </button>;
-              })}
-            </div>
-          )}
-
           {/* Results */}
           <div ref={resultsScrollRef} onScroll={handleResultsScroll} className="flex-1 overflow-y-auto px-4 pb-4">
             {/* CurseForge API key missing — visible inline banner */}

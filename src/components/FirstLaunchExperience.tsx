@@ -14,16 +14,13 @@ import { MicrosoftAuthOAuth } from '@/components/auth/MicrosoftAuthOAuth';
 const SETUP_KEY = 'portal-first-launch-complete-v1';
 
 const THEME_CHOICES: Array<{ id: ThemeId; label: string; preview: string }> = [
-  { id: 'dark', label: 'Тёмная', preview: 'linear-gradient(135deg, #0D1117, #1C2333)' },
-  { id: 'system', label: 'Системная', preview: 'linear-gradient(135deg, #0D1117 50%, #FFFFFF 50%)' },
-  { id: 'monochrome', label: 'Монохром', preview: 'linear-gradient(135deg, #0A0A0A, #282828)' },
-  { id: 'purple-dark', label: 'Тёмный фиолетовый', preview: 'linear-gradient(135deg, #080612, #1F183D)' },
-  { id: 'redstone', label: 'RedStone', preview: 'linear-gradient(135deg, #080000, #280707)' },
-  { id: 'ocean', label: 'Океан', preview: 'linear-gradient(135deg, #06131C, #16495B)' },
+  { id: 'dark', label: 'Тёмная', preview: 'linear-gradient(135deg, #16161A, #26262C)' },
+  { id: 'oled', label: 'OLED', preview: 'linear-gradient(135deg, #000000, #141414)' },
+  { id: 'light', label: 'Светлая', preview: 'linear-gradient(135deg, #FFFFFF, #F1F3F5)' },
 ];
 
 const STYLE_THEME: Record<StylePreset, ThemeId> = {
-  standard: 'dark', glass: 'dark', quadral: 'monochrome', falloff: 'purple-dark', abouts: 'system',
+  standard: 'dark', glass: 'dark', quadral: 'dark', falloff: 'oled', abouts: 'light',
 };
 
 const INSTALL_CONFIRMATIONS: Array<{ question: string; yesLabel: string; noLabel: string }> = [

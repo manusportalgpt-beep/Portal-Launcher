@@ -47,19 +47,9 @@ const SECTIONS: SectionDef[] = [
 ];
 
 const THEMES: { id: ThemeId; name: string; preview: string; accent: string }[] = [
-  { id:'clean',        name:'Clean mode',  preview:'#F5F5F2',                                   accent:'#C23345' },
-  { id:'redstone',     name:'RedStone',    preview:'linear-gradient(135deg,#080000,#280707)',          accent:'#E60000' },
-  { id:'system',       name:'System',      preview:'linear-gradient(135deg,#0D1117 50%,#FFFFFF 50%)', accent:'#64748B' },
-  { id:'dark',         name:'Dark',        preview:'linear-gradient(135deg,#0D1117,#1C2333)',          accent:'#4299E1' },
+  { id:'dark',         name:'Dark',        preview:'linear-gradient(135deg,#16161A,#26262C)',          accent:'#DA2A3F' },
+  { id:'oled',         name:'OLED',        preview:'linear-gradient(135deg,#000000,#141414)',          accent:'#DA2A3F' },
   { id:'light',        name:'Light',       preview:'linear-gradient(135deg,#FFFFFF,#F1F3F5)',          accent:'#4299E1' },
-  { id:'red-dark',     name:'Dark Red',    preview:'linear-gradient(135deg,#0A0606,#1E0F0F)',          accent:'#E74C3C' },
-  { id:'green-dark',   name:'Dark Green',  preview:'linear-gradient(135deg,#06140C,#102B19)',          accent:'#1BD96A' },
-  { id:'purple-dark',  name:'Dark Purple', preview:'linear-gradient(135deg,#080612,#1F183D)',          accent:'#8B5CF6' },
-  { id:'pink-dark',    name:'Pink Dark',   preview:'linear-gradient(135deg,#15080F,#2A1020)',          accent:'#E91E63' },
-  { id:'monochrome',   name:'Mono',        preview:'linear-gradient(135deg,#0A0A0A,#282828)',          accent:'#CCCCCC' },
-  { id:'pixel',        name:'Pixel',       preview:'linear-gradient(135deg,#0D1117,#1C2333)',          accent:'#55FF55' },
-  { id:'glass-white',  name:'Glass White', preview:'linear-gradient(135deg,#e8f0ff,#f5eaff 50%,#e0f7ff)', accent:'#8B5CF6' },
-  { id:'ocean',       name:'Ocean',       preview:'linear-gradient(135deg,#06131C,#16495B)',          accent:'#38BDF8' },
 ];
 
 const FONT_OPTIONS = [

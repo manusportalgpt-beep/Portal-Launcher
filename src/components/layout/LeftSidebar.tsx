@@ -176,7 +176,7 @@ function AccountDropdown({ onClose }: { onClose: () => void }) {
       {!user ? (
         <div className="p-4 flex flex-col items-center gap-3">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-            style={{ background:'linear-gradient(135deg, var(--color-primary), #E74C3C)' }}>
+            style={{ background:'var(--color-primary)' }}>
             <LogIn className="w-6 h-6 text-white" />
           </div>
           <div className="text-center">
@@ -194,7 +194,7 @@ function AccountDropdown({ onClose }: { onClose: () => void }) {
           <div className="p-4 border-b" style={{ borderColor:'var(--color-border)' }}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0"
-                style={{ background:'linear-gradient(135deg, var(--color-primary), #E74C3C)' }}>
+                style={{ background:'var(--color-primary)' }}>
                 <CachedPlayerFace user={user} className="w-full h-full" alt="" />
               </div>
               <div className="flex-1 min-w-0">
@@ -368,7 +368,7 @@ export function LeftSidebar() {
           onClick={() => { setShowAccount(v => !v); setShowNotifs(false); }}
           title={isAuthenticated && user ? user.username : 'Sign in'}
           className="relative w-12 h-12 rounded-2xl flex items-center justify-center hover:bg-white/5 transition-colors overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, var(--color-primary)22, var(--color-surface-2))' }}>
+          style={{ background: 'var(--color-surface-2)' }}>
           {isAuthenticated && user
             ? <CachedPlayerFace user={user} className="w-full h-full" alt="" />
             : isAuthenticated && user

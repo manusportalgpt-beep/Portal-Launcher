@@ -27,7 +27,7 @@ export function Sidebar() {
       <div className="flex items-center gap-3 px-5 h-[60px]"
         style={{borderBottom:'1px solid var(--color-border)',flexShrink:0}}>
         <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-          style={{background:'linear-gradient(135deg,var(--color-primary),#E74C3C)'}}>
+          style={{background:'var(--color-primary)'}}>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <circle cx="7" cy="7" r="5.5" stroke="white" strokeWidth="1.5" />
             <circle cx="7" cy="7" r="2" fill="white" />
@@ -90,7 +90,7 @@ export function Sidebar() {
           className="flex items-center gap-3 p-2.5 rounded-xl transition-all hover:bg-white/5 w-full text-left">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold"
             style={{background: isAuthenticated && user
-              ? 'linear-gradient(135deg,var(--color-primary),#E74C3C)'
+              ? 'var(--color-primary)'
               : 'var(--color-surface-2)',
               color: isAuthenticated && user ? 'white' : 'var(--color-text-tertiary)',
               border: isAuthenticated && user ? 'none' : '1px solid var(--color-border)'}}>

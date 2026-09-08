@@ -618,17 +618,20 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFilePicked} />
 
       {/* Main tabs */}
-      <div className="flex items-center gap-4 px-4 pt-3 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
-        {MAIN_TABS.map(({ id, labelKey, icon: Icon }) => (
-          <button key={id} onClick={() => { setMainTab(id); setSearch(''); }}
-            className="flex items-center gap-1.5 pb-2.5 px-1 text-sm font-semibold whitespace-nowrap transition-colors relative"
-            style={{ color: mainTab === id ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
-            <Icon className="w-4 h-4" />{t(labelKey)}
-            {mainTab === id && (
-              <span className="absolute left-0 right-0 -bottom-px h-0.5 rounded-full" style={{ background: 'var(--color-primary)' }} />
-            )}
-          </button>
-        ))}
+      <div className="flex items-center gap-1 px-4 pt-3 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
+        {MAIN_TABS.map(({ id, labelKey, icon: Icon }) => {
+          const active = mainTab === id;
+          return (
+            <button key={id} onClick={() => { setMainTab(id); setSearch(''); }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150"
+              style={{
+                background: active ? 'var(--color-primary-dim)' : 'transparent',
+                color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+              }}>
+              <Icon className="w-3.5 h-3.5" />{t(labelKey)}
+            </button>
+          );
+        })}
       </div>
 
       {/* Toolbar */}

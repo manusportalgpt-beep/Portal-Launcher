@@ -448,8 +448,8 @@ function AppearanceSection() {
         onChange={v => ui.set('navMode', v as any)} />
       <SegRow label="Стиль интерфейса" desc="Классический сохраняет более строгие поверхности, новый использует мягкие акценты и расширенные скругления — для Notch и Sidebar одинаково"
         value={ui.uiMode}
-        options={[{ id: 'old', label: 'Классический' }, { id: 'new', label: 'Новый' }]}
-        onChange={v => { ui.set('uiMode', v as any); ui.set('panelVersion', v as any); }} />
+        options={[{ id: 'old', label: 'Классический' }, { id: 'new', label: 'Новый' }, { id: 'modern', label: 'Modern' }]}
+        onChange={v => { ui.set('uiMode', v as any); ui.set('panelVersion', v === 'old' ? 'old' : 'new' as any); }} />
 
       <SegRow label="Материал и форма" desc="Glassmorphism, квадратный Quadral, ромбовидный FallOff или системный AboutS. Цветовая тема остаётся отдельной настройкой выше."
         value={ui.stylePreset}

@@ -53,7 +53,7 @@ interface ModrinthHit {
 interface ModrinthResult { hits: ModrinthHit[]; total_hits: number; offset: number; limit: number; }
 
 interface CfMod {
-  id: number; name: string; summary: string;
+  id: number; name: string; classId?: number; summary: string;
   authors: { name: string }[];
   download_count: number; thumbs_up_count: number;
   logo?: { thumbnail_url: string };
@@ -68,6 +68,7 @@ interface Project {
   author: string; downloads: number; follows: number; iconUrl?: string;
   categories: string[]; gameVersions: string[]; loaders: string[];
   dateModified: string; platform: Platform; projectType: ProjectType;
+  classId?: number;
   color?: string;
 }
 
@@ -502,6 +503,7 @@ export function DiscoverPage() {
       gameVersions: [...new Set(m.latest_files_indexes.map(f => f.game_version))],
       loaders: [...new Set(m.latest_files_indexes.map(f => loaderMap[f.mod_loader_type] || 'unknown').filter(l => l !== 'any'))],
       dateModified: m.date_modified, platform: 'curseforge', projectType: pt,
+      classId: m.classId,
     };
   }
 

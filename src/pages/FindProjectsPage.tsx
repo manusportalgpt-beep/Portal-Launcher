@@ -71,7 +71,7 @@ interface ModrinthHit {
 }
 interface ModrinthResult { hits: ModrinthHit[]; total_hits: number; }
 interface CfMod {
-  id: number; name: string; summary: string;
+  id: number; name: string; classId?: number; summary: string;
   authors: { id?: number; name: string; avatar_url?: string }[];
   download_count: number; thumbs_up_count: number;
   logo?: { thumbnail_url: string };
@@ -85,6 +85,7 @@ interface Project {
   author: string; authorId?: number; authorAvatarUrl?: string; downloads: number; follows: number; iconUrl?: string;
   categories: string[]; gameVersions: string[]; loaders: string[];
   dateModified: string; platform: Platform; projectType: ProjectType;
+  classId?: number;
   sources?: SourcePlatform[];
   sourceProjects?: Partial<Record<SourcePlatform, Project>>;
   color?: string;
@@ -420,7 +421,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
             modId: numericProjectId,
             fileId: Number(selectedFile.id),
             apiKey: cfApiKey,
-            preferResourcePackCdn: contentType === 'resourcepack',
+            preferResourcePackCdn: contentType !== 'mod',
           }).catch(() => '');
         const downloadUrl = officialDownloadUrl || rawDownloadUrl || derivedDownloadUrl;
         if (!downloadUrl) {
@@ -801,6 +802,7 @@ export function FindProjectsPage() {
       gameVersions: [...new Set((m.latest_files_indexes ?? []).map(f => f.game_version).filter(Boolean))],
       loaders: [...new Set((m.latest_files_indexes ?? []).map(f => lmap[f.mod_loader_type]||'unknown').filter(l=>l!=='any'))],
       dateModified: m.date_modified, platform: 'curseforge', projectType,
+      classId: m.classId,
     };
   }
 

@@ -723,11 +723,47 @@ export function ModDetail() {
               dependencies: [],
             };
           });
-          bestVersion = pickNewest(filtered, mcVersion, loader) ?? pickNewest(versions, mcVersion, loader);
-          // Never install an arbitrary unfiltered CurseForge mod. A missing exact
-          // version/loader match must be reported instead of silently selecting a
-          // different loader or Minecraft version. Non-mod content may still use
-          // the already-filtered list's newest downloadable fallback in pickNewest.
+          bestVersion = pickNewest(filtered, mcVersion, loader);
+
+          // CurseForge не всегда ставит точный патч-тег (например 1.21.4) на
+          // файлы ресурс-паков/шейдеров, хотя архив совместим. Если с фильтром
+          // по gameVersion ничего не нашлось — повторяем без фильтра и берём
+          // новейший доступный файл. Для обычных модов этого не делаем.
+          if (!bestVersion && nonModContent && filtered.length === 0) {
+            try {
+              const allResp = await invoke<any>('get_curseforge_mod_files', {
+                modId: Number(modId) || Number(passedProject?.id),
+                gameVersion: undefined,
+                modLoaderType: undefined,
+                apiKey: cfApiKey,
+              });
+              const allRaw: any[] = Array.isArray(allResp?.data) ? allResp.data : [];
+              const allVersions: ModVersion[] = allRaw.map((f: any) => {
+                const gv: string[] = Array.isArray(f.gameVersions) ? f.gameVersions : [];
+                let url: string | null = (f.downloadUrl as string) ?? null;
+                if (!url && f.id && f.fileName) {
+                  const idStr = String(f.id);
+                  url = `https://edge.curseforgecdn.com/files/${idStr.slice(0, 4)}/${idStr.slice(4).replace(/^0+/, '')}/${f.fileName}`;
+                }
+                return {
+                  id: String(f.id),
+                  version_number: f.displayName ?? f.fileName ?? '',
+                  game_versions: gv.filter(isMcVersion),
+                  loaders: cfLoaderName[Number(f.modLoaderType ?? 0)] ? [cfLoaderName[Number(f.modLoaderType ?? 0)]] : gv.filter(v => !isMcVersion(v)).map(v => v.toLowerCase()),
+                  date_published: f.fileDate ?? '',
+                  downloads: f.downloadCount ?? 0,
+                  files: url ? [{ url, filename: f.fileName ?? 'mod.jar', primary: true }] : [],
+                  mod_loader_type: Number(f.modLoaderType ?? 0),
+                  dependencies: [],
+                };
+              });
+              bestVersion = pickNewest(allVersions, mcVersion, loader);
+            } catch { /* ignore */ }
+          }
+
+          if (!bestVersion) {
+            bestVersion = pickNewest(versions, mcVersion, loader);
+          }
 
         } catch {
           bestVersion = pickNewest(versions, mcVersion, loader);

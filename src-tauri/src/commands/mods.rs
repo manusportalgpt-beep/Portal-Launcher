@@ -459,7 +459,7 @@ pub async fn install_curseforge_mod(
 
     // Get download URL from CurseForge API
     let download_url = super::curseforge::get_curseforge_file_download_url(
-        mod_id, file_id, api_key.clone(), Some(mod_type_folder(mtype) == "resourcepacks")
+        mod_id, file_id, api_key.clone(), Some(mod_type_folder(mtype) == "resourcepacks" || mod_type_folder(mtype) == "shaderpacks")
     ).await?;
 
     if download_url.is_empty() {
@@ -498,6 +498,17 @@ pub async fn install_curseforge_mod(
     };
     let bytes = download_curseforge_bytes_with_fallback(&client, &download_url, &direct_api_key).await?;
     let file_size = bytes.len() as u64;
+
+    // Ресурс-паки и шейдеры CurseForge — это ZIP-архивы. Если CDN вернул
+    // HTML-страницу/ошибку вместо архива, файл всё равно был бы «успешно»
+    // записан, но в игре не работал бы. Отклоняем не-ZIP сразу с понятной
+    // ошибкой, как это делает общий install_mod.
+    let content_kind = mod_type_folder(mtype);
+    if (content_kind == "resourcepacks" || content_kind == "shaderpacks") && !bytes.starts_with(b"PK") {
+        return Err(format!(
+            "CurseForge вернул не ZIP-архив для {mtype} ({file_name}) — файл повреждён или недоступен. Попробуйте другую версию."
+        ));
+    }
 
     // Use a safe filename
     let safe_name = if file_name.is_empty() {

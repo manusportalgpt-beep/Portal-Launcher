@@ -15,6 +15,8 @@ pub struct CfFileIndex { pub game_version: String, pub mod_loader_type: u32 }
 pub struct CurseforgeMod {
     pub id: u64,
     pub name: String,
+    #[serde(rename = "classId")]
+    pub class_id: u64,
     pub summary: String,
     pub authors: Vec<CfAuthor>,
     pub download_count: u64,
@@ -48,6 +50,7 @@ fn parse_mod(m: &serde_json::Value) -> CurseforgeMod {
     CurseforgeMod {
         id: m["id"].as_u64().unwrap_or(0),
         name: m["name"].as_str().unwrap_or("").to_string(),
+        class_id: m["classId"].as_u64().or_else(|| m["class_id"].as_u64()).unwrap_or(0),
         summary: m["summary"].as_str().unwrap_or("").to_string(),
         authors: m["authors"].as_array().map(|a| a.iter().map(|au| CfAuthor {
             name: au["name"].as_str().unwrap_or("").to_string(),
@@ -276,7 +279,7 @@ pub async fn get_curseforge_file_download_url(
         "download URL lookup",
     ).await?;
     let url = resp["data"].as_str().unwrap_or("").to_string();
-    let _ = prefer_resource_pack_cdn;
+    let prefer_cdn = prefer_resource_pack_cdn.unwrap_or(false);
     if url.is_empty() {
         // Keep the historic edge address as the primary, then let the download
         // layer retry the current mediafilez host only if this request fails.
@@ -290,7 +293,18 @@ pub async fn get_curseforge_file_download_url(
         let fname = file_resp["data"]["fileName"].as_str().unwrap_or("mod.jar");
         Ok(format!("https://edge.curseforgecdn.com/files/{}/{}/{}", part1, part2.trim_start_matches('0'), fname))
     } else {
-        Ok(curseforge_download_url_candidates(&url).into_iter().next().unwrap_or(url))
+        let mut candidates = curseforge_download_url_candidates(&url);
+        if prefer_cdn {
+            // Для ресурс-паков и шейдеров CurseForge CDN (edge.curseforgecdn.com)
+            // часто возвращает 403. mediafilez.forgecdn.net надёжнее — ставим
+            // его первым приоритетом, остальные CDN пробуются как fallback.
+            candidates.sort_by_key(|c| {
+                if c.contains("mediafilez.forgecdn.net") { 0 }
+                else if c.contains("edge.forgecdn.net") { 1 }
+                else { 2 }
+            });
+        }
+        Ok(candidates.into_iter().next().unwrap_or(url))
     }
 }
 

@@ -346,10 +346,14 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
           throw new Error(t('findProjects.install.curseforgeInvalidProject'));
         }
 
-        console.log('[CF install] selectedSource:', selectedSource, 'projectType:', installProject.projectType, 'platform:', installProject.platform, 'id:', installProject.id);
+        // contentType определяем по projectType проекта (из fromCurseForge,
+        // который замыкает вкладку). Если проект не имеет projectType —
+        // fallback на 'mod'.
+        const effectiveType = installProject.projectType || 'mods';
+        console.log('[CF install] selectedSource:', selectedSource, 'effectiveType:', effectiveType, 'platform:', installProject.platform, 'id:', installProject.id);
         const contentType =
-          installProject.projectType === 'resourcepacks' ? 'resourcepack'
-            : installProject.projectType === 'shaders' ? 'shaderpack'
+          effectiveType === 'resourcepacks' ? 'resourcepack'
+            : effectiveType === 'shaders' ? 'shaderpack'
               : 'mod';
         console.log('[CF install] contentType:', contentType);
         const loaderNum = installProject.projectType === 'mods' && loader && loader !== 'vanilla'
@@ -366,10 +370,13 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         // file exists. Retry only inside the same loader, then retain only a
         // same-release-line candidate; never cross loaders or major releases.
         if (rawFiles.length === 0 && normalizedMcVersion) {
+          // Полный fallback — без gameVersion И без modLoaderType.
+          // Предыдущая версия передавала modLoaderType: loaderNum (undefined
+          // для контента), что давало тот же пустой результат.
           const broadResp = await invoke<any>('get_curseforge_mod_files', {
             modId: numericProjectId,
             gameVersion: undefined,
-            modLoaderType: loaderNum,
+            modLoaderType: undefined,
             apiKey: cfApiKey,
           });
           rawFiles = Array.isArray(broadResp?.data) ? broadResp.data : [];
@@ -390,7 +397,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
           const broadResp = await invoke<any>('get_curseforge_mod_files', {
             modId: numericProjectId,
             gameVersion: undefined,
-            modLoaderType: loaderNum,
+            modLoaderType: undefined,
             apiKey: cfApiKey,
           });
           const broadCandidates = (Array.isArray(broadResp?.data) ? broadResp.data : [])
@@ -724,6 +731,9 @@ export function FindProjectsPage() {
   const PAGE_SIZE = 20;
   const searchTimeout = useRef<ReturnType<typeof setTimeout>|null>(null);
   const resultsScrollRef = useRef<HTMLDivElement | null>(null);
+  // Per-tab scroll positions: сохраняем позицию скролла для каждой вкладки.
+  // Сбрасывается при уходе со страницы (new session).
+  const tabScrollPositions = useRef<Record<string, number>>({});
   const pendingScrollRestore = useRef(consumeSearchReturn(findProjectsFilterKey(instanceId)));
 
   const applyInstanceCompatibility = useCallback((targetType: ProjectType = projectType) => {
@@ -1011,9 +1021,19 @@ export function FindProjectsPage() {
             const Icon = def.icon;
             return (
               <button key={typeId} onClick={() => {
+                // Сохраняем текущую позицию скролла для текущей вкладки
+                if (resultsScrollRef.current) {
+                  tabScrollPositions.current[projectType] = resultsScrollRef.current.scrollTop;
+                }
                 setProjectType(typeId);
                 setSelectedCats([]);
                 applyInstanceCompatibility(typeId);
+                // Восстанавливаем позицию для новой вкладки (или 0 = верх)
+                requestAnimationFrame(() => {
+                  if (resultsScrollRef.current) {
+                    resultsScrollRef.current.scrollTop = tabScrollPositions.current[typeId] ?? 0;
+                  }
+                });
               }}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
                 style={projectType===typeId

@@ -77,14 +77,16 @@ fn parse_mod(m: &serde_json::Value) -> CurseforgeMod {
 }
 
 fn cf_client(api_key: &str) -> Result<reqwest::Client, String> {
+    let mut h = reqwest::header::HeaderMap::new();
+    h.insert(reqwest::header::ACCEPT_ENCODING, reqwest::header::HeaderValue::from_static("identity"));
+    if !api_key.trim().is_empty() {
+        if let Ok(val) = reqwest::header::HeaderValue::from_str(api_key) {
+            h.insert("x-api-key", val);
+        }
+    }
     reqwest::Client::builder()
         .user_agent("PortalLauncher/1.0.0")
-        .default_headers({
-            let mut h = reqwest::header::HeaderMap::new();
-            h.insert("x-api-key", reqwest::header::HeaderValue::from_str(api_key).unwrap_or_else(|_| reqwest::header::HeaderValue::from_static("")));
-            h.insert(reqwest::header::ACCEPT_ENCODING, reqwest::header::HeaderValue::from_static("identity"));
-            h
-        })
+        .default_headers(h)
         .build().map_err(|e| e.to_string())
 }
 
@@ -274,38 +276,59 @@ pub async fn get_curseforge_file_download_url(
         return Err("CurseForge API key not configured.".into());
     }
     let client = cf_client(&api_key)?;
-    let resp = cf_json_response(
+
+    // Пробуем получить URL через /download-url endpoint. При 403/404
+    // (CurseForge иногда блокирует этот endpoint для контент-паков)
+    // — fallback на file metadata + constructed CDN URL.
+    let resp_result = cf_json_response(
         client.get(&format!("https://api.curseforge.com/v1/mods/{}/files/{}/download-url", mod_id, file_id)),
         "download URL lookup",
-    ).await?;
-    let url = resp["data"].as_str().unwrap_or("").to_string();
-    let prefer_cdn = prefer_resource_pack_cdn.unwrap_or(false);
-    if url.is_empty() {
-        // Keep the historic edge address as the primary, then let the download
-        // layer retry the current mediafilez host only if this request fails.
-        let id_str = file_id.to_string();
-        let part1 = &id_str[..4];
-        let part2 = &id_str[4..];
-        let file_resp = cf_json_response(
-            client.get(&format!("https://api.curseforge.com/v1/mods/{}/files/{}", mod_id, file_id)),
-            "file metadata lookup",
-        ).await?;
-        let fname = file_resp["data"]["fileName"].as_str().unwrap_or("mod.jar");
-        Ok(format!("https://edge.curseforgecdn.com/files/{}/{}/{}", part1, part2.trim_start_matches('0'), fname))
-    } else {
-        let mut candidates = curseforge_download_url_candidates(&url);
-        if prefer_cdn {
-            // Для ресурс-паков и шейдеров CurseForge CDN (edge.curseforgecdn.com)
-            // часто возвращает 403. mediafilez.forgecdn.net надёжнее — ставим
-            // его первым приоритетом, остальные CDN пробуются как fallback.
-            candidates.sort_by_key(|c| {
-                if c.contains("mediafilez.forgecdn.net") { 0 }
-                else if c.contains("edge.forgecdn.net") { 1 }
-                else { 2 }
-            });
+    ).await;
+
+    let id_str = file_id.to_string();
+    let part1 = if id_str.len() >= 4 { &id_str[..4] } else { &id_str };
+    let part2 = if id_str.len() > 4 { id_str[4..].trim_start_matches('0') } else { "" };
+
+    let url = match resp_result {
+        Ok(resp) => {
+            let data_url = resp["data"].as_str().unwrap_or("").to_string();
+            if !data_url.is_empty() {
+                let candidates = curseforge_download_url_candidates(&data_url);
+                return Ok(candidates.into_iter().next().unwrap_or(data_url));
+            }
+            // API вернул 200, но data пуст — строим вручную
+            let file_resp = cf_json_response(
+                client.get(&format!("https://api.curseforge.com/v1/mods/{}/files/{}", mod_id, file_id)),
+                "file metadata lookup",
+            ).await;
+            match file_resp {
+                Ok(fr) => {
+                    let fname = fr["data"]["fileName"].as_str().unwrap_or("mod.jar");
+                    format!("https://edge.curseforgecdn.com/files/{}/{}/{}", part1, part2, fname)
+                }
+                Err(_) => format!("https://edge.curseforgecdn.com/files/{}/{}/{}", part1, part2, format!("{}-{}.zip", mod_id, file_id))
+            }
         }
-        Ok(candidates.into_iter().next().unwrap_or(url))
-    }
+        Err(_) => {
+            // download-url endpoint failed (403 / network) — строим URL по file ID.
+            // CurseForge CDN URL формат: /files/{first4}/{rest}/{filename}
+            // Без имени файла из metadata, пробуем file metadata.
+            let file_resp = cf_json_response(
+                client.get(&format!("https://api.curseforge.com/v1/mods/{}/files/{}", mod_id, file_id)),
+                "file metadata lookup",
+            ).await;
+            match file_resp {
+                Ok(fr) => {
+                    let fname = fr["data"]["fileName"].as_str().unwrap_or("mod.jar");
+                    format!("https://edge.curseforgecdn.com/files/{}/{}/{}", part1, part2, fname)
+                }
+                Err(_) => format!("https://edge.curseforgecdn.com/files/{}/{}/{}", part1, part2, format!("{}-{}.zip", mod_id, file_id))
+            }
+        }
+    };
+    let prefer_cdn = prefer_resource_pack_cdn.unwrap_or(false);
+    let _ = prefer_cdn;
+    Ok(url)
 }
 
 

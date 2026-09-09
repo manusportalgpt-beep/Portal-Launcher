@@ -254,12 +254,12 @@ async fn download_curseforge_bytes_with_fallback(
 ) -> Result<bytes::Bytes, String> {
     let mut failures = Vec::new();
     for candidate in crate::commands::curseforge::curseforge_download_url_candidates(url) {
-        match client
-            .get(&candidate)
-            .header("x-api-key", api_key)
-            .header(reqwest::header::ACCEPT_ENCODING, "identity")
-            .send()
-            .await
+        let mut req = client.get(&candidate)
+            .header(reqwest::header::ACCEPT_ENCODING, "identity");
+        if !api_key.trim().is_empty() {
+            req = req.header("x-api-key", api_key);
+        }
+        match req.send().await
         {
             Ok(response) if response.status().is_success() => {
                 let bytes = response

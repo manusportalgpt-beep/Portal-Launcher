@@ -879,7 +879,7 @@ function InstanceCard({ inst, onClick, onDropOnGroup }: {
 
   return (
     <motion.div
-      layout="position"
+      layoutId={inst.id}
       drag
       dragSnapToOrigin
       dragElastic={0.08}

@@ -127,7 +127,7 @@ fn content_type_for_dir(dirname: &str) -> Option<&'static str> {
 }
 
 /// Сканирует файлы контента (mods, resourcepacks, shaderpacks, datapacks)
-fn list_content_files(instance_dir: &Path) -> Vec<(PathBuf, String, String, String)> {
+fn list_content_files(instance_dir: &Path) -> Vec<(PathBuf, String, String, String, String)> {
     let mut out = Vec::new();
     for dirname in &["mods", "resourcepacks", "shaderpacks", "datapacks"] {
         let dir = instance_dir.join(dirname);

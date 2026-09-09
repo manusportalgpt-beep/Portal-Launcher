@@ -230,7 +230,13 @@ function InstallStep({ onComplete }: { onComplete: () => void }) {
           {confirmStage + 1} из {INSTALL_CONFIRMATIONS.length}
         </p>
         <div className="mt-6 flex gap-3">
-          <button onClick={() => setConfirmStage(prev => prev + 1)}
+          <button onClick={() => {
+            if (confirmStage >= INSTALL_CONFIRMATIONS.length - 1) {
+              onComplete();
+            } else {
+              setConfirmStage(prev => prev + 1);
+            }
+          }}
             className="px-6 py-3 text-sm font-bold"
             style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 'var(--radius-button)' }}>
             {c.yesLabel}

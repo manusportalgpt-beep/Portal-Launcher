@@ -269,6 +269,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
     setConfirmRunningInstall(false);
     setState('busy');
     try {
+      console.log('[InstallBtn] installProject.platform:', installProject.platform, 'projectType:', installProject.projectType, 'selectedSource:', selectedSource, 'project.sources:', project.sources, 'project.platform:', project.platform);
       if (installProject.platform === 'modrinth') {
         // Только у модов есть смысл фильтровать по загрузчику (fabric/forge/quilt).
         // У ресурспаков/шейдеров/датапаков такого тега нет вообще — если всё
@@ -345,10 +346,12 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
           throw new Error(t('findProjects.install.curseforgeInvalidProject'));
         }
 
+        console.log('[CF install] selectedSource:', selectedSource, 'projectType:', installProject.projectType, 'platform:', installProject.platform, 'id:', installProject.id);
         const contentType =
           installProject.projectType === 'resourcepacks' ? 'resourcepack'
             : installProject.projectType === 'shaders' ? 'shaderpack'
               : 'mod';
+        console.log('[CF install] contentType:', contentType);
         const loaderNum = installProject.projectType === 'mods' && loader && loader !== 'vanilla'
           ? CF_LOADER_MAP[loader]
           : undefined;

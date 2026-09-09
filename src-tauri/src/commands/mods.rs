@@ -453,6 +453,7 @@ pub async fn install_curseforge_mod(
 ) -> Result<InstalledMod, String> {
     let client = reqwest::Client::builder().user_agent("PortalLauncher/1.1").build().map_err(|e| e.to_string())?;
     let mtype = mod_type.as_deref().unwrap_or("mod");
+    eprintln!("[install_curseforge_mod] modType={:?}, mtype={:?}, dir={}", mod_type, mtype, mods_dir_for(&instance_id, mtype).display());
     let dir = mods_dir_for(&instance_id, mtype);
 
     app.emit("mod-progress", serde_json::json!({"name":mod_name,"percent":10,"message":"Getting download URL..."})).ok();

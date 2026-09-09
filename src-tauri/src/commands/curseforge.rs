@@ -309,10 +309,8 @@ pub async fn get_curseforge_file_download_url(
                 Err(_) => format!("https://edge.curseforgecdn.com/files/{}/{}/{}", part1, part2, format!("{}-{}.zip", mod_id, file_id))
             }
         }
-        Err(_) => {
-            // download-url endpoint failed (403 / network) — строим URL по file ID.
-            // CurseForge CDN URL формат: /files/{first4}/{rest}/{filename}
-            // Без имени файла из metadata, пробуем file metadata.
+        Err(download_err) => {
+            // download-url endpoint failed — пробуем получить fileName из /files/{id}
             let file_resp = cf_json_response(
                 client.get(&format!("https://api.curseforge.com/v1/mods/{}/files/{}", mod_id, file_id)),
                 "file metadata lookup",
@@ -322,7 +320,9 @@ pub async fn get_curseforge_file_download_url(
                     let fname = fr["data"]["fileName"].as_str().unwrap_or("mod.jar");
                     format!("https://edge.curseforgecdn.com/files/{}/{}/{}", part1, part2, fname)
                 }
-                Err(_) => format!("https://edge.curseforgecdn.com/files/{}/{}/{}", part1, part2, format!("{}-{}.zip", mod_id, file_id))
+                Err(meta_err) => {
+                    return Err(format!("Не удалось получить ссылку на скачивание (modId={mod_id}, fileId={file_id}): {download_err}; metadata: {meta_err}"));
+                }
             }
         }
     };

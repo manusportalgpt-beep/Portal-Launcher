@@ -105,6 +105,7 @@ fn main() {
             commands::instances::detect_supported_launcher_instances,
             commands::instances::import_supported_launcher_instance,
             commands::instances::backup_instance,
+            commands::instance_share::share_instance,
             commands::instances::list_backups,
             commands::instances::delete_instance_screenshot,
             commands::instances::list_screenshots,

@@ -63,7 +63,7 @@ fn clear_cancel(instance_id: &str) {
     if let Ok(mut set) = crate::mc::launch::CANCELLED.lock() { set.remove(instance_id); }
 }
 
-fn instances_dir() -> PathBuf {
+pub(crate) fn instances_dir() -> PathBuf {
     let p = mc_base_dir().join("instances");
     std::fs::create_dir_all(&p).ok();
     p
@@ -172,7 +172,7 @@ fn local_instance_icon(id: &str) -> Option<String> {
     None
 }
 
-fn load_instance(id: &str) -> Option<Instance> {
+pub(crate) fn load_instance(id: &str) -> Option<Instance> {
     let mut instance: Instance = serde_json::from_str(&std::fs::read_to_string(instance_path(id)).ok()?).ok()?;
     // A previous interrupted import can leave icon.png on disk while
     // instance.json still has no icon. Prefer the local persisted asset so a

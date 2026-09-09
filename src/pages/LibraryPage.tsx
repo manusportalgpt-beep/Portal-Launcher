@@ -1837,15 +1837,70 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
                     onClick={async () => {
                       setHeaderMenu(false);
                       try {
-                                                const exported = await invoke<string>('export_instance_mrpack', { id: inst.id, destPath: '' });
-                         await invoke('reveal_file_path', { path: exported }).catch(() => {});
-                         dialog.alert(t('instancePage.exported', { path: exported }), { title: t('instancePage.exportComplete') });
-
+                        const exported = await invoke<string>('export_instance_mrpack', { id: inst.id, destPath: '' });
+                        await invoke('reveal_file_path', { path: exported }).catch(() => {});
+                        dialog.alert(t('instancePage.exported', { path: exported }), { title: t('instancePage.exportComplete') });
                       } catch (e) { dialog.alert(t('instancePage.exportFailed', { error: String(e) }), { title: t('common.error'), danger: true }); }
                     }}
                     className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5"
                     style={{ color:'var(--color-text-secondary)' }}>
                     <Download className="w-3.5 h-3.5 shrink-0" />{t('instancePage.exportMrpack')}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setHeaderMenu(false);
+                      try {
+                        const exported = await invoke<string>('export_instance_zip', { id: inst.id, destPath: '' });
+                        await invoke('reveal_file_path', { path: exported }).catch(() => {});
+                        dialog.alert(t('instancePage.exportedZip', { path: exported }), { title: t('instancePage.exportComplete') });
+                      } catch (e) { dialog.alert(t('instancePage.exportFailedZip', { error: String(e) }), { title: t('common.error'), danger: true }); }
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5"
+                    style={{ color:'var(--color-text-secondary)' }}>
+                    <Box className="w-3.5 h-3.5 shrink-0" />{t('instancePage.exportZip')}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setHeaderMenu(false);
+                      let shareProgressUnsub: (() => void) | undefined;
+                      try {
+                        const progressEl = document.createElement('div');
+                        progressEl.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-4 py-3 rounded-xl text-xs font-semibold shadow-lg';
+                        progressEl.style.cssText = 'background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-border)';
+                        progressEl.textContent = t('instancePage.shareInProgress');
+                        document.body.appendChild(progressEl);
+
+                        shareProgressUnsub = (await listen('share-progress', (e: any) => {
+                          const p = e.payload;
+                          if (p.phase === 'done') {
+                            progressEl.textContent = t('instancePage.shareComplete');
+                          } else if (p.phase === 'error') {
+                            progressEl.textContent = String(p.message || t('instancePage.shareFailed', { error: '' }));
+                          } else {
+                            const phase = p.phase === 'hash' ? 'Хеширование' : p.phase === 'upload' ? 'Загрузка' : p.phase === 'scan' ? 'Сканирование' : p.phase;
+                            progressEl.textContent = p.total ? `${phase} (${p.current}/${p.total})` : `${phase}…`;
+                          }
+                        })) as any;
+
+                        const result = await invoke<any>('share_instance', { id: inst.id });
+                        if (result?.ok && result.url) {
+                          await navigator.clipboard.writeText(result.url).catch(() => {});
+                          progressEl.textContent = `${t('instancePage.shareComplete')} ${result.url}`;
+                          setTimeout(() => progressEl.remove(), 8000);
+                        } else {
+                          throw new Error(result?.error || 'Unknown error');
+                        }
+                      } catch (e) {
+                        const el = document.querySelector('.fixed.bottom-6.left-1\/2');
+                        if (el) el.remove();
+                        dialog.alert(t('instancePage.shareFailed', { error: String(e) }), { title: t('common.error'), danger: true });
+                      } finally {
+                        if (shareProgressUnsub) shareProgressUnsub();
+                      }
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5"
+                    style={{ color:'var(--color-text-secondary)' }}>
+                    <Globe className="w-3.5 h-3.5 shrink-0" />{t('instancePage.instancesShare')}
                   </button>
                   <button onClick={async () => {
                     setHeaderMenu(false);

@@ -23,3 +23,4 @@ pub mod authors;
 pub mod instance_fs;
 pub mod platform;
 pub mod bedrock_content;
+pub mod instance_share;

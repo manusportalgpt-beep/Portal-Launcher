@@ -13,25 +13,27 @@ export function getAvatarUrl(
   const provider = String(user.provider ?? '').toLowerCase();
   const isMicrosoft = provider === 'microsoft' || provider === 'msa' || provider === 'mojang';
   if (user.provider === 'elyby' && user.username) {
-    return `https://skinsystem.ely.by/heads/${encodeURIComponent(user.username)}/64`;
+    // mc-heads.net стабильнее skinsystem.ely.by для иконок головы.
+    return `https://mc-heads.net/avatar/${encodeURIComponent(user.username)}/64`;
   }
   if (isMicrosoft && user.uuid) {
     const style = useUiStore.getState().avatarStyle;
-    const revision = user.faceCacheRevision ? `&portal-face=${user.faceCacheRevision}` : '';
-    return style === 'face'
-      ? `https://crafatar.com/avatars/${encodeURIComponent(user.uuid)}?size=64&overlay${revision}`
-      : `https://crafatar.com/renders/head/${encodeURIComponent(user.uuid)}?scale=4&overlay${revision}`;
+    // mc-heads.net стабильнее Crafatar (который часто отдаёт 403).
+    if (style === 'face') {
+      return `https://mc-heads.net/avatar/${encodeURIComponent(user.uuid)}/64`;
+    }
+    return `https://mc-heads.net/head/${encodeURIComponent(user.uuid)}/64`;
   }
   if (user.avatarUrl) return user.avatarUrl;
   if (user.uuid) {
-    return `https://crafatar.com/avatars/${encodeURIComponent(user.uuid)}?size=64&overlay`;
+    return `https://mc-heads.net/avatar/${encodeURIComponent(user.uuid)}/64`;
   }
   return null;
 }
 
 export function getAvatarFallbackUrl(user: Pick<UserProfile, 'uuid' | 'username' | 'provider'> | null | undefined): string | null {
   if (!user) return null;
-  if (user.provider === 'elyby' && user.username) return `https://visage.surgeplay.com/face/64/${encodeURIComponent(user.username)}`;
+  if (user.provider === 'elyby' && user.username) return `https://mc-heads.net/avatar/${encodeURIComponent(user.username)}/64`;
   if (!user.uuid) return null;
-  return `https://visage.surgeplay.com/face/64/${encodeURIComponent(user.uuid)}`;
+  return `https://mc-heads.net/avatar/${encodeURIComponent(user.uuid)}/64`;
 }

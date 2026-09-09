@@ -158,6 +158,7 @@ fn list_content_files(instance_dir: &Path) -> Vec<(PathBuf, String, String, Stri
 async fn lookup_modrinth_by_hash(client: &reqwest::Client, sha1: &str) -> Option<ModrinthFileResult> {
     let resp = client.get(format!("https://api.modrinth.com/v2/version_file/{sha1}?algorithm=sha1"))
         .header("User-Agent", USER_AGENT)
+        .timeout(std::time::Duration::from_secs(8))
         .send().await.ok()?;
     if !resp.status().is_success() { return None; }
     let data: serde_json::Value = resp.json().await.ok()?;
@@ -214,8 +215,10 @@ pub async fn share_instance(
 
     app.emit("share-progress", serde_json::json!({"phase":"scan","current":0,"total":0})).ok();
 
-    // 1. Сканируем файлы контента
-    let listed = list_content_files(&instance_dir);
+    // 1. Сканируем файлы контента (.minecraft/)
+    let mc_dir = instance_dir.join(".minecraft");
+    let scan_dir = if mc_dir.exists() { &mc_dir } else { &instance_dir };
+    let listed = list_content_files(scan_dir);
     if listed.len() > MAX_FILES {
         return Err(format!("Слишком много файлов ({} > {MAX_FILES}). Удалите лишнее.", listed.len()));
     }
@@ -223,7 +226,8 @@ pub async fn share_instance(
     let total = listed.len();
     let client = reqwest::Client::builder()
         .user_agent(USER_AGENT)
-        .timeout(std::time::Duration::from_secs(30))
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .timeout(std::time::Duration::from_secs(60))
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -349,9 +353,15 @@ pub async fn share_instance(
     }
 
     let upload_url = format!("{SHARE_API_BASE}/api/instance-share");
-    let upload_resp = client.post(&upload_url)
+    let upload_client = reqwest::Client::builder()
+        .user_agent(USER_AGENT)
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let upload_resp = upload_client.post(&upload_url)
         .header("User-Agent", USER_AGENT)
         .multipart(form)
+        .timeout(std::time::Duration::from_secs(10 * 60))
         .send().await
         .map_err(|e| format!("Upload failed: {e}"))?;
 

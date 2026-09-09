@@ -392,7 +392,14 @@ pub async fn launch_instance(
             if tok.is_empty() {
                 (u, id, "0".to_string(), "legacy".to_string())
             } else {
-                (u, id, tok, "msa".to_string())
+                // Always verify/refresh the MC token through the Rust auth
+                // layer so the game receives a valid session token.
+                match msa::ensure_fresh_token(&app).await {
+                    Some(a) if !a.access_token.is_empty() => {
+                        (a.username, a.uuid, a.access_token, "msa".to_string())
+                    }
+                    _ => (u, id, tok, "msa".to_string()),
+                }
             }
         }
         _ => {
@@ -414,7 +421,11 @@ pub async fn launch_instance(
             .map(|saved| saved.provider.as_deref() == Some("elyby") && saved.uuid == uuid)
             .unwrap_or(false)
     );
-    let xuid = String::new();
+    // Retrieve the XUID from the saved MS account so the game receives
+    // the correct Xbox user identifier for session validation.
+    let xuid = msa::load_account()
+        .and_then(|a| a.xuid)
+        .unwrap_or_default();
 
     // 2. Prepare the exact Temurin runtime before resolving a loader. Forge
     // and NeoForge installers execute Java while their profile is recovered.

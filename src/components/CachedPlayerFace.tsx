@@ -7,10 +7,11 @@ import { toIconSrc } from '@/lib/icon-src';
 
 const CACHE_PREFIX = 'portal-player-face-v1:';
 
-function accountKey(user: Pick<UserProfile, 'uuid' | 'username' | 'provider'>) {
+function accountKey(user: Pick<UserProfile, 'uuid' | 'username' | 'provider' | 'faceCacheRevision'>) {
   const provider = user.provider || 'offline';
   const identity = user.uuid || user.username;
-  return `${CACHE_PREFIX}${provider}:${encodeURIComponent(identity)}`;
+  const rev = user.faceCacheRevision ? `@${user.faceCacheRevision}` : '';
+  return `${CACHE_PREFIX}${provider}:${encodeURIComponent(identity)}${rev}`;
 }
 
 function readCached(key: string) {
@@ -18,7 +19,18 @@ function readCached(key: string) {
 }
 
 function saveCached(key: string, value: string) {
-  try { localStorage.setItem(key, value); } catch {
+  try {
+    // Убираем старые PNG этой же учётки (с предыдущими faceCacheRevision),
+    // чтобы localStorage не разрастался при каждой смене скина.
+    const base = key.split('@')[0];
+    const stale: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(base) && k !== key) stale.push(k);
+    }
+    stale.forEach(k => localStorage.removeItem(k));
+    localStorage.setItem(key, value);
+  } catch {
     // Keep rendering the network image even when browser storage is full.
   }
 }
@@ -78,7 +90,7 @@ export function CachedPlayerFace({
     };
     void cacheLocalFace().catch(() => undefined);
     return () => { active = false; };
-  }, [key, source]);
+  }, [key, source, user?.faceCacheRevision]);
 
   const src = toIconSrc(cached || source || fallback);
   if (!src || failed) {

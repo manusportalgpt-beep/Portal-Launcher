@@ -14,19 +14,24 @@ export function getAvatarUrl(
   const isMicrosoft = provider === 'microsoft' || provider === 'msa' || provider === 'mojang';
   if (user.provider === 'elyby' && user.username) {
     // mc-heads.net стабильнее skinsystem.ely.by для иконок головы.
-    return `https://mc-heads.net/avatar/${encodeURIComponent(user.username)}/64`;
+    const v = user.faceCacheRevision ? `?v=${user.faceCacheRevision}` : `?v=${Date.now()}`;
+    return `https://mc-heads.net/avatar/${encodeURIComponent(user.username)}/64${v}`;
   }
   if (isMicrosoft && user.uuid) {
     const style = useUiStore.getState().avatarStyle;
     // mc-heads.net стабильнее Crafatar (который часто отдаёт 403).
+    // Cache-buster: `v` меняется при каждой смене скина, чтобы mc-heads
+    // не возвращал закешированную старую голову.
+    const v = user.faceCacheRevision ? `?v=${user.faceCacheRevision}` : `?v=${Date.now()}`;
     if (style === 'face') {
-      return `https://mc-heads.net/avatar/${encodeURIComponent(user.uuid)}/64`;
+      return `https://mc-heads.net/avatar/${encodeURIComponent(user.uuid)}/64${v}`;
     }
-    return `https://mc-heads.net/head/${encodeURIComponent(user.uuid)}/64`;
+    return `https://mc-heads.net/head/${encodeURIComponent(user.uuid)}/64${v}`;
   }
   if (user.avatarUrl) return user.avatarUrl;
   if (user.uuid) {
-    return `https://mc-heads.net/avatar/${encodeURIComponent(user.uuid)}/64`;
+    const v = user.faceCacheRevision ? `?v=${user.faceCacheRevision}` : `?v=${Date.now()}`;
+    return `https://mc-heads.net/avatar/${encodeURIComponent(user.uuid)}/64${v}`;
   }
   return null;
 }

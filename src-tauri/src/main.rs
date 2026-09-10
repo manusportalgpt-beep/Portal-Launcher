@@ -277,6 +277,10 @@ fn main() {
             // Desktop shortcuts and direct instance launch
             commands::shortcuts::get_startup_launch_instance,
             commands::shortcuts::create_instance_shortcut,
+            // Auto-update
+            commands::update::check_for_update,
+            commands::update::download_update,
+            commands::update::install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -186,3 +186,24 @@ export const tauriSettings = {
       invoke<void>('save_auth_info', { username, uuid, accessToken, refreshToken, expiresAt }),
     getAuthInfo: () => invoke<{ username: string; uuid: string; access_token: string; refresh_token: string; expires_at: number } | null>('get_auth_info_cmd'),
   };
+
+// ── Auto Update ────────────────────────────────────────────────────────────
+export interface UpdateInfo {
+  version: string;
+  body: string;
+  published_at: string;
+  html_url: string;
+  download_url: string;
+  file_name: string;
+}
+export interface UpdateProgress {
+  percent: number;
+  downloaded: number;
+  total: number;
+}
+export const tauriUpdate = {
+  check: () => invoke<UpdateInfo | null>('check_for_update'),
+  download: (downloadUrl: string, fileName: string) =>
+    invoke<string>('download_update', { download_url: downloadUrl, file_name: fileName }),
+  install: (filePath: string) => invoke<void>('install_update', { file_path: filePath }),
+};

@@ -10,13 +10,6 @@ const cacheTimestamps = new Map<string, number>();
 
 async function fetchAvatar(username: string, source?: string): Promise<string | null> {
   const cacheKey = `${source ?? 'unknown'}:${username}`;
-  // CurseForge: use crafatar as fallback (CurseForge authors have Minecraft usernames)
-  if (source === 'curseforge') {
-    // CurseForge exposes an author id/name but usually no avatar URL. Use a
-    // stable Minecraft-head provider instead of the often blocked Crafatar
-    // endpoint, which rendered as a gray placeholder in the WebView.
-    return `https://mc-heads.net/avatar/${encodeURIComponent(username)}/64.png`;
-  }
 
   if (cache.has(cacheKey)) {
     const ts = cacheTimestamps.get(cacheKey) ?? 0;
@@ -26,6 +19,15 @@ async function fetchAvatar(username: string, source?: string): Promise<string | 
     }
   }
   if (inflight.has(cacheKey)) return inflight.get(cacheKey)!;
+
+  // CurseForge: use mc-heads.net directly (CF authors have Minecraft usernames)
+  // and cache the URL so it's not re-resolved every render.
+  if (source === 'curseforge') {
+    const url = `https://mc-heads.net/avatar/${encodeURIComponent(username)}/64.png`;
+    cache.set(cacheKey, url);
+    cacheTimestamps.set(cacheKey, Date.now());
+    return url;
+  }
 
   const p = (async () => {
     try {

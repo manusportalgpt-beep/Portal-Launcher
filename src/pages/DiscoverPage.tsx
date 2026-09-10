@@ -528,11 +528,6 @@ export function DiscoverPage() {
         setResults(pg === 0 ? mapped : previous => [...previous, ...mapped]);
         setTotal(res.total_hits);
       } else {
-        if (!cfApiKey) {
-          if (requestId !== searchRequestId.current) return;
-          setError(t('discover.runtime.missingApiKey'));
-          setResults([]); setTotal(0); return;
-        }
         const loaderNum = (pt === 'mods' || pt === 'modpacks') && ldrs.length > 0 ? (CF_LOADER_MAP[ldrs[0]] ?? undefined) : undefined;
         const sortField = s === 'downloads' ? 6 : s === 'newest' ? 11 : s === 'updated' ? 3 : 2;
         const res = await withSearchTimeout(invoke<CfResult>('search_curseforge', {

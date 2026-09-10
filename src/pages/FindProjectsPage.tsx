@@ -853,9 +853,6 @@ export function FindProjectsPage() {
         setCapped(false);
         writeFindProjectsCache(cacheKey, { savedAt: Date.now(), results: mapped, total: res.total_hits, reachableTotal: null, capped: false });
       } else if (pl === 'curseforge') {
-        if (!cfApiKey) {
-          setResults([]); setTotal(0); setReachableTotal(null); setCapped(false); return;
-        }
         const loaderNum = pt === 'mods' && ldrs.length > 0 ? (CF_LOADER_MAP[ldrs[0]] ?? undefined) : undefined;
         const sortField = s==='downloads'?6:s==='newest'?11:s==='updated'?3:2;
         const res = await invoke<CfResult>('search_curseforge', {
@@ -881,16 +878,14 @@ export function FindProjectsPage() {
           sort: s.charAt(0).toUpperCase() + s.slice(1),
           projectType: TYPE_DEFS[pt].modrinthFacet,
         });
-        const curseforgeSearch = cfApiKey
-          ? invoke<CfResult>('search_curseforge', {
+        const curseforgeSearch = invoke<CfResult>('search_curseforge', {
               query: q, limit: PAGE_SIZE, offset,
               classId: TYPE_DEFS[pt].cfClass,
               gameVersion: vers.length > 0 ? vers[0] : undefined,
               modLoaderType: pt === 'mods' && ldrs.length > 0 ? (CF_LOADER_MAP[ldrs[0]] ?? undefined) : undefined,
               sortField: s === 'downloads' ? 6 : s === 'newest' ? 11 : s === 'updated' ? 3 : 2,
               apiKey: cfApiKey,
-            })
-          : Promise.resolve(null);
+            });
         const [mrOutcome, cfOutcome] = await Promise.allSettled([modrinthSearch, curseforgeSearch]);
         const mr = mrOutcome.status === 'fulfilled' ? mrOutcome.value : null;
         const cf = cfOutcome.status === 'fulfilled' ? cfOutcome.value : null;

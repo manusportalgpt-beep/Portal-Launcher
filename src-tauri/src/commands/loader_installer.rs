@@ -13,12 +13,24 @@ fn mc_base_dir() -> PathBuf {
     crate::commands::version_manager::mc_base_dir()
 }
 
+/// Find NeoForge profile directories for a given version.
+///
+/// Different NeoForge installer revisions create different directory names:
+///   - `neoforge-21.1.77`  (standard)
+///   - `neoforge-1.21.1-21.1.77`  (older installers that embed MC version)
 fn neoforge_profile_dirs(version: &str) -> Vec<PathBuf> {
     let root = crate::commands::version_manager::versions_dir();
-    let prefix = format!("neoforge-{version}");
+    let std_prefix = format!("neoforge-{version}");
+    let suffix = format!("-{version}");
     std::fs::read_dir(&root).ok().into_iter().flatten().filter_map(|entry| entry.ok())
         .map(|entry| entry.path())
-        .filter(|path| path.is_dir() && path.file_name().and_then(|name| name.to_str()).map(|name| name.starts_with(&prefix)).unwrap_or(false))
+        .filter(|path| path.is_dir() && path.file_name().and_then(|name| name.to_str()).map(|name| {
+            if name.starts_with(&std_prefix) {
+                return true;
+            }
+            // Legacy format: neoforge-1.21.1-21.1.77
+            name.starts_with("neoforge-") && name.ends_with(&suffix)
+        }).unwrap_or(false))
         .collect()
 }
 

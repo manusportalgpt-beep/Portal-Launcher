@@ -26,7 +26,8 @@ fn neoforge_profile_dirs(version: &str) -> Vec<PathBuf> {
 /// `net.neoforged:neoforge:<version>:client`. A partial profile lets the game
 /// reach NeoForge and then fails with "patched Minecraft jar is missing".
 pub fn neoforge_profile_complete(version: &str) -> bool {
-    let profile_dir = neoforge_profile_dirs(version).iter().find(|dir| {
+    let dirs = neoforge_profile_dirs(version);
+    let profile_dir = dirs.iter().find(|dir| {
         let id = dir.file_name().and_then(|name| name.to_str()).unwrap_or_default();
         dir.join(format!("{id}.json")).is_file()
     });

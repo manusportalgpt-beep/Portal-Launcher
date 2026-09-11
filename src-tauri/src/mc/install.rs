@@ -173,9 +173,16 @@ pub async fn ensure_version_json(
                 // loader start against the wrong parent metadata and Fabric can
                 // fail much later with TinyRemapper "Unfixable conflicts".
                 // Never reuse a cached vanilla file unless it is demonstrably
-                // the requested Minecraft release and contains its client JAR.
-                let is_requested_vanilla = v["id"].as_str() == Some(version_id)
-                    && v["downloads"]["client"]["url"].as_str().is_some();
+                // the requested Minecraft release.  Older versions (< 1.6) may
+                // not carry a downloads.client.url entry; accept them as long as
+                // the id matches and a libraries array (or client jar) exists.
+                let has_client = v["downloads"]["client"]["url"].as_str().is_some()
+                    || std::path::Path::new(
+                        &crate::commands::version_manager::versions_dir()
+                            .join(version_id)
+                            .join(format!("{version_id}.jar"))
+                    ).exists();
+                let is_requested_vanilla = v["id"].as_str() == Some(version_id) && has_client;
                 if is_requested_vanilla {
                     return Ok(v);
                 }
@@ -979,7 +986,7 @@ pub async fn install_assets(
 }
 
 fn legacy_assets_root(_app: &tauri::AppHandle) -> Option<PathBuf> {
-    None
+    Some(assets_dir().join("virtual").join("legacy"))
 }
 
 /// Публичная команда: установить версию (vanilla или с загрузчиком).

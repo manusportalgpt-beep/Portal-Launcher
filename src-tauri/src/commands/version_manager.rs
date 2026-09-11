@@ -168,6 +168,30 @@ pub fn check_library_rules(lib: &serde_json::Value) -> bool {
     result
 }
 
+/// Разбирает Maven-координату ("group:artifact:version" или
+/// "group:artifact:version:classifier") в относительный путь внутри libraries/.
+/// Старые версии (< 1.13) не имеют `downloads.artifact` у библиотек —
+/// только `name` + базовый `url` репозитория.
+fn maven_lib_path(name: &str) -> Option<PathBuf> {
+    let mut parts = name.split(':');
+    let group = parts.next()?.replace('.', "/");
+    let artifact = parts.next()?;
+    let version = parts.next()?;
+    let classifier = parts.next();
+    let file = match classifier {
+        Some(c) => format!("{artifact}-{version}-{c}.jar"),
+        None => format!("{artifact}-{version}.jar"),
+    };
+    Some(PathBuf::from(group).join(artifact).join(version).join(file))
+}
+
+/// Собирает URL Maven-библиотеки из базового репозитория и координаты.
+fn maven_lib_url(base: &str, name: &str) -> Option<String> {
+    let rel = maven_lib_path(name)?;
+    let base = base.trim_end_matches('/');
+    Some(format!("{base}/{}", rel.to_string_lossy()))
+}
+
 async fn download_file_checked(client: &reqwest::Client, url: &str, path: &PathBuf, expected_sha1: Option<&str>) -> Result<bool, String> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
@@ -344,12 +368,26 @@ pub async fn download_minecraft_version(app: tauri::AppHandle, version_id: Strin
         let total_libs = libs.len() as u64;
         for (i, lib) in libs.iter().enumerate() {
             if !check_library_rules(lib) { continue; }
+            let lib_name = lib["name"].as_str().unwrap_or("").to_string();
+            let mut any_downloaded = false;
             if let Some(art) = lib["downloads"]["artifact"].as_object() {
                 let url = art.get("url").and_then(|u| u.as_str()).unwrap_or("");
                 let pth = art.get("path").and_then(|p| p.as_str()).unwrap_or("");
                 let sha1 = art.get("sha1").and_then(|s| s.as_str());
                 if !url.is_empty() && !pth.is_empty() {
                     download_file_checked(&client, url, &libraries_dir().join(pth), sha1).await.ok();
+                    any_downloaded = true;
+                }
+            } else if !lib_name.is_empty() {
+                // Старые версии (< 1.13): библиотека задана только Maven-координатой
+                // и базовым URL репозитория — без раздела downloads.
+                let base = lib["url"].as_str().unwrap_or("https://libraries.minecraft.net/");
+                if let Some(pth) = maven_lib_path(&lib_name) {
+                    let url = maven_lib_url(base, &lib_name).unwrap_or_default();
+                    if !url.is_empty() {
+                        download_file_checked(&client, &url, &libraries_dir().join(&pth), None).await.ok();
+                        any_downloaded = true;
+                    }
                 }
             }
             let cls = get_os_classifier();
@@ -359,9 +397,11 @@ pub async fn download_minecraft_version(app: tauri::AppHandle, version_id: Strin
                     let pth = nat["path"].as_str().unwrap_or("");
                     if !url.is_empty() && !pth.is_empty() {
                         download_file_checked(&client, url, &libraries_dir().join(pth), nat["sha1"].as_str()).await.ok();
+                        any_downloaded = true;
                     }
                 }
             }
+            let _ = any_downloaded;
             let pct = 25 + ((i as u64 * 30) / total_libs.max(1)) as u8;
             emit("libraries", pct as u64, 100, &format!("Libraries {}/{}", i+1, total_libs));
         }
@@ -449,8 +489,19 @@ pub fn build_classpath(version_id: &str) -> Result<String, String> {
                     }
                 }
             }
+            // Старые версии (< 1.13): нет downloads.artifact — ищем по Maven-координате
+            else if let Some(lib_name) = lib["name"].as_str() {
+                if let Some(rel) = maven_lib_path(lib_name) {
+                    let lp = libraries_dir().join(&rel);
+                    if lp.exists() {
+                        entries.push(lp.to_string_lossy().to_string());
+                        added_libs += 1;
+                        log::debug!("✅ Added Maven library: {} → {:?}", lib_name, rel);
+                    }
+                }
+            }
             // Also check classifiers for natives
-            else if let Some(classifiers) = lib["downloads"]["classifiers"].as_object() {
+            if let Some(classifiers) = lib["downloads"]["classifiers"].as_object() {
                 let cls = get_os_classifier();
                 if let Some(nat) = classifiers.get(cls) {
                     let pth = nat["path"].as_str().unwrap_or("");

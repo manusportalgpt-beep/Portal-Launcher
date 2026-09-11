@@ -1294,3 +1294,54 @@ input[type="range"]::-moz-range-thumb {
 /* Smooth page transitions */
 .page-enter { opacity: 0; transform: translateY(4px); }
 .page-enter-active { opacity: 1; transform: translateY(0); transition: opacity 0.15s ease-out, transform 0.15s ease-out; }
+
+/* ── Portal Launcher motion kit ─────────────────────────────────────────────
+   Reusable keyframes for high-quality repeating micro-interactions:
+   progressive ring sweeps, soft pulses, download bobbing, loader sweeps. */
+@keyframes pl-rotate {
+  to { transform: rotate(360deg); }
+}
+@keyframes pl-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+}
+@keyframes pl-pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+@keyframes pl-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(320%); }
+}
+@keyframes pl-scale-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+@keyframes pl-ring-dash {
+  0% { stroke-dashoffset: var(--pl-ring-circ); }
+  50% { stroke-dashoffset: calc(var(--pl-ring-circ) * 0.55); }
+  100% { stroke-dashoffset: var(--pl-ring-circ); }
+}
+@keyframes pl-fade-slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pl-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.pl-anim-rotate { animation: pl-rotate 1.1s linear infinite; }
+.pl-anim-bob { animation: pl-bob 1.4s ease-in-out infinite; }
+.pl-anim-pulse-soft { animation: pl-pulse-soft 1.6s ease-in-out infinite; }
+.pl-anim-scale-pulse { animation: pl-scale-pulse 1.3s ease-in-out infinite; }
+.pl-anim-fade-slide-up { animation: pl-fade-slide-up 320ms var(--motion-ease-soft) both; }
+
+/* Uniform interactive polish: every button/card gets a calm hover lift. */
+button, a, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+*:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 70%, transparent);
+  outline-offset: 2px;
+}

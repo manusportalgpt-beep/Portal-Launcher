@@ -957,6 +957,7 @@ async fn resolve_modrinth_pack_icon_url(client: &reqwest::Client, version_id: &s
 /// nothing is created in the instances directory until the user confirms installation.
 #[tauri::command]
 pub async fn preview_remote_modpack(
+    app: tauri::AppHandle,
     download_url: String,
     file_name: String,
     source: String,
@@ -967,6 +968,9 @@ pub async fn preview_remote_modpack(
     project_author_avatar_url: Option<String>,
     project_icon_url: Option<String>,
 ) -> Result<ModpackPreview, String> {
+    let pp = |pct: u64, msg: &str| {
+        app.emit("pack-preview-progress", serde_json::json!({"percent":pct,"message":msg})).ok();
+    };
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(120))
         .user_agent("PortalLauncher/1.3")
@@ -986,6 +990,7 @@ pub async fn preview_remote_modpack(
             .bytes().await.map_err(|e| format!("Read pack preview: {e}"))?
             .to_vec()
     };
+    pp(25, "Читаю архив…");
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes))
         .map_err(|e| format!("Не удалось открыть {file_name} как полный ZIP-архив: {e}"))?;
 
@@ -1006,6 +1011,7 @@ pub async fn preview_remote_modpack(
     };
     let index: serde_json::Value = serde_json::from_str(&index_data)
         .map_err(|e| format!("Read modrinth.index.json: {e}"))?;
+    pp(50, "Читаю манифест…");
     let pack_name = project_name.filter(|value| !value.trim().is_empty()).unwrap_or_else(|| index["name"].as_str().unwrap_or(if is_modrinth { "Modrinth Pack" } else { "CurseForge Pack" }).to_string());
     let mc_version = if is_modrinth {
         index["dependencies"]["minecraft"].as_str().unwrap_or("Unknown").to_string()
@@ -1049,6 +1055,7 @@ pub async fn preview_remote_modpack(
         }
     }
 
+    pp(65, "Получаю метаданные модов…");
     if is_modrinth {
         modrinth_lookup.sort_by(|a, b| (a.1.as_str(), a.2.as_str()).cmp(&(b.1.as_str(), b.2.as_str())));
         modrinth_lookup.dedup_by(|a, b| a.1 == b.1 && a.2 == b.2);
@@ -1144,6 +1151,7 @@ pub async fn preview_remote_modpack(
         }
     }
 
+    pp(90, "Почти готово…");
     // ── Pack icon ──────────────────────────────────────────────────────────────
     // Extract the pack cover from the archive first (icon.png, pack.png, etc.).
     // The project icon URL is a fallback only when the archive ships no image.
@@ -1165,6 +1173,7 @@ pub async fn preview_remote_modpack(
         found.or_else(|| project_icon_url.filter(|url| !url.trim().is_empty()))
     };
 
+    pp(100, "Готово!");
     Ok(ModpackPreview { name: pack_name, version_id: index["versionId"].as_str().or_else(|| index["version"].as_str()).unwrap_or("").to_string(), minecraft_version: mc_version, loader, source: if is_modrinth { "modrinth" } else { "curseforge" }.to_string(), author: project_author, author_url: project_author_url, author_avatar_url: project_author_avatar_url, icon_url: resolved_icon_url, entries })
 }
 

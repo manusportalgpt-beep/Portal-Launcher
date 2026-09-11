@@ -14,6 +14,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useInstalledStore, useIsInstalled } from '@/stores/installedStore';
 import { triggerInstallEffect } from '@/components/InstallEffectOverlay';
 import { ModpackManifestPreview as SelectableManifestPreview } from '@/components/ModpackManifestPreview';
+import { PackPreviewLoading } from '@/components/PackPreviewLoading';
 import { useAuthorAvatar } from '@/lib/author-avatar';
 import { saveSearchReturn } from '@/lib/search-navigation';
 import { useLaunchStore } from '@/stores/launchStore';
@@ -1212,6 +1213,7 @@ export function ModDetail() {
         </section>
       </div>
 
+      <PackPreviewLoading active={previewLoading} />
       <AnimatePresence>
         {modpackPreview && <SelectableManifestPreview preview={modpackPreview} onClose={() => setModpackPreview(null)} onInstall={excludedPaths => { setModpackPreview(null); void doInstallModpack(excludedPaths); }} />}
         {showPicker && (

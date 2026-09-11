@@ -23,6 +23,7 @@ import { InstanceFileEditor } from '@/components/InstanceFileEditor';
 import { InstanceScreenshotManager } from '@/components/InstanceScreenshotManager';
 import { LanRelayBanner, LanRelayAddressChip } from '@/components/LanRelayControls';
 import { ModpackManifestPreview, type ModpackPreview } from '@/components/ModpackManifestPreview';
+import { PackPreviewLoading } from '@/components/PackPreviewLoading';
 import { useUiStore } from '@/stores/uiStore';
 import { PlayTimeChart } from '@/components/PlayTimeChart';
 import modrinthWrench from '@/assets/modrinth-wrench-clean.png';
@@ -380,6 +381,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
   const [externalLoading, setExternalLoading] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [localPreview, setLocalPreview] = useState<{ preview: ModpackPreview; dataUrl: string; fileName: string } | null>(null);
+  const [pickLoading, setPickLoading] = useState(false);
   const [loaderVersions, setLoaderVersions] = useState<LoaderVersionOption[]>([]);
   const [loaderVersionsLoading, setLoaderVersionsLoading] = useState(false);
   const mcVersions = useAvailableVersions(showSnapshots);
@@ -557,8 +559,9 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
   const pickFile = () => {
     void (async () => {
       try {
+      setPickLoading(true);
         const nativePath = await invoke<string | null>('pick_local_modpack');
-        if (!nativePath) return;
+        if (!nativePath) { setPickLoading(false); return; }
         const fileName = nativePath.split(/[\\/]/).pop() || 'сборка.mrpack';
         const source = fileName.toLowerCase().endsWith('.mrpack') ? 'modrinth' : 'curseforge';
         const preview = await invoke<ModpackPreview>('preview_remote_modpack', { downloadUrl: nativePath, fileName, source, apiKey: null, projectName: null, projectAuthor: null, projectAuthorUrl: null, projectAuthorAvatarUrl: null, projectIconUrl: null });
@@ -792,6 +795,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
           )}
         </div>
       </motion.div>
+      <PackPreviewLoading active={pickLoading} />
       {localPreview && <ModpackManifestPreview preview={localPreview.preview} onClose={() => setLocalPreview(null)} onInstall={excludedPaths => { void importPreparedArchive(localPreview.dataUrl, localPreview.fileName, excludedPaths); }} />}
     </motion.div>
   );

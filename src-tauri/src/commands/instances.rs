@@ -840,6 +840,19 @@ pub async fn import_instance_zip(app: tauri::AppHandle, zip_path: String, new_na
     if let Some(name) = new_name { instance.name = name; }
     instance.last_played = None;
     instance.play_time_minutes = 0;
+    // Read extracted pack icon so the instance card shows it immediately.
+    if instance.icon.is_none() {
+        for (name, mime) in [("icon.png", "image/png"), ("pack.png", "image/png"), ("icon.jpg", "image/jpeg"), ("icon.jpeg", "image/jpeg")] {
+            let icon_path = dest_dir.join(name);
+            if let Ok(bytes) = std::fs::read(&icon_path) {
+                if !bytes.is_empty() && bytes.len() <= 8 * 1024 * 1024 {
+                    use base64::Engine as _;
+                    instance.icon = Some(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)));
+                    break;
+                }
+            }
+        }
+    }
     create_instance_folders(&dest_dir)?;
     save_instance(&instance)?;
     app.emit("instance-progress", serde_json::json!({"stage":"done","name":instance.name,"percent":100,"message":"Import complete!"})).ok();
@@ -1131,7 +1144,28 @@ pub async fn preview_remote_modpack(
         }
     }
 
-    Ok(ModpackPreview { name: pack_name, version_id: index["versionId"].as_str().or_else(|| index["version"].as_str()).unwrap_or("").to_string(), minecraft_version: mc_version, loader, source: if is_modrinth { "modrinth" } else { "curseforge" }.to_string(), author: project_author, author_url: project_author_url, author_avatar_url: project_author_avatar_url, icon_url: project_icon_url, entries })
+    // ── Pack icon ──────────────────────────────────────────────────────────────
+    // Extract the pack cover from the archive first (icon.png, pack.png, etc.).
+    // The project icon URL is a fallback only when the archive ships no image.
+    let resolved_icon_url: Option<String> = {
+        let mut found: Option<String> = None;
+        for candidate in &["portal-launcher/icon.png", "icon.png", "pack.png", "icon.jpg"] {
+            if let Ok(mut f) = archive.by_name(candidate) {
+                let mut buf = vec![];
+                std::io::Read::read_to_end(&mut f, &mut buf).ok();
+                if !buf.is_empty() {
+                    use base64::Engine as _;
+                    let encoded = base64::engine::general_purpose::STANDARD.encode(&buf);
+                    let mime = if candidate.ends_with(".jpg") { "image/jpeg" } else { "image/png" };
+                    found = Some(format!("data:{};base64,{}", mime, encoded));
+                    break;
+                }
+            }
+        }
+        found.or_else(|| project_icon_url.filter(|url| !url.trim().is_empty()))
+    };
+
+    Ok(ModpackPreview { name: pack_name, version_id: index["versionId"].as_str().or_else(|| index["version"].as_str()).unwrap_or("").to_string(), minecraft_version: mc_version, loader, source: if is_modrinth { "modrinth" } else { "curseforge" }.to_string(), author: project_author, author_url: project_author_url, author_avatar_url: project_author_avatar_url, icon_url: resolved_icon_url, entries })
 }
 
 #[tauri::command]

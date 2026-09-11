@@ -1345,3 +1345,51 @@ button, a, [role="button"] {
   outline: 2px solid color-mix(in srgb, var(--color-primary) 70%, transparent);
   outline-offset: 2px;
 }
+
+/* ── Global UI polish ───────────────────────────────────────────────────────
+   Themed scrollbar, selection, and calm interactive transitions. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-border-strong) 70%, transparent) transparent;
+}
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-border-strong) 65%, transparent);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-border-strong) 90%, transparent);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+::selection {
+  background: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  color: var(--color-text);
+}
+
+/* Buttons: uniform, calm micro-interactions without janky layout shifts. */
+button {
+  transition: transform var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease,
+    box-shadow var(--motion-base) ease,
+    opacity var(--motion-fast) ease;
+}
+
+/* Inputs: softer focus, no harsh browser glow. */
+input, textarea, select {
+  transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, background-color var(--motion-fast) ease;
+}
+
+/* Cards: gentle lift on hover for static cards. */
+.pl-card-hover {
+  transition: transform var(--motion-base) var(--motion-ease), box-shadow var(--motion-base) ease, border-color var(--motion-base) ease;
+}
+.pl-card-hover:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--color-border-strong) 70%, transparent);
+}

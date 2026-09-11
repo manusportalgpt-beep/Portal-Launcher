@@ -90,13 +90,13 @@ function stageLabel(e: ProgressEvent): string {
 function StageIcon({ source, stage, size = 18 }: { source?: ProgressSource; stage?: string; size?: number }) {
   const isError = source === 'launch' && stage === 'error';
   const isDone = source === 'launch' && stage === 'running';
-  const cls = `w-[${size}px] h-[${size}px]`;
-  if (isError) return <AlertTriangle className={`${cls} pl-anim-pulse-soft`} style={{ color:'var(--color-error)' }} />;
-  if (isDone) return <Play className={`${cls}`} style={{ color:'var(--color-success)' }} />;
-  if (source === 'java') return <Coffee className={`${cls} pl-anim-rotate`} style={{ color:'var(--color-primary)' }} />;
-  if (source === 'launch') return <Play className={`${cls} pl-anim-pulse-soft`} style={{ color:'var(--color-primary)' }} />;
-  if (source === 'instance') return <Package className={`${cls} pl-anim-bob`} style={{ color:'var(--color-primary)' }} />;
-  return <ArrowDownToLine className={`${cls} pl-anim-bob`} style={{ color:'var(--color-primary)' }} />;
+  const dims = { width:size, height:size };
+  if (isError) return <AlertTriangle className="pl-anim-pulse-soft" style={{ ...dims, color:'var(--color-error)' }} />;
+  if (isDone) return <Play style={{ ...dims, color:'var(--color-success)' }} />;
+  if (source === 'java') return <Coffee className="pl-anim-rotate" style={{ ...dims, color:'var(--color-primary)' }} />;
+  if (source === 'launch') return <Play className="pl-anim-pulse-soft" style={{ ...dims, color:'var(--color-primary)' }} />;
+  if (source === 'instance') return <Package className="pl-anim-bob" style={{ ...dims, color:'var(--color-primary)' }} />;
+  return <ArrowDownToLine className="pl-anim-bob" style={{ ...dims, color:'var(--color-primary)' }} />;
 }
 
 /* ── circular ring progress ──────────────────────────────────────────────── */

@@ -259,13 +259,57 @@ pub fn merge_inherited(child: &serde_json::Value, parent: &serde_json::Value) ->
 /// environment when they require the `neoforge` dependency. Keep the repair
 /// local to NeoForge profiles: expose its official universal artifact to the
 /// regular library installer and classpath assembly.
+
+/// Extract the NeoForge build version from a profile ID.
+///
+/// Different NeoForge installer revisions produce different ID formats:
+///   - `neoforge-21.1.77`  (standard, 1.20.2+)
+///   - `neoforge-1.21.1-21.1.77`  (older installers that embed the MC version)
+///   - `21.1.77`  (rare, bare version without prefix)
+///
+/// Returns `None` when the profile is clearly not a NeoForge profile.
+fn extract_neoforge_version_from_id(profile_id: &str) -> Option<String> {
+    // 1. Standard prefix: neoforge-{version}
+    if let Some(rest) = profile_id.strip_prefix("neoforge-") {
+        if rest.trim().is_empty() {
+            return None;
+        }
+        // Some older installer revisions embed the MC version:
+        // "neoforge-1.21.1-21.1.77" or "neoforge-26.2-26.2.0.86".
+        if let Some(idx) = rest.find('-') {
+            let before = &rest[..idx];
+            let mc_parts: Vec<&str> = before.split('.').collect();
+            // A bare NeoForge version like "21.1" has >=2 digit parts. An
+            // embedded MC prefix has >=2 parts too, but the version after the
+            // dash is the trusted NeoForge coordinate. Only treat the prefix
+            // as MC when it starts with a familiar MC major (1.x or 20+).
+            let looks_like_mc_prefix = mc_parts.len() >= 2
+                && mc_parts.iter().all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
+                && (mc_parts[0] == "1" || mc_parts[0].parse::<u32>().map(|m| m >= 20).unwrap_or(false));
+            if looks_like_mc_prefix {
+                let nf_version = &rest[idx + 1..];
+                if !nf_version.trim().is_empty() {
+                    return Some(nf_version.to_string());
+                }
+            }
+        }
+        return Some(rest.to_string());
+    }
+    // 2. Bare version: "21.1.77" (no neoforge- prefix)
+    let trimmed = profile_id.trim();
+    let parts: Vec<&str> = trimmed.split('.').collect();
+    if parts.len() >= 2 && parts.iter().all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit())) {
+        return Some(trimmed.to_string());
+    }
+    None
+}
+
 fn include_neoforge_runtime(profile: &mut serde_json::Value) {
     let Some(version) = profile["id"]
         .as_str()
-        .and_then(|id| id.strip_prefix("neoforge-"))
-        .filter(|version| !version.trim().is_empty())
-        .map(str::to_string)
+        .and_then(extract_neoforge_version_from_id)
     else {
+        log::debug!("[NeoForge] include_neoforge_runtime: profile id {:?} is not a NeoForge profile", profile["id"].as_str());
         return;
     };
 
@@ -574,6 +618,48 @@ mod loader_profile_tests {
             profile["libraries"][0]["name"].as_str(),
             Some("net.neoforged:neoforge:21.1.99:universal")
         );
+    }
+
+    #[test]
+    fn resolves_neoforge_from_legacy_profile_id_with_mc_prefix() {
+        let mut profile = json!({
+            "id": "neoforge-1.21.1-21.1.99",
+            "libraries": []
+        });
+
+        include_neoforge_runtime(&mut profile);
+
+        assert_eq!(
+            profile["libraries"][0]["name"].as_str(),
+            Some("net.neoforged:neoforge:21.1.99:universal")
+        );
+    }
+
+    #[test]
+    fn resolves_neoforge_from_bare_version_id() {
+        let mut profile = json!({
+            "id": "21.1.99",
+            "libraries": []
+        });
+
+        include_neoforge_runtime(&mut profile);
+
+        assert_eq!(
+            profile["libraries"][0]["name"].as_str(),
+            Some("net.neoforged:neoforge:21.1.99:universal")
+        );
+    }
+
+    #[test]
+    fn ignores_non_neoforge_profiles() {
+        let mut profile = json!({
+            "id": "fabric-loader-0.19.3-1.21.1",
+            "libraries": []
+        });
+
+        include_neoforge_runtime(&mut profile);
+
+        assert!(profile["libraries"].as_array().unwrap().is_empty());
     }
 }
 

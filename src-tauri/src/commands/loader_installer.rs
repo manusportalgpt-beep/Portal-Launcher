@@ -26,19 +26,41 @@ fn neoforge_profile_dirs(version: &str) -> Vec<PathBuf> {
 /// `net.neoforged:neoforge:<version>:client`. A partial profile lets the game
 /// reach NeoForge and then fails with "patched Minecraft jar is missing".
 pub fn neoforge_profile_complete(version: &str) -> bool {
-    let profile_exists = neoforge_profile_dirs(version).iter().any(|dir| {
+    let profile_dir = neoforge_profile_dirs(version).iter().find(|dir| {
         let id = dir.file_name().and_then(|name| name.to_str()).unwrap_or_default();
         dir.join(format!("{id}.json")).is_file()
     });
-    if !profile_exists {
+    let Some(dir) = profile_dir else {
         return false;
-    }
+    };
+    let id = dir.file_name().and_then(|name| name.to_str()).unwrap_or_default();
     let lib_base = crate::commands::version_manager::libraries_dir()
         .join("net").join("neoforged").join("neoforge").join(version);
     // NeoForge 1.21.5+ may produce only the universal jar, not the client classifier.
     let has_client_jar = lib_base.join(format!("neoforge-{version}-client.jar")).is_file();
     let has_universal_jar = lib_base.join(format!("neoforge-{version}-universal.jar")).is_file();
-    has_client_jar || has_universal_jar
+    if has_client_jar || has_universal_jar {
+        return true;
+    }
+    // Some NeoForge installer revisions don't produce the standalone universal
+    // JAR at all — the artifact is embedded inside the patched client or the
+    // profile JSON references it with a download URL. Accept the profile as
+    // complete when the JSON itself declares the neoforge library coordinate
+    // and the profile directory exists (the installer ran to completion).
+    if let Ok(raw) = std::fs::read_to_string(dir.join(format!("{id}.json"))) {
+        if let Ok(profile) = serde_json::from_str::<serde_json::Value>(&raw) {
+            let coord = format!("net.neoforged:neoforge:{version}:universal");
+            let has_in_profile = profile["libraries"].as_array().map_or(false, |libs| {
+                libs.iter().any(|lib| {
+                    lib["name"].as_str().map(|name| name == coord).unwrap_or(false)
+                })
+            });
+            if has_in_profile {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 fn clear_incomplete_neoforge_profile(version: &str) -> Result<(), String> {
@@ -244,8 +266,20 @@ async fn forge_builds_for_mc_from_maven(client: &reqwest::Client, mc_version: &s
     else { Ok(builds) }
 }
 
+/// Build the NeoForge Maven prefix that matches only versions for the
+/// requested Minecraft release.  NeoForge mirrors the MC minor.patch in its
+/// own coordinate: MC 1.21 → 21.0.x, MC 1.21.1 → 21.1.x, etc.  A naïve
+/// `trim_start_matches("1.")` turns "1.21" into "21." which also matches
+/// 21.1.x — pulling in versions for a different Minecraft release.
+fn neoforge_prefix_for_mc(mc_version: &str) -> String {
+    let parts: Vec<&str> = mc_version.split('.').collect();
+    let minor = parts.get(1).unwrap_or(&"0");
+    let patch = parts.get(2).unwrap_or(&"0");
+    format!("{}.{}.", minor, patch)
+}
+
 fn neoforge_versions_for_mc(xml: &str, mc_version: &str) -> Vec<String> {
-    let prefix = format!("{}.", mc_version.trim_start_matches("1."));
+    let prefix = neoforge_prefix_for_mc(mc_version);
     let mut versions: Vec<String> = maven_versions(xml).into_iter().filter(|version| version.starts_with(&prefix)).collect();
     versions.sort_by(|left, right| compare_neoforge_versions(right, left));
     versions.dedup();
@@ -636,4 +670,44 @@ pub async fn get_neoforge_versions(mc_version: String) -> Result<Vec<String>, St
     let xml = client.get("https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml")
         .send().await.map_err(|e| e.to_string())?.text().await.map_err(|e| e.to_string())?;
     Ok(neoforge_versions_for_mc(&xml, &mc_version))
+}
+
+#[cfg(test)]
+mod neoforge_tests {
+    use super::{neoforge_prefix_for_mc, neoforge_profile_complete, compare_neoforge_versions};
+
+    #[test]
+    fn prefix_for_mc_1_21_matches_only_21_0() {
+        assert_eq!(neoforge_prefix_for_mc("1.21"), "21.0.");
+    }
+
+    #[test]
+    fn prefix_for_mc_1_21_1_matches_only_21_1() {
+        assert_eq!(neoforge_prefix_for_mc("1.21.1"), "21.1.");
+    }
+
+    #[test]
+    fn prefix_for_mc_1_20_2_matches_only_20_2() {
+        assert_eq!(neoforge_prefix_for_mc("1.20.2"), "20.2.");
+    }
+
+    #[test]
+    fn prefix_for_mc_1_21_10_matches_only_21_10() {
+        assert_eq!(neoforge_prefix_for_mc("1.21.10"), "21.10.");
+    }
+
+    #[test]
+    fn prefix_for_mc_26_2_matches_26_2() {
+        assert_eq!(neoforge_prefix_for_mc("26.2"), "26.2.");
+    }
+
+    #[test]
+    fn numeric_compare_21_1_99_before_21_1_219() {
+        assert_eq!(compare_neoforge_versions("21.1.219", "21.1.99"), std::cmp::Ordering::Greater);
+    }
+
+    #[test]
+    fn numeric_compare_equal_versions() {
+        assert_eq!(compare_neoforge_versions("21.1.99", "21.1.99"), std::cmp::Ordering::Equal);
+    }
 }

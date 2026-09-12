@@ -141,12 +141,12 @@ function AccountButton({ vertical = false }: { vertical?: boolean }) {
 }
 
 /** Боковая навигация (режим "Sidebar"). */
-function SidebarNav() {
+function SidebarNav({ extendedOrder, extendedCompact }: { extendedOrder?: string[]; extendedCompact?: boolean }) {
   const order = useUiStore(s => s.navItemOrder);
   const sidebarWidth = useUiStore(s => s.sidebarWidth);
   const scale = useUiStore(s => s.navItemScale);
   const appearance = useUiStore(s => s.sidebarPanelAppearance);
-  const items = orderedNav(order);
+  const items = orderedNav(extendedOrder && extendedOrder.length > 0 ? extendedOrder : order);
   const justifyContent = appearance.alignment === 'start' ? 'flex-start' : appearance.alignment === 'end' ? 'flex-end' : 'center';
   const borderColor = appearance.border === 'none' ? 'transparent' : appearance.border === 'strong' ? 'var(--color-border-strong)' : 'var(--color-border)';
   return (
@@ -165,11 +165,11 @@ function SidebarNav() {
 }
 
 /** Выезжающая минималистичная Notch-панель. Перетаскивание окна отключено. */
-function NotchNav() {
+function NotchNav({ extendedOrder, extendedCompact }: { extendedOrder?: string[]; extendedCompact?: boolean }) {
   const { t } = useTranslation();
   const { notchPinned, notchSide, notchHotzone, notchOpenOnTab, notchAboveHotzone, notchDockScale, navItemScale, navItemOrder, panelVersion, uiMode, titlebarHeight, notchPanelAppearance: appearance, set } = useUiStore();
   const visualPanelVersion = uiMode === 'old' ? 'old' : panelVersion;
-  const items = orderedNav(navItemOrder);
+  const items = orderedNav(extendedOrder && extendedOrder.length > 0 ? extendedOrder : navItemOrder);
   const [hover, setHover] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(() => Boolean(document.body.dataset.portalOverlay));
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -283,9 +283,16 @@ function NotchNav() {
   );
 }
 
-export function TopNav() {
+export interface TopNavExtendedProps {
+  extendedAccent?: string;
+  extendedCompact?: boolean;
+  extendedIcons?: Record<string, string>;
+  extendedOrder?: string[];
+}
+
+export function TopNav({ extendedAccent, extendedCompact, extendedIcons, extendedOrder }: TopNavExtendedProps = {}) {
   const navMode = useUiStore(s => s.navMode);
-  return navMode === 'sidebar' ? <SidebarNav /> : <NotchNav />;
+  return navMode === 'sidebar' ? <SidebarNav extendedOrder={extendedOrder} extendedCompact={extendedCompact} /> : <NotchNav extendedOrder={extendedOrder} extendedCompact={extendedCompact} />;
 }
 
 export default TopNav;

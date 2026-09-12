@@ -3,7 +3,13 @@ import { TopNav } from './TopNav';
 import { useUiStore } from '@/stores/uiStore';
 import { loadBackgroundMedia } from '@/lib/background-media';
 
-export function MainLayout({ children }: { children: ReactNode }) {
+export function MainLayout({ children, extendedAccent, extendedCompact, extendedIcons, extendedOrder }: {
+  children: ReactNode;
+  extendedAccent?: string;
+  extendedCompact?: boolean;
+  extendedIcons?: Record<string, string>;
+  extendedOrder?: string[];
+}) {
   const navMode = useUiStore(s => s.navMode);
   const backgroundImage = useUiStore(s => s.backgroundImage);
   const [backgroundSrc, setBackgroundSrc] = useState('');
@@ -17,7 +23,10 @@ export function MainLayout({ children }: { children: ReactNode }) {
   }, [backgroundImage]);
 
   return (
-    <div className="portal-workspace-material flex h-full min-h-0 overflow-hidden relative" style={{ background: 'transparent' }}>
+    <div className="portal-workspace-material flex h-full min-h-0 overflow-hidden relative" style={{
+      background: 'transparent',
+      ...(extendedAccent ? { ['--ext-accent' as string]: extendedAccent, ['--color-primary' as string]: extendedAccent } : {}),
+    }}>
       {/* Пользовательский фон (.prtheme / Appearance) */}
       <div aria-hidden className="portal-background-layer pointer-events-none absolute inset-0" style={{
         backgroundImage: backgroundSrc ? `url("${backgroundSrc}")` : 'none',
@@ -29,13 +38,13 @@ export function MainLayout({ children }: { children: ReactNode }) {
         transform: 'scale(var(--custom-bg-scale, 1))',
       }} />
       <div aria-hidden className="portal-background-scrim pointer-events-none absolute inset-0" style={{ background:'rgba(4, 6, 12, var(--custom-bg-readability, 0.48))' }} />
-      {navMode === 'sidebar' && <TopNav />}
+      {navMode === 'sidebar' && <TopNav extendedAccent={extendedAccent} extendedCompact={extendedCompact} extendedIcons={extendedIcons} extendedOrder={extendedOrder} />}
       <main className="flex-1 min-w-0 min-h-0 overflow-hidden relative z-10">
         <div className="h-full min-h-0 w-full">
           {children}
         </div>
       </main>
-      {navMode === 'notch' && <TopNav />}
+      {navMode === 'notch' && <TopNav extendedAccent={extendedAccent} extendedCompact={extendedCompact} extendedIcons={extendedIcons} extendedOrder={extendedOrder} />}
     </div>
   );
 }

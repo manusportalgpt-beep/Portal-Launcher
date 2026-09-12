@@ -24,6 +24,11 @@ import { useUiStore } from '@/stores/uiStore';
 import { useLanguageStore } from '@/stores/languageStore';
 import i18n from '@/i18n';
 import { BottomProgressBar } from '@/components/BottomProgressBar';
+import { LayoutRouter } from '@/components/layouts/LayoutRouter';
+import { ExtendedSettings } from '@/layouts/extended/ExtendedSettings';
+import { InnovativeHome } from '@/layouts/innovative/InnovativeHome';
+import { InnovativeSettings } from '@/layouts/innovative/InnovativeSettings';
+import { useLayoutStore } from '@/stores/layoutStore';
 import { InstallEffectOverlay } from '@/components/InstallEffectOverlay';
 import { DialogHost } from '@/components/DialogHost';
 import { SettingsOverlay } from '@/components/SettingsOverlay';
@@ -47,6 +52,7 @@ const AI_PANEL_KEY = 'portal-ai-panel-open';
 
 function App() {
   const [loading, setLoading] = useState(false);
+  const layoutMode = useLayoutStore((s) => s.mode);
   const themeId = useThemeStore((state) => state.themeId);
   const customThemes = useThemeStore((state) => state.customThemes);
   const textColorOverride = useUiStore(s => s.textColorOverride);
@@ -179,10 +185,10 @@ function App() {
       </AnimatePresence>
       {!loading && (
         <div className="flex-1 min-h-0">
-        <MainLayout>
+        <LayoutRouter>
           <Routes>
             <Route path="/" element={<Navigate to="/home" replace />} />
-            <Route path="/home" element={<HomePage />} />
+            <Route path="/home" element={layoutMode === 'innovative' ? <InnovativeHome /> : <HomePage />} />
             <Route path="/control-center" element={<ControlCenterPage />} />
             <Route path="/discover" element={<DiscoverPage />} />
             <Route path="/discover/:source/:modId" element={<ModDetail />} />
@@ -194,11 +200,12 @@ function App() {
             <Route path="/instances/:id/settings" element={<InstanceSettings />} />
             <Route path="/skins" element={<SkinSelectorPage />} />
             <Route path="/gallery" element={<GalleryPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/settings/:section" element={<SettingsPage />} />
+            <Route path="/settings" element={layoutMode === 'innovative' ? <InnovativeSettings /> : <SettingsPage />} />
+            <Route path="/settings/:section" element={layoutMode === 'innovative' ? <InnovativeSettings /> : <SettingsPage />} />
+            <Route path="/settings/extended" element={<ExtendedSettings />} />
           </Routes>
           <BottomProgressBar />
-        </MainLayout>
+        </LayoutRouter>
         </div>
       )}
       <InstallEffectOverlay />

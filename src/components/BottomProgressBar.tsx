@@ -161,10 +161,13 @@ export function BottomProgressBar() {
   const last = useRef<{ t: number; bytes: number } | null>(null);
   const itemProgressStart = useRef<{ stage: string; at: number } | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completingRef = useRef(false);
 
   const clearLater = (delay = 1300) => {
+    completingRef.current = true;
     if (hideTimer.current) clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => {
+      completingRef.current = false;
       setEvent(null);
       setLaunching(null);
       setSpeed(0);
@@ -180,15 +183,20 @@ export function BottomProgressBar() {
     const unsubs: Array<() => void> = [];
 
     const push = (next: ProgressEvent) => {
-      if (hideTimer.current) clearTimeout(hideTimer.current);
-      if (paused) return;
+      // Once the operation completed (100% / done / running), trailing byte
+      // events must not reset the hide timer — the card auto-hides shortly.
+      if (!completingRef.current && hideTimer.current) clearTimeout(hideTimer.current);
+      if (paused || completingRef.current) return;
       const cur = Number(next.current ?? 0);
       const tot = Number(next.total ?? 0);
-      if (!itemProgressStart.current || itemProgressStart.current.stage !== next.stage || cur === 0) {
+      if (next.percent >= 100) {
+        // Completion event: arm the hide timer path but still show final state.
+      } else if (!itemProgressStart.current || itemProgressStart.current.stage !== next.stage || cur === 0) {
         itemProgressStart.current = { stage: next.stage, at: performance.now() };
       }
-      if (tot > 0 && cur > 0 && cur < tot) {
-        const elapsed = (performance.now() - itemProgressStart.current.at) / 1000;
+      const start = itemProgressStart.current;
+      if (tot > 0 && cur > 0 && cur < tot && start) {
+        const elapsed = (performance.now() - start.at) / 1000;
         setEtaSeconds(elapsed > 0 ? Math.ceil((elapsed / cur) * (tot - cur)) : null);
       } else {
         setEtaSeconds(null);

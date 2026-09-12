@@ -904,17 +904,21 @@ function InstanceCard({ inst, onClick, onDropOnGroup }: {
         if (target) onDropOnGroup(target.dataset.groupContainer || null);
       }}
       onClick={() => { if (!movedRef.current) onClick(); }}
-      whileHover={{ y: dragging ? 0 : -2, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}
+      whileHover={{ y: dragging ? 0 : -2, boxShadow: '0 10px 28px color-mix(in srgb, var(--color-primary) 14%, rgba(0,0,0,0.18))' }}
       whileTap={{ scale: 0.985 }}
       transition={{ layout: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } }}
-      className="portal-instance-card flex flex-col items-start gap-2 p-2.5 rounded-xl text-left relative overflow-hidden w-full cursor-grab active:cursor-grabbing transition-all duration-200"
-      style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', touchAction: 'none' }}>
-      <div className="w-full aspect-[4/3] rounded-lg overflow-hidden flex items-center justify-center font-black text-xl relative pointer-events-none"
-        style={{ background: inst.color ? `${inst.color}15` : 'var(--color-surface-2)', color: inst.color || 'var(--color-text-tertiary)' }}>
+      className="portal-instance-card group flex flex-col items-start gap-2 p-2.5 rounded-lg text-left relative overflow-hidden w-full cursor-grab active:cursor-grabbing transition-all duration-200"
+      style={{ background:'var(--color-surface)', touchAction: 'none' }}>
+      <div className="w-full aspect-[4/3] rounded-md overflow-hidden flex items-center justify-center font-black text-xl relative pointer-events-none"
+        style={{ background: `linear-gradient(135deg, ${inst.color || '#26262C'}2b, color-mix(in srgb, ${inst.color || '#26262C'} 10%, transparent) 70%)`, color: inst.color || 'var(--color-text-tertiary)' }}>
         {inst.iconPath ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" draggable={false} /> : inst.name[0]?.toUpperCase()}
+        <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide"
+          style={{ background:'rgba(0,0,0,0.48)', color: LOADER_COLOR[inst.modLoader] || '#fff' }}>
+          {inst.modLoader}
+        </span>
         {(launchStatus !== 'idle' || inst.installStatus === 'partial') && (
-          <span className="absolute bottom-1.5 right-1.5 w-2.5 h-2.5 rounded-full "
-            style={{ background: launchStatus==='running' ? '#2ECC71' : inst.installStatus === 'partial' ? '#F39C12' : 'var(--color-primary)' }} />
+          <span className="absolute bottom-1.5 right-1.5 w-2.5 h-2.5 rounded-full"
+            style={{ background: launchStatus==='running' ? '#2ECC71' : inst.installStatus === 'partial' ? '#F39C12' : 'var(--color-primary)', boxShadow:'0 0 0 3px var(--color-surface)' }} />
         )}
       </div>
       <div className="min-w-0 w-full pointer-events-none">
@@ -924,6 +928,7 @@ function InstanceCard({ inst, onClick, onDropOnGroup }: {
           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold capitalize" style={{ background:`${LOADER_COLOR[inst.modLoader] || 'var(--color-primary)'}12`, color:LOADER_COLOR[inst.modLoader] || 'var(--color-primary)' }}>{inst.modLoaderVersion ? `${inst.modLoader} ${inst.modLoaderVersion}` : inst.modLoader}</span>
         </div>
       </div>
+      <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ boxShadow:'inset 0 0 0 1px transparent', borderRadius:'var(--radius-md)' }} />
     </motion.div>
   );
 }
@@ -1093,7 +1098,7 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
               <div className="flex items-center gap-2 mb-3">
                 <p className="text-xs font-bold uppercase tracking-wider font-display" style={{ color:'var(--color-text-tertiary)' }}>{g}</p>
                 <span className="text-xs" style={{ color:'var(--color-text-tertiary)' }}>{byGroup(g).length}</span>
-                <div className="flex-1 h-px" style={{ background:'var(--color-border)' }} />
+                <div className="flex-1 h-px" style={{ background:'color-mix(in srgb, var(--color-border) 45%, transparent)' }} />
               </div>
               <div className="grid gap-3 min-h-[80px] rounded-2xl" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(150px,1fr))' }}>
                 {byGroup(g).map(inst => (
@@ -1109,7 +1114,7 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
               <div className="flex items-center gap-2 mb-3">
                 <p className="text-xs font-bold uppercase tracking-wider font-display" style={{ color:'var(--color-text-tertiary)' }}>Ungrouped</p>
                 <span className="text-xs" style={{ color:'var(--color-text-tertiary)' }}>{ungrouped.length}</span>
-                <div className="flex-1 h-px" style={{ background:'var(--color-border)' }} />
+                <div className="flex-1 h-px" style={{ background:'color-mix(in srgb, var(--color-border) 45%, transparent)' }} />
               </div>
               <div className="grid gap-3 min-h-[80px] rounded-2xl" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(150px,1fr))' }}>
                 {ungrouped.map(inst => (

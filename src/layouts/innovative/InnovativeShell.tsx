@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,6 +10,7 @@ import { useLayoutStore } from '@/stores/layoutStore';
 import { toIconSrc } from '@/lib/icon-src';
 import { CachedPlayerFace } from '@/components/CachedPlayerFace';
 import { useCurrentUser, useIsAuthenticated } from '@/stores/authStore';
+import { InnovativeCommandPalette } from '@/layouts/innovative/InnovativeCommandPalette';
 
 /* ── nav items ───────────────────────────────────────────────────────────── */
 
@@ -180,7 +181,7 @@ function InnovativeSidebar() {
 
 /* ── top header ──────────────────────────────────────────────────────────── */
 
-function InnovativeHeader() {
+function InnovativeHeader({ onOpenPalette }: { onOpenPalette: () => void }) {
   const location = useLocation();
   const title = PAGE_TITLES[location.pathname] ?? 'Portal Launcher';
   return (
@@ -199,7 +200,7 @@ function InnovativeHeader() {
       </motion.p>
       <div className="flex-1" />
       <button
-        onClick={() => window.location.hash = '#/discover'}
+        onClick={onOpenPalette}
         className="flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
         style={{ background: 'color-mix(in srgb, var(--color-surface-2) 60%, transparent)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)', width: 240 }}>
         <Search size={14} />
@@ -216,12 +217,13 @@ export function InnovativeShell({ children }: { children: ReactNode }) {
   const mode = useLayoutStore(s => s.mode);
   const location = useLocation();
 
-  // Единый короткий маршрут на Discovery для Ctrl+K
+  // Командная палитра: Ctrl+K открывает/закрывает
+  const [paletteOpen, setPaletteOpen] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        window.location.hash = '#/discover';
+        setPaletteOpen(v => !v);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -235,7 +237,7 @@ export function InnovativeShell({ children }: { children: ReactNode }) {
       <AuroraBackdrop />
       <InnovativeSidebar />
       <div className="relative z-10 flex flex-1 flex-col min-w-0 min-h-0">
-        <InnovativeHeader />
+        <InnovativeHeader onOpenPalette={() => setPaletteOpen(true)} />
         <main className="flex-1 min-h-0 overflow-auto">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -251,6 +253,7 @@ export function InnovativeShell({ children }: { children: ReactNode }) {
           </AnimatePresence>
         </main>
       </div>
+      <InnovativeCommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }

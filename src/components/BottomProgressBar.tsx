@@ -7,6 +7,7 @@ import {
   Pause, X, Minus,
 } from 'lucide-react';
 import { useInstanceStore } from '@/stores/instanceStore';
+import { useLayoutStore } from '@/stores/layoutStore';
 import { toIconSrc } from '@/lib/icon-src';
 
 /* ── types ────────────────────────────────────────────────────────────────── */
@@ -153,6 +154,7 @@ export function BottomProgressBar() {
   }, []);
 
   const instance = useInstanceStore(s => s.instances.find(i => i.id === (event?.instanceId || launching)));
+  const layoutMode = useLayoutStore(s => s.mode);
   const instanceIcon = toIconSrc(instance?.iconPath);
   const progressIcon = instanceIcon || toIconSrc(event?.iconPath);
 
@@ -302,11 +304,18 @@ export function BottomProgressBar() {
   const etaLabel = eta ? `· ${eta}` : '';
   const fileCount = total > 0 && !isByte ? `${Math.min(current, total)}/${total}` : '';
 
-  const containerStyle: CSSProperties = {
-    position:'fixed', top:24, right:24,
-    transform:`translate(${offset.x}px, ${offset.y}px)`,
-    zIndex:155, pointerEvents:'none',
-  };
+  const isInnovative = layoutMode === 'innovative';
+  const containerStyle: CSSProperties = isInnovative
+    ? {
+        position:'fixed', bottom:28, left:'50%',
+        transform:`translateX(-50%) translate(${offset.x}px, ${offset.y}px)`,
+        zIndex:155, pointerEvents:'none',
+      }
+    : {
+        position:'fixed', top:24, right:24,
+        transform:`translate(${offset.x}px, ${offset.y}px)`,
+        zIndex:155, pointerEvents:'none',
+      };
 
   return (
     <div style={containerStyle}>
@@ -329,7 +338,17 @@ export function BottomProgressBar() {
             <div className="absolute inset-0 rounded-full"
               style={{ boxShadow:`0 0 24px ${pct > 0 && pct < 100 ? 'color-mix(in srgb, var(--color-primary) 22%, transparent)' : 'transparent'}`, transition:'box-shadow 0.5s ease' }} />
             <div className="absolute inset-0 rounded-full"
-              style={{ background:'color-mix(in srgb, var(--color-surface) 88%, var(--color-bg))', border:'1px solid color-mix(in srgb, var(--color-border) 60%, var(--color-primary))' }} />
+              style={{
+                background: isInnovative
+                  ? 'color-mix(in srgb, var(--color-surface) 55%, var(--color-bg))'
+                  : 'color-mix(in srgb, var(--color-surface) 88%, var(--color-bg))',
+                border: isInnovative
+                  ? '1px solid color-mix(in srgb, var(--color-border-strong) 45%, var(--color-primary))'
+                  : '1px solid color-mix(in srgb, var(--color-border) 60%, var(--color-primary))',
+                backdropFilter: isInnovative ? 'blur(28px) saturate(1.5)' : undefined,
+                WebkitBackdropFilter: isInnovative ? 'blur(28px) saturate(1.5)' : undefined,
+                boxShadow: isInnovative ? '0 12px 40px -8px color-mix(in srgb, var(--color-primary) 35%, transparent)' : undefined,
+              }} />
             <RingProgress percent={pct} size={56} stroke={3} color={ringColor} />
             <div className="absolute inset-0 flex items-center justify-center">
               {progressIcon
@@ -349,13 +368,20 @@ export function BottomProgressBar() {
             animate={{ opacity:1, scale:1, y:0 }}
             exit={{ opacity:0, scale:0.82, y:-10 }}
             transition={{ type:'spring', stiffness:520, damping:36 }}
-            className="overflow-hidden rounded-2xl pointer-events-auto"
+            className={`overflow-hidden pointer-events-auto ${isInnovative ? 'rounded-[24px]' : 'rounded-2xl'}`}
             style={{
-              width:360,
-              background:'color-mix(in srgb, var(--color-surface) 94%, var(--color-bg))',
-              border:'1px solid color-mix(in srgb, var(--color-border) 70%, var(--color-primary))',
-              boxShadow:'0 12px 40px rgba(0,0,0,0.45), 0 0 0 1px color-mix(in srgb, var(--color-primary) 8%, transparent)',
-              backdropFilter:'blur(24px) saturate(1.4)',
+              width: isInnovative ? 400 : 360,
+              background: isInnovative
+                ? 'color-mix(in srgb, var(--color-surface) 60%, var(--color-bg))'
+                : 'color-mix(in srgb, var(--color-surface) 94%, var(--color-bg))',
+              border: isInnovative
+                ? '1px solid color-mix(in srgb, var(--color-border-strong) 40%, var(--color-primary))'
+                : '1px solid color-mix(in srgb, var(--color-border) 70%, var(--color-primary))',
+              boxShadow: isInnovative
+                ? '0 24px 64px -16px rgba(0,0,0,0.55), 0 0 0 1px color-mix(in srgb, var(--color-primary) 10%, transparent), 0 0 42px -12px color-mix(in srgb, var(--color-primary) 45%, transparent)'
+                : '0 12px 40px rgba(0,0,0,0.45), 0 0 0 1px color-mix(in srgb, var(--color-primary) 8%, transparent)',
+              backdropFilter: isInnovative ? 'blur(34px) saturate(1.6)' : 'blur(24px) saturate(1.4)',
+              WebkitBackdropFilter: isInnovative ? 'blur(34px) saturate(1.6)' : undefined,
             }}
           >
             {/* top progress line */}

@@ -28,6 +28,9 @@ import { LayoutRouter } from '@/components/layouts/LayoutRouter';
 import { ExtendedSettings } from '@/layouts/extended/ExtendedSettings';
 import { InnovativeHome } from '@/layouts/innovative/InnovativeHome';
 import { InnovativeSettings } from '@/layouts/innovative/InnovativeSettings';
+import { InnovativeLibrary } from '@/layouts/innovative/InnovativeLibrary';
+import { InnovativeDiscover } from '@/layouts/innovative/InnovativeDiscover';
+import { InnovativeSkins } from '@/layouts/innovative/InnovativeSkins';
 import { useLayoutStore } from '@/stores/layoutStore';
 import { InstallEffectOverlay } from '@/components/InstallEffectOverlay';
 import { DialogHost } from '@/components/DialogHost';
@@ -190,15 +193,15 @@ function App() {
             <Route path="/" element={<Navigate to="/home" replace />} />
             <Route path="/home" element={layoutMode === 'innovative' ? <InnovativeHome /> : <HomePage />} />
             <Route path="/control-center" element={<ControlCenterPage />} />
-            <Route path="/discover" element={<DiscoverPage />} />
+            <Route path="/discover" element={layoutMode === 'innovative' ? <InnovativeDiscover /> : <DiscoverPage />} />
             <Route path="/discover/:source/:modId" element={<ModDetail />} />
             <Route path="/find-projects" element={<FindProjectsPage />} />
             <Route path="/author/:source/:name" element={<AuthorPage />} />
-            <Route path="/library" element={<LibraryPage />} />
+            <Route path="/library" element={layoutMode === 'innovative' ? <InnovativeLibrary /> : <LibraryPage />} />
             <Route path="/library/:id" element={<LibraryPage />} />
             <Route path="/instances" element={<InstancesPage />} />
             <Route path="/instances/:id/settings" element={<InstanceSettings />} />
-            <Route path="/skins" element={<SkinSelectorPage />} />
+            <Route path="/skins" element={layoutMode === 'innovative' ? <InnovativeSkins /> : <SkinSelectorPage />} />
             <Route path="/gallery" element={<GalleryPage />} />
             <Route path="/settings" element={layoutMode === 'innovative' ? <InnovativeSettings /> : <SettingsPage />} />
             <Route path="/settings/:section" element={layoutMode === 'innovative' ? <InnovativeSettings /> : <SettingsPage />} />

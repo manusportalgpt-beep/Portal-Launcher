@@ -23,7 +23,6 @@ import { useUiEffects } from '@/lib/ui-engine';
 import { useUiStore } from '@/stores/uiStore';
 import { useLanguageStore } from '@/stores/languageStore';
 import i18n from '@/i18n';
-import { BottomProgressBar } from '@/components/BottomProgressBar';
 import { LayoutRouter } from '@/components/layouts/LayoutRouter';
 import { ExtendedSettings } from '@/layouts/extended/ExtendedSettings';
 import { InnovativeHome } from '@/layouts/innovative/InnovativeHome';
@@ -207,7 +206,6 @@ function App() {
             <Route path="/settings/:section" element={layoutMode === 'innovative' ? <InnovativeSettings /> : <SettingsPage />} />
             <Route path="/settings/extended" element={<ExtendedSettings />} />
           </Routes>
-          <BottomProgressBar />
         </LayoutRouter>
         </div>
       )}

@@ -32,6 +32,7 @@ import { InnovativeDiscover } from '@/layouts/innovative/InnovativeDiscover';
 import { InnovativeSkins } from '@/layouts/innovative/InnovativeSkins';
 import { useLayoutStore } from '@/stores/layoutStore';
 import { InstallEffectOverlay } from '@/components/InstallEffectOverlay';
+import { BottomProgressBar } from '@/components/BottomProgressBar';
 import { DialogHost } from '@/components/DialogHost';
 import { SettingsOverlay } from '@/components/SettingsOverlay';
 import { AIAgent } from '@/components/ai/AIAgent';
@@ -206,6 +207,7 @@ function App() {
             <Route path="/settings/:section" element={layoutMode === 'innovative' ? <InnovativeSettings /> : <SettingsPage />} />
             <Route path="/settings/extended" element={<ExtendedSettings />} />
           </Routes>
+          <BottomProgressBar />
         </LayoutRouter>
         </div>
       )}

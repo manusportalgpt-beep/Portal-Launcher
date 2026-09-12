@@ -4,11 +4,14 @@ import {
   House, Search, Boxes, Shirt, SlidersHorizontal, PanelsTopLeft, LogIn, Pin, ChevronLeft, ChevronRight, Bot,
   type LucideIcon,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUiStore, type PanelAppearance } from '@/stores/uiStore';
 import { useCurrentUser, useIsAuthenticated } from '@/stores/authStore';
-import { useInstanceStore } from '@/stores/instanceStore';
+import { useInstanceStore, type Instance } from '@/stores/instanceStore';
+import { useLaunchStore } from '@/stores/launchStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { invoke } from '@/lib/invoke-shim';
 import { getAvatarUrl, getAvatarFallbackUrl } from '@/lib/avatar';
 import { toIconSrc } from '@/lib/icon-src';
 import { CachedPlayerFace } from '@/components/CachedPlayerFace';
@@ -76,20 +79,69 @@ function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem
 function InstanceQuickAccess({ vertical }: { vertical: boolean }) {
   const navigate = useNavigate();
   const instances = useInstanceStore(s => s.instances);
+  const update = useInstanceStore(s => s.update);
   const count = useUiStore(s => s.navInstanceCount);
+  const user = useCurrentUser();
+  const globalSettings = useSettingsStore(s => ({
+    minRam: s.minRam, maxRam: s.maxRam, javaPath: s.javaPath, customJvmArgs: s.customJvmArgs,
+  }));
+  const getStatus = useLaunchStore(s => s.getStatus);
+  const setStatus = useLaunchStore(s => s.setStatus);
+
+  // ПКМ по иконке запускает сборку (без изменений в логике запуска — тот же
+  // путь ensure_instance → launch_instance, что и в библиотеке).
+  const launch = useCallback(async (inst: Instance) => {
+    const status = getStatus(inst.id);
+    if (status === 'launching' || status === 'running') return;
+    if (!user) { navigate('/settings/account'); return; }
+    if (inst.modLoader === 'bedrock') {
+      try { await invoke('launch_bedrock', { family: inst.modLoaderVersion || null }); } catch (e) { console.error(e); }
+      update(inst.id, { lastPlayed: new Date().toISOString() });
+      return;
+    }
+    setStatus(inst.id, 'launching');
+    try {
+      await invoke('ensure_instance', {
+        id: inst.id, name: inst.name, mcVersion: inst.minecraftVersion,
+        loader: inst.modLoader, loaderVersion: inst.modLoaderVersion || '',
+        minRam: globalSettings.minRam, maxRam: globalSettings.maxRam,
+        javaPath: globalSettings.javaPath || '', customJvmArgs: globalSettings.customJvmArgs || '',
+        color: inst.color, icon: inst.iconPath || null,
+      });
+      update(inst.id, { lastPlayed: new Date().toISOString() });
+      if (!user.uuid || !user.username) throw new Error('Нужно войти в аккаунт');
+      await invoke('launch_instance', {
+        instance_id: inst.id, access_token: user.accessToken || '',
+        uuid: user.uuid, username: user.username, provider: user.provider,
+      });
+    } catch (e) {
+      console.error(e);
+      setStatus(inst.id, 'idle');
+    }
+  }, [user, globalSettings, getStatus, setStatus, navigate, update]);
+
   const shown = instances.slice(0, count);
   return (
     <div className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1`}>
-      {shown.map(inst => (
-        <button key={inst.id} title={inst.name}
-          onClick={() => navigate(`/library/${inst.id}`)}
-          className="rounded-full overflow-hidden shrink-0 flex items-center justify-center font-bold text-[10px] select-none cursor-pointer transition-transform hover:scale-110"
-          style={{ width: vertical ? 40 : 32, height: vertical ? 40 : 32, background: inst.color || 'var(--color-surface-2)', color: '#fff', border:'1px solid var(--color-border)' }}>
-          {inst.iconPath
-            ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" draggable={false} style={{ imageRendering:'auto', filter:'none', opacity:1 }} />
-            : inst.name[0]?.toUpperCase()}
-        </button>
-      ))}
+      {shown.map(inst => {
+        const status = getStatus(inst.id);
+        const busy = status === 'launching';
+        const running = status === 'running';
+        return (
+          <button key={inst.id} title={`${inst.name} — ЛКМ: настройки · ПКМ: запуск`}
+            onClick={() => navigate(`/library/${inst.id}`)}
+            onContextMenu={e => { e.preventDefault(); void launch(inst); }}
+            disabled={busy}
+            className="rounded-full overflow-hidden shrink-0 flex items-center justify-center font-bold text-[10px] select-none cursor-pointer transition-transform hover:scale-110"
+            style={{ width: vertical ? 40 : 32, height: vertical ? 40 : 32, background: inst.color || 'var(--color-surface-2)', color: '#fff', border: running ? '2px solid var(--color-success)' : '1px solid var(--color-border)' }}>
+            {busy
+              ? <span className="h-3 w-3 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
+              : inst.iconPath
+                ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" draggable={false} style={{ imageRendering:'auto', filter:'none', opacity:1 }} />
+                : inst.name[0]?.toUpperCase()}
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { useLayoutStore } from '@/stores/layoutStore';
 import { InnovativeShell } from '@/layouts/innovative/InnovativeShell';
+import { ExtendedShell } from '@/layouts/extended/ExtendedShell';
 import { MainLayout } from '@/components/layout/MainLayout';
 
 /**
@@ -8,7 +9,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
  *
  *  - standard   → текущий интерфейс без изменений (по умолчанию)
  *  - innovative → новая оболочка с полным редизайном страниц
- *  - extended   → стандартный интерфейс с настраиваемыми иконками/кнопками
+ *  - extended   → портальная тема «чёрный + красный» с настраиваемым акцентом
  */
 export function LayoutRouter({ children }: { children: ReactNode }) {
   const mode = useLayoutStore((s) => s.mode);
@@ -19,16 +20,7 @@ export function LayoutRouter({ children }: { children: ReactNode }) {
   }
 
   if (mode === 'extended') {
-    return (
-      <MainLayout
-        extendedAccent={extended.colorAccent}
-        extendedCompact={extended.compactMode}
-        extendedIcons={extended.sidebarIcons}
-        extendedOrder={extended.sidebarOrder}
-      >
-        {children}
-      </MainLayout>
-    );
+    return <ExtendedShell>{children}</ExtendedShell>;
   }
 
   return <MainLayout>{children}</MainLayout>;

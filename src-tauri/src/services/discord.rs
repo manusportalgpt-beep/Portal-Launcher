@@ -1,6 +1,6 @@
 use discord_rich_presence::DiscordIpc;
 use discord_rich_presence::DiscordIpcClient;
-use discord_rich_presence::model::{RichPresence, Assets, Party, Button};
+use discord_rich_presence::activity::{Activity, Assets, Button, Party};
 use std::sync::Mutex;
 use once_cell::sync::Lazy;
 use tauri::State;
@@ -30,8 +30,7 @@ impl DiscordState {
             return Ok(()); // Уже подключено
         }
 
-        let mut client = DiscordIpcClient::new(&self.application_id)
-            .map_err(|e| format!("Failed to create Discord client: {}", e))?;
+        let mut client = DiscordIpcClient::new(&self.application_id);
         
         client.connect()
             .map_err(|e| format!("Failed to connect to Discord: {}", e))?;
@@ -42,7 +41,7 @@ impl DiscordState {
     }
 
     // Обновление статуса
-    pub fn update_presence(&self, presence: RichPresence) -> Result<(), String> {
+    pub fn update_presence(&self, presence: Activity) -> Result<(), String> {
         let mut client_opt = self.client.lock().map_err(|e| e.to_string())?;
         
         if let Some(client) = client_opt.as_mut() {
@@ -95,15 +94,15 @@ pub fn set_launcher_status(
         return Ok(()); // Discord не запущен, просто игнорируем
     }
 
-    let mut presence = RichPresence::new()
+    let mut presence = Activity::new()
         .state(&page);
 
     if let Some(d) = details {
-        presence = presence.details(&d);
+        presence = presence.details(d);
     }
 
     // Добавляем изображения и кнопки
-    let mut assets = Assets::new()
+    let assets = Assets::new()
         .large_image("launcher_icon") // Имя картинки из Discord Developer Portal
         .large_text("Portal Launcher");
 
@@ -148,7 +147,7 @@ pub fn set_game_status(
         format!("Minecraft {}", version)
     };
 
-    let mut presence = RichPresence::new()
+    let mut presence = Activity::new()
         .state(&state_text)
         .details(&details_text);
 
@@ -170,8 +169,8 @@ pub fn set_game_status(
     if let (Some(current), Some(max)) = (players_online, max_players) {
         presence = presence.party(
             Party::new()
-                .id(instance_name.unwrap_or_else(|| "default".to_string()))
-                .size((current, max))
+                .id(instance_name.clone().unwrap_or_else(|| "default".to_string()))
+                .size([current as i32, max as i32])
         );
     }
 

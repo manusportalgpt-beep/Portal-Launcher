@@ -1,8 +1,16 @@
 # Portal Launcher — Changelog
 
 ## Unreleased
-### CI
-- Pipeline verification commit via GitHub REST API push (GitHub Actions Windows x64).
+### CI / Build fix
+- Fixed broken Windows x64 build: Rust error `unresolved import discord_rich_presence::model`.
+  The Discord Rich Presence integration (`src-tauri/src/services/discord.rs`) was written
+  against an API that does not exist in `discord-rich-presence`:
+  - Upgraded the crate `0.2` → `1` (module renamed `models` → `activity`,
+    types `ActivityAssets/ActivityButton/ActivityParty` → `Assets/Button/Party`,
+    `set_activity(Option<Activity>)` → `set_activity(Activity)`,
+    `DiscordIpcClient::new` no longer returns `Result`).
+  - Adapted `services/discord.rs` (imports, `Activity::new()`, `Party::size([i32;2])`,
+    owned `set_activity` payload).
 
 ## v2.5 — Browser MS auth, platform toggle, instance export, mod icons
 

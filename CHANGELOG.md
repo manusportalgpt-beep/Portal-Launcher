@@ -1,5 +1,9 @@
 # Portal Launcher — Changelog
 
+## Unreleased
+### CI
+- Pipeline verification commit via GitHub REST API push (GitHub Actions Windows x64).
+
 ## v2.5 — Browser MS auth, platform toggle, instance export, mod icons
 
 ### Microsoft authentication — rewritten on Authorization Code (browser) flow

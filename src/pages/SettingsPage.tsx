@@ -640,6 +640,10 @@ function AppearanceSection() {
         </button>
       </div>
 
+      {/* Изменить интерфейс — в самом низу вкладки «Оформление» */}
+      <div className="mt-8 pt-6" style={{ borderTop:'1px solid color-mix(in srgb, var(--color-border) 55%, transparent)' }}>
+        <InterfaceModeSelector />
+      </div>
     </div>
   );
 }
@@ -1151,10 +1155,6 @@ export function SettingsPage() {
                 </motion.div>
               </AnimatePresence>
 
-              {/* Изменить интерфейс — самый низ настроек */}
-              <div className="mt-8 pt-6" style={{ borderTop:'1px solid color-mix(in srgb, var(--color-border) 55%, transparent)' }}>
-                <InterfaceModeSelector />
-              </div>
             </div>
           </div>
         </div>

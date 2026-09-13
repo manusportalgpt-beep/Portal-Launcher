@@ -61,6 +61,8 @@ webbrowser = "1.0"
 hostname = "0.3"
 # Utility to locate binaries
 which = "4"
+# Discord Rich Presence
+discord-rich-presence = "0.2"
 # НЕТ brotli зависимости - он вызывает конфликт alloc-no-stdlib!
 
 [profile.dev]

@@ -10,6 +10,7 @@ pub mod auth;
 pub mod mc;
 
 pub use services::cloud_sync::CloudSyncService;
+pub use services::discord::DiscordState;
 
 use std::sync::Arc;
 use std::collections::HashMap;
@@ -39,6 +40,10 @@ fn main() {
     
     let app_state = AppState::new();
     
+    // Discord Rich Presence Application ID (замените на ваш из Discord Developer Portal)
+    let discord_app_id = "YOUR_DISCORD_APPLICATION_ID".to_string();
+    let discord_state = DiscordState::new(discord_app_id);
+    
     let _polling_handle = std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
@@ -50,6 +55,7 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_oauth::init())
         .manage(app_state)
+        .manage(discord_state)
         .invoke_handler(tauri::generate_handler![
             // Minecraft OAuth через minecraft_lib::oauth
             minecraft_lib::oauth::start_device_code_flow,
@@ -281,6 +287,11 @@ fn main() {
             commands::update::check_for_update,
             commands::update::download_update,
             commands::update::install_update,
+            // Discord Rich Presence
+            services::discord::init_discord,
+            services::discord::set_launcher_status,
+            services::discord::set_game_status,
+            services::discord::clear_discord_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

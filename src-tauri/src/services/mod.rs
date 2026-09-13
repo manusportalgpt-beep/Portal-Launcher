@@ -3,3 +3,6 @@
 // Cloud authentication and sync services
 pub mod cloud_auth;
 pub mod cloud_sync;
+
+// Discord Rich Presence integration
+pub mod discord;

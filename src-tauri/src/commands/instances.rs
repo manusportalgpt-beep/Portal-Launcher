@@ -1,6 +1,7 @@
 use serde::{Serialize, Deserialize};
 use std::path::{Path, PathBuf};
 use std::io::{Write, Read};
+use tokio::io::AsyncWriteExt;
 use sha2::{Digest, Sha256, Sha512};
 use tauri::Emitter;
 
@@ -1321,13 +1322,31 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, ex
         let mut got = out_path.is_file() && std::fs::metadata(&out_path).map(|meta| meta.len() > 0).unwrap_or(false);
         if got { downloaded += 1; }
         if !got {
+            // Потоковая запись на диск: `.bytes()` держит ВЕСЬ файл в памяти,
+            // и модпаки на 1 ГБ+ (или отдельные большие ресурспаки/шейдеры)
+            // могли ронять процесс на Windows по OOM. Читаем и пишем фрагментами.
             for url in &urls {
-                match (async { client.get(*url).send().await?.error_for_status()?.bytes().await }).await {
-                    Ok(bytes) => {
-                        std::fs::write(&out_path, &bytes).map_err(|e| format!("Не удалось сохранить {path}: {e}"))?;
-                        got = true;
-                        downloaded += 1;
-                        break;
+                match client.get(*url).send().await {
+                    Ok(response) => match response.error_for_status() {
+                        Ok(mut response) => {
+                            let mut file = tokio::fs::File::create(&out_path).await
+                                .map_err(|e| format!("Не удалось создать {path}: {e}"))?;
+                            let mut stream_ok = true;
+                            while let Some(chunk) = response.chunk().await.map_err(|e| format!("Чтение {path}: {e}"))? {
+                                if let Err(e) = file.write_all(&chunk).await {
+                                    log::warn!("mrpack: запись {path}: {e}");
+                                    stream_ok = false;
+                                    break;
+                                }
+                            }
+                            if stream_ok {
+                                got = true;
+                                downloaded += 1;
+                                break;
+                            }
+                            let _ = tokio::fs::remove_file(&out_path).await;
+                        }
+                        Err(e) => log::warn!("mrpack: зеркало не сработало ({url}): {e}"),
                     }
                     Err(e) => log::warn!("mrpack: зеркало не сработало ({url}): {e}"),
                 }
@@ -1462,15 +1481,22 @@ pub async fn import_remote_modpack(
         .timeout(std::time::Duration::from_secs(300))
         .user_agent("PortalLauncher/1.3")
         .build().map_err(|e| e.to_string())?;
-    let bytes = client.get(&download_url).send().await
-        .map_err(|e| format!("Не удалось скачать модпак: {e}"))?
-        .error_for_status().map_err(|e| format!("Сервер вернул ошибку: {e}"))?
-        .bytes().await.map_err(|e| format!("Не удалось прочитать модпак: {e}"))?;
     let is_mrpack = source.eq_ignore_ascii_case("modrinth") || file_name.to_lowercase().ends_with(".mrpack");
     let temp_dir = instances_dir().join(".imports");
     std::fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
     let temp_path = temp_dir.join(format!("{}.{}", uuid::Uuid::new_v4(), if is_mrpack { "mrpack" } else { "zip" }));
-    std::fs::write(&temp_path, bytes).map_err(|e| format!("Не удалось сохранить модпак: {e}"))?;
+    // Потоковая запись архива на диск — `.bytes()` держит весь модпак
+    // (включая 1 ГБ+ сборки) в RAM и мог ронять лаунчер по OOM.
+    {
+        let mut response = client.get(&download_url).send().await
+            .map_err(|e| format!("Не удалось скачать модпак: {e}"))?
+            .error_for_status().map_err(|e| format!("Сервер вернул ошибку: {e}"))?;
+        let mut file = tokio::fs::File::create(&temp_path).await.map_err(|e| format!("Не удалось сохранить модпак: {e}"))?;
+        while let Some(chunk) = response.chunk().await.map_err(|e| format!("Не удалось прочитать модпак: {e}"))? {
+            if let Err(e) = file.write_all(&chunk).await { return Err(format!("Не удалось сохранить модпак: {e}")); }
+        }
+        file.flush().await.map_err(|e| format!("Не удалось сохранить модпак: {e}"))?;
+    }
     let path = temp_path.to_string_lossy().to_string();
     let result = if is_mrpack {
         import_modrinth_pack(app.clone(), path, excluded_paths).await
@@ -1631,8 +1657,17 @@ async fn import_curseforge_modpack_from_archive(
                 let fname = url.rsplit('/').next().unwrap_or("mod.jar").to_string();
                 match reqwest::get(&url).await {
                     Ok(resp) if resp.status().is_success() => {
-                        if let Ok(bytes) = resp.bytes().await {
-                            std::fs::write(mods_dir.join(&fname), &bytes).ok();
+                        // Stream to disk — big jars must not be buffered whole in RAM.
+                        let mut resp = resp;
+                        let mut saved = false;
+                        if let Ok(mut file) = tokio::fs::File::create(mods_dir.join(&fname)).await {
+                            let mut stream_ok = true;
+                            while let Ok(Some(chunk)) = resp.chunk().await {
+                                if tokio::io::AsyncWriteExt::write_all(&mut file, &chunk).await.is_err() { stream_ok = false; break; }
+                            }
+                            saved = stream_ok && file.flush().await.is_ok();
+                        }
+                        if saved {
                             mods.push(InstanceMod {
                                 id: project_id.to_string(),
                                 name: fname.trim_end_matches(".jar").to_string(),
@@ -1645,7 +1680,10 @@ async fn import_curseforge_modpack_from_archive(
                                 author: None,
                                 icon_url: None,
                             });
-                        } else { failed += 1; }
+                        } else {
+                            let _ = std::fs::remove_file(mods_dir.join(&fname));
+                            failed += 1;
+                        }
                     }
                     _ => { failed += 1; }
                 }

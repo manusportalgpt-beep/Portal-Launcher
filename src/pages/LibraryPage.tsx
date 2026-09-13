@@ -2225,6 +2225,11 @@ export function LibraryPage() {
   }, [instances, routeInstanceId, setSelectedId]);
 
   const handleCreated = (raw: any) => {
+    if (!raw?.id) {
+      console.error('handleCreated: unexpected payload', raw);
+      dialog.alert('Импорт не вернул созданную сборку. Проверьте логи.', { title: 'Ошибка импорта', danger: true });
+      return;
+    }
     const inst: Instance = {
       id: raw.id,
       name: raw.name,

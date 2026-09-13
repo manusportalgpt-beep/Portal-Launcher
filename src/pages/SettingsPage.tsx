@@ -307,8 +307,6 @@ function SegRow({ label, desc, value, options, onChange }: { label: string; desc
 
 function AppearanceSection() {
   const { t } = useTranslation();
-  const layoutMode = useLayoutStore(s => s.mode);
-  const setLayoutMode = useLayoutStore(s => s.setMode);
   const { themeId, setTheme } = useThemeStore();
   const ui = useUiStore();
   const panelAppearance = ui.navMode === 'notch' ? ui.notchPanelAppearance : ui.sidebarPanelAppearance;
@@ -360,29 +358,6 @@ function AppearanceSection() {
     <div>
       <h2 className="text-base font-bold mb-1" style={{ color: 'var(--color-text)' }}>{t('settings.appearanceUi.title')}</h2>
       <p className="text-sm mb-5" style={{ color: 'var(--color-text-secondary)' }}>{t('settings.appearanceUi.subtitle')}</p>
-
-      {/* ── Режим интерфейса ── */}
-      <div className="mb-6 rounded-2xl p-4" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
-        <p className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color:'var(--color-text-tertiary)' }}>Режим интерфейса</p>
-        <div className="flex gap-2">
-          {([
-            { key:'standard' as LayoutMode, label:'Стандартный', desc:'Текущий интерфейс' },
-            { key:'innovative' as LayoutMode, label:'Инновационный', desc:'Полный редизайн' },
-            { key:'extended' as LayoutMode, label:'Расширенный', desc:'Настройка иконок и кнопок' },
-          ]).map(opt => (
-            <button key={opt.key}
-              onClick={() => { setLayoutMode(opt.key); if(opt.key === 'extended') window.location.hash = '#/settings/extended'; }}
-              className="flex-1 rounded-xl p-3 text-left transition-all"
-              style={{
-                background: (layoutMode) === opt.key ? 'color-mix(in srgb, var(--color-primary) 16%, var(--color-surface))' : 'var(--color-surface-2)',
-                border: `1.5px solid ${(layoutMode) === opt.key ? 'var(--color-primary)' : 'var(--color-border)'}`,
-              }}>
-              <p className="text-[12px] font-bold" style={{ color:(layoutMode) === opt.key ? 'var(--color-primary)' : 'var(--color-text)' }}>{opt.label}</p>
-              <p className="text-[10px] mt-0.5" style={{ color:'var(--color-text-tertiary)' }}>{opt.desc}</p>
-            </button>
-          ))}
-        </div>
-      </div>
 
       <div className="grid grid-cols-3 gap-3 mb-6">
         {THEMES.map(t => (
@@ -1076,6 +1051,35 @@ function AboutSection() {
   );
 }
 
+/** Переключатель 3 режимов интерфейса — показывается внизу страницы настроек. */
+function InterfaceModeSelector() {
+  const layoutMode = useLayoutStore(s => s.mode);
+  const setLayoutMode = useLayoutStore(s => s.setMode);
+  return (
+    <div>
+      <p className="text-xs font-bold mb-3 uppercase tracking-wide" style={{ color:'var(--color-text-tertiary)' }}>Изменить интерфейс</p>
+      <div className="flex gap-2">
+        {([
+          { key:'standard' as LayoutMode, label:'Стандартный', desc:'Текущий интерфейс' },
+          { key:'innovative' as LayoutMode, label:'Инновационный', desc:'Полный редизайн' },
+          { key:'extended' as LayoutMode, label:'Расширенный', desc:'Настройка иконок и кнопок' },
+        ]).map(opt => (
+          <button key={opt.key}
+            onClick={() => { setLayoutMode(opt.key); if(opt.key === 'extended') window.location.hash = '#/settings/extended'; }}
+            className="flex-1 rounded-xl p-3 text-left transition-all"
+            style={{
+              background: (layoutMode) === opt.key ? 'color-mix(in srgb, var(--color-primary) 16%, var(--color-surface))' : 'var(--color-surface-2)',
+              border: `1.5px solid ${(layoutMode) === opt.key ? 'var(--color-primary)' : 'var(--color-border)'}`,
+            }}>
+            <p className="text-[12px] font-bold" style={{ color:(layoutMode) === opt.key ? 'var(--color-primary)' : 'var(--color-text)' }}>{opt.label}</p>
+            <p className="text-[10px] mt-0.5" style={{ color:'var(--color-text-tertiary)' }}>{opt.desc}</p>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const SECTION_CONTENT: Record<Section, React.FC> = {
   account: AccountSection,
   minecraft: MinecraftSection,
@@ -1146,6 +1150,11 @@ export function SettingsPage() {
                   <Content />
                 </motion.div>
               </AnimatePresence>
+
+              {/* Изменить интерфейс — самый низ настроек */}
+              <div className="mt-8 pt-6" style={{ borderTop:'1px solid color-mix(in srgb, var(--color-border) 55%, transparent)' }}>
+                <InterfaceModeSelector />
+              </div>
             </div>
           </div>
         </div>

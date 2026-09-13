@@ -95,33 +95,6 @@ export function InnovativeSettings() {
             <>
               <h2 className="text-lg font-extrabold mb-4" style={{ color: 'var(--color-text)' }}>Внешний вид</h2>
 
-              {/* layout mode */}
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>
-                Режим интерфейса
-              </p>
-              <div className="grid grid-cols-3 gap-2 mb-5">
-                {([
-                  { value: 'standard', label: 'Стандарт', desc: 'Текущий интерфейс' },
-                  { value: 'innovative', label: 'Инновация', desc: 'Новый дизайн' },
-                  { value: 'extended', label: 'Расширенный', desc: 'Кастомизация' },
-                ] as const).map(opt => (
-                  <button key={opt.value} onClick={() => {
-                    setMode(opt.value);
-                    if (opt.value === 'extended') window.location.hash = '#/settings/extended';
-                  }}
-                    className="rounded-xl p-3 text-left transition-all"
-                    style={{
-                      background: mode === opt.value ? 'color-mix(in srgb, var(--color-primary) 16%, var(--color-surface))' : 'var(--color-surface)',
-                      border: `1.5px solid ${mode === opt.value ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                    }}>
-                    <p className="text-[11px] font-bold" style={{ color: mode === opt.value ? 'var(--color-primary)' : 'var(--color-text)' }}>
-                      {opt.label}
-                    </p>
-                    <p className="text-[9px] mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>{opt.desc}</p>
-                  </button>
-                ))}
-              </div>
-
               {/* themes */}
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>
                 Тема
@@ -197,6 +170,35 @@ export function InnovativeSettings() {
             </>
           )}
         </motion.div>
+
+        {/* Изменить интерфейс — самый низ настроек */}
+        <div className="mt-8 border-t pt-6" style={{ borderColor: 'color-mix(in srgb, var(--color-border) 55%, transparent)' }}>
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>
+            Изменить интерфейс
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              { value: 'standard', label: 'Стандарт', desc: 'Текущий интерфейс' },
+              { value: 'innovative', label: 'Инновация', desc: 'Новый дизайн' },
+              { value: 'extended', label: 'Расширенный', desc: 'Кастомизация' },
+            ] as const).map(opt => (
+              <button key={opt.value} onClick={() => {
+                setMode(opt.value);
+                if (opt.value === 'extended') window.location.hash = '#/settings/extended';
+              }}
+                className="rounded-xl p-3 text-left transition-all"
+                style={{
+                  background: mode === opt.value ? 'color-mix(in srgb, var(--color-primary) 16%, var(--color-surface))' : 'color-mix(in srgb, var(--color-surface) 70%, transparent)',
+                  border: `1.5px solid ${mode === opt.value ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                }}>
+                <p className="text-[11px] font-bold" style={{ color: mode === opt.value ? 'var(--color-primary)' : 'var(--color-text)' }}>
+                  {opt.label}
+                </p>
+                <p className="text-[9px] mt-0.5" style={{ color: 'var(--color-text-tertiary)' }}>{opt.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

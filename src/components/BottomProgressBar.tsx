@@ -239,7 +239,9 @@ export function BottomProgressBar() {
 
     /* downloads */
     listen<any>('download-progress', e => {
-      if (launchingRef.current || suppressLaunchDownloadsRef.current) return;
+      // После запуска игры хвостовые события байтов не должны перебивать
+      // финальное состояние карточки («Minecraft запущен» / ошибка).
+      if (suppressLaunchDownloadsRef.current) return;
       const p = e.payload ?? {};
       const current = Number(p.current ?? p.downloaded ?? 0);
       const total = Number(p.total ?? 0);
@@ -255,30 +257,41 @@ export function BottomProgressBar() {
         instanceId: String(p.instance_id ?? ''), instanceName: String(p.instance_name ?? ''),
         iconPath: String(p.icon ?? ''),
       });
-      if (Number(p.percent ?? 0) >= 100 || /^(?:done|complete|error|cancelled)$/i.test(String(p.stage ?? ''))) clearLater(1200);
+      // Во время запуска игры не скрываем карточку по завершении загрузки —
+      // карточку закрывает только launch-status (running/stopped).
+      if (!launchingRef.current && (Number(p.percent ?? 0) >= 100 || /^(?:done|complete|error|cancelled)$/i.test(String(p.stage ?? '')))) clearLater(1200);
     }).then(unsub => unsubs.push(unsub));
 
-    /* launch status — прогресс ЗАПУСКА ИГРЫ не показываем вовсе.
-       События загрузок во время подготовки остаются подавленными, чтобы
-       download-бар не мигал при запуске. Установка сборок, Java и обычные
-       загрузки продолжают отображаться как раньше. */
+    /* launch status — запуск игры показывает СТАРУЮ карточку прогресса
+       в правом нижнем углу: изображение сборки, стадии (аккаунт, версия,
+       загрузка ассетов, natives, запуск) и привычный тонкий прогресс-бар.
+       События загрузок во время подготовки не подавляются, чтобы на
+       карточке было видно «Ассеты», «Библиотеки» и т.п.; после запуска
+       они снова гасятся, чтобы не перебивать финальное состояние. */
     listen<LaunchStatusEvent>('launch-status', e => {
       const p = e.payload ?? {};
       const status = p.status ?? '';
       const iid = p.instance_id ?? null;
-      if (['auth','resolve','install','java','natives','starting','running'].includes(status)) {
+      if (['auth','resolve','install','java','natives','starting'].includes(status)) {
+        if (hideTimer.current) clearTimeout(hideTimer.current);
         launchingRef.current = iid;
+        suppressLaunchDownloadsRef.current = false;
+        setLaunching(iid);
+        push({ source:'launch', stage:status, message:p.message ?? 'Подготовка Minecraft…', current:launchPercent(status), total:100, percent:launchPercent(status), instanceId:iid ?? undefined });
+      } else if (status === 'running') {
+        launchingRef.current = null;
         suppressLaunchDownloadsRef.current = true;
-        if (status === 'running') {
-          launchingRef.current = null;
-        }
+        push({ source:'launch', stage:'running', message:p.message ?? 'Minecraft запущен', current:100, total:100, percent:100, instanceId:iid ?? undefined });
+        clearLater(1600);
+      } else if (status === 'error') {
+        launchingRef.current = null;
+        suppressLaunchDownloadsRef.current = true;
+        push({ source:'launch', stage:'error', message:String(p.message ?? 'Ошибка подготовки'), current:0, total:0, percent:0, instanceId:iid ?? undefined });
+        clearLater(8000);
       } else if (status === 'stopped') {
         launchingRef.current = null;
         suppressLaunchDownloadsRef.current = false;
         clearLater(450);
-      } else {
-        launchingRef.current = null;
-        suppressLaunchDownloadsRef.current = false;
       }
     }).then(unsub => unsubs.push(unsub));
 
@@ -299,6 +312,59 @@ export function BottomProgressBar() {
 
   const etaLabel = eta ? `· ${eta}` : '';
   const fileCount = total > 0 && !isByte ? `${Math.min(current, total)}/${total}` : '';
+
+  /* ── Запуск игры: СТАРАЯ карточка прогресса в правом нижнем углу ──
+     Изображение сборки + стадии (аккаунт, версия, ассеты, natives, запуск)
+     и классический тонкий прогресс-бар. Не круглая кнопка-орб. */
+  const isLaunchCard = Boolean(launching) || event?.source === 'launch';
+  if (isLaunchCard) {
+    const cardName = instance?.name || event?.instanceName || (event?.source === 'launch' ? '' : '');
+    const cardStage = event ? stageLabel(event) : 'Подготовка Minecraft';
+    const cardMsg = event?.message ?? '';
+    return (
+      <motion.div
+        key="launch-card-old"
+        initial={{ opacity: 0, y: 14, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 10, scale: 0.98 }}
+        transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+        className="fixed bottom-4 right-4 z-[155] w-[min(372px,calc(100vw-2rem))] rounded-2xl px-3.5 py-3"
+        style={{
+          background: 'color-mix(in srgb, var(--color-surface) 96%, transparent)',
+          border: `1px solid color-mix(in srgb, var(--color-border) 85%, ${isError ? 'var(--color-error)' : 'var(--color-primary)'})`,
+          boxShadow: '0 18px 48px rgba(0,0,0,0.45), 0 0 0 1px color-mix(in srgb, var(--color-primary) 6%, transparent)',
+          backdropFilter: 'blur(22px)',
+          WebkitBackdropFilter: 'blur(22px)',
+        }}>
+        <div className="flex items-center gap-3">
+          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl"
+            style={{ background: 'color-mix(in srgb, var(--color-primary) 14%, transparent)', color: 'var(--color-primary)' }}>
+            {progressIcon
+              ? <img src={progressIcon} alt="" className="h-full w-full object-cover" draggable={false} />
+              : <LoaderCircle className="h-4 w-4 pl-anim-rotate" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-3">
+              <p className="min-w-0 truncate text-[11px] font-bold" style={{ color: 'var(--color-text)' }}>
+                {cardName || (event?.source === 'launch' ? 'Minecraft' : cardStage)}
+              </p>
+              <span className="shrink-0 text-[11px] font-black tabular-nums"
+                style={{ color: isError ? 'var(--color-error)' : pct >= 100 ? 'var(--color-success)' : 'var(--color-primary)' }}>
+                {isError ? 'Ошибка' : `${pct}%`}
+              </span>
+            </div>
+            <p className="mt-0.5 truncate text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+              {cardStage}{cardMsg ? ` · ${cardMsg}` : ''}
+            </p>
+            <div className="mt-1.5 h-1 overflow-hidden rounded-full" style={{ background: 'var(--color-surface-2)' }}>
+              <div className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${isError ? 100 : pct}%`, background: isError ? 'var(--color-error)' : pct >= 100 ? 'var(--color-success)' : 'var(--color-primary)' }} />
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
 
   const isInnovative = layoutMode === 'innovative';
   const containerStyle: CSSProperties = isInnovative

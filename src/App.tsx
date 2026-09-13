@@ -49,6 +49,7 @@ import { useLaunchStore } from '@/stores/launchStore';
 import { invoke } from '@/lib/invoke-shim';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { initDiscord, setLauncherStatus } from '@/lib/discord';
 
 const WELCOME_KEY = 'portal-welcome-shown';
 const AI_PANEL_KEY = 'portal-ai-panel-open';
@@ -177,6 +178,9 @@ function App() {
 
   // Welcome notification — shown once when there are no instances
   useEffect(() => {
+    void initDiscord();
+    setLauncherStatus('Главная', 'Просмотр лаунчера');
+    
     if (loading) return;
     const shown = localStorage.getItem(WELCOME_KEY);
     if (!shown && instances.length === 0) {

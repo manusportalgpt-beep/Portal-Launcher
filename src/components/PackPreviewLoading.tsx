@@ -23,6 +23,7 @@ export function PackPreviewLoading({ active }: { active: boolean }) {
   const [phrase, setPhrase] = useState('Подключаюсь…');
   const startRef = useRef(0);
   const realRef = useRef<number | null>(null);
+  const doneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const unsub = listen<any>('pack-preview-progress', e => {
@@ -30,10 +31,29 @@ export function PackPreviewLoading({ active }: { active: boolean }) {
       if (typeof p.percent === 'number') {
         realRef.current = p.percent;
         setPercent(Math.max(realRef.current ?? 0, p.percent));
+        if (p.percent >= 100) {
+          // Страховка: бэкенд закончил чтение манифеста (шлёт 100%).
+          // Если вызывающий код забыл выключить оверлей (импорт своего
+          // файла через библиотеку), сами показываем «Готово!» и скрываем
+          // экран, чтобы он не замирал на 100%.
+          if (doneTimerRef.current) clearTimeout(doneTimerRef.current);
+          doneTimerRef.current = setTimeout(() => {
+            setPercent(100);
+            setPhrase('Готово!');
+            const hide = setTimeout(() => setVisible(false), 650);
+            doneTimerRef.current = hide;
+          }, 500);
+        } else if (doneTimerRef.current) {
+          clearTimeout(doneTimerRef.current);
+          doneTimerRef.current = null;
+        }
       }
       if (typeof p.message === 'string' && p.message.trim()) setPhrase(p.message);
     });
-    return () => { void unsub.then(fn => fn()); };
+    return () => {
+      void unsub.then(fn => fn());
+      if (doneTimerRef.current) clearTimeout(doneTimerRef.current);
+    };
   }, []);
 
   useEffect(() => {

@@ -558,16 +558,20 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
 
   const pickFile = () => {
     void (async () => {
-      try {
       setPickLoading(true);
+      try {
         const nativePath = await invoke<string | null>('pick_local_modpack');
-        if (!nativePath) { setPickLoading(false); return; }
+        if (!nativePath) return;
         const fileName = nativePath.split(/[\\/]/).pop() || 'сборка.mrpack';
         const source = fileName.toLowerCase().endsWith('.mrpack') ? 'modrinth' : 'curseforge';
         const preview = await invoke<ModpackPreview>('preview_remote_modpack', { downloadUrl: nativePath, fileName, source, apiKey: null, projectName: null, projectAuthor: null, projectAuthorUrl: null, projectAuthorAvatarUrl: null, projectIconUrl: null });
         setLocalPreview({ preview, dataUrl: nativePath, fileName });
       } catch (e) {
         dialog.alert(`Не удалось прочитать выбранный .mrpack: ${String(e)}. Файл не был изменён.`, { title: 'Импорт .mrpack', danger: true });
+      } finally {
+        // Оверлей «чтение манифеста» обязан закрыться в любом случае —
+        // раньше он замирал на 100% после успешного превью.
+        setPickLoading(false);
       }
     })();
   };

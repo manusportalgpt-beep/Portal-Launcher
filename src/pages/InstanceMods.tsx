@@ -198,7 +198,22 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
 
   useEffect(() => {
     activeInstanceIdRef.current = instanceId;
-    setMods([]); setDeletedMods([]); setWorlds([]); setScreenshots([]); setFiles([]); setProgressMap({});
+    // Optimistic UI: keep cached mods visible while background refresh happens
+    const cacheKey = `portal-instance-mods:v2:${instanceId}`;
+    let cached: { savedAt: number; mods: ModEntry[] } | null = null;
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) cached = JSON.parse(raw) as { savedAt: number; mods: ModEntry[] };
+    } catch { cached = null; }
+    
+    // Keep previous mods visible if we have fresh cache (< 5 min), otherwise show empty
+    if (cached && Array.isArray(cached.mods) && Date.now() - cached.savedAt < 300_000) {
+      setMods(cached.mods);
+    } else {
+      setMods([]);
+    }
+    
+    setDeletedMods([]); setWorlds([]); setScreenshots([]); setFiles([]); setProgressMap({});
     setSelectedModIds(new Set()); setContentFilter('all'); setSearch(''); setCwd(''); setError(null);
   }, [instanceId]);
 
@@ -249,17 +264,15 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       const raw = localStorage.getItem(cacheKey);
       if (raw) cached = JSON.parse(raw) as { savedAt: number; mods: ModEntry[] };
     } catch { cached = null; }
-    if (!force && cached && Array.isArray(cached.mods) && Date.now() - cached.savedAt < 30_000) {
-      setMods(cached.mods);
-      setLoading(false);
-      return;
-    }
+    
+    // Background refresh: always return cached data immediately, then refresh in background
     if (cached && Array.isArray(cached.mods)) {
       setMods(cached.mods);
       setLoading(false);
     } else {
       setLoading(true);
     }
+    
     setError(null);
     try {
       const res = (await invoke('get_instance_mods', { instanceId })) as any[] | string;

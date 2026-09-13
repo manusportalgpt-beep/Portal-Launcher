@@ -1480,12 +1480,22 @@ pub async fn import_remote_modpack(
     let _ = std::fs::remove_file(temp_path);
     let mut instance = result?;
 
+    // The inner importer already saved the instance and emitted its own 100%
+    // "done". The optional cover/screenshots below used to run silently with a
+    // 300s client timeout, so the UI showed 100% while the command was still
+    // hanging (and the new instance never appeared in the library). Keep the
+    // old progress card alive and emit a final "done" only after the save.
+    app.emit("instance-progress", serde_json::json!({
+        "stage":"copying","instance_id":instance.id,"name":instance.name,
+        "icon":instance.icon.as_deref(),"percent":96,"message":"Финализация сборки…"
+    })).ok();
+
     // Archive covers are preferred, but Discover metadata is a reliable fallback
     // for packs that ship without a local icon. Persist it exactly like a user
     // selected instance image so Library, header and Settings share one source.
     if instance.icon.is_none() {
         if let Some(icon_url) = project_icon_url.filter(|url| !url.trim().is_empty()) {
-            if let Ok(response) = client.get(&icon_url).send().await {
+            if let Ok(response) = client.get(&icon_url).timeout(std::time::Duration::from_secs(15)).send().await {
                 if let Ok(response) = response.error_for_status() {
                     if let Ok(bytes) = response.bytes().await {
                         if !bytes.is_empty() && bytes.len() <= 8 * 1024 * 1024 {
@@ -1504,7 +1514,7 @@ pub async fn import_remote_modpack(
     let screenshots_dir = instances_dir().join(&instance.id).join(".minecraft").join("screenshots");
     std::fs::create_dir_all(&screenshots_dir).ok();
     for (index, url) in project_screenshots.unwrap_or_default().into_iter().filter(|url| !url.trim().is_empty()).take(8).enumerate() {
-        if let Ok(response) = client.get(&url).send().await {
+        if let Ok(response) = client.get(&url).timeout(std::time::Duration::from_secs(15)).send().await {
             if let Ok(response) = response.error_for_status() {
                 if let Ok(bytes) = response.bytes().await {
                     if !bytes.is_empty() && bytes.len() <= 16 * 1024 * 1024 {
@@ -1516,6 +1526,10 @@ pub async fn import_remote_modpack(
         }
     }
     save_instance(&instance)?;
+    app.emit("instance-progress", serde_json::json!({
+        "stage":"done","instance_id":instance.id,"name":instance.name,
+        "icon":instance.icon.as_deref(),"percent":100,"message":"Сборка установлена!"
+    })).ok();
     Ok(instance)
 }
 

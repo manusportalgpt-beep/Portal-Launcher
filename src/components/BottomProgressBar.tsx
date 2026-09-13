@@ -60,6 +60,7 @@ function stageLabel(e: ProgressEvent): string {
       case 'extracting': return 'Распаковка файлов';
       case 'downloading': return 'Загрузка файлов';
       case 'copying': return 'Копирование файлов';
+      case 'installing': return 'Установка…';
       default: return 'Установка сборки';
     }
   }
@@ -222,6 +223,34 @@ export function BottomProgressBar() {
       });
       const pct = Number(p.percent ?? 0);
       if (pct >= 100 || /^(?:done|complete|error|cancelled|canceled)$/i.test(String(p.stage ?? ''))) clearLater(1400);
+    }).then(unsub => unsubs.push(unsub));
+
+    /* pack manifest preview (reading .mrpack/.zip before install) — the same
+       old card, so the whole import flow shares one progress UI */
+    listen<any>('pack-preview-progress', e => {
+      const p = e.payload ?? {};
+      const percent = Number(p.percent ?? 0);
+      push({
+        source: 'instance',
+        stage: 'importing',
+        message: String(p.message ?? 'Чтение манифеста…'),
+        current: percent, total: 100, percent,
+      });
+      if (percent >= 100) clearLater(1200);
+    }).then(unsub => unsubs.push(unsub));
+
+    /* mod installs (Discover / FindProjects: install_mod, install_curseforge_mod) */
+    listen<any>('mod-progress', e => {
+      const p = e.payload ?? {};
+      const percent = Number(p.percent ?? 0);
+      push({
+        source: 'instance',
+        stage: 'installing',
+        message: String(p.message ?? 'Установка…'),
+        current: percent, total: 100, percent,
+        instanceName: String(p.name ?? ''),
+      });
+      if (percent >= 100) clearLater(1200);
     }).then(unsub => unsubs.push(unsub));
 
     /* java */

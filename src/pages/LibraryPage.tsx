@@ -23,7 +23,6 @@ import { InstanceFileEditor } from '@/components/InstanceFileEditor';
 import { InstanceScreenshotManager } from '@/components/InstanceScreenshotManager';
 import { LanRelayBanner, LanRelayAddressChip } from '@/components/LanRelayControls';
 import { ModpackManifestPreview, type ModpackPreview } from '@/components/ModpackManifestPreview';
-import { PackPreviewLoading } from '@/components/PackPreviewLoading';
 import { useUiStore } from '@/stores/uiStore';
 import { PlayTimeChart } from '@/components/PlayTimeChart';
 import modrinthWrench from '@/assets/modrinth-wrench-clean.png';
@@ -381,7 +380,6 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
   const [externalLoading, setExternalLoading] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [localPreview, setLocalPreview] = useState<{ preview: ModpackPreview; dataUrl: string; fileName: string } | null>(null);
-  const [pickLoading, setPickLoading] = useState(false);
   const [loaderVersions, setLoaderVersions] = useState<LoaderVersionOption[]>([]);
   const [loaderVersionsLoading, setLoaderVersionsLoading] = useState(false);
   const mcVersions = useAvailableVersions(showSnapshots);
@@ -558,7 +556,6 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
 
   const pickFile = () => {
     void (async () => {
-      setPickLoading(true);
       try {
         const nativePath = await invoke<string | null>('pick_local_modpack');
         if (!nativePath) return;
@@ -568,10 +565,6 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
         setLocalPreview({ preview, dataUrl: nativePath, fileName });
       } catch (e) {
         dialog.alert(`Не удалось прочитать выбранный .mrpack: ${String(e)}. Файл не был изменён.`, { title: 'Импорт .mrpack', danger: true });
-      } finally {
-        // Оверлей «чтение манифеста» обязан закрыться в любом случае —
-        // раньше он замирал на 100% после успешного превью.
-        setPickLoading(false);
       }
     })();
   };
@@ -799,7 +792,6 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
           )}
         </div>
       </motion.div>
-      <PackPreviewLoading active={pickLoading} />
       {localPreview && <ModpackManifestPreview preview={localPreview.preview} onClose={() => setLocalPreview(null)} onInstall={excludedPaths => { void importPreparedArchive(localPreview.dataUrl, localPreview.fileName, excludedPaths); }} />}
     </motion.div>
   );
@@ -957,9 +949,8 @@ function NewGroupModal({ onClose, onCreate }: { onClose: () => void; onCreate: (
   );
 }
 
-function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted, onExtraGroups, onImported, onImportStarted, onImportFailed }: {
+function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted, onExtraGroups, onImported }: {
   instances: Instance[]; onSelect:(id:string)=>void; onNew:()=>void; onOpenInstall:()=>void; onOpenDeleted:()=>void; onExtraGroups: string[]; onImported:(raw:any)=>void;
-  onImportStarted: (fileName: string) => void; onImportFailed: () => void;
 }) {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -1013,7 +1004,6 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
       for (const file of archives) {
         // `File.slice()` в WebView может вернуть неполную сигнатуру у
         // корректного полного файла. Проверку формата выполняет Rust ZIP-парсер.
-        onImportStarted(file.name);
         const nativePathCandidate = (file as unknown as { path?: unknown }).path;
         const nativePath = typeof nativePathCandidate === 'string' && nativePathCandidate.trim()
           ? nativePathCandidate
@@ -1029,7 +1019,6 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
         onImported(imported);
       }
     } catch (error) {
-      onImportFailed();
       dialog.alert(String(error), { title: 'Импорт сборки', danger: true });
     } finally {
       setImporting(false);
@@ -2154,23 +2143,6 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-function LibraryImportState({ fileName }: { fileName: string }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-xl" style={{ background:'var(--color-primary-dim)', border:'1px solid var(--color-primary)', color:'var(--color-primary)' }}>
-        <Upload className="h-7 w-7 " />
-      </div>
-      <p className="mt-5 text-base font-black" style={{ color:'var(--color-text)' }}>Пожалуйста, подождите…</p>
-      <p className="mt-1 max-w-md text-sm leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>
-        «{fileName}» передан лаунчеру и читается. Исходный файл остаётся без изменений; затем откроется manifest и начнётся установка.
-      </p>
-      <div className="mt-5 h-1.5 w-52 overflow-hidden rounded-full" style={{ background:'var(--color-surface-2)' }}>
-        <div className="h-full w-2/5 rounded-full " style={{ background:'var(--color-primary)' }} />
-      </div>
-    </div>
-  );
-}
-
 function DeletedInstancesPanel({ onBack, onRestore }: { onBack: () => void; onRestore: (raw: any) => void }) {
   const retentionMinutes = useSettingsStore(s => s.deletedInstanceRetentionMinutes);
   const [items, setItems] = useState<DeletedInstanceRecord[]>([]);
@@ -2207,7 +2179,6 @@ export function LibraryPage() {
   const { instances, add, update, remove, selectedId, select: setSelectedId } = useInstanceStore();
   const [showCreate, setShowCreate] = useState(false);
   const [createInitialStep, setCreateInitialStep] = useState<CreateStep>('type');
-  const [pendingImportName, setPendingImportName] = useState<string | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
 
   useEffect(() => {
@@ -2269,7 +2240,6 @@ export function LibraryPage() {
       totalPlayTime: 0,
       color: ['#6C5CE7','#E74C3C','#2ECC71','#3498DB','#F39C12'][Math.floor(Math.random()*5)],
     };
-    setPendingImportName(null);
     add(inst); setSelectedId(inst.id); navigate(`/library/${inst.id}`);
   };
 
@@ -2287,8 +2257,6 @@ export function LibraryPage() {
       <div className="flex-1 min-w-0 overflow-hidden">
         {showDeleted ? (
           <DeletedInstancesPanel onBack={() => setShowDeleted(false)} onRestore={handleCreated} />
-        ) : pendingImportName ? (
-          <LibraryImportState fileName={pendingImportName} />
         ) : selectedId && instances.find(i => i.id===selectedId) ? (
           <InstanceDetail
             inst={instances.find(i => i.id===selectedId)!}
@@ -2304,8 +2272,6 @@ export function LibraryPage() {
             onOpenDeleted={() => setShowDeleted(true)}
             onExtraGroups={[]}
             onImported={handleCreated}
-            onImportStarted={setPendingImportName}
-            onImportFailed={() => setPendingImportName(null)}
           />
         )}
       </div>

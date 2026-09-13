@@ -14,7 +14,6 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useInstalledStore, useIsInstalled } from '@/stores/installedStore';
 import { triggerInstallEffect } from '@/components/InstallEffectOverlay';
 import { ModpackManifestPreview as SelectableManifestPreview } from '@/components/ModpackManifestPreview';
-import { PackPreviewLoading } from '@/components/PackPreviewLoading';
 import { useAuthorAvatar } from '@/lib/author-avatar';
 import { saveSearchReturn } from '@/lib/search-navigation';
 import { useLaunchStore } from '@/stores/launchStore';
@@ -318,7 +317,6 @@ export function ModDetail() {
   const [tab, setTab] = useState<'desc' | 'versions' | 'deps' | 'screenshots'>('desc');
 
   const [installing, setInstalling] = useState(false);
-  const [installProgress, setInstallProgress] = useState(0);
   const [installMessage, setInstallMessage] = useState('');
   const [installError, setInstallError] = useState('');
   const [showPicker, setShowPicker] = useState(false);
@@ -355,7 +353,6 @@ export function ModDetail() {
     loadProject();
     const unsub = listen('mod-progress', (e: any) => {
       const p = e.payload;
-      setInstallProgress(p.percent ?? 0);
       setInstallMessage(p.message ?? '');
     });
 
@@ -513,8 +510,7 @@ export function ModDetail() {
   const doInstallModpack = async (excludedPaths: string[] = []) => {
     setInstalling(true);
     setInstallError('');
-    setInstallProgress(5);
-    setInstallMessage('Downloading modpack archive…');
+    setInstallMessage('Устанавливаю сборку…');
     try {
       const packVersion = pendingVersion ?? versions[0];
       const packFile = packVersion?.files?.find(f => f.primary) ?? packVersion?.files?.[0];
@@ -532,6 +528,7 @@ export function ModDetail() {
         projectIconUrl: project?.icon_url ?? null,
         projectScreenshots: (project?.gallery ?? []).map(item => item.url).filter(Boolean),
       });
+      if (!raw?.id) throw new Error('Установка не вернула созданную сборку. Исходный файл не был изменён.');
       const storeInst: Instance = {
         id: raw.id,
         name: raw.name,
@@ -549,8 +546,8 @@ export function ModDetail() {
       };
       addInstance(storeInst);
       setPendingVersion(null);
-      setInstallProgress(100);
-      setInstallMessage('Modpack installed!');
+      setInstallMessage('Сборка установлена!');
+      navigate(`/library/${raw.id}`);
     } catch (e: any) {
       setInstallError(String(e));
     } finally {
@@ -645,7 +642,6 @@ export function ModDetail() {
       iconUrl: project?.icon_url ?? null,
       contentType: modType,
     });
-    setInstallProgress(100);
     setInstallMessage('Установлено');
   };
 
@@ -658,8 +654,7 @@ export function ModDetail() {
     setShowPicker(false);
     setInstalling(true);
     setInstallError('');
-    setInstallProgress(5);
-    setInstallMessage('Finding newest compatible version…');
+    setInstallMessage('Ищу совместимую версию…');
     try {
       if (source === 'modrinth' && (project?.project_type ?? 'mod') === 'mod') {
         const compatibility = await invoke<any>('check_mod_compatibility', { instanceId, projectId: project?.id ?? modId ?? '' });
@@ -1018,12 +1013,6 @@ export function ModDetail() {
                     ? <><Check className="w-4 h-4" />Установлено</>
                     : <><Zap className="w-4 h-4" />Установить</>}
                 </button>
-                {installing && (
-                  <div className="w-32 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--color-border)' }}>
-                    <motion.div className="h-full rounded-full" style={{ background: 'var(--color-primary)' }}
-                      animate={{ width: `${installProgress}%` }} transition={{ duration: 0.3 }} />
-                  </div>
-                )}
                 {installError && (
                   <p className="text-xs max-w-[200px] text-right" style={{ color: 'var(--color-error)' }}>{installError}</p>
                 )}
@@ -1213,7 +1202,6 @@ export function ModDetail() {
         </section>
       </div>
 
-      <PackPreviewLoading active={previewLoading} />
       <AnimatePresence>
         {modpackPreview && <SelectableManifestPreview preview={modpackPreview} onClose={() => setModpackPreview(null)} onInstall={excludedPaths => { setModpackPreview(null); void doInstallModpack(excludedPaths); }} />}
         {showPicker && (

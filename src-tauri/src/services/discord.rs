@@ -1,9 +1,12 @@
 use discord_rich_presence::DiscordIpc;
 use discord_rich_presence::DiscordIpcClient;
-use discord_rich_presence::model::RichPresence;
+use discord_rich_presence::model::{RichPresence, Assets, Party, Button};
 use std::sync::Mutex;
 use once_cell::sync::Lazy;
 use tauri::State;
+
+const GITHUB_URL: &str = "https://github.com/manusportalgpt-beep/Portal-Launcher";
+const LAUNCHER_PROTOCOL: &str = "portal-launcher://join";
 
 // Структура для хранения клиента Discord
 pub struct DiscordState {
@@ -87,6 +90,11 @@ pub fn set_launcher_status(
     page: String,
     details: Option<String>,
 ) -> Result<(), String> {
+    // Пытаемся подключиться, если еще не подключено
+    if state.connect().is_err() {
+        return Ok(()); // Discord не запущен, просто игнорируем
+    }
+
     let mut presence = RichPresence::new()
         .state(&page);
 
@@ -94,13 +102,16 @@ pub fn set_launcher_status(
         presence = presence.details(&d);
     }
 
-    // Добавляем изображения
-    presence = presence
-        .assets(
-            discord_rich_presence::model::Assets::new()
-                .large_image("launcher_icon") // Имя картинки из Discord Developer Portal
-                .large_text("Portal Launcher")
-        );
+    // Добавляем изображения и кнопки
+    let mut assets = Assets::new()
+        .large_image("launcher_icon") // Имя картинки из Discord Developer Portal
+        .large_text("Portal Launcher");
+
+    presence = presence.assets(assets)
+        .buttons(vec![
+            Button::new("Скачать лаунчер", GITHUB_URL),
+            Button::new("Присоединиться", LAUNCHER_PROTOCOL),
+        ]);
 
     state.update_presence(presence)
 }
@@ -114,7 +125,13 @@ pub fn set_game_status(
     server_name: Option<String>,
     players_online: Option<u32>,
     max_players: Option<u32>,
+    instance_name: Option<String>,
 ) -> Result<(), String> {
+    // Пытаемся подключиться, если еще не подключено
+    if state.connect().is_err() {
+        return Ok(()); // Discord не запущен, просто игнорируем
+    }
+
     let state_text = if mode == "multiplayer" {
         if let Some(server) = &server_name {
             format!("Playing on {}", server)
@@ -125,14 +142,20 @@ pub fn set_game_status(
         "Playing Solo".to_string()
     };
 
+    let details_text = if let Some(inst) = &instance_name {
+        format!("{} - {}", inst, version)
+    } else {
+        format!("Minecraft {}", version)
+    };
+
     let mut presence = RichPresence::new()
         .state(&state_text)
-        .details(&format!("Minecraft {}", version));
+        .details(&details_text);
 
     // Добавляем изображения
-    let mut assets = discord_rich_presence::model::Assets::new()
+    let mut assets = Assets::new()
         .large_image("game_icon") // Имя картинки из Discord Developer Portal
-        .large_text(&format!("Minecraft {}", version));
+        .large_text(&details_text);
 
     // Маленькая иконка для режима
     if mode == "multiplayer" {
@@ -146,10 +169,17 @@ pub fn set_game_status(
     // Добавляем информацию о партии (для приглашений)
     if let (Some(current), Some(max)) = (players_online, max_players) {
         presence = presence.party(
-            discord_rich_presence::model::Party::new()
+            Party::new()
+                .id(instance_name.unwrap_or_else(|| "default".to_string()))
                 .size((current, max))
         );
     }
+
+    // Добавляем кнопки
+    presence = presence.buttons(vec![
+        Button::new("Скачать лаунчер", GITHUB_URL),
+        Button::new("Присоединиться", LAUNCHER_PROTOCOL),
+    ]);
 
     state.update_presence(presence)
 }

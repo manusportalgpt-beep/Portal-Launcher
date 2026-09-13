@@ -40,8 +40,8 @@ fn main() {
     
     let app_state = AppState::new();
     
-    // Discord Rich Presence Application ID (замените на ваш из Discord Developer Portal)
-    let discord_app_id = "YOUR_DISCORD_APPLICATION_ID".to_string();
+    // Discord Rich Presence Application ID
+    let discord_app_id = "1548634472554037368".to_string();
     let discord_state = DiscordState::new(discord_app_id);
     
     let _polling_handle = std::thread::spawn(move || {

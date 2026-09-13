@@ -166,7 +166,7 @@ const defaults = {
   navItemOrder: ['home', 'discover', 'skins', 'library'],
   navHoverMs: 180,
   notchWidth: 72,
-  sidebarWidth: 88,
+  sidebarWidth: 200,
   navItemScale: 100,
   uiScale: 100,
   cornerRadius: 12,
@@ -224,7 +224,7 @@ const defaults = {
   sidebarPanelAppearance: {
     alignment: 'start' as NavAlignment, gap: 4, edgePadding: 10, opacity: 100, blur: 0,
     shadow: 'none' as NavShadow, border: 'none' as NavBorder, activeIndicator: 'line' as NavActiveIndicator,
-    labels: 'icons' as NavLabels, hoverIndicator: 'square' as NavHoverIndicator, interactionShape: 'square' as NavInteractionShape,
+    labels: 'always' as NavLabels, hoverIndicator: 'square' as NavHoverIndicator, interactionShape: 'square' as NavInteractionShape,
   },
   contentWidth: 100,
   contentInset: 0,
@@ -241,7 +241,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'portal-launcher-ui',
-      version: 7,
+      version: 8,
       migrate: (persisted: any, version) => {
         // Migrate only stock Title Bar heights from earlier releases; custom heights remain the user's choice.
         if (version < 3 && [28, 30, 32].includes(persisted?.titlebarHeight)) persisted.titlebarHeight = 26;
@@ -260,6 +260,19 @@ export const useUiStore = create<UiState>()(
             shadow: 'none', border: 'none', activeIndicator: 'line', labels: 'icons',
             hoverIndicator: 'square', interactionShape: 'square',
           };
+        }
+        // v8: портальная боковая панель — подписи всегда видны и панель шире.
+        if (version < 8) {
+          persisted.sidebarPanelAppearance = {
+            ...(persisted.sidebarPanelAppearance || {}),
+            labels: 'always',
+            hoverIndicator: 'square',
+            interactionShape: 'square',
+          };
+          const width = persisted?.sidebarWidth;
+          if (!width || typeof width !== 'number') persisted.sidebarWidth = 200;
+          else if (width < 160) persisted.sidebarWidth = 200;
+          else persisted.sidebarWidth = Math.min(width + 40, 232);
         }
         return persisted;
       },

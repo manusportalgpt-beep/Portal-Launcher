@@ -113,7 +113,7 @@ export function NavigationPanelEditor() {
             <Range label="Иконки сборок в панели" value={draft.navInstanceCount} min={0} max={16} step={1} unit="" onChange={value => setNumber('navInstanceCount', value)} />
             {isNotch
               ? <Range label="Ширина Notch-панели" value={draft.notchWidth} min={38} max={100} step={2} unit="%" onChange={value => setNumber('notchWidth', value)} />
-              : <Range label="Ширина боковой панели" value={draft.sidebarWidth} min={48} max={168} step={4} unit=" px" onChange={value => setNumber('sidebarWidth', value)} />}
+              : <Range label="Ширина боковой панели" value={draft.sidebarWidth} min={48} max={232} step={4} unit=" px" onChange={value => setNumber('sidebarWidth', value)} />}
           </div>
 
           <div className="mt-3 flex justify-end gap-2">

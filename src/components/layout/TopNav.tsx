@@ -15,6 +15,7 @@ import { invoke } from '@/lib/invoke-shim';
 import { getAvatarUrl, getAvatarFallbackUrl } from '@/lib/avatar';
 import { toIconSrc } from '@/lib/icon-src';
 import { CachedPlayerFace } from '@/components/CachedPlayerFace';
+import './portal-sidebar.css';
 
 interface NavItem { to: string; icon: LucideIcon; labelKey: 'home' | 'discover' | 'skins' | 'library' | 'settings'; end?: boolean }
 
@@ -75,8 +76,36 @@ function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem
   );
 }
 
+/** Пункт боковой панели в портальном стиле (стандартный режим). */
+function PortalSidebarItem({ item, scale = 100 }: { item: NavItem; scale?: number }) {
+  const Icon = item.icon;
+  const { t } = useTranslation();
+  const label = t(`nav.${item.labelKey}`);
+  const height = Math.max(36, Math.round(42 * scale / 100));
+  return (
+    <NavLink
+      to={item.to}
+      end={item.end}
+      title={label}
+      data-testid={`nav-${item.labelKey}`}
+      className="ps-nav-item group"
+      style={{ height }}
+    >
+      {({ isActive }) => (
+        <>
+          <span className="ps-nav-icon" style={{ color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
+            <Icon size={15} strokeWidth={2} />
+          </span>
+          <span className="ps-nav-label">{label}</span>
+          <ChevronRight size={13} className="ps-nav-chev" style={{ color: 'var(--color-primary)' }} />
+        </>
+      )}
+    </NavLink>
+  );
+}
+
 /** Быстрый доступ к сборкам — показывается сразу после Library. */
-function InstanceQuickAccess({ vertical }: { vertical: boolean }) {
+function InstanceQuickAccess({ vertical, shape = 'round', grid = false }: { vertical: boolean; shape?: 'round' | 'square'; grid?: boolean }) {
   const navigate = useNavigate();
   const instances = useInstanceStore(s => s.instances);
   const update = useInstanceStore(s => s.update);
@@ -121,8 +150,9 @@ function InstanceQuickAccess({ vertical }: { vertical: boolean }) {
   }, [user, globalSettings, getStatus, setStatus, navigate, update]);
 
   const shown = instances.slice(0, count);
+  const isSquare = shape === 'square';
   return (
-    <div className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1`}>
+    <div className={grid ? 'ps-instances' : `flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1`}>
       {shown.map(inst => {
         const status = getStatus(inst.id);
         const busy = status === 'launching';
@@ -132,13 +162,13 @@ function InstanceQuickAccess({ vertical }: { vertical: boolean }) {
             onClick={() => navigate(`/library/${inst.id}`)}
             onContextMenu={e => { e.preventDefault(); void launch(inst); }}
             disabled={busy}
-            className="rounded-full overflow-hidden shrink-0 flex items-center justify-center font-bold text-[10px] select-none cursor-pointer transition-transform hover:scale-110"
-            style={{ width: vertical ? 40 : 32, height: vertical ? 40 : 32, background: inst.color || 'var(--color-surface-2)', color: '#fff', border: running ? '2px solid var(--color-success)' : '1px solid var(--color-border)' }}>
+            className={`${isSquare ? 'ps-inst' : 'rounded-full transition-transform hover:scale-110'} overflow-hidden shrink-0 flex items-center justify-center font-bold text-[10px] select-none cursor-pointer`}
+            style={{ width: isSquare ? '100%' : (vertical ? 40 : 32), height: isSquare ? undefined : (vertical ? 40 : 32), aspectRatio: isSquare ? 1 : undefined, background: inst.color || 'var(--color-surface-2)', color: '#fff', border: running ? '2px solid var(--color-success)' : '1px solid var(--color-border)' }}>
             {busy
               ? <span className="h-3 w-3 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
               : inst.iconPath
                 ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" draggable={false} style={{ imageRendering:'auto', filter:'none', opacity:1 }} />
-                : inst.name[0]?.toUpperCase()}
+                : <span className="letter">{inst.name[0]?.toUpperCase()}</span>}
           </button>
         );
       })}
@@ -192,26 +222,61 @@ function AccountButton({ vertical = false }: { vertical?: boolean }) {
   );
 }
 
-/** Боковая навигация (режим "Sidebar"). */
-function SidebarNav({ extendedOrder, extendedCompact }: { extendedOrder?: string[]; extendedCompact?: boolean }) {
+/** Боковая навигация (режим "Sidebar") — портальная тема. */
+function SidebarNav() {
   const order = useUiStore(s => s.navItemOrder);
   const sidebarWidth = useUiStore(s => s.sidebarWidth);
   const scale = useUiStore(s => s.navItemScale);
   const appearance = useUiStore(s => s.sidebarPanelAppearance);
-  const items = orderedNav(extendedOrder && extendedOrder.length > 0 ? extendedOrder : order);
+  const user = useCurrentUser();
+  const isAuthenticated = useIsAuthenticated();
+  const items = orderedNav(order);
   const justifyContent = appearance.alignment === 'start' ? 'flex-start' : appearance.alignment === 'end' ? 'flex-end' : 'center';
   const borderColor = appearance.border === 'none' ? 'transparent' : appearance.border === 'strong' ? 'var(--color-border-strong)' : 'var(--color-border)';
+  const alpha = Math.min(appearance.opacity, 100);
+  const providerLabel = !user ? ''
+    : user.provider === 'elyby' ? 'Ely.by'
+    : user.provider === 'nickname' ? 'По нику'
+    : user.provider === 'offline' || user.isDemo ? 'Offline'
+    : 'Microsoft';
   return (
-    <aside className="portal-sidebar clean-nav shrink-0 flex flex-col z-40"
-      style={{ width: Math.max(84, sidebarWidth), gap:Math.min(appearance.gap, 5), padding: `${Math.min(appearance.edgePadding, 12)}px 12px`, justifyContent, background:'var(--color-bg)', borderRight:'1px solid var(--color-border)', boxShadow:'none', backdropFilter:'none', WebkitBackdropFilter:'none', transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease' }}>
-      <div className="nav-identity flex h-10 items-center justify-center" title="Portal Launcher">
-        <span className="portal-brand-tile relative"><img src="/launcher-icon.png?rev=portal-square-1" alt="Portal Launcher" draggable={false} /></span>
+    <aside className="portal-sidebar clean-nav portal-skin shrink-0 flex flex-col z-40"
+      style={{
+        width: Math.max(84, sidebarWidth),
+        padding: '10px 10px',
+        justifyContent,
+        borderRight: `1px solid ${borderColor}`,
+        ['--ps-alpha' as string]: `${alpha}%`,
+        ['--ps-blur' as string]: appearance.blur > 0 ? `${appearance.blur}px` : '0px',
+        ['--ps-gap' as string]: `${Math.min(appearance.gap, 5)}px`,
+        boxShadow: appearance.shadow === 'strong' ? '3px 0 20px rgba(0,0,0,.35)' : appearance.shadow === 'soft' ? '1px 0 14px rgba(0,0,0,.22)' : 'none',
+        transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease',
+      } as React.CSSProperties}>
+      <div className="ps-brand" title="Portal Launcher">
+        <span className="ps-logo"><img src="/launcher-icon.png?rev=portal-square-1" alt="Portal Launcher" draggable={false} /></span>
+        <span className="ps-brandname">Portal<small>Launcher</small></span>
       </div>
-      {items.map(item => <DockButton key={item.to} item={item} vertical scale={scale} appearance={appearance} />)}
-      <InstanceQuickAccess vertical />
+
+      <span className="ps-label">Навигация</span>
+      <nav className="ps-nav">
+        {items.map(item => <PortalSidebarItem key={item.to} item={item} scale={scale} />)}
+      </nav>
+
+      <span className="ps-label">Сборки</span>
+      <InstanceQuickAccess vertical grid shape="square" />
+
       <div className="flex-1" />
-      <div className="flex justify-center"><AccountButton vertical /></div>
-      <DockButton item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} vertical scale={scale} appearance={appearance} />
+
+      <div className="ps-footer">
+        <div className="ps-account" title={isAuthenticated && user ? user.username : 'Войти в аккаунт'}>
+          <AccountButton vertical />
+          <div className="min-w-0 flex-1">
+            <div className="ps-account-name">{isAuthenticated && user ? user.username : 'Войти в аккаунт'}</div>
+            <div className="ps-account-provider">{isAuthenticated && user ? providerLabel : 'Нажмите, чтобы войти'}</div>
+          </div>
+        </div>
+        <PortalSidebarItem item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} scale={scale} />
+      </div>
     </aside>
   );
 }
@@ -344,7 +409,7 @@ export interface TopNavExtendedProps {
 
 export function TopNav({ extendedAccent, extendedCompact, extendedIcons, extendedOrder }: TopNavExtendedProps = {}) {
   const navMode = useUiStore(s => s.navMode);
-  return navMode === 'sidebar' ? <SidebarNav extendedOrder={extendedOrder} extendedCompact={extendedCompact} /> : <NotchNav extendedOrder={extendedOrder} extendedCompact={extendedCompact} />;
+  return navMode === 'sidebar' ? <SidebarNav /> : <NotchNav extendedOrder={extendedOrder} extendedCompact={extendedCompact} />;
 }
 
 export default TopNav;

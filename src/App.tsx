@@ -131,8 +131,21 @@ function App() {
   }, [toggleAi]);
   const addNotif = useNotifStore(s => s.add);
   const instances = useInstanceStore(s => s.instances);
+  const syncInstances = useInstanceStore(s => s.syncFromBackend);
   const authAccounts = useAuthStore(s => s.accounts);
   const addAccount = useAuthStore(s => s.addAccount);
+
+  // Sync instances from Rust backend on mount - this keeps the frontend store
+  // in sync with the actual instance.json files and avoids localStorage quota issues
+  useEffect(() => {
+    invoke<any[]>('get_instances')
+      .then(backendInstances => {
+        if (backendInstances && backendInstances.length > 0) {
+          syncInstances(backendInstances);
+        }
+      })
+      .catch(err => console.error('Failed to sync instances from backend:', err));
+  }, [syncInstances]);
 
   // Резервное восстановление аккаунта: если основное хранилище (в браузере)
   // почему-то пришло пустым при старте, пробуем восстановить из Rust-моста —

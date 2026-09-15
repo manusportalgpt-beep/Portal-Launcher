@@ -99,7 +99,7 @@ export const useThemeStore = create<ThemeState>()(
         delete next[themeId];
         return { customThemes: next, themeId: state.themeId === themeId ? 'system' : state.themeId };
       }),
-    }):
+    }),
     { name: 'portal-launcher-theme', storage: safeLocalStorage() },
   ),
 );

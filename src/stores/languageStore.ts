@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { safeLocalStorage } from '@/lib/safe-storage';
 import i18n from '@/i18n';
 
 export type Lang = 'en' | 'ru';
@@ -27,6 +28,7 @@ export const useLanguageStore = create<LanguageState>()(
     }),
     {
       name: 'portal-language',
+      storage: safeLocalStorage(),
       version: 2,
       migrate: (persisted: any) => ({
         ...persisted,

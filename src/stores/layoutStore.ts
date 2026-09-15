@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { safeLocalStorage } from '@/lib/safe-storage';
 
 export type LayoutMode = 'standard' | 'innovative' | 'extended';
 
@@ -30,6 +31,6 @@ export const useLayoutStore = create<LayoutState>()(
       },
       updateExtended: (partial) => set((s) => ({ extended: { ...s.extended, ...partial } })),
     }),
-    { name: 'portal-layout-mode' },
+    { name: 'portal-layout-mode', storage: safeLocalStorage() },
   ),
 );

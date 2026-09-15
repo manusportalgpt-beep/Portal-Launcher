@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist, type StorageValue } from 'zustand/middleware';
+import { persist, type StateStorage, type StorageValue } from 'zustand/middleware';
 
 export interface Instance {
   id: string;
@@ -45,6 +45,70 @@ function serializeLightweight(state: InstanceState): StorageValue<InstanceState>
   }));
   return {
     state: { ...state, instances: lightInstances },
+  };
+}
+
+// Slim the persisted payload down to fit the localStorage quota when it overflows.
+type SlimInstance = {
+  id: string; name: string; description: string;
+  minecraftVersion: string; modLoader: Instance['modLoader'];
+  modLoaderVersion?: string; javaPath?: string; jvmArgs?: string;
+  minRam: number; maxRam: number; createdAt: string;
+  lastPlayed?: string; totalPlayTime: number; color: string;
+  group?: string; installStatus?: 'idle' | 'partial';
+};
+function slimInstances(value: string): string | null {
+  try {
+    const parsed = JSON.parse(value);
+    const state = parsed?.state ?? {};
+    const instances = Array.isArray(state.instances) ? state.instances : [];
+    const slimmed: SlimInstance[] = instances.map((inst: any) => ({
+      id: String(inst?.id ?? ''),
+      name: String(inst?.name ?? ''),
+      description: String(inst?.description ?? '').slice(0, 200),
+      minecraftVersion: String(inst?.minecraftVersion ?? ''),
+      modLoader: ((inst?.modLoader || 'vanilla') as Instance['modLoader']),
+      modLoaderVersion: String(inst?.modLoaderVersion ?? ''),
+      javaPath: String(inst?.javaPath ?? ''),
+      jvmArgs: String(inst?.jvmArgs ?? ''),
+      minRam: Number(inst?.minRam ?? 0),
+      maxRam: Number(inst?.maxRam ?? 0),
+      createdAt: String(inst?.createdAt ?? ''),
+      lastPlayed: inst?.lastPlayed ? String(inst.lastPlayed) : undefined,
+      totalPlayTime: Number(inst?.totalPlayTime ?? 0),
+      color: String(inst?.color ?? ''),
+      group: inst?.group ? String(inst.group) : undefined,
+      installStatus: inst?.installStatus || undefined,
+    }));
+    return JSON.stringify({ ...parsed, state: { ...state, instances: slimmed } });
+  } catch {
+    return null;
+  }
+}
+
+// localStorage wrapper that NEVER lets a quota/write failure take down the app.
+// Instances are a cache anyway — the Rust backend re-syncs them on every launch,
+// so on overflow we drop the least-important fields, then degrade to in-memory.
+function instanceLocalStorage(): StateStorage {
+  return {
+    getItem: (key) => {
+      try { return window.localStorage.getItem(key); } catch { return null; }
+    },
+    setItem: (key, value) => {
+      try {
+        window.localStorage.setItem(key, value);
+      } catch {
+        const slimmed = slimInstances(value);
+        try {
+          if (slimmed !== null) window.localStorage.setItem(key, slimmed);
+        } catch {
+          console.warn('[instances] localStorage quota exceeded — keeping instances in memory only');
+        }
+      }
+    },
+    removeItem: (key) => {
+      try { window.localStorage.removeItem(key); } catch { /* ignore */ }
+    },
   };
 }
 
@@ -99,15 +163,31 @@ export const useInstanceStore = create<InstanceState>()(
         set({ instances: mapped });
       },
     }),
-    { 
+    {
       name: 'portal-instances-v2',
-      // Custom partial serialization to avoid quota errors
+      storage: instanceLocalStorage(),
+      // Persist only the essential fields; icons and long descriptions live on
+      // disk via the backend and are re-synced through syncFromBackend().
       partialize: (state) => ({
-        instances: state.instances.map(inst => ({
-          ...inst,
-          iconPath: undefined, // Strip base64 icons
-        })),
         selectedId: state.selectedId,
+        instances: state.instances.map(inst => ({
+          id: inst.id,
+          name: inst.name,
+          description: (inst.description || '').slice(0, 500),
+          minecraftVersion: inst.minecraftVersion,
+          modLoader: inst.modLoader,
+          modLoaderVersion: inst.modLoaderVersion || '',
+          javaPath: inst.javaPath || '',
+          jvmArgs: inst.jvmArgs || '',
+          minRam: inst.minRam,
+          maxRam: inst.maxRam,
+          createdAt: inst.createdAt,
+          lastPlayed: inst.lastPlayed,
+          totalPlayTime: inst.totalPlayTime,
+          color: inst.color,
+          group: inst.group,
+          installStatus: inst.installStatus,
+        })),
       }),
     }
   )

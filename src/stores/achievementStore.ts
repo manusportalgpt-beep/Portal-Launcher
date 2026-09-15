@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { safeLocalStorage } from '@/lib/safe-storage';
 
 export type AchievementUnlock = { unlockedAt: string };
 
@@ -16,7 +17,7 @@ export const useAchievementStore = create<AchievementState>()(persist(
       set(state => ({ unlocked: { ...state.unlocked, [id]: { unlockedAt: new Date().toISOString() } } }));
     },
   }),
-  { name: 'portal-achievements' },
+  { name: 'portal-achievements', storage: safeLocalStorage() },
 ));
 
 export default useAchievementStore;

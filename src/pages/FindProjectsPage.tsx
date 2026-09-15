@@ -358,8 +358,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
               : cfClass === 5820 ? 'datapack'
                 : installProject.projectType === 'resourcepacks' ? 'resourcepack'
                   : installProject.projectType === 'shaders' ? 'shaderpack'
-                    : installProject.projectType === 'datapacks' ? 'datapack'
-                      : 'mod';
+                    : 'mod';
         console.log('[CF install] selectedSource:', selectedSource, 'cfClass:', cfClass, 'effectiveType:', effectiveType, 'platform:', installProject.platform, 'id:', installProject.id);
         const contentType = effectiveType;
         console.log('[CF install] contentType:', contentType);

@@ -239,19 +239,12 @@ export function BottomProgressBar() {
       if (percent >= 100) clearLater(1200);
     }).then(unsub => unsubs.push(unsub));
 
-    /* mod installs (Discover / FindProjects: install_mod, install_curseforge_mod) */
-    listen<any>('mod-progress', e => {
-      const p = e.payload ?? {};
-      const percent = Number(p.percent ?? 0);
-      push({
-        source: 'instance',
-        stage: 'installing',
-        message: String(p.message ?? 'Установка…'),
-        current: percent, total: 100, percent,
-        instanceName: String(p.name ?? ''),
-      });
-      if (percent >= 100) clearLater(1200);
-    }).then(unsub => unsubs.push(unsub));
+    /* Mod installs (Discover / FindProjects: install_mod, install_curseforge_mod,
+       bulk update) used to open this progress orb (red ring + package icon).
+       Success is already announced by the flying "Added to instance" card, so
+       the orb only adds noise during mod installs — mod-progress is ignored here.
+       instance-progress (modpacks/instance import) and launch keep the orb. */
+    listen<any>('mod-progress', () => { /* intentionally ignored */ }).then(unsub => unsubs.push(unsub));
 
     /* java */
     listen<any>('java-progress', e => {

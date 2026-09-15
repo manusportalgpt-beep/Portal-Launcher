@@ -346,17 +346,25 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
           throw new Error(t('findProjects.install.curseforgeInvalidProject'));
         }
 
-        // contentType определяем по projectType проекта (из fromCurseForge,
-        // который замыкает вкладку). Если проект не имеет projectType —
-        // fallback на 'mod'.
-        const effectiveType = installProject.projectType || 'mods';
-        console.log('[CF install] selectedSource:', selectedSource, 'effectiveType:', effectiveType, 'platform:', installProject.platform, 'id:', installProject.id);
-        const contentType =
-          effectiveType === 'resourcepacks' ? 'resourcepack'
-            : effectiveType === 'shaders' ? 'shaderpack'
-              : 'mod';
+        // contentType определяем как на ModDetail: реальный тип контента
+        // CurseForge (classId: 12 = resource pack, 6552 = shader pack,
+        // 5820 = data pack) важнее карточного projectType. Если карточка по
+        // любой причине помечена как простой мод, фильтр по загрузчику ломал
+        // установку ресурс-паков/шейдеров ("нет подходящей версии").
+        const cfClass = Number(installProject.classId ?? 0);
+        const effectiveType =
+          cfClass === 12 ? 'resourcepack'
+            : cfClass === 6552 ? 'shaderpack'
+              : cfClass === 5820 ? 'datapack'
+                : installProject.projectType === 'resourcepacks' ? 'resourcepack'
+                  : installProject.projectType === 'shaders' ? 'shaderpack'
+                    : installProject.projectType === 'datapacks' ? 'datapack'
+                      : 'mod';
+        console.log('[CF install] selectedSource:', selectedSource, 'cfClass:', cfClass, 'effectiveType:', effectiveType, 'platform:', installProject.platform, 'id:', installProject.id);
+        const contentType = effectiveType;
         console.log('[CF install] contentType:', contentType);
-        const loaderNum = installProject.projectType === 'mods' && loader && loader !== 'vanilla'
+        const isMod = contentType === 'mod';
+        const loaderNum = isMod && loader && loader !== 'vanilla'
           ? CF_LOADER_MAP[loader]
           : undefined;
         const filesResp = await invoke<any>('get_curseforge_mod_files', {
@@ -369,7 +377,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         // CurseForge can omit the newest patch tag even when the compatible
         // file exists. Retry only inside the same loader, then retain only a
         // same-release-line candidate; never cross loaders or major releases.
-        if (rawFiles.length === 0 && normalizedMcVersion) {
+        if (rawFiles.length === 0) {
           // Полный fallback — без gameVersion И без modLoaderType.
           // Предыдущая версия передавала modLoaderType: loaderNum (undefined
           // для контента), что давало тот же пустой результат.
@@ -384,7 +392,6 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         const candidates = rawFiles
           .filter((file: any) => Number(file?.id) > 0 && Boolean(file?.fileName))
           .sort((a: any, b: any) => new Date(b.fileDate ?? 0).getTime() - new Date(a.fileDate ?? 0).getTime());
-        const isMod = installProject.projectType === 'mods';
         let compatible = candidates.filter((file: any) => {
           const tags = Array.isArray(file.gameVersions) ? file.gameVersions.map((tag: unknown) => String(tag).toLowerCase()) : [];
           const versionOk = hasCompatibleMinecraftTag(tags, normalizedMcVersion, true);

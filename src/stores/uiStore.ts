@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { safeLocalStorage } from '@/lib/safe-storage';
 import type { StylePreset } from '@/lib/style-presets';
 
 export type NavMode = 'notch' | 'sidebar';
@@ -241,6 +242,7 @@ export const useUiStore = create<UiState>()(
     }),
     {
       name: 'portal-launcher-ui',
+      storage: safeLocalStorage(),
       version: 8,
       migrate: (persisted: any, version) => {
         // Migrate only stock Title Bar heights from earlier releases; custom heights remain the user's choice.

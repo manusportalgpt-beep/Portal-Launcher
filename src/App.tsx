@@ -45,6 +45,7 @@ import { FirstLaunchExperience } from '@/components/FirstLaunchExperience';
 import { useNotifStore } from '@/stores/notificationStore';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { useAuthStore } from '@/stores/authStore';
+import { pruneLocalStorageCaches } from '@/lib/prune-storage';
 import { useLaunchStore } from '@/stores/launchStore';
 import { invoke } from '@/lib/invoke-shim';
 import { listen } from '@tauri-apps/api/event';
@@ -135,6 +136,10 @@ function App() {
   const syncInstances = useInstanceStore(s => s.syncFromBackend);
   const authAccounts = useAuthStore(s => s.accounts);
   const addAccount = useAuthStore(s => s.addAccount);
+
+  // Trim unbounded optional caches before anything else so localStorage
+  // never fills up and crashes zustand persist with QuotaExceededError.
+  useEffect(() => { pruneLocalStorageCaches(); }, []);
 
   // Sync instances from Rust backend on mount - this keeps the frontend store
   // in sync with the actual instance.json files and avoids localStorage quota issues

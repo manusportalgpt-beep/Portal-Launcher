@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { safeLocalStorage } from '@/lib/safe-storage';
 
 interface Settings {
   defaultPlatform: 'modrinth' | 'curseforge';
@@ -107,6 +108,6 @@ export const useSettingsStore = create<SettingsState>()(
 
       get: () => get(),
     }),
-    { name: 'portal-settings' }
+    { name: 'portal-settings', storage: safeLocalStorage() }
   )
 );

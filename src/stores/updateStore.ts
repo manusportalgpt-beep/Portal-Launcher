@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { safeLocalStorage } from '@/lib/safe-storage';
 
 export interface UpdateNotification {
   version: string;
@@ -49,6 +50,6 @@ export const useUpdateStore = create<UpdateState>()(
       isDismissed: (version) => get().dismissedIds.includes(version),
       setLastChecked: (v) => set({ lastCheckedVersion: v }),
     }),
-    { name: 'portal-updates-v1' }
+    { name: 'portal-updates-v1', storage: safeLocalStorage() }
   )
 );

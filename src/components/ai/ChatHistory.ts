@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { safeLocalStorage } from '@/lib/safe-storage';
 
 export interface ChatAttachment {
   name: string;
@@ -85,6 +86,7 @@ export const useChatHistory = create<ChatHistoryState>()(
     }),
     {
       name: 'portal-chat-history-v1',
+      storage: safeLocalStorage(),
       version: 1,
       // Compress: only store last 50 messages per session, strip dataUrls > 10KB
       partialize: (state) => ({

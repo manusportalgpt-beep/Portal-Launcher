@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { safeLocalStorage } from '@/lib/safe-storage';
 import { themes, type CustomThemeDefinition, type ThemeId } from '@/lib/theme-engine';
 
 type CustomThemeColors = {
@@ -99,7 +100,7 @@ export const useThemeStore = create<ThemeState>()(
         return { customThemes: next, themeId: state.themeId === themeId ? 'system' : state.themeId };
       }),
     }),
-    { name: 'portal-launcher-theme' },
+    { name: 'portal-launcher-theme', storage: safeLocalStorage() },
   ),
 );
 

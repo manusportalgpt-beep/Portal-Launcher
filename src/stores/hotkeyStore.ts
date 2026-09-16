@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { safeLocalStorage } from '@/lib/safe-storage';
 
 export type HotkeyAction = 'home' | 'discover' | 'library' | 'settings' | 'librarySearch' | 'newInstance';
@@ -33,4 +33,4 @@ export function normaliseHotkey(event: KeyboardEvent): string | null {
 }
 
 interface HotkeyState { bindings: HotkeyBindings; keyboardNavigationEnabled: boolean; setBinding: (action: HotkeyAction, binding: string) => void; setKeyboardNavigationEnabled: (enabled: boolean) => void; reset: () => void; }
-export const useHotkeyStore = create<HotkeyState>()(persist((set) => ({ bindings: HOTKEY_DEFAULTS, keyboardNavigationEnabled: true, setBinding: (action, binding) => set(state => ({ bindings: { ...state.bindings, [action]: binding } })), setKeyboardNavigationEnabled: (enabled) => set({ keyboardNavigationEnabled: enabled }), reset: () => set({ bindings: HOTKEY_DEFAULTS, keyboardNavigationEnabled: true }) }), { name:'portal-launcher-hotkeys', storage: safeLocalStorage() }));
+export const useHotkeyStore = create<HotkeyState>()(persist((set) => ({ bindings: HOTKEY_DEFAULTS, keyboardNavigationEnabled: true, setBinding: (action, binding) => set(state => ({ bindings: { ...state.bindings, [action]: binding } })), setKeyboardNavigationEnabled: (enabled) => set({ keyboardNavigationEnabled: enabled }), reset: () => set({ bindings: HOTKEY_DEFAULTS, keyboardNavigationEnabled: true }) }), { name:'portal-launcher-hotkeys', storage: createJSONStorage(() => safeLocalStorage()) }));

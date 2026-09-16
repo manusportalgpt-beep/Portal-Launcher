@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist, type StorageValue } from 'zustand/middleware';
+import { persist, createJSONStorage, type StorageValue } from 'zustand/middleware';
 import { safeLocalStorage } from '@/lib/safe-storage';
 
 export interface Instance {
@@ -102,7 +102,7 @@ export const useInstanceStore = create<InstanceState>()(
     }),
     { 
       name: 'portal-instances-v2',
-      storage: safeLocalStorage(),
+      storage: createJSONStorage(() => safeLocalStorage()),
       // Custom partial serialization to avoid quota errors
       partialize: (state) => ({
         instances: state.instances.map(inst => ({

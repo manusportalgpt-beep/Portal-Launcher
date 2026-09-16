@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { safeLocalStorage } from '@/lib/safe-storage';
 
 export interface UserProfile {
@@ -103,7 +103,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'portal-auth-v3',
-      storage: safeLocalStorage(),
+      storage: createJSONStorage(() => safeLocalStorage()),
       // Persist full account data including tokens so session survives restart.
       // Rust also persists to auth.json via persist_auth() and auto_refresh_if_needed()
       // is called on launch to keep the token fresh.

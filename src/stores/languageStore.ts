@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { safeLocalStorage } from '@/lib/safe-storage';
 import i18n from '@/i18n';
 
@@ -28,7 +28,7 @@ export const useLanguageStore = create<LanguageState>()(
     }),
     {
       name: 'portal-language',
-      storage: safeLocalStorage(),
+      storage: createJSONStorage(() => safeLocalStorage()),
       version: 2,
       migrate: (persisted: any) => ({
         ...persisted,

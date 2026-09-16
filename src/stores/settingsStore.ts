@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { safeLocalStorage } from '@/lib/safe-storage';
 
 interface Settings {
@@ -108,6 +108,6 @@ export const useSettingsStore = create<SettingsState>()(
 
       get: () => get(),
     }),
-    { name: 'portal-settings', storage: safeLocalStorage() }
+    { name: 'portal-settings', storage: createJSONStorage(() => safeLocalStorage()) }
   )
 );

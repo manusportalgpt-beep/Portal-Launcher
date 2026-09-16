@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { safeLocalStorage } from '@/lib/safe-storage';
 import { themes, type CustomThemeDefinition, type ThemeId } from '@/lib/theme-engine';
 
@@ -100,7 +100,7 @@ export const useThemeStore = create<ThemeState>()(
         return { customThemes: next, themeId: state.themeId === themeId ? 'system' : state.themeId };
       }),
     }),
-    { name: 'portal-launcher-theme', storage: safeLocalStorage() },
+    { name: 'portal-launcher-theme', storage: createJSONStorage(() => safeLocalStorage()) },
   ),
 );
 

@@ -240,7 +240,7 @@ function SidebarNav() {
     : user.provider === 'offline' || user.isDemo ? 'Offline'
     : 'Microsoft';
   return (
-    <aside className="portal-sidebar clean-nav portal-skin shrink-0 flex flex-col z-40"
+    <aside className={`portal-sidebar clean-nav portal-skin shrink-0 flex flex-col z-40${appearance.blur > 0 ? ' ps-blurred' : ''}`}
       style={{
         width: Math.max(84, sidebarWidth),
         padding: '10px 10px',

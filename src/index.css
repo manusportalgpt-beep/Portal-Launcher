@@ -1560,11 +1560,11 @@ html[data-portal-style="dawn"] .portal-instance-card:hover {
    – dbtn-ghost: полупрозрачная вторичная поверх любой подложки
    Bevel: светлая верхняя кромка (2px) + тёмная нижняя; press — кнопка
    «утапливается», бевел инвертируется (тёмная кромка сверху), масштаб 0.98  */
-html[data-portal-style="dawn"] {
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] {
   --ore-dark: #2a2b2f;
 }
 
-html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-ghost, .dbtn-danger, .dbtn-play) {
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-ghost, .dbtn-danger, .dbtn-play) {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -1580,12 +1580,12 @@ html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-gho
   border: 1px solid transparent;
   transition: transform 140ms var(--motion-ease), box-shadow 220ms var(--motion-ease), background-color 220ms var(--motion-ease), border-color 200ms var(--motion-ease), color 160ms var(--motion-ease), filter 150ms ease;
 }
-html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="sm"] { font-size: 11px; padding: 7px 12px; }
-html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="md"] { font-size: 13px; padding: 11px 18px; }
-html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="lg"] { font-size: 14px; padding: 14px 22px; }
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="sm"] { font-size: 11px; padding: 7px 12px; }
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="md"] { font-size: 13px; padding: 11px 18px; }
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="lg"] { font-size: 14px; padding: 14px 22px; }
 
 /* вторичная кнопка OreUI: тёмная + бевел */
-html[data-portal-style="dawn"] .dbtn {
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn {
   background: linear-gradient(180deg, color-mix(in srgb, var(--ore-dark) 68%, #fff) 0%, var(--ore-dark) 48%, color-mix(in srgb, var(--ore-dark) 62%, #000) 100%);
   border-color: rgba(255, 255, 255, 0.10);
   color: #f2f2f3;
@@ -1595,32 +1595,32 @@ html[data-portal-style="dawn"] .dbtn {
     0 2px 0 0 rgba(0, 0, 0, 0.35);
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
 }
-html[data-portal-style="dawn"] .dbtn:hover {
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn:not(.dbtn-primary):not(.dbtn-play):not(.dbtn-accent):not(.dbtn-danger):hover {
   background: color-mix(in srgb, var(--ore-dark) 55%, #3a3b40);
   border-color: rgba(255, 255, 255, 0.22);
   box-shadow:
     inset 0 2px 0 rgba(255, 255, 255, 0.18),
     inset 0 -2px 0 rgba(0, 0, 0, 0.36),
-    0 2px 0 0 rgba(0, 0, 0, 0.40),
-    0 6px 16px rgba(0, 0, 0, 0.32);
+    0 2px 0 0 rgba(0, 0, 0, 0.40);
 }
 
 /* ghost: полупрозрачная вторичная, подстраивается под фон */
-html[data-portal-style="dawn"] .dbtn-ghost {
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-ghost {
   background: rgba(42, 43, 47, 0.72);
   border-color: rgba(255, 255, 255, 0.10);
   color: var(--color-text);
 }
-html[data-portal-style="dawn"] .dbtn-ghost:hover {
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-ghost:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.22);
   color: #fff;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28), inset 0 2px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* Hero / Play: акцентная «Играть» (по умолчанию зелёная) с bevel-гранями */
-html[data-portal-style="dawn"] .dbtn-primary,
-html[data-portal-style="dawn"] .dbtn-play {
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-primary,
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-accent,
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-play {
   background:
     linear-gradient(180deg,
       color-mix(in srgb, var(--color-primary) 46%, #fff) 0%,
@@ -1638,46 +1638,19 @@ html[data-portal-style="dawn"] .dbtn-play {
     0 8px 18px -6px rgba(0, 0, 0, 0.45);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.40);
 }
-html[data-portal-style="dawn"] .dbtn-primary:hover,
-html[data-portal-style="dawn"] .dbtn-play:hover {
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-primary:hover,
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-accent:hover,
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-play:hover {
   filter: brightness(1.10);
   border-color: rgba(255, 255, 255, 0.22);
   box-shadow:
     inset 0 2px 0 rgba(255, 255, 255, 0.45),
     inset 0 -2px 0 rgba(0, 0, 0, 0.26),
-    0 3px 0 0 color-mix(in srgb, var(--color-primary) 50%, #000),
-    0 10px 26px -6px color-mix(in srgb, var(--color-primary) 55%, transparent);
-}
-
-/* Accent (Dawn): фиолетово-синий градиент — создание, установка */
-html[data-portal-style="dawn"] .dbtn-accent {
-  background:
-    linear-gradient(180deg,
-      #8b7cff 0%,
-      #6b5bff 46%,
-      #6b5bff 54%,
-      #4a3dd6 100%);
-  border-color: rgba(255, 255, 255, 0.20);
-  color: #fff;
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.32),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.28),
-    0 3px 0 0 #3a2fc0,
-    0 8px 18px -6px rgba(0, 0, 0, 0.45);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
-}
-html[data-portal-style="dawn"] .dbtn-accent:hover {
-  filter: brightness(1.08);
-  border-color: rgba(255, 255, 255, 0.28);
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.38),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.24),
-    0 3px 0 0 #3a2fc0,
-    0 10px 26px -6px rgba(107, 91, 255, 0.55);
+    0 3px 0 0 color-mix(in srgb, var(--color-primary) 50%, #000);
 }
 
 /* Destructive (OreUI): красная */
-html[data-portal-style="dawn"] .dbtn-danger {
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-danger {
   --od-base: #c0392b;
   background:
     linear-gradient(180deg,
@@ -1694,17 +1667,16 @@ html[data-portal-style="dawn"] .dbtn-danger {
     0 8px 18px -6px rgba(0, 0, 0, 0.40);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
-html[data-portal-style="dawn"] .dbtn-danger:hover {
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-danger:hover {
   filter: brightness(1.08);
   box-shadow:
     inset 0 2px 0 rgba(255, 255, 255, 0.40),
     inset 0 -2px 0 rgba(0, 0, 0, 0.26),
-    0 3px 0 0 color-mix(in srgb, var(--od-base) 50%, #000),
-    0 10px 26px -6px color-mix(in srgb, var(--od-base) 50%, transparent);
+    0 3px 0 0 color-mix(in srgb, var(--od-base) 50%, #000);
 }
 
 /* Press (OreUI): «утапливание» — бевел инвертируется (тёмная кромка сверху) */
-html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, .dbtn-danger, .dbtn-ghost):active {
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, .dbtn-danger, .dbtn-ghost):active {
   transform: translateY(2px) scale(0.98) !important;
   filter: brightness(0.96) !important;
   box-shadow:
@@ -1712,7 +1684,7 @@ html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-pla
     inset 0 -1px 0 rgba(255, 255, 255, 0.10),
     0 1px 0 0 rgba(0, 0, 0, 0.35) !important;
 }
-html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, .dbtn-danger, .dbtn-ghost):disabled {
+html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, .dbtn-danger, .dbtn-ghost):disabled {
   opacity: .45;
   pointer-events: none;
   filter: grayscale(.6);
@@ -1804,3 +1776,144 @@ html[data-portal-style="dawn"] ::selection { background: color-mix(in srgb, var(
 /* ── Появление контента ── */
 html[data-portal-style="dawn"] .page-enter-active,
 html[data-portal-style="dawn"] .content-transition { transition-timing-function: var(--motion-ease); transition-duration: 260ms; }
+
+/* ═══════════ OreUI (Bedrock) / Quadral: квадратно-пиксельный режим ═══════════ */
+html[data-portal-style="oreui"],
+html[data-portal-style="quadral"] {
+  --ore-dark: #1e1f23;
+  --ore-dark-2: #26272c;
+  --ore-line: rgba(255, 255, 255, 0.10);
+}
+
+/* Все кнопки: квадратные, с гранью (работают даже с инлайн-фоном) */
+html[data-portal-style="oreui"] button,
+html[data-portal-style="oreui"] [role="button"],
+html[data-portal-style="quadral"] button,
+html[data-portal-style="quadral"] [role="button"] {
+  border-radius: 2px !important;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), inset 0 -2px 0 rgba(0, 0, 0, 0.42) !important;
+  transition: box-shadow 130ms ease, transform 80ms ease, filter 130ms ease, background-color 130ms ease !important;
+}
+html[data-portal-style="oreui"] button:not(:disabled):active,
+html[data-portal-style="oreui"] [role="button"]:not(:disabled):active,
+html[data-portal-style="quadral"] button:not(:disabled):active,
+html[data-portal-style="quadral"] [role="button"]:not(:disabled):active {
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.34), inset 0 -1px 0 rgba(255, 255, 255, 0.10) !important;
+  transform: translateY(1px);
+}
+/* Обычные (нейтральные) кнопки при наведении — светлеют в серый */
+html[data-portal-style="oreui"] button:not(:disabled):hover,
+html[data-portal-style="oreui"] [role="button"]:not(:disabled):hover,
+html[data-portal-style="quadral"] button:not(:disabled):hover,
+html[data-portal-style="quadral"] [role="button"]:not(:disabled):hover {
+  filter: brightness(1.12);
+}
+
+/* Поля и селекты — квадратные, фокус в цвет акцента */
+html[data-portal-style="oreui"] :is(input, select, textarea),
+html[data-portal-style="quadral"] :is(input, select, textarea) {
+  border-radius: 2px !important;
+}
+html[data-portal-style="oreui"] :is(input, select, textarea):focus,
+html[data-portal-style="quadral"] :is(input, select, textarea):focus {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 45%, transparent) !important;
+}
+
+/* Чекбоксы Bedrock: квадратные, с гранью, галочка в цвет акцента */
+html[data-portal-style="oreui"] :is(input[type="checkbox"], input[type="radio"]),
+html[data-portal-style="quadral"] :is(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--color-primary);
+}
+html[data-portal-style="oreui"] input[type="checkbox"],
+html[data-portal-style="quadral"] input[type="checkbox"] {
+  appearance: none;
+  position: relative;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  background: var(--ore-dark-2);
+  border: 1px solid var(--ore-line);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.45);
+  border-radius: 0 !important;
+  cursor: pointer;
+}
+html[data-portal-style="oreui"] input[type="checkbox"]:checked,
+html[data-portal-style="quadral"] input[type="checkbox"]:checked {
+  background: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 55%, #000);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.20), inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+}
+html[data-portal-style="oreui"] input[type="checkbox"]:checked::after,
+html[data-portal-style="quadral"] input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* Ползунки Bedrock: тёмный трек с кромками, квадратная ручка-грань */
+html[data-portal-style="oreui"] input[type="range"],
+html[data-portal-style="quadral"] input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--ore-dark);
+  border: 1px solid var(--ore-line);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+  outline: none;
+}
+html[data-portal-style="oreui"] input[type="range"]::-webkit-slider-thumb,
+html[data-portal-style="quadral"] input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  background: linear-gradient(180deg, #3a3b40, #26272c);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.5),
+    0 2px 0 rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+html[data-portal-style="oreui"] input[type="range"]:active::-webkit-slider-thumb,
+html[data-portal-style="quadral"] input[type="range"]:active::-webkit-slider-thumb {
+  background: linear-gradient(180deg, #2e2f33, #38393e);
+  box-shadow:
+    inset 0 2px 0 rgba(0, 0, 0, 0.35),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.10),
+    0 1px 0 rgba(0, 0, 0, 0.45);
+}
+html[data-portal-style="oreui"] input[type="range"]::-moz-range-track,
+html[data-portal-style="quadral"] input[type="range"]::-moz-range-track {
+  height: 8px;
+  background: var(--ore-dark);
+  border: 1px solid var(--ore-line);
+}
+html[data-portal-style="oreui"] input[type="range"]::-moz-range-thumb,
+html[data-portal-style="quadral"] input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(180deg, #3a3b40, #26272c);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.18), inset 0 -3px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* Пиксельные иконки (Bedrock): острые углы и жирный штрих */
+html[data-portal-style="oreui"] svg.lucide,
+html[data-portal-style="quadral"] svg.lucide {
+  stroke-linecap: butt;
+  stroke-linejoin: miter;
+  stroke-width: 2.4;
+}
+html[data-portal-style="oreui"] svg,
+html[data-portal-style="quadral"] svg {
+  image-rendering: crisp-edges;
+}
+html[data-portal-style="oreui"] img,
+html[data-portal-style="quadral"] img {
+  image-rendering: pixelated;
+}

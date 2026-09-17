@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 
-export type StylePreset = 'dawn' | 'standard' | 'glass' | 'quadral' | 'falloff' | 'abouts';
+export type StylePreset = 'dawn' | 'oreui' | 'standard' | 'glass' | 'quadral' | 'falloff' | 'abouts';
 
 export const STYLE_PRESETS: Array<{ id: StylePreset; title: string; description: string }> = [
   { id: 'dawn', title: 'Dawn', description: 'Фирменная схема Portal Launcher: воздух Dawn + чёткие панели OreUI с мягкими тенями и свечением.' },
+  { id: 'oreui', title: 'OreUI (Bedrock)', description: 'Майнкрафт-Бедрок: квадратно-пиксельный стиль, объёмные кнопки-границы, зелёные акценты и пиксельные иконки.' },
   { id: 'standard', title: 'Standard', description: 'Мягкие скругления во всём — как в iOS, macOS и современных лаунчерах.' },
   { id: 'glass', title: 'Glassmorphism', description: 'Прозрачные круглые панели с размытием и защищённой читаемостью.' },
   { id: 'quadral', title: 'Quadral', description: 'Чёткая квадратная схема Portal Launcher: линии, плотность и всё под рукой.' },
@@ -53,6 +54,11 @@ const styleTokens: Record<StylePreset, Record<string, string>> = {
     '--shadow-sm': '0 1px 2px rgba(0, 0, 0, 0.12)', '--shadow-md': '0 4px 14px rgba(0, 0, 0, 0.16)',
     '--shadow-lg': '0 14px 36px rgba(0, 0, 0, 0.22)', '--portal-glass-blur': '0px',
   },
+  oreui: {
+    '--radius-xs': '0px', '--radius-sm': '1px', '--radius-md': '2px', '--radius-lg': '2px', '--radius-xl': '3px',
+    '--radius-button': '2px', '--radius-card': '3px', '--radius-modal': '4px',
+    '--shadow-sm': 'none', '--shadow-md': 'none', '--shadow-lg': 'none', '--portal-glass-blur': '0px',
+  },
 };
 
 export function applyStylePreset(preset: StylePreset) {
@@ -82,7 +88,7 @@ const ACCENT_PRESETS: Array<[string, string]> = [
 /** Применяет цвет акцента схемы Dawn (или зелёный по умолчанию) ко всем токенам интерфейса. */
 export function applyAccentColor(preset: StylePreset, accent: string | null) {
   const root = document.documentElement;
-  const base = preset === 'dawn' ? (accent ?? DAWN_DEFAULT_ACCENT) : null;
+  const base = (preset === 'dawn' || preset === 'oreui' || preset === 'quadral') ? (accent ?? DAWN_DEFAULT_ACCENT) : null;
   if (!base) {
     root.style.removeProperty('--color-primary');
     root.style.removeProperty('--color-primary-hover');

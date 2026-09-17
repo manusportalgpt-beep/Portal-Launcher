@@ -1511,60 +1511,60 @@ input, textarea, select {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   DAWN / ORE-UI LAYER — фирменная схема Portal Launcher.
-   Гибрид: воздух и мягкие кнопки Dawn + чёткие панели и пиксельные
-   акценты OreUI. Слой включается пресетом `dawn` (data-portal-style).
+   ORE-UI LAYER — фирменная схема Portal Launcher.
+   Квадратно-пиксельный стиль Minecraft Bedrock: объёмные кнопки-грани,
+   пиксельные иконки, зелёные акценты. Слой включается пресетом `oreui`
+   (data-portal-style), вместе с ним работает близкая схема `quadral`.
    Идёт ПОСЛЕ блока clean-системы, поэтому пересиливает её при равной
-   специфичности. Включается только для этого пресета — остальные схемы
-   не затрагиваются.
+   специфичности. Остальные схемы не затрагиваются.
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── Углы: оставляем осмысленные скругления вместо квадратной сетки ── */
-html[data-portal-style="dawn"] :is(a, button, [role="button"], [role="tab"], input, select, textarea, .rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-\[16px\], .rounded-\[18px\], .rounded-\[20px\], .rounded-\[24px\], .rounded-\[26px\], .rounded-\[28px\], .rounded-\[32px\], .rounded-\[34px\]) {
+html[data-portal-style="oreui"] :is(a, button, [role="button"], [role="tab"], input, select, textarea, .rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-\[16px\], .rounded-\[18px\], .rounded-\[20px\], .rounded-\[24px\], .rounded-\[26px\], .rounded-\[28px\], .rounded-\[32px\], .rounded-\[34px\]) {
   border-radius: var(--radius-md) !important;
 }
 
 /* hover-подъём карточек (clean-система отключала его глобально) */
-html[data-portal-style="dawn"] :is(.hover\:-translate-y-0\.5, .hover\:-translate-y-1, .hover\:scale-\[1\.03\], .hover\:scale-105):hover {
+html[data-portal-style="oreui"] :is(.hover\:-translate-y-0\.5, .hover\:-translate-y-1, .hover\:scale-\[1\.03\], .hover\:scale-105):hover {
   transform: translateY(-2px) !important;
 }
-html[data-portal-style="dawn"] .clean-home-instance:hover {
+html[data-portal-style="oreui"] .clean-home-instance:hover {
   transform: translateY(-2px) !important;
   border-color: var(--color-border-strong) !important;
   box-shadow: var(--shadow-md) !important;
 }
 
 /* ── Тени поверхностей: возвращаем глубину (clean их отключал) ── */
-html[data-portal-style="dawn"] [class*="shadow-"] { box-shadow: var(--shadow-md) !important; }
-html[data-portal-style="dawn"] [style*="box-shadow"], html[data-portal-style="dawn"] [style*="box-shadow: "] { box-shadow: var(--shadow-sm) !important; }
-html[data-portal-style="dawn"] [style*="box-shadow: none"], html[data-portal-style="dawn"] [style*="box-shadow:none"] { box-shadow: none !important; }
+html[data-portal-style="oreui"] [class*="shadow-"] { box-shadow: var(--shadow-md) !important; }
+html[data-portal-style="oreui"] [style*="box-shadow"], html[data-portal-style="oreui"] [style*="box-shadow: "] { box-shadow: var(--shadow-sm) !important; }
+html[data-portal-style="oreui"] [style*="box-shadow: none"], html[data-portal-style="oreui"] [style*="box-shadow:none"] { box-shadow: none !important; }
 
-/* ── Карточка установки (Dawn) ── */
-html[data-portal-style="dawn"] .portal-instance-card {
+/* ── Карточка установки (OreUI) ── */
+html[data-portal-style="oreui"] .portal-instance-card {
   border: 1px solid var(--color-border) !important;
   border-radius: var(--radius-card) !important;
   box-shadow: var(--shadow-sm) !important;
   background: linear-gradient(180deg, var(--color-surface), color-mix(in srgb, var(--color-surface) 90%, var(--color-bg))) !important;
 }
-html[data-portal-style="dawn"] .portal-instance-card:hover {
+html[data-portal-style="oreui"] .portal-instance-card:hover {
   border-color: color-mix(in srgb, var(--color-primary) 26%, var(--color-border-strong)) !important;
   box-shadow: 0 14px 34px rgba(0,0,0,.34), 0 0 0 1px color-mix(in srgb, var(--color-primary) 9%, transparent) !important;
 }
 
-/* ═══════════ Кнопки OreUI + Dawn ═══════════
-   Схема кнопок по дизайн-системе OreUI (Bedrock) поверх мягкости Dawn:
+/* ═══════════ Кнопки в стиле OreUI ═══════════
+   Схема кнопок по дизайн-системе OreUI (Bedrock):
    – dbtn (secondary): тёмная #2a2b2f, тонкая светлая обводка, bevel-грань
    – dbtn-primary / dbtn-play (Hero): зелёная (#3c8527) — «Играть», подтверждение
-   – dbtn-accent (Dawn): фиолетово-синий градиент — создание, установка
+   – dbtn-accent: акцентная (зелёный герой) — создание, установка
    – dbtn-danger (Destructive): красная — удаление/опасно
    – dbtn-ghost: полупрозрачная вторичная поверх любой подложки
    Bevel: светлая верхняя кромка (2px) + тёмная нижняя; press — кнопка
    «утапливается», бевел инвертируется (тёмная кромка сверху), масштаб 0.98  */
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] {
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] {
   --ore-dark: #2a2b2f;
 }
 
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-ghost, .dbtn-danger, .dbtn-play) {
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-ghost, .dbtn-danger, .dbtn-play) {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -1580,12 +1580,12 @@ html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-porta
   border: 1px solid transparent;
   transition: transform 140ms var(--motion-ease), box-shadow 220ms var(--motion-ease), background-color 220ms var(--motion-ease), border-color 200ms var(--motion-ease), color 160ms var(--motion-ease), filter 150ms ease;
 }
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="sm"] { font-size: 11px; padding: 7px 12px; }
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="md"] { font-size: 13px; padding: 11px 18px; }
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="lg"] { font-size: 14px; padding: 14px 22px; }
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="sm"] { font-size: 11px; padding: 7px 12px; }
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="md"] { font-size: 13px; padding: 11px 18px; }
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="lg"] { font-size: 14px; padding: 14px 22px; }
 
 /* вторичная кнопка OreUI: тёмная + бевел */
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn {
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn {
   background: linear-gradient(180deg, color-mix(in srgb, var(--ore-dark) 68%, #fff) 0%, var(--ore-dark) 48%, color-mix(in srgb, var(--ore-dark) 62%, #000) 100%);
   border-color: rgba(255, 255, 255, 0.10);
   color: #f2f2f3;
@@ -1595,7 +1595,7 @@ html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-porta
     0 2px 0 0 rgba(0, 0, 0, 0.35);
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
 }
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn:not(.dbtn-primary):not(.dbtn-play):not(.dbtn-accent):not(.dbtn-danger):hover {
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn:not(.dbtn-primary):not(.dbtn-play):not(.dbtn-accent):not(.dbtn-danger):hover {
   background: color-mix(in srgb, var(--ore-dark) 55%, #3a3b40);
   border-color: rgba(255, 255, 255, 0.22);
   box-shadow:
@@ -1605,12 +1605,12 @@ html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-porta
 }
 
 /* ghost: полупрозрачная вторичная, подстраивается под фон */
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-ghost {
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-ghost {
   background: rgba(42, 43, 47, 0.72);
   border-color: rgba(255, 255, 255, 0.10);
   color: var(--color-text);
 }
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-ghost:hover {
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-ghost:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.22);
   color: #fff;
@@ -1618,9 +1618,9 @@ html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-porta
 }
 
 /* Hero / Play: акцентная «Играть» (по умолчанию зелёная) с bevel-гранями */
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-primary,
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-accent,
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-play {
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-primary,
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-accent,
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-play {
   background:
     linear-gradient(180deg,
       color-mix(in srgb, var(--color-primary) 46%, #fff) 0%,
@@ -1638,9 +1638,9 @@ html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-porta
     0 8px 18px -6px rgba(0, 0, 0, 0.45);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.40);
 }
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-primary:hover,
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-accent:hover,
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-play:hover {
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-primary:hover,
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-accent:hover,
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-play:hover {
   filter: brightness(1.10);
   border-color: rgba(255, 255, 255, 0.22);
   box-shadow:
@@ -1650,7 +1650,7 @@ html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-porta
 }
 
 /* Destructive (OreUI): красная */
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-danger {
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-danger {
   --od-base: #c0392b;
   background:
     linear-gradient(180deg,
@@ -1667,7 +1667,7 @@ html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-porta
     0 8px 18px -6px rgba(0, 0, 0, 0.40);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-danger:hover {
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] .dbtn-danger:hover {
   filter: brightness(1.08);
   box-shadow:
     inset 0 2px 0 rgba(255, 255, 255, 0.40),
@@ -1676,7 +1676,7 @@ html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-porta
 }
 
 /* Press (OreUI): «утапливание» — бевел инвертируется (тёмная кромка сверху) */
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, .dbtn-danger, .dbtn-ghost):active {
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, .dbtn-danger, .dbtn-ghost):active {
   transform: translateY(2px) scale(0.98) !important;
   filter: brightness(0.96) !important;
   box-shadow:
@@ -1684,14 +1684,14 @@ html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-porta
     inset 0 -1px 0 rgba(255, 255, 255, 0.10),
     0 1px 0 0 rgba(0, 0, 0, 0.35) !important;
 }
-html[data-portal-style="dawn"], html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, .dbtn-danger, .dbtn-ghost):disabled {
+html[data-portal-style="oreui"], html[data-portal-style="quadral"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, .dbtn-danger, .dbtn-ghost):disabled {
   opacity: .45;
   pointer-events: none;
   filter: grayscale(.6);
 }
 
 /* ── Заголовки секций (Ore-лейаут) ── */
-html[data-portal-style="dawn"] .dsection {
+html[data-portal-style="oreui"] .dsection {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1701,13 +1701,13 @@ html[data-portal-style="dawn"] .dsection {
   text-transform: uppercase;
   color: var(--color-text-secondary);
 }
-html[data-portal-style="dawn"] .dsection::before {
+html[data-portal-style="oreui"] .dsection::before {
   content: '';
   width: 14px;
   height: 2px;
   background: linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 30%, transparent));
 }
-html[data-portal-style="dawn"] .dsection::after {
+html[data-portal-style="oreui"] .dsection::after {
   content: '';
   flex: 1;
   height: 1px;
@@ -1715,7 +1715,7 @@ html[data-portal-style="dawn"] .dsection::after {
 }
 
 /* ── Пиксельные подсказки клавиш (OreUI-иконки) ── */
-html[data-portal-style="dawn"] .dkbd {
+html[data-portal-style="oreui"] .dkbd {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1733,49 +1733,49 @@ html[data-portal-style="dawn"] .dkbd {
   border-radius: 5px;
   box-shadow: 0 2px 0 rgba(0,0,0,.32);
 }
-html[data-portal-style="dawn"] .dkbd-primary { color: var(--color-primary); border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border)); }
+html[data-portal-style="oreui"] .dkbd-primary { color: var(--color-primary); border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border)); }
 
 /* ── Поля ввода, селекты, textarea ── */
-html[data-portal-style="dawn"] :is(input, select, textarea) {
+html[data-portal-style="oreui"] :is(input, select, textarea) {
   background: var(--color-surface-2) !important;
   border: 1px solid var(--color-border) !important;
   border-radius: var(--radius-button) !important;
   transition: border-color 180ms ease, box-shadow 220ms ease, background-color 180ms ease;
 }
-html[data-portal-style="dawn"] :is(input, select, textarea):focus {
+html[data-portal-style="oreui"] :is(input, select, textarea):focus {
   border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border)) !important;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 16%, transparent) !important;
   outline: none !important;
 }
 
 /* ── Модалки ── */
-html[data-portal-style="dawn"] :is([role="dialog"], dialog) {
+html[data-portal-style="oreui"] :is([role="dialog"], dialog) {
   border: 1px solid var(--color-border) !important;
   border-radius: var(--radius-modal) !important;
   box-shadow: var(--shadow-lg) !important;
 }
 
 /* ── Табы / сегменты ── */
-html[data-portal-style="dawn"] :is(.tabs, [role="tablist"], .segmented-control) {
+html[data-portal-style="oreui"] :is(.tabs, [role="tablist"], .segmented-control) {
   border-radius: var(--radius-button) !important;
   background: var(--color-surface) !important;
   box-shadow: 0 0 0 1px var(--color-border), var(--shadow-sm) !important;
 }
 
 /* ── Скроллбары и выделение ── */
-html[data-portal-style="dawn"] ::-webkit-scrollbar { width: 8px; height: 8px; }
-html[data-portal-style="dawn"] ::-webkit-scrollbar-thumb {
+html[data-portal-style="oreui"] ::-webkit-scrollbar { width: 8px; height: 8px; }
+html[data-portal-style="oreui"] ::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--color-border-strong) 55%, transparent);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
-html[data-portal-style="dawn"] ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-primary) 45%, transparent); background-clip: padding-box; }
-html[data-portal-style="dawn"] ::selection { background: color-mix(in srgb, var(--color-primary) 30%, transparent); }
+html[data-portal-style="oreui"] ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-primary) 45%, transparent); background-clip: padding-box; }
+html[data-portal-style="oreui"] ::selection { background: color-mix(in srgb, var(--color-primary) 30%, transparent); }
 
 /* ── Появление контента ── */
-html[data-portal-style="dawn"] .page-enter-active,
-html[data-portal-style="dawn"] .content-transition { transition-timing-function: var(--motion-ease); transition-duration: 260ms; }
+html[data-portal-style="oreui"] .page-enter-active,
+html[data-portal-style="oreui"] .content-transition { transition-timing-function: var(--motion-ease); transition-duration: 260ms; }
 
 /* ═══════════ OreUI (Bedrock) / Quadral: квадратно-пиксельный режим ═══════════ */
 html[data-portal-style="oreui"],
@@ -1852,54 +1852,80 @@ html[data-portal-style="quadral"] input[type="checkbox"]:checked::after {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
-/* Ползунки Bedrock: тёмный трек с кромками, квадратная ручка-грань */
+/* Ползунки OreUI: тонкий паз-трек + квадратная гранёная ручка (как в настройках Bedrock) */
 html[data-portal-style="oreui"] input[type="range"],
 html[data-portal-style="quadral"] input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  height: 8px;
-  border-radius: 2px;
-  background: var(--ore-dark);
-  border: 1px solid var(--ore-line);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+  height: 22px;
+  background: transparent;
+  border: 0;
   outline: none;
+  cursor: pointer;
+}
+html[data-portal-style="oreui"] input[type="range"]::-webkit-slider-runnable-track,
+html[data-portal-style="quadral"] input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 1px;
+  background: var(--ore-slider-track, var(--ore-dark));
+  border: 1px solid var(--ore-line);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
 }
 html[data-portal-style="oreui"] input[type="range"]::-webkit-slider-thumb,
 html[data-portal-style="quadral"] input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 20px;
   margin-top: -6px;
-  background: linear-gradient(180deg, #3a3b40, #26272c);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 1px;
+  background: linear-gradient(180deg, #e8e8e4 0%, #c8c8c3 45%, #999996 100%);
+  border: 1px solid #4c4c49;
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -3px 0 rgba(0, 0, 0, 0.5),
-    0 2px 0 rgba(0, 0, 0, 0.45);
+    inset 0 2px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.35),
+    0 2px 0 rgba(0, 0, 0, 0.5);
   cursor: pointer;
+}
+html[data-portal-style="oreui"] input[type="range"]:hover::-webkit-slider-thumb,
+html[data-portal-style="quadral"] input[type="range"]:hover::-webkit-slider-thumb {
+  background: linear-gradient(180deg, #f4f4f0 0%, #d4d4cf 45%, #a6a6a2 100%);
 }
 html[data-portal-style="oreui"] input[type="range"]:active::-webkit-slider-thumb,
 html[data-portal-style="quadral"] input[type="range"]:active::-webkit-slider-thumb {
-  background: linear-gradient(180deg, #2e2f33, #38393e);
+  background: linear-gradient(180deg, #9c9c98 0%, #c0c0bb 100%);
   box-shadow:
     inset 0 2px 0 rgba(0, 0, 0, 0.35),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35),
     0 1px 0 rgba(0, 0, 0, 0.45);
 }
 html[data-portal-style="oreui"] input[type="range"]::-moz-range-track,
 html[data-portal-style="quadral"] input[type="range"]::-moz-range-track {
-  height: 8px;
-  background: var(--ore-dark);
+  height: 6px;
+  border-radius: 1px;
+  background: var(--ore-slider-track, var(--ore-dark));
   border: 1px solid var(--ore-line);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+}
+html[data-portal-style="oreui"] input[type="range"]::-moz-range-progress,
+html[data-portal-style="quadral"] input[type="range"]::-moz-range-progress {
+  height: 6px;
+  border-radius: 1px 0 0 1px;
+  background: color-mix(in srgb, var(--color-primary) 60%, transparent);
 }
 html[data-portal-style="oreui"] input[type="range"]::-moz-range-thumb,
 html[data-portal-style="quadral"] input[type="range"]::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  background: linear-gradient(180deg, #3a3b40, #26272c);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.18), inset 0 -3px 0 rgba(0, 0, 0, 0.5);
+  width: 14px;
+  height: 20px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #e8e8e4 0%, #c8c8c3 45%, #999996 100%);
+  border: 1px solid #4c4c49;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.85), inset 0 -3px 0 rgba(0, 0, 0, 0.35);
+}
+html[data-portal-style="oreui"] input[type="range"]:focus-visible,
+html[data-portal-style="quadral"] input[type="range"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
 }
 
 /* Пиксельные иконки (Bedrock): острые углы и жирный штрих */
@@ -1918,8 +1944,8 @@ html[data-portal-style="quadral"] img {
   image-rendering: pixelated;
 }
 
-/* OreUI (Bedrock): чёрный, плотный, без стекла — никакой прозрачности и блюра */
-html[data-portal-style="oreui"] {
+/* OreUI: плотная тема без стекла — OLED → чистый чёрный, остальные темы → белый как в OreUI */
+html[data-portal-style="oreui"][data-theme="oled"] {
   --color-bg: #050505 !important;
   --color-surface: #0a0a0a !important;
   --color-surface-2: #121212 !important;
@@ -1927,6 +1953,9 @@ html[data-portal-style="oreui"] {
   --color-surface-active: #1e1e1e !important;
   --color-border: #1d1d1d !important;
   --color-border-strong: #2e2e2e !important;
+  --ore-dark-2: #131317;
+  --ore-line: rgba(255, 255, 255, 0.10);
+  --ore-slider-track: #0e0e10;
   --portal-glass-blur: 0px;
   --portal-glass-panel: rgba(0, 0, 0, 0);
   --portal-glass-panel-strong: rgba(0, 0, 0, 0);
@@ -1936,20 +1965,62 @@ html[data-portal-style="oreui"] {
   --ext-font-display: 'Press Start 2P', 'Segoe UI', monospace;
   --ps-font-display: 'Press Start 2P', 'Segoe UI', monospace;
 }
-html[data-portal-style="oreui"] body {
+html[data-portal-style="oreui"]:not([data-theme="oled"]) {
+  --color-bg: #dcdcd6 !important;
+  --color-surface: #efefe9 !important;
+  --color-surface-2: #fafaf5 !important;
+  --color-surface-hover: #ffffff !important;
+  --color-surface-active: #e4e4dc !important;
+  --color-border: #b8b8af !important;
+  --color-border-strong: #8c8c83 !important;
+  --color-text: #1c1c1a !important;
+  --color-text-secondary: #4a4a45 !important;
+  --color-text-tertiary: #76766e !important;
+  --ore-dark-2: #e6e6df;
+  --ore-line: rgba(0, 0, 0, 0.16);
+  --ore-slider-track: #a9a9a1;
+  --portal-glass-blur: 0px;
+  --portal-glass-panel: rgba(255, 255, 255, 0);
+  --portal-glass-panel-strong: rgba(255, 255, 255, 0);
+  --portal-glass-edge: rgba(0, 0, 0, 0.06);
+  --portal-glass-edge-soft: rgba(0, 0, 0, 0.03);
+  --portal-glass-shadow: rgba(0, 0, 0, 0.25);
+  --ext-font-display: 'Press Start 2P', 'Segoe UI', monospace;
+  --ps-font-display: 'Press Start 2P', 'Segoe UI', monospace;
+}
+html[data-portal-style="oreui"][data-theme="oled"] body {
   background: #050505 !important;
 }
-/* запрет стекла/размытия везде во время OreUI */
+html[data-portal-style="oreui"]:not([data-theme="oled"]) body {
+  background: #dcdcd6 !important;
+}
+/* запрет стекла/размытия везде во время OreUI (и чёрный, и белый режимы) */
 html[data-portal-style="oreui"] *,
 html[data-portal-style="oreui"] *::before,
 html[data-portal-style="oreui"] *::after {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-/* плотные чёрные панели и модалки с едва заметной глубиной */
-html[data-portal-style="oreui"] :is([role="dialog"], dialog, .soft-surface, .object-frame, .new-ui-header, .new-ui-footer, .portal-glass-surface) {
+/* плотные панели и модалки без стекла: чёрные на OLED, светлые на остальных темах */
+html[data-portal-style="oreui"][data-theme="oled"] :is([role="dialog"], dialog, .soft-surface, .object-frame, .new-ui-header, .new-ui-footer, .portal-glass-surface) {
   background: #0a0a0a !important;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+}
+html[data-portal-style="oreui"]:not([data-theme="oled"]) :is([role="dialog"], dialog, .soft-surface, .object-frame, .new-ui-header, .new-ui-footer, .portal-glass-surface) {
+  background: #efefe9 !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.65) !important;
+}
+/* ghost-кнопка на светлом OreUI: белая подложка + тёмный текст */
+html[data-portal-style="oreui"]:not([data-theme="oled"]) .dbtn-ghost {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(0, 0, 0, 0.18);
+  color: #2a2b2f;
+}
+html[data-portal-style="oreui"]:not([data-theme="oled"]) .dbtn-ghost:hover {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.28);
+  color: #111111;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.9);
 }
 /* пиксельные заголовки (Press Start 2P) в стиле Minecraft-Bedrock */
 html[data-portal-style="oreui"] :is(.font-display, h1) {

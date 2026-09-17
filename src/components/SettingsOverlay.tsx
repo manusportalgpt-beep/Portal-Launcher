@@ -59,7 +59,7 @@ function AppearanceSection() {
         </div>
       </div>
 
-      {['dawn','oreui','quadral'].includes(ui.stylePreset) ? <DawnAccentPicker /> : <AccentColorPicker />}
+      {['oreui','quadral'].includes(ui.stylePreset) ? <DawnAccentPicker /> : <AccentColorPicker />}
 
       <div>
         <p className="text-xs font-bold mb-3" style={{ color: 'var(--color-text)' }}>Стиль интерфейса</p>

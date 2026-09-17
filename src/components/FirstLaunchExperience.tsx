@@ -20,7 +20,7 @@ const THEME_CHOICES: Array<{ id: ThemeId; label: string; preview: string }> = [
 ];
 
 const STYLE_THEME: Record<StylePreset, ThemeId> = {
-  dawn: 'dark', oreui: 'dark', standard: 'dark', glass: 'dark', quadral: 'dark', falloff: 'oled', abouts: 'light',
+  oreui: 'dark', standard: 'dark', glass: 'dark', quadral: 'dark', falloff: 'oled', abouts: 'light',
 };
 
 const INSTALL_CONFIRMATIONS: Array<{ question: string; yesLabel: string; noLabel: string }> = [

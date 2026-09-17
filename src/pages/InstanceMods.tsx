@@ -124,23 +124,23 @@ function GameModeBadge({ mode, hardcore }: { mode?: string; hardcore?: boolean }
   );
 }
 
-/** Кликабельный автор мода: аватар + переход на его страницу внутри лаунчера. */
+/** Кликабельный автор мода без эффекта кнопки: аватар + переход на его страницу внутри лаунчера. */
 function AuthorLink({ author, authorId, source }: { author?: string; authorId?: number; source?: string }) {
   const navigate = useNavigate();
   const avatar = useAuthorAvatar(author, source);
   if (!author) return null;
   const src = source === 'curseforge' ? 'curseforge' : 'modrinth';
   return (
-    <button
+    <span
       onClick={(e) => { e.stopPropagation(); navigate(`/author/${src}/${encodeURIComponent(author)}${source === 'curseforge' && authorId ? `?authorId=${authorId}` : ''}`); }}
-      className="inline-flex items-center gap-1.5 mt-0.5 rounded-full pr-2 hover:bg-white/5"
+      className="inline-flex cursor-pointer items-center gap-1.5 mt-0.5 hover:underline hover:opacity-80 transition-opacity"
       title={`Open ${author} profile`}
     >
       <span className="flex w-4 h-4 items-center justify-center rounded-full overflow-hidden shrink-0 text-[9px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>
         {avatar ? <img src={avatar} alt="" className="w-full h-full object-cover" /> : author.slice(0, 1).toUpperCase()}
       </span>
       <span className="text-[11px] font-semibold" style={{ color: 'var(--color-primary)' }}>{author}</span>
-    </button>
+    </span>
   );
 }
 

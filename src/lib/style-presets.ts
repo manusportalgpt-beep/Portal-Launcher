@@ -1,10 +1,9 @@
 import { useEffect } from 'react';
 
-export type StylePreset = 'dawn' | 'oreui' | 'standard' | 'glass' | 'quadral' | 'falloff' | 'abouts';
+export type StylePreset = 'oreui' | 'standard' | 'glass' | 'quadral' | 'falloff' | 'abouts';
 
 export const STYLE_PRESETS: Array<{ id: StylePreset; title: string; description: string }> = [
-  { id: 'dawn', title: 'Dawn', description: 'Фирменная схема Portal Launcher: воздух Dawn + чёткие панели OreUI с мягкими тенями и свечением.' },
-  { id: 'oreui', title: 'OreUI (Bedrock)', description: 'Майнкрафт-Бедрок: квадратно-пиксельный стиль, объёмные кнопки-границы, зелёные акценты и пиксельные иконки.' },
+  { id: 'oreui', title: 'OreUI', description: 'Стиль Minecraft Bedrock: квадратно-пиксельный, объёмные кнопки-границы, зелёные акценты и пиксельные иконки. OLED — чёрный, остальные темы — белые панели.' },
   { id: 'standard', title: 'Standard', description: 'Мягкие скругления во всём — как в iOS, macOS и современных лаунчерах.' },
   { id: 'glass', title: 'Glassmorphism', description: 'Прозрачные круглые панели с размытием и защищённой читаемостью.' },
   { id: 'quadral', title: 'Quadral', description: 'Чёткая квадратная схема Portal Launcher: линии, плотность и всё под рукой.' },
@@ -13,15 +12,6 @@ export const STYLE_PRESETS: Array<{ id: StylePreset; title: string; description:
 ];
 
 const styleTokens: Record<StylePreset, Record<string, string>> = {
-  dawn: {
-    '--radius-xs': '6px', '--radius-sm': '8px', '--radius-md': '10px', '--radius-lg': '12px', '--radius-xl': '16px',
-    '--radius-button': '10px', '--radius-card': '14px', '--radius-modal': '18px',
-    '--shadow-sm': '0 1px 2px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.03) inset',
-    '--shadow-md': '0 6px 18px rgba(0,0,0,0.32), 0 0 0 1px rgba(255,255,255,0.045)',
-    '--shadow-lg': '0 18px 44px rgba(0,0,0,0.40), 0 0 0 1px rgba(255,255,255,0.06)',
-    '--shadow-glow': '0 0 0 1px color-mix(in srgb, var(--color-primary) 26%, transparent), 0 8px 26px color-mix(in srgb, var(--color-primary) 20%, transparent)',
-    '--portal-glass-blur': '8px',
-  },
   standard: {
     '--radius-xs': '8px', '--radius-sm': '10px', '--radius-md': '12px', '--radius-lg': '16px', '--radius-xl': '20px',
     '--radius-button': '10px', '--radius-card': '14px', '--radius-modal': '18px',
@@ -71,8 +61,8 @@ export function useStylePreset(preset: StylePreset, themeRefreshKey?: string) {
   useEffect(() => applyStylePreset(preset), [preset, themeRefreshKey]);
 }
 
-/** Акцент по умолчанию для схемы Dawn — зелёная база интерфейса. */
-export const DAWN_DEFAULT_ACCENT = '#2ECC71';
+/** Акцент по умолчанию для OreUI — зелёная база интерфейса. */
+export const OREUI_DEFAULT_ACCENT = '#2ECC71';
 
 const ACCENT_PRESETS: Array<[string, string]> = [
   ['#2ECC71', '#27AE60'],
@@ -85,10 +75,10 @@ const ACCENT_PRESETS: Array<[string, string]> = [
   ['#E91E63', '#D81B60'],
 ];
 
-/** Применяет цвет акцента схемы Dawn (или зелёный по умолчанию) ко всем токенам интерфейса. */
+/** Применяет цвет акцента OreUI (или зелёный по умолчанию) ко всем токенам интерфейса. */
 export function applyAccentColor(preset: StylePreset, accent: string | null) {
   const root = document.documentElement;
-  const base = (preset === 'dawn' || preset === 'oreui' || preset === 'quadral') ? (accent ?? DAWN_DEFAULT_ACCENT) : null;
+  const base = (preset === 'oreui' || preset === 'quadral') ? (accent ?? OREUI_DEFAULT_ACCENT) : null;
   if (!base) {
     root.style.removeProperty('--color-primary');
     root.style.removeProperty('--color-primary-hover');

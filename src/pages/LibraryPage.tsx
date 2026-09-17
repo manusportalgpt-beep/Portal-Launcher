@@ -574,7 +574,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
       style={{ background:'rgba(0,0,0,0.78)', backdropFilter:'none' }}
       initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <motion.div className="dawn-dialog flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-md"
+      <motion.div className="oreui-dialog flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-md"
         style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-lg)', borderRadius:'var(--radius-modal)' }}
         initial={{ scale:0.93,opacity:0,y:14 }} animate={{ scale:1,opacity:1,y:0 }} exit={{ scale:0.93,opacity:0,y:14 }}
         transition={{ type:'spring', stiffness:480, damping:34 }}>

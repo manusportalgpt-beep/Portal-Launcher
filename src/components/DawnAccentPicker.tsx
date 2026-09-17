@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, Plus, CheckCircle2, RotateCcw } from 'lucide-react';
 import { useUiStore } from '@/stores/uiStore';
-import { DAWN_DEFAULT_ACCENT } from '@/lib/style-presets';
+import { OREUI_DEFAULT_ACCENT } from '@/lib/style-presets';
 import { playClick, playSuccess } from '@/lib/soundEngine';
 
 const ACCENT_SWATCHES = [
@@ -18,7 +18,7 @@ const ACCENT_SWATCHES = [
 
 export function DawnAccentPicker() {
   const ui = useUiStore();
-  const applied = ui.accentColor ?? DAWN_DEFAULT_ACCENT;
+  const applied = ui.accentColor ?? OREUI_DEFAULT_ACCENT;
   const [draft, setDraft] = useState<string>(applied);
   const [showCustom, setShowCustom] = useState(false);
   const changed = draft.toLowerCase() !== applied.toLowerCase();
@@ -29,18 +29,18 @@ export function DawnAccentPicker() {
     setShowCustom(false);
   };
   const commit = () => {
-    ui.set('accentColor', draft.toLowerCase() === DAWN_DEFAULT_ACCENT.toLowerCase() ? null : draft);
+    ui.set('accentColor', draft.toLowerCase() === OREUI_DEFAULT_ACCENT.toLowerCase() ? null : draft);
     playSuccess();
   };
   const reset = () => {
     playClick();
-    setDraft(DAWN_DEFAULT_ACCENT);
+    setDraft(OREUI_DEFAULT_ACCENT);
   };
 
   return (
     <div>
       <div className="flex items-center justify-between">
-        <p className="text-xs font-bold" style={{ color: 'var(--color-text)' }}>Цвет акцента Dawn</p>
+        <p className="text-xs font-bold" style={{ color: 'var(--color-text)' }}>Цвет акцента OreUI</p>
         <span className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold"
           style={{ background: 'color-mix(in srgb, var(--color-primary) 14%, transparent)', color: 'var(--color-primary)' }}>
           <span className="h-2 w-2 rounded-full" style={{ background: applied }} />

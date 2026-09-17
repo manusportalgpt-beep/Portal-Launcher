@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <title>Portal Launcher</title>
+    <script>
+      // Детерминированный тёмный старт до применения сохранённых настроек:
+      // никаких белых экранов и белой пелены на светлых ОС. JS позже
+      // переприменит реальные `portalStyle`/`theme` из хранилища.
+      document.documentElement.dataset.portalStyle = 'oreui';
+      document.documentElement.dataset.theme = 'dark';
+    </script>
     <style>
       /* Тёмный фон по умолчанию — лаунчер тёмный до применения темы,
          никаких белых вспышек на светлых ОС. Светлая тема применяется

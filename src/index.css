@@ -1957,6 +1957,9 @@ html[data-portal-style="oreui"] {
   --color-surface-active: #1e1e1e !important;
   --color-border: #1d1d1d !important;
   --color-border-strong: #2e2e2e !important;
+  --color-text: #e8e8e8 !important;
+  --color-text-secondary: #9b9ba3 !important;
+  --color-text-tertiary: #6e6e78 !important;
   --ore-dark-2: #131317;
   --ore-line: rgba(255, 255, 255, 0.10);
   --ore-slider-track: #0e0e10;

@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 export type StylePreset = 'oreui' | 'standard' | 'glass' | 'quadral' | 'falloff' | 'abouts';
 
 export const STYLE_PRESETS: Array<{ id: StylePreset; title: string; description: string }> = [
-  { id: 'oreui', title: 'OreUI', description: 'Стиль Minecraft Bedrock: квадратно-пиксельный, объёмные кнопки-границы, зелёные акценты и пиксельные иконки. OLED — чёрный, остальные темы — белые панели.' },
+  { id: 'oreui', title: 'OreUI', description: 'Стиль Minecraft Bedrock: квадратно-пиксельный, объёмные кнопки-границы, зелёные акценты и пиксельные иконки. Всегда тёмный на любой теме.' },
   { id: 'standard', title: 'Standard', description: 'Мягкие скругления во всём — как в iOS, macOS и современных лаунчерах.' },
   { id: 'glass', title: 'Glassmorphism', description: 'Прозрачные круглые панели с размытием и защищённой читаемостью.' },
   { id: 'quadral', title: 'Quadral', description: 'Чёткая квадратная схема Portal Launcher: линии, плотность и всё под рукой.' },

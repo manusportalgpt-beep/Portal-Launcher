@@ -149,6 +149,8 @@ export interface UiState {
   titlebarHeight: number;
   /** Подстраивать цвет верхней панели под активную страницу */
   adaptiveTitlebarColor: boolean;
+  /** Цвет акцента схемы Dawn (null — по умолчанию зелёный) */
+  accentColor: string | null;
 
   set: <K extends keyof UiState>(key: K, value: UiState[K]) => void;
   reset: () => void;
@@ -156,6 +158,7 @@ export interface UiState {
 
 const defaults = {
   stylePreset: 'dawn' as StylePreset,
+  accentColor: null as string | null,
   navMode: 'notch' as NavMode,
   notchSide: 'top' as NotchSide,
   notchHotzone: 46,
@@ -243,7 +246,7 @@ export const useUiStore = create<UiState>()(
     {
       name: 'portal-launcher-ui',
       storage: createJSONStorage(() => safeLocalStorage()),
-      version: 9,
+      version: 10,
       migrate: (persisted: any, version) => {
         // Migrate only stock Title Bar heights from earlier releases; custom heights remain the user's choice.
         if (version < 3 && [28, 30, 32].includes(persisted?.titlebarHeight)) persisted.titlebarHeight = 26;

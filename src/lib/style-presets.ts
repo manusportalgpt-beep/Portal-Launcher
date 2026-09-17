@@ -64,3 +64,40 @@ export function applyStylePreset(preset: StylePreset) {
 export function useStylePreset(preset: StylePreset, themeRefreshKey?: string) {
   useEffect(() => applyStylePreset(preset), [preset, themeRefreshKey]);
 }
+
+/** Акцент по умолчанию для схемы Dawn — зелёная база интерфейса. */
+export const DAWN_DEFAULT_ACCENT = '#2ECC71';
+
+const ACCENT_PRESETS: Array<[string, string]> = [
+  ['#2ECC71', '#27AE60'],
+  ['#3c8527', '#347428'],
+  ['#DA2A3F', '#EE3A50'],
+  ['#4299E1', '#3182CE'],
+  ['#8B5CF6', '#7C3AED'],
+  ['#F59E0B', '#E08E0B'],
+  ['#14B8A6', '#0D9488'],
+  ['#E91E63', '#D81B60'],
+];
+
+/** Применяет цвет акцента схемы Dawn (или зелёный по умолчанию) ко всем токенам интерфейса. */
+export function applyAccentColor(preset: StylePreset, accent: string | null) {
+  const root = document.documentElement;
+  const base = preset === 'dawn' ? (accent ?? DAWN_DEFAULT_ACCENT) : null;
+  if (!base) {
+    root.style.removeProperty('--color-primary');
+    root.style.removeProperty('--color-primary-hover');
+    root.style.removeProperty('--color-primary-dim');
+    root.style.removeProperty('--color-primary-text');
+    return;
+  }
+  const hover = ACCENT_PRESETS.find(([c]) => c.toLowerCase() === base.toLowerCase())?.[1]
+    ?? `color-mix(in srgb, ${base} 84%, #000)`;
+  root.style.setProperty('--color-primary', base);
+  root.style.setProperty('--color-primary-hover', hover);
+  root.style.setProperty('--color-primary-dim', base + '26');
+  root.style.setProperty('--color-primary-text', '#FFFFFF');
+}
+
+export function useAccentColor(preset: StylePreset, accentColor: string | null, themeId?: string) {
+  useEffect(() => applyAccentColor(preset, accentColor), [preset, accentColor, themeId]);
+}

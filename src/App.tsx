@@ -18,7 +18,7 @@ import { ControlCenterPage } from '@/pages/ControlCenterPage';
 import { TitleBar } from '@/components/window/WindowControls';
 import { useThemeStore } from '@/stores/themeStore';
 import { useTheme } from '@/lib/theme-engine';
-import { useStylePreset } from '@/lib/style-presets';
+import { useStylePreset, useAccentColor } from '@/lib/style-presets';
 import { useUiEffects } from '@/lib/ui-engine';
 import { useUiStore } from '@/stores/uiStore';
 import { useLanguageStore } from '@/stores/languageStore';
@@ -63,10 +63,12 @@ function App() {
   const textColorOverride = useUiStore(s => s.textColorOverride);
   const fontFamily = useUiStore(s => s.fontFamily);
   const stylePreset = useUiStore(s => s.stylePreset);
+  const accentColor = useUiStore(s => s.accentColor);
   const language = useLanguageStore(s => s.lang);
   const setLaunchStatus = useLaunchStore(s => s.setStatus);
   useTheme(themeId, textColorOverride, fontFamily, customThemes);
   useStylePreset(stylePreset, themeId);
+  useAccentColor(stylePreset, accentColor, themeId);
   useEffect(() => {
     void i18n.changeLanguage(language);
     document.documentElement.lang = language;

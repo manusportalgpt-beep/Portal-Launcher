@@ -7,6 +7,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { themes, type ThemeId } from '@/lib/theme-engine';
 import { AccentColorPicker } from '@/components/AccentColorPicker';
+import { DawnAccentPicker } from '@/components/DawnAccentPicker';
 import { STYLE_PRESETS } from '@/lib/style-presets';
 import { playClick } from '@/lib/soundEngine';
 
@@ -58,7 +59,7 @@ function AppearanceSection() {
         </div>
       </div>
 
-      <AccentColorPicker />
+      {ui.stylePreset === 'dawn' ? <DawnAccentPicker /> : <AccentColorPicker />}
 
       <div>
         <p className="text-xs font-bold mb-3" style={{ color: 'var(--color-text)' }}>Стиль интерфейса</p>

@@ -1551,8 +1551,20 @@ html[data-portal-style="dawn"] .portal-instance-card:hover {
   box-shadow: 0 14px 34px rgba(0,0,0,.34), 0 0 0 1px color-mix(in srgb, var(--color-primary) 9%, transparent) !important;
 }
 
-/* ── Кнопки Dawn: dbtn / dbtn-primary / dbtn-danger / dbtn-ghost ── */
-html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-ghost, .dbtn-danger) {
+/* ═══════════ Кнопки OreUI + Dawn ═══════════
+   Схема кнопок по дизайн-системе OreUI (Bedrock) поверх мягкости Dawn:
+   – dbtn (secondary): тёмная #2a2b2f, тонкая светлая обводка, bevel-грань
+   – dbtn-primary / dbtn-play (Hero): зелёная (#3c8527) — «Играть», подтверждение
+   – dbtn-accent (Dawn): фиолетово-синий градиент — создание, установка
+   – dbtn-danger (Destructive): красная — удаление/опасно
+   – dbtn-ghost: полупрозрачная вторичная поверх любой подложки
+   Bevel: светлая верхняя кромка (2px) + тёмная нижняя; press — кнопка
+   «утапливается», бевел инвертируется (тёмная кромка сверху), масштаб 0.98  */
+html[data-portal-style="dawn"] {
+  --ore-dark: #2a2b2f;
+}
+
+html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-ghost, .dbtn-danger, .dbtn-play) {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -1565,65 +1577,145 @@ html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-ghost, .dbtn-dang
   cursor: pointer;
   user-select: none;
   isolation: isolate;
-  transition: transform 150ms var(--motion-ease), box-shadow 230ms var(--motion-ease), background-color 200ms var(--motion-ease), border-color 200ms var(--motion-ease), color 160ms var(--motion-ease), filter 150ms ease;
+  border: 1px solid transparent;
+  transition: transform 140ms var(--motion-ease), box-shadow 220ms var(--motion-ease), background-color 220ms var(--motion-ease), border-color 200ms var(--motion-ease), color 160ms var(--motion-ease), filter 150ms ease;
 }
-html[data-portal-style="dawn"] .dbtn[data-size="sm"], html[data-portal-style="dawn"] .dbtn-primary[data-size="sm"] { font-size: 11px; padding: 7px 12px; }
-html[data-portal-style="dawn"] .dbtn[data-size="md"], html[data-portal-style="dawn"] .dbtn-primary[data-size="md"] { font-size: 13px; padding: 11px 18px; }
-html[data-portal-style="dawn"] .dbtn[data-size="lg"], html[data-portal-style="dawn"] .dbtn-primary[data-size="lg"] { font-size: 14px; padding: 14px 22px; }
+html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="sm"] { font-size: 11px; padding: 7px 12px; }
+html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="md"] { font-size: 13px; padding: 11px 18px; }
+html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="lg"] { font-size: 14px; padding: 14px 22px; }
 
-/* ghost-подложка */
-html[data-portal-style="dawn"] .dbtn, html[data-portal-style="dawn"] .dbtn-ghost {
-  background: color-mix(in srgb, var(--color-surface-2) 68%, transparent);
-  border: 1px solid var(--color-border);
+/* вторичная кнопка OreUI: тёмная + бевел */
+html[data-portal-style="dawn"] .dbtn {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ore-dark) 68%, #fff) 0%, var(--ore-dark) 48%, color-mix(in srgb, var(--ore-dark) 62%, #000) 100%);
+  border-color: rgba(255, 255, 255, 0.10);
+  color: #f2f2f3;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.42),
+    0 2px 0 0 rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+html[data-portal-style="dawn"] .dbtn:hover {
+  background: color-mix(in srgb, var(--ore-dark) 55%, #3a3b40);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.36),
+    0 2px 0 0 rgba(0, 0, 0, 0.40),
+    0 6px 16px rgba(0, 0, 0, 0.32);
+}
+
+/* ghost: полупрозрачная вторичная, подстраивается под фон */
+html[data-portal-style="dawn"] .dbtn-ghost {
+  background: rgba(42, 43, 47, 0.72);
+  border-color: rgba(255, 255, 255, 0.10);
   color: var(--color-text);
 }
-html[data-portal-style="dawn"] .dbtn:hover, html[data-portal-style="dawn"] .dbtn-ghost:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-border-strong);
-  box-shadow: 0 6px 18px rgba(0,0,0,.28), 0 0 0 1px rgba(255,255,255,.04);
+html[data-portal-style="dawn"] .dbtn-ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28), inset 0 2px 0 rgba(255, 255, 255, 0.06);
 }
 
-/* основная акцентная кнопка */
-html[data-portal-style="dawn"] .dbtn-primary {
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--color-primary) 88%, #fff),
-    var(--color-primary) 62%,
-    color-mix(in srgb, var(--color-primary) 78%, #000));
-  border: 1px solid color-mix(in srgb, var(--color-primary) 62%, #fff 18%);
+/* Hero / Play: акцентная «Играть» (по умолчанию зелёная) с bevel-гранями */
+html[data-portal-style="dawn"] .dbtn-primary,
+html[data-portal-style="dawn"] .dbtn-play {
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--color-primary) 46%, #fff) 0%,
+      var(--color-primary) 46%,
+      var(--color-primary) 54%,
+      color-mix(in srgb, var(--color-primary) 62%, #000) 100%);
+  border-color: color-mix(in srgb, var(--color-primary) 45%, #000);
   color: #fff;
   box-shadow:
-    0 1px 0 rgba(255,255,255,.22) inset,
-    0 0 0 1px rgba(0,0,0,.20),
-    0 8px 22px -8px color-mix(in srgb, var(--color-primary) 62%, transparent);
+    inset 0 2px 0 rgba(255, 255, 255, 0.38),
+    inset 2px 0 0 rgba(255, 255, 255, 0.14),
+    inset -1px 0 0 rgba(0, 0, 0, 0.12),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.30),
+    0 3px 0 0 color-mix(in srgb, var(--color-primary) 52%, #000),
+    0 8px 18px -6px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.40);
 }
-html[data-portal-style="dawn"] .dbtn-primary:hover {
-  filter: brightness(1.07);
-  box-shadow: 0 1px 0 rgba(255,255,255,.26) inset, var(--shadow-glow);
-  transform: translateY(-1px);
-}
-html[data-portal-style="dawn"] .dbtn-primary:active,
-html[data-portal-style="dawn"] .dbtn:active,
-html[data-portal-style="dawn"] .dbtn-ghost:active,
-html[data-portal-style="dawn"] .dbtn-danger:active {
-  transform: translateY(1px) scale(.98) !important;
-  filter: brightness(.96);
-  box-shadow: 0 0 0 1px rgba(0,0,0,.22) inset !important;
-}
-html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-ghost, .dbtn-danger):disabled {
-  opacity: .45;
-  pointer-events: none;
+html[data-portal-style="dawn"] .dbtn-primary:hover,
+html[data-portal-style="dawn"] .dbtn-play:hover {
+  filter: brightness(1.10);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.26),
+    0 3px 0 0 color-mix(in srgb, var(--color-primary) 50%, #000),
+    0 10px 26px -6px color-mix(in srgb, var(--color-primary) 55%, transparent);
 }
 
-/* опасное действие */
+/* Accent (Dawn): фиолетово-синий градиент — создание, установка */
+html[data-portal-style="dawn"] .dbtn-accent {
+  background:
+    linear-gradient(180deg,
+      #8b7cff 0%,
+      #6b5bff 46%,
+      #6b5bff 54%,
+      #4a3dd6 100%);
+  border-color: rgba(255, 255, 255, 0.20);
+  color: #fff;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.28),
+    0 3px 0 0 #3a2fc0,
+    0 8px 18px -6px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+html[data-portal-style="dawn"] .dbtn-accent:hover {
+  filter: brightness(1.08);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.24),
+    0 3px 0 0 #3a2fc0,
+    0 10px 26px -6px rgba(107, 91, 255, 0.55);
+}
+
+/* Destructive (OreUI): красная */
 html[data-portal-style="dawn"] .dbtn-danger {
-  background: color-mix(in srgb, var(--color-error) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-error) 36%, transparent);
-  color: var(--color-error);
+  --od-base: #c0392b;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--od-base) 55%, #ffd9d0) 0%,
+      var(--od-base) 46%,
+      var(--od-base) 54%,
+      color-mix(in srgb, var(--od-base) 62%, #000) 100%);
+  border-color: color-mix(in srgb, var(--od-base) 45%, #000);
+  color: #fff;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.30),
+    0 3px 0 0 color-mix(in srgb, var(--od-base) 55%, #000),
+    0 8px 18px -6px rgba(0, 0, 0, 0.40);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 html[data-portal-style="dawn"] .dbtn-danger:hover {
-  background: color-mix(in srgb, var(--color-error) 18%, transparent);
-  border-color: var(--color-error);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-error) 22%, transparent);
+  filter: brightness(1.08);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.40),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.26),
+    0 3px 0 0 color-mix(in srgb, var(--od-base) 50%, #000),
+    0 10px 26px -6px color-mix(in srgb, var(--od-base) 50%, transparent);
+}
+
+/* Press (OreUI): «утапливание» — бевел инвертируется (тёмная кромка сверху) */
+html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, .dbtn-danger, .dbtn-ghost):active {
+  transform: translateY(2px) scale(0.98) !important;
+  filter: brightness(0.96) !important;
+  box-shadow:
+    inset 0 2px 0 rgba(0, 0, 0, 0.32),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.10),
+    0 1px 0 0 rgba(0, 0, 0, 0.35) !important;
+}
+html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, .dbtn-danger, .dbtn-ghost):disabled {
+  opacity: .45;
+  pointer-events: none;
+  filter: grayscale(.6);
 }
 
 /* ── Заголовки секций (Ore-лейаут) ── */

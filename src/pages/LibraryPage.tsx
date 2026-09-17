@@ -755,12 +755,12 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                 <div className="rounded-md p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                   <p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Импорт из файла</p>
                   <p className="mt-1 text-[11px] leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>Откройте сохранённый .mrpack или .zip. Перед установкой можно посмотреть содержимое и отключить ненужные файлы.</p>
-                  <button type="button" onClick={pickFile} className="dbtn dbtn-primary mt-3 w-full px-4 py-3 text-sm"><Upload className="w-4 h-4" />Открыть .mrpack / .zip</button>
+                  <button type="button" onClick={pickFile} className="dbtn dbtn-accent mt-3 w-full px-4 py-3 text-sm"><Upload className="w-4 h-4" />Открыть .mrpack / .zip</button>
                 </div>
                 <div className="rounded-2xl p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                   <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black" style={{ color:'var(--color-text)' }}>Сборки из других лаунчеров</p><p className="mt-0.5 text-[10px]" style={{ color:'var(--color-text-secondary)' }}>Prism Launcher, Modrinth App, XMCL и CurseForge App.</p></div><button type="button" onClick={() => void loadExternalInstances()} aria-label="Обновить список внешних сборок" className="shrink-0 rounded-full p-2 outline-none hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ color:'var(--color-text-secondary)' }}><RefreshCw className={externalLoading ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} /></button></div>
                   <div className="mt-2 max-h-36 space-y-1.5 overflow-y-auto">
-                    {externalInstances.map(item => <div key={item.path} className="flex items-center gap-2 rounded-xl px-2.5 py-2" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}><p className="min-w-0 flex-1 truncate text-[10px] font-bold" style={{ color:'var(--color-text)' }}>{item.name} · {item.mc_version} · {item.loader}</p><button type="button" disabled={creating} onClick={async () => { setCreating(true); try { const raw = await invoke<any>('import_supported_launcher_instance', { sourcePath:item.path, sourceKind:item.source, name:item.name, mcVersion:item.mc_version, loader:item.loader, loaderVersion:item.loader_version || '' }); onCreated(raw); onClose(); } catch (e) { dialog.alert('Не удалось перенести сборку: ' + String(e), { title:'Импорт', danger:true }); } finally { setCreating(false); } }} className="dbtn dbtn-primary shrink-0 px-2.5 py-1 text-[9px] disabled:opacity-40">Перенести</button></div>)}
+                    {externalInstances.map(item => <div key={item.path} className="flex items-center gap-2 rounded-xl px-2.5 py-2" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}><p className="min-w-0 flex-1 truncate text-[10px] font-bold" style={{ color:'var(--color-text)' }}>{item.name} · {item.mc_version} · {item.loader}</p><button type="button" disabled={creating} onClick={async () => { setCreating(true); try { const raw = await invoke<any>('import_supported_launcher_instance', { sourcePath:item.path, sourceKind:item.source, name:item.name, mcVersion:item.mc_version, loader:item.loader, loaderVersion:item.loader_version || '' }); onCreated(raw); onClose(); } catch (e) { dialog.alert('Не удалось перенести сборку: ' + String(e), { title:'Импорт', danger:true }); } finally { setCreating(false); } }} className="dbtn dbtn-accent shrink-0 px-2.5 py-1 text-[9px] disabled:opacity-40">Перенести</button></div>)}
                     {!externalLoading && externalInstances.length === 0 && <p className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>Доступных сборок пока не найдено.</p>}
                   </div>
                 </div>
@@ -771,7 +771,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
               <motion.div key="import" initial={{ opacity:0,x:12 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-12 }} className="space-y-3">
                 <div className="flex items-center justify-between"><p className="text-xs font-black" style={{ color:'var(--color-text)' }}>Найденные сборки</p><button onClick={() => void loadExternalInstances()} className="rounded-lg p-1.5" style={{ color:'var(--color-text-secondary)' }}><RefreshCw className={externalLoading ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} /></button></div>
                 {externalInstances.length === 0 && !externalLoading && <div className="rounded-xl px-3 py-3 text-[10px]" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-tertiary)' }}>XMCL, Modrinth App, Prism Launcher и CurseForge App не нашли доступных сборок. Можно выбрать ZIP или MRPACK вручную.</div>}
-                {externalInstances.map(item => <div key={item.path} className="flex items-center gap-3 rounded-xl p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold" style={{ color:'var(--color-text)' }}>{item.name}</p><p className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{item.source === 'prismlauncher' ? 'Prism Launcher' : item.source === 'modrinth' ? 'Modrinth App' : item.source === 'xmcl' ? 'XMCL Launcher' : item.source === 'curseforge' ? 'CurseForge App' : item.source} · {item.mc_version} · {item.loader}</p></div><button disabled={creating} onClick={async () => { setCreating(true); try { const raw = await invoke<any>('import_supported_launcher_instance', { sourcePath:item.path, sourceKind:item.source, name:item.name, mcVersion:item.mc_version, loader:item.loader, loaderVersion:item.loader_version || '' }); onCreated(raw); onClose(); } catch (e) { dialog.alert('Не удалось перенести сборку: ' + String(e), { title:'Импорт', danger:true }); } finally { setCreating(false); } }} className="dbtn dbtn-primary shrink-0 px-2.5 py-1.5 text-[10px] disabled:opacity-40">Перенести</button></div>)}
+                {externalInstances.map(item => <div key={item.path} className="flex items-center gap-3 rounded-xl p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold" style={{ color:'var(--color-text)' }}>{item.name}</p><p className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{item.source === 'prismlauncher' ? 'Prism Launcher' : item.source === 'modrinth' ? 'Modrinth App' : item.source === 'xmcl' ? 'XMCL Launcher' : item.source === 'curseforge' ? 'CurseForge App' : item.source} · {item.mc_version} · {item.loader}</p></div><button disabled={creating} onClick={async () => { setCreating(true); try { const raw = await invoke<any>('import_supported_launcher_instance', { sourcePath:item.path, sourceKind:item.source, name:item.name, mcVersion:item.mc_version, loader:item.loader, loaderVersion:item.loader_version || '' }); onCreated(raw); onClose(); } catch (e) { dialog.alert('Не удалось перенести сборку: ' + String(e), { title:'Импорт', danger:true }); } finally { setCreating(false); } }} className="dbtn dbtn-accent shrink-0 px-2.5 py-1.5 text-[10px] disabled:opacity-40">Перенести</button></div>)}
                 <button onClick={pickFile}
                   className="w-full py-3 rounded-xl text-sm font-semibold border hover:bg-white/5 transition-all"
                   style={{ border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}>
@@ -788,7 +788,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
           </div>
           {step==='custom' && (
             <button onClick={doCreate} disabled={creating || (form.loader !== 'bedrock' && !form.mcVersion)}
-              className="dbtn dbtn-primary px-5 py-2.5 text-sm disabled:opacity-40 disabled:pointer-events-none">
+              className="dbtn dbtn-accent px-5 py-2.5 text-sm disabled:opacity-40 disabled:pointer-events-none">
               {creating ? <><div className="w-4 h-4 border border-white/40 border-t-white rounded-full animate-spin" />{t('libraryRuntime.creating')}</> : `+ ${t('libraryRuntime.create')}`}
             </button>
           )}
@@ -946,7 +946,7 @@ function NewGroupModal({ onClose, onCreate }: { onClose: () => void; onCreate: (
           className="w-full mb-3 px-3 py-2 rounded-xl text-sm outline-none"
           style={{ background:'var(--color-surface-2)', color:'var(--color-text)', border:'1px solid var(--color-border)' }} />
         <button disabled={!name.trim()} onClick={() => onCreate(name.trim())}
-          className="dbtn dbtn-primary w-full py-2 text-sm disabled:opacity-40">
+          className="dbtn dbtn-accent w-full py-2 text-sm disabled:opacity-40">
           Создать группу
         </button>
       </div>
@@ -1042,7 +1042,7 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
       {/* Toolbar */}
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         <button onClick={onNew}
-          className="dbtn dbtn-primary flex items-center gap-1.5 px-4 py-2.5 text-sm">
+          className="dbtn dbtn-accent flex items-center gap-1.5 px-4 py-2.5 text-sm">
           <Plus className="w-4 h-4" />{t('libraryRuntime.create')}
         </button>
         <button onClick={() => navigate('/discover')}
@@ -1083,7 +1083,7 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
             <p className="text-sm mt-1" style={{ color:'var(--color-text-secondary)' }}>{t('libraryRuntime.emptyDescription')}</p>
           </div>
           <button onClick={onNew}
-            className="dbtn dbtn-primary flex items-center gap-2 px-5 py-2.5 text-sm">
+            className="dbtn dbtn-accent flex items-center gap-2 px-5 py-2.5 text-sm">
             <Plus className="w-4 h-4" />{t('libraryRuntime.create')}
           </button>
         </div>

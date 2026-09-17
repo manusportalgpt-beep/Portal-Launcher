@@ -310,7 +310,23 @@ export function FirstLaunchExperience() {
   return (
     <AnimatePresence>
       <motion.div className="fixed inset-0 z-[300] flex flex-col"
-        style={{ background: 'var(--color-bg)' }}
+        style={{
+          background: '#0b0b0d',
+          ['--color-bg' as string]: '#0b0b0d',
+          ['--color-surface' as string]: '#0e0e12',
+          ['--color-surface-2' as string]: '#121218',
+          ['--color-surface-hover' as string]: '#181820',
+          ['--color-text' as string]: '#e8e8e8',
+          ['--color-text-secondary' as string]: '#9b9ba3',
+          ['--color-text-tertiary' as string]: '#6e6e78',
+          ['--color-border' as string]: '#1e1e26',
+          ['--color-primary' as string]: '#2ecc71',
+          ['--color-primary-text' as string]: '#062b16',
+          ['--color-primary-dim' as string]: 'rgba(46, 204, 113, 0.14)',
+          ['--color-primary-hover' as string]: '#27ae60',
+          ['--radius-card' as string]: '3px',
+          ['--radius-button' as string]: '3px',
+        }}
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
         {/* Title bar */}
         <div className="flex items-center justify-between px-4 py-2"

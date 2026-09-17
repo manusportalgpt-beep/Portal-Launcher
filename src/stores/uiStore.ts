@@ -157,7 +157,7 @@ export interface UiState {
 }
 
 const defaults = {
-  stylePreset: 'oreui' as StylePreset,
+  stylePreset: 'standard' as StylePreset,
   accentColor: null as string | null,
   navMode: 'notch' as NavMode,
   notchSide: 'top' as NotchSide,
@@ -246,7 +246,7 @@ export const useUiStore = create<UiState>()(
     {
       name: 'portal-launcher-ui',
       storage: createJSONStorage(() => safeLocalStorage()),
-      version: 11,
+      version: 12,
       migrate: (persisted: any, version) => {
         // Migrate only stock Title Bar heights from earlier releases; custom heights remain the user's choice.
         if (version < 3 && [28, 30, 32].includes(persisted?.titlebarHeight)) persisted.titlebarHeight = 26;
@@ -261,6 +261,8 @@ export const useUiStore = create<UiState>()(
         // v9→v11: фирменная схема OreUI — схема Dawn удалена, её место занимает OreUI.
         if (version < 9) persisted.stylePreset = 'oreui';
         if (version < 11 && persisted?.stylePreset === 'dawn') persisted.stylePreset = 'oreui';
+        // v11→v12: OreUI пока нестабилен — возвращаемся к безопасному Standard.
+        if (version < 12 && persisted?.stylePreset === 'oreui') persisted.stylePreset = 'standard';
         if (version < 5 && persisted?.sidebarPanelAppearance?.labels === 'always') {
           persisted.sidebarPanelAppearance = {
             ...persisted.sidebarPanelAppearance,

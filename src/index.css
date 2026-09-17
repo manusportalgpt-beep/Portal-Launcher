@@ -1945,7 +1945,11 @@ html[data-portal-style="quadral"] img {
 }
 
 /* OreUI: плотная тема без стекла — OLED → чистый чёрный, остальные темы → белый как в OreUI */
-html[data-portal-style="oreui"][data-theme="oled"] {
+/* OreUI: единая тёмная (почти чёрная) схема на любой теме.
+   Белый режим и пиксельные заголовки отменены: белый экран ломал окно
+   (вспышка до первого рендера), а Press Start 2P растягивал заголовки
+   и сжимал раскладку. Токены применяются всегда, без привязки к data-theme. */
+html[data-portal-style="oreui"] {
   --color-bg: #050505 !important;
   --color-surface: #0a0a0a !important;
   --color-surface-2: #121212 !important;
@@ -1962,70 +1966,19 @@ html[data-portal-style="oreui"][data-theme="oled"] {
   --portal-glass-edge: rgba(255, 255, 255, 0.05);
   --portal-glass-edge-soft: rgba(255, 255, 255, 0.02);
   --portal-glass-shadow: rgba(0, 0, 0, 0.65);
-  --ext-font-display: 'Press Start 2P', 'Segoe UI', monospace;
-  --ps-font-display: 'Press Start 2P', 'Segoe UI', monospace;
 }
-html[data-portal-style="oreui"]:not([data-theme="oled"]) {
-  --color-bg: #dcdcd6 !important;
-  --color-surface: #efefe9 !important;
-  --color-surface-2: #fafaf5 !important;
-  --color-surface-hover: #ffffff !important;
-  --color-surface-active: #e4e4dc !important;
-  --color-border: #b8b8af !important;
-  --color-border-strong: #8c8c83 !important;
-  --color-text: #1c1c1a !important;
-  --color-text-secondary: #4a4a45 !important;
-  --color-text-tertiary: #76766e !important;
-  --ore-dark-2: #e6e6df;
-  --ore-line: rgba(0, 0, 0, 0.16);
-  --ore-slider-track: #a9a9a1;
-  --portal-glass-blur: 0px;
-  --portal-glass-panel: rgba(255, 255, 255, 0);
-  --portal-glass-panel-strong: rgba(255, 255, 255, 0);
-  --portal-glass-edge: rgba(0, 0, 0, 0.06);
-  --portal-glass-edge-soft: rgba(0, 0, 0, 0.03);
-  --portal-glass-shadow: rgba(0, 0, 0, 0.25);
-  --ext-font-display: 'Press Start 2P', 'Segoe UI', monospace;
-  --ps-font-display: 'Press Start 2P', 'Segoe UI', monospace;
-}
-html[data-portal-style="oreui"][data-theme="oled"] body {
+html[data-portal-style="oreui"] body {
   background: #050505 !important;
 }
-html[data-portal-style="oreui"]:not([data-theme="oled"]) body {
-  background: #dcdcd6 !important;
-}
-/* запрет стекла/размытия везде во время OreUI (и чёрный, и белый режимы) */
+/* запрет стекла/размытия везде во время OreUI */
 html[data-portal-style="oreui"] *,
 html[data-portal-style="oreui"] *::before,
 html[data-portal-style="oreui"] *::after {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-/* плотные панели и модалки без стекла: чёрные на OLED, светлые на остальных темах */
-html[data-portal-style="oreui"][data-theme="oled"] :is([role="dialog"], dialog, .soft-surface, .object-frame, .new-ui-header, .new-ui-footer, .portal-glass-surface) {
+/* плотные тёмные панели и модалки без стекла */
+html[data-portal-style="oreui"] :is([role="dialog"], dialog, .soft-surface, .object-frame, .new-ui-header, .new-ui-footer, .portal-glass-surface) {
   background: #0a0a0a !important;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
 }
-html[data-portal-style="oreui"]:not([data-theme="oled"]) :is([role="dialog"], dialog, .soft-surface, .object-frame, .new-ui-header, .new-ui-footer, .portal-glass-surface) {
-  background: #efefe9 !important;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.65) !important;
-}
-/* ghost-кнопка на светлом OreUI: белая подложка + тёмный текст */
-html[data-portal-style="oreui"]:not([data-theme="oled"]) .dbtn-ghost {
-  background: rgba(255, 255, 255, 0.72);
-  border-color: rgba(0, 0, 0, 0.18);
-  color: #2a2b2f;
-}
-html[data-portal-style="oreui"]:not([data-theme="oled"]) .dbtn-ghost:hover {
-  background: #ffffff;
-  border-color: rgba(0, 0, 0, 0.28);
-  color: #111111;
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.9);
-}
-/* пиксельные заголовки (Press Start 2P) в стиле Minecraft-Bedrock */
-html[data-portal-style="oreui"] :is(.font-display, h1) {
-  font-family: 'Press Start 2P', 'Segoe UI', monospace !important;
-  letter-spacing: .04em;
-}
-html[data-portal-style="oreui"] .font-display { font-size: max(9px, .6em) !important; }
-html[data-portal-style="oreui"] h1 { font-size: max(11px, .78em) !important; }

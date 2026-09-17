@@ -1917,3 +1917,44 @@ html[data-portal-style="oreui"] img,
 html[data-portal-style="quadral"] img {
   image-rendering: pixelated;
 }
+
+/* OreUI (Bedrock): чёрный, плотный, без стекла — никакой прозрачности и блюра */
+html[data-portal-style="oreui"] {
+  --color-bg: #050505 !important;
+  --color-surface: #0a0a0a !important;
+  --color-surface-2: #121212 !important;
+  --color-surface-hover: #181818 !important;
+  --color-surface-active: #1e1e1e !important;
+  --color-border: #1d1d1d !important;
+  --color-border-strong: #2e2e2e !important;
+  --portal-glass-blur: 0px;
+  --portal-glass-panel: rgba(0, 0, 0, 0);
+  --portal-glass-panel-strong: rgba(0, 0, 0, 0);
+  --portal-glass-edge: rgba(255, 255, 255, 0.05);
+  --portal-glass-edge-soft: rgba(255, 255, 255, 0.02);
+  --portal-glass-shadow: rgba(0, 0, 0, 0.65);
+  --ext-font-display: 'Press Start 2P', 'Segoe UI', monospace;
+  --ps-font-display: 'Press Start 2P', 'Segoe UI', monospace;
+}
+html[data-portal-style="oreui"] body {
+  background: #050505 !important;
+}
+/* запрет стекла/размытия везде во время OreUI */
+html[data-portal-style="oreui"] *,
+html[data-portal-style="oreui"] *::before,
+html[data-portal-style="oreui"] *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* плотные чёрные панели и модалки с едва заметной глубиной */
+html[data-portal-style="oreui"] :is([role="dialog"], dialog, .soft-surface, .object-frame, .new-ui-header, .new-ui-footer, .portal-glass-surface) {
+  background: #0a0a0a !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+}
+/* пиксельные заголовки (Press Start 2P) в стиле Minecraft-Bedrock */
+html[data-portal-style="oreui"] :is(.font-display, h1) {
+  font-family: 'Press Start 2P', 'Segoe UI', monospace !important;
+  letter-spacing: .04em;
+}
+html[data-portal-style="oreui"] .font-display { font-size: max(9px, .6em) !important; }
+html[data-portal-style="oreui"] h1 { font-size: max(11px, .78em) !important; }

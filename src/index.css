@@ -1509,3 +1509,206 @@ input, textarea, select {
 .portal-innovative a[style*="var(--color-primary)"] {
   box-shadow: 0 8px 26px -8px color-mix(in srgb, var(--color-primary) 70%, transparent);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DAWN / ORE-UI LAYER — фирменная схема Portal Launcher.
+   Гибрид: воздух и мягкие кнопки Dawn + чёткие панели и пиксельные
+   акценты OreUI. Слой включается пресетом `dawn` (data-portal-style).
+   Идёт ПОСЛЕ блока clean-системы, поэтому пересиливает её при равной
+   специфичности. Включается только для этого пресета — остальные схемы
+   не затрагиваются.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Углы: оставляем осмысленные скругления вместо квадратной сетки ── */
+html[data-portal-style="dawn"] :is(a, button, [role="button"], [role="tab"], input, select, textarea, .rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-\[16px\], .rounded-\[18px\], .rounded-\[20px\], .rounded-\[24px\], .rounded-\[26px\], .rounded-\[28px\], .rounded-\[32px\], .rounded-\[34px\]) {
+  border-radius: var(--radius-md) !important;
+}
+
+/* hover-подъём карточек (clean-система отключала его глобально) */
+html[data-portal-style="dawn"] :is(.hover\:-translate-y-0\.5, .hover\:-translate-y-1, .hover\:scale-\[1\.03\], .hover\:scale-105):hover {
+  transform: translateY(-2px) !important;
+}
+html[data-portal-style="dawn"] .clean-home-instance:hover {
+  transform: translateY(-2px) !important;
+  border-color: var(--color-border-strong) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+/* ── Тени поверхностей: возвращаем глубину (clean их отключал) ── */
+html[data-portal-style="dawn"] [class*="shadow-"] { box-shadow: var(--shadow-md) !important; }
+html[data-portal-style="dawn"] [style*="box-shadow"], html[data-portal-style="dawn"] [style*="box-shadow: "] { box-shadow: var(--shadow-sm) !important; }
+html[data-portal-style="dawn"] [style*="box-shadow: none"], html[data-portal-style="dawn"] [style*="box-shadow:none"] { box-shadow: none !important; }
+
+/* ── Карточка установки (Dawn) ── */
+html[data-portal-style="dawn"] .portal-instance-card {
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-card) !important;
+  box-shadow: var(--shadow-sm) !important;
+  background: linear-gradient(180deg, var(--color-surface), color-mix(in srgb, var(--color-surface) 90%, var(--color-bg))) !important;
+}
+html[data-portal-style="dawn"] .portal-instance-card:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 26%, var(--color-border-strong)) !important;
+  box-shadow: 0 14px 34px rgba(0,0,0,.34), 0 0 0 1px color-mix(in srgb, var(--color-primary) 9%, transparent) !important;
+}
+
+/* ── Кнопки Dawn: dbtn / dbtn-primary / dbtn-danger / dbtn-ghost ── */
+html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-ghost, .dbtn-danger) {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-button);
+  font-weight: 700;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  isolation: isolate;
+  transition: transform 150ms var(--motion-ease), box-shadow 230ms var(--motion-ease), background-color 200ms var(--motion-ease), border-color 200ms var(--motion-ease), color 160ms var(--motion-ease), filter 150ms ease;
+}
+html[data-portal-style="dawn"] .dbtn[data-size="sm"], html[data-portal-style="dawn"] .dbtn-primary[data-size="sm"] { font-size: 11px; padding: 7px 12px; }
+html[data-portal-style="dawn"] .dbtn[data-size="md"], html[data-portal-style="dawn"] .dbtn-primary[data-size="md"] { font-size: 13px; padding: 11px 18px; }
+html[data-portal-style="dawn"] .dbtn[data-size="lg"], html[data-portal-style="dawn"] .dbtn-primary[data-size="lg"] { font-size: 14px; padding: 14px 22px; }
+
+/* ghost-подложка */
+html[data-portal-style="dawn"] .dbtn, html[data-portal-style="dawn"] .dbtn-ghost {
+  background: color-mix(in srgb, var(--color-surface-2) 68%, transparent);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+}
+html[data-portal-style="dawn"] .dbtn:hover, html[data-portal-style="dawn"] .dbtn-ghost:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+  box-shadow: 0 6px 18px rgba(0,0,0,.28), 0 0 0 1px rgba(255,255,255,.04);
+}
+
+/* основная акцентная кнопка */
+html[data-portal-style="dawn"] .dbtn-primary {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--color-primary) 88%, #fff),
+    var(--color-primary) 62%,
+    color-mix(in srgb, var(--color-primary) 78%, #000));
+  border: 1px solid color-mix(in srgb, var(--color-primary) 62%, #fff 18%);
+  color: #fff;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.22) inset,
+    0 0 0 1px rgba(0,0,0,.20),
+    0 8px 22px -8px color-mix(in srgb, var(--color-primary) 62%, transparent);
+}
+html[data-portal-style="dawn"] .dbtn-primary:hover {
+  filter: brightness(1.07);
+  box-shadow: 0 1px 0 rgba(255,255,255,.26) inset, var(--shadow-glow);
+  transform: translateY(-1px);
+}
+html[data-portal-style="dawn"] .dbtn-primary:active,
+html[data-portal-style="dawn"] .dbtn:active,
+html[data-portal-style="dawn"] .dbtn-ghost:active,
+html[data-portal-style="dawn"] .dbtn-danger:active {
+  transform: translateY(1px) scale(.98) !important;
+  filter: brightness(.96);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.22) inset !important;
+}
+html[data-portal-style="dawn"] :is(.dbtn, .dbtn-primary, .dbtn-ghost, .dbtn-danger):disabled {
+  opacity: .45;
+  pointer-events: none;
+}
+
+/* опасное действие */
+html[data-portal-style="dawn"] .dbtn-danger {
+  background: color-mix(in srgb, var(--color-error) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-error) 36%, transparent);
+  color: var(--color-error);
+}
+html[data-portal-style="dawn"] .dbtn-danger:hover {
+  background: color-mix(in srgb, var(--color-error) 18%, transparent);
+  border-color: var(--color-error);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-error) 22%, transparent);
+}
+
+/* ── Заголовки секций (Ore-лейаут) ── */
+html[data-portal-style="dawn"] .dsection {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+html[data-portal-style="dawn"] .dsection::before {
+  content: '';
+  width: 14px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 30%, transparent));
+}
+html[data-portal-style="dawn"] .dsection::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: color-mix(in srgb, var(--color-border) 62%, transparent);
+}
+
+/* ── Пиксельные подсказки клавиш (OreUI-иконки) ── */
+html[data-portal-style="dawn"] .dkbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 8px;
+  letter-spacing: .02em;
+  color: var(--color-text-secondary);
+  background: linear-gradient(180deg, var(--color-surface-2), var(--color-surface));
+  border: 1px solid var(--color-border-strong);
+  border-bottom-width: 3px;
+  border-radius: 5px;
+  box-shadow: 0 2px 0 rgba(0,0,0,.32);
+}
+html[data-portal-style="dawn"] .dkbd-primary { color: var(--color-primary); border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border)); }
+
+/* ── Поля ввода, селекты, textarea ── */
+html[data-portal-style="dawn"] :is(input, select, textarea) {
+  background: var(--color-surface-2) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-button) !important;
+  transition: border-color 180ms ease, box-shadow 220ms ease, background-color 180ms ease;
+}
+html[data-portal-style="dawn"] :is(input, select, textarea):focus {
+  border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border)) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 16%, transparent) !important;
+  outline: none !important;
+}
+
+/* ── Модалки ── */
+html[data-portal-style="dawn"] :is([role="dialog"], dialog) {
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-modal) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* ── Табы / сегменты ── */
+html[data-portal-style="dawn"] :is(.tabs, [role="tablist"], .segmented-control) {
+  border-radius: var(--radius-button) !important;
+  background: var(--color-surface) !important;
+  box-shadow: 0 0 0 1px var(--color-border), var(--shadow-sm) !important;
+}
+
+/* ── Скроллбары и выделение ── */
+html[data-portal-style="dawn"] ::-webkit-scrollbar { width: 8px; height: 8px; }
+html[data-portal-style="dawn"] ::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-border-strong) 55%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+html[data-portal-style="dawn"] ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-primary) 45%, transparent); background-clip: padding-box; }
+html[data-portal-style="dawn"] ::selection { background: color-mix(in srgb, var(--color-primary) 30%, transparent); }
+
+/* ── Появление контента ── */
+html[data-portal-style="dawn"] .page-enter-active,
+html[data-portal-style="dawn"] .content-transition { transition-timing-function: var(--motion-ease); transition-duration: 260ms; }

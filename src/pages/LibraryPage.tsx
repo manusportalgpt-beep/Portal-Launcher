@@ -574,8 +574,8 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
       style={{ background:'rgba(0,0,0,0.78)', backdropFilter:'none' }}
       initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <motion.div className="flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-md"
-        style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-sm)' }}
+      <motion.div className="dawn-dialog flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-md"
+        style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-lg)', borderRadius:'var(--radius-modal)' }}
         initial={{ scale:0.93,opacity:0,y:14 }} animate={{ scale:1,opacity:1,y:0 }} exit={{ scale:0.93,opacity:0,y:14 }}
         transition={{ type:'spring', stiffness:480, damping:34 }}>
 
@@ -597,7 +597,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                   { id:'install', Icon:Download, title:'Установить или импортировать сборку', desc:'Найдите модпак в Discover, откройте .mrpack / .zip или перенесите сборку из другого лаунчера.' },
                 ].map(opt => (
                   <button type="button" key={opt.id} onClick={() => setStep(opt.id as CreateStep)}
-                    className="w-full flex items-center gap-4 p-3.5 rounded-xl text-left outline-none transition-all duration-200 group hover:scale-[1.01] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                    className="dbtn dbtn-ghost w-full flex items-center gap-4 p-3.5 text-left outline-none group hover:scale-[1.01] focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
                     style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                     <span className="w-9 h-9 rounded-sm flex items-center justify-center shrink-0" style={{ background:'transparent', color:'var(--color-primary)', border:'1px solid var(--color-border)' }}><opt.Icon className="w-4 h-4" /></span>
                     <div className="flex-1 min-w-0"><p className="font-black text-sm" style={{ color:'var(--color-text)' }}>{opt.title}</p><p className="text-xs mt-0.5 leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>{opt.desc}</p></div>
@@ -755,12 +755,12 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                 <div className="rounded-md p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                   <p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Импорт из файла</p>
                   <p className="mt-1 text-[11px] leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>Откройте сохранённый .mrpack или .zip. Перед установкой можно посмотреть содержимое и отключить ненужные файлы.</p>
-                  <button type="button" onClick={pickFile} className="mt-3 w-full flex items-center justify-center gap-2 rounded-sm px-4 py-3 text-sm font-bold transition-colors" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)', boxShadow:'none' }}><Upload className="w-4 h-4" />Открыть .mrpack / .zip</button>
+                  <button type="button" onClick={pickFile} className="dbtn dbtn-primary mt-3 w-full px-4 py-3 text-sm"><Upload className="w-4 h-4" />Открыть .mrpack / .zip</button>
                 </div>
                 <div className="rounded-2xl p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                   <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black" style={{ color:'var(--color-text)' }}>Сборки из других лаунчеров</p><p className="mt-0.5 text-[10px]" style={{ color:'var(--color-text-secondary)' }}>Prism Launcher, Modrinth App, XMCL и CurseForge App.</p></div><button type="button" onClick={() => void loadExternalInstances()} aria-label="Обновить список внешних сборок" className="shrink-0 rounded-full p-2 outline-none hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ color:'var(--color-text-secondary)' }}><RefreshCw className={externalLoading ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} /></button></div>
                   <div className="mt-2 max-h-36 space-y-1.5 overflow-y-auto">
-                    {externalInstances.map(item => <div key={item.path} className="flex items-center gap-2 rounded-xl px-2.5 py-2" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}><p className="min-w-0 flex-1 truncate text-[10px] font-bold" style={{ color:'var(--color-text)' }}>{item.name} · {item.mc_version} · {item.loader}</p><button type="button" disabled={creating} onClick={async () => { setCreating(true); try { const raw = await invoke<any>('import_supported_launcher_instance', { sourcePath:item.path, sourceKind:item.source, name:item.name, mcVersion:item.mc_version, loader:item.loader, loaderVersion:item.loader_version || '' }); onCreated(raw); onClose(); } catch (e) { dialog.alert('Не удалось перенести сборку: ' + String(e), { title:'Импорт', danger:true }); } finally { setCreating(false); } }} className="shrink-0 rounded-full px-2.5 py-1 text-[9px] font-bold disabled:opacity-40" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>Перенести</button></div>)}
+                    {externalInstances.map(item => <div key={item.path} className="flex items-center gap-2 rounded-xl px-2.5 py-2" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}><p className="min-w-0 flex-1 truncate text-[10px] font-bold" style={{ color:'var(--color-text)' }}>{item.name} · {item.mc_version} · {item.loader}</p><button type="button" disabled={creating} onClick={async () => { setCreating(true); try { const raw = await invoke<any>('import_supported_launcher_instance', { sourcePath:item.path, sourceKind:item.source, name:item.name, mcVersion:item.mc_version, loader:item.loader, loaderVersion:item.loader_version || '' }); onCreated(raw); onClose(); } catch (e) { dialog.alert('Не удалось перенести сборку: ' + String(e), { title:'Импорт', danger:true }); } finally { setCreating(false); } }} className="dbtn dbtn-primary shrink-0 px-2.5 py-1 text-[9px] disabled:opacity-40">Перенести</button></div>)}
                     {!externalLoading && externalInstances.length === 0 && <p className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>Доступных сборок пока не найдено.</p>}
                   </div>
                 </div>
@@ -771,7 +771,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
               <motion.div key="import" initial={{ opacity:0,x:12 }} animate={{ opacity:1,x:0 }} exit={{ opacity:0,x:-12 }} className="space-y-3">
                 <div className="flex items-center justify-between"><p className="text-xs font-black" style={{ color:'var(--color-text)' }}>Найденные сборки</p><button onClick={() => void loadExternalInstances()} className="rounded-lg p-1.5" style={{ color:'var(--color-text-secondary)' }}><RefreshCw className={externalLoading ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} /></button></div>
                 {externalInstances.length === 0 && !externalLoading && <div className="rounded-xl px-3 py-3 text-[10px]" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-tertiary)' }}>XMCL, Modrinth App, Prism Launcher и CurseForge App не нашли доступных сборок. Можно выбрать ZIP или MRPACK вручную.</div>}
-                {externalInstances.map(item => <div key={item.path} className="flex items-center gap-3 rounded-xl p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold" style={{ color:'var(--color-text)' }}>{item.name}</p><p className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{item.source === 'prismlauncher' ? 'Prism Launcher' : item.source === 'modrinth' ? 'Modrinth App' : item.source === 'xmcl' ? 'XMCL Launcher' : item.source === 'curseforge' ? 'CurseForge App' : item.source} · {item.mc_version} · {item.loader}</p></div><button disabled={creating} onClick={async () => { setCreating(true); try { const raw = await invoke<any>('import_supported_launcher_instance', { sourcePath:item.path, sourceKind:item.source, name:item.name, mcVersion:item.mc_version, loader:item.loader, loaderVersion:item.loader_version || '' }); onCreated(raw); onClose(); } catch (e) { dialog.alert('Не удалось перенести сборку: ' + String(e), { title:'Импорт', danger:true }); } finally { setCreating(false); } }} className="shrink-0 rounded-lg px-2.5 py-1.5 text-[10px] font-bold disabled:opacity-40" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>Перенести</button></div>)}
+                {externalInstances.map(item => <div key={item.path} className="flex items-center gap-3 rounded-xl p-3" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold" style={{ color:'var(--color-text)' }}>{item.name}</p><p className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{item.source === 'prismlauncher' ? 'Prism Launcher' : item.source === 'modrinth' ? 'Modrinth App' : item.source === 'xmcl' ? 'XMCL Launcher' : item.source === 'curseforge' ? 'CurseForge App' : item.source} · {item.mc_version} · {item.loader}</p></div><button disabled={creating} onClick={async () => { setCreating(true); try { const raw = await invoke<any>('import_supported_launcher_instance', { sourcePath:item.path, sourceKind:item.source, name:item.name, mcVersion:item.mc_version, loader:item.loader, loaderVersion:item.loader_version || '' }); onCreated(raw); onClose(); } catch (e) { dialog.alert('Не удалось перенести сборку: ' + String(e), { title:'Импорт', danger:true }); } finally { setCreating(false); } }} className="dbtn dbtn-primary shrink-0 px-2.5 py-1.5 text-[10px] disabled:opacity-40">Перенести</button></div>)}
                 <button onClick={pickFile}
                   className="w-full py-3 rounded-xl text-sm font-semibold border hover:bg-white/5 transition-all"
                   style={{ border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}>
@@ -782,11 +782,13 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
           </AnimatePresence>
         </div>
 
-        <div className="shrink-0 px-6 pb-6 pt-1 flex justify-end gap-2.5">
+        <div className="shrink-0 px-6 pb-6 pt-1 flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-1.5 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>
+            {step==='custom' && <><span className="dkbd">Enter</span><span>создать</span><span className="dkbd ml-1">Esc</span><span>закрыть</span></>}
+          </div>
           {step==='custom' && (
             <button onClick={doCreate} disabled={creating || (form.loader !== 'bedrock' && !form.mcVersion)}
-              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-sm text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-              style={{ background:'var(--color-primary)', color:'#fff', opacity:creating?0.55:1, boxShadow:'none' }}>
+              className="dbtn dbtn-primary px-5 py-2.5 text-sm disabled:opacity-40 disabled:pointer-events-none">
               {creating ? <><div className="w-4 h-4 border border-white/40 border-t-white rounded-full animate-spin" />{t('libraryRuntime.creating')}</> : `+ ${t('libraryRuntime.create')}`}
             </button>
           )}
@@ -916,6 +918,10 @@ function InstanceCard({ inst, onClick, onDropOnGroup }: {
           <span className="absolute bottom-1.5 right-1.5 w-2.5 h-2.5 rounded-full"
             style={{ background: launchStatus==='running' ? '#2ECC71' : inst.installStatus === 'partial' ? '#F39C12' : 'var(--color-primary)', boxShadow:'0 0 0 3px var(--color-surface)' }} />
         )}
+        <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 px-2 py-1 rounded-sm text-[9px] font-bold uppercase tracking-wide opacity-0 translate-y-0.5 transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 pointer-events-none"
+          style={{ background:'var(--color-primary)', color:'#fff', boxShadow:'0 4px 12px color-mix(in srgb, var(--color-primary) 42%, transparent)' }}>
+          <Play className="w-2.5 h-2.5 fill-current" />Играть
+        </span>
       </div>
       <div className="min-w-0 w-full pointer-events-none">
         <p className="text-sm font-bold truncate font-display" style={{ color:'var(--color-text)' }}>{inst.name}</p>
@@ -924,7 +930,7 @@ function InstanceCard({ inst, onClick, onDropOnGroup }: {
           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold capitalize" style={{ background:`${LOADER_COLOR[inst.modLoader] || 'var(--color-primary)'}12`, color:LOADER_COLOR[inst.modLoader] || 'var(--color-primary)' }}>{inst.modLoaderVersion ? `${inst.modLoader} ${inst.modLoaderVersion}` : inst.modLoader}</span>
         </div>
       </div>
-      <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100" style={{ boxShadow:'inset 0 0 0 1px transparent', borderRadius:'var(--radius-md)' }} />
+      <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100 rounded-md" style={{ boxShadow:'inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 30%, transparent)', borderRadius:'var(--radius-md)' }} />
     </motion.div>
   );
 }
@@ -940,8 +946,7 @@ function NewGroupModal({ onClose, onCreate }: { onClose: () => void; onCreate: (
           className="w-full mb-3 px-3 py-2 rounded-xl text-sm outline-none"
           style={{ background:'var(--color-surface-2)', color:'var(--color-text)', border:'1px solid var(--color-border)' }} />
         <button disabled={!name.trim()} onClick={() => onCreate(name.trim())}
-          className="w-full py-2 rounded-xl text-sm font-bold disabled:opacity-40"
-          style={{ background:'var(--color-primary)', color:'#fff' }}>
+          className="dbtn dbtn-primary w-full py-2 text-sm disabled:opacity-40">
           Создать группу
         </button>
       </div>
@@ -1037,27 +1042,26 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
       {/* Toolbar */}
       <div className="flex items-center gap-2 mb-6 flex-wrap">
         <button onClick={onNew}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-bold hover:opacity-90"
-          style={{ background:'var(--color-primary)', color:'#fff' }}>
+          className="dbtn dbtn-primary flex items-center gap-1.5 px-4 py-2.5 text-sm">
           <Plus className="w-4 h-4" />{t('libraryRuntime.create')}
         </button>
         <button onClick={() => navigate('/discover')}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold"
+          className="dbtn dbtn-ghost flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold"
           style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
           <Download className="w-4 h-4" />{t('libraryRuntime.download')}
         </button>
         <button onClick={onOpenInstall}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold"
+          className="dbtn dbtn-ghost flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold"
           style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
           <Upload className="w-4 h-4" />{t('libraryRuntime.upload')}
         </button>
         <button onClick={() => setShowNewGroup(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold"
+          className="dbtn dbtn-ghost flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold"
           style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
           <FolderPlus className="w-4 h-4" />{t('libraryRuntime.newGroup')}
         </button>
         <button onClick={onOpenDeleted}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold"
+          className="dbtn dbtn-ghost flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold"
           style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
           <Trash className="w-4 h-4" />Удалённые
         </button>
@@ -1079,8 +1083,7 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
             <p className="text-sm mt-1" style={{ color:'var(--color-text-secondary)' }}>{t('libraryRuntime.emptyDescription')}</p>
           </div>
           <button onClick={onNew}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold hover:opacity-90 transition-transform duration-150 hover:-translate-y-0.5 active:scale-[0.98]"
-            style={{ background:'var(--color-primary)', color:'#fff', boxShadow:'var(--shadow-glow)' }}>
+            className="dbtn dbtn-primary flex items-center gap-2 px-5 py-2.5 text-sm">
             <Plus className="w-4 h-4" />{t('libraryRuntime.create')}
           </button>
         </div>
@@ -1088,10 +1091,9 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
         <>
           {allGroupNames.map(g => (
             <div key={g} className="mb-8" data-group-container={g}>
-              <div className="flex items-center gap-2 mb-3">
-                <p className="text-xs font-bold uppercase tracking-wider font-display" style={{ color:'var(--color-text-tertiary)' }}>{g}</p>
+              <div className="dsection mb-3">
+                <p className="font-black font-display" style={{ color:'var(--color-text-tertiary)' }}>{g}</p>
                 <span className="text-xs" style={{ color:'var(--color-text-tertiary)' }}>{byGroup(g).length}</span>
-                <div className="flex-1 h-px" style={{ background:'color-mix(in srgb, var(--color-border) 45%, transparent)' }} />
               </div>
               <div className="grid gap-3 min-h-[80px] rounded-2xl" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(150px,1fr))' }}>
                 {byGroup(g).map(inst => (
@@ -1104,10 +1106,9 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
 
           {ungrouped.length > 0 && (
             <div data-group-container="">
-              <div className="flex items-center gap-2 mb-3">
-                <p className="text-xs font-bold uppercase tracking-wider font-display" style={{ color:'var(--color-text-tertiary)' }}>Ungrouped</p>
+              <div className="dsection mb-3">
+                <p className="font-black font-display" style={{ color:'var(--color-text-tertiary)' }}>Ungrouped</p>
                 <span className="text-xs" style={{ color:'var(--color-text-tertiary)' }}>{ungrouped.length}</span>
-                <div className="flex-1 h-px" style={{ background:'color-mix(in srgb, var(--color-border) 45%, transparent)' }} />
               </div>
               <div className="grid gap-3 min-h-[80px] rounded-2xl" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(150px,1fr))' }}>
                 {ungrouped.map(inst => (

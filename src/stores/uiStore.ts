@@ -155,7 +155,7 @@ export interface UiState {
 }
 
 const defaults = {
-  stylePreset: 'standard' as StylePreset,
+  stylePreset: 'dawn' as StylePreset,
   navMode: 'notch' as NavMode,
   notchSide: 'top' as NotchSide,
   notchHotzone: 46,
@@ -243,7 +243,7 @@ export const useUiStore = create<UiState>()(
     {
       name: 'portal-launcher-ui',
       storage: createJSONStorage(() => safeLocalStorage()),
-      version: 8,
+      version: 9,
       migrate: (persisted: any, version) => {
         // Migrate only stock Title Bar heights from earlier releases; custom heights remain the user's choice.
         if (version < 3 && [28, 30, 32].includes(persisted?.titlebarHeight)) persisted.titlebarHeight = 26;
@@ -253,8 +253,10 @@ export const useUiStore = create<UiState>()(
         if (version < 4 && [4, 5].includes(persisted?.navInstanceCount)) persisted.navInstanceCount = 8;
         if (version < 5 && persisted?.sidebarWidth === 148) persisted.sidebarWidth = 64;
         if (version < 6 && (!persisted?.sidebarWidth || persisted.sidebarWidth <= 72)) persisted.sidebarWidth = 88;
-        // Existing users keep the familiar square system; new users start with Glassmorphism.
+        // Existing users keep the familiar square system; new users start with the Dawn scheme.
         if (version < 7 && !persisted?.stylePreset) persisted.stylePreset = 'quadral';
+        // v9: схема Dawn становится фирменным оформлением — переключается в Оформлении.
+        if (version < 9) persisted.stylePreset = 'dawn';
         if (version < 5 && persisted?.sidebarPanelAppearance?.labels === 'always') {
           persisted.sidebarPanelAppearance = {
             ...persisted.sidebarPanelAppearance,

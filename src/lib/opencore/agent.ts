@@ -686,12 +686,15 @@ async function execSpawnAgents(
   requestPermission: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>,
   signal?: AbortSignal,
 ): Promise<ExecResult> {
-  const rawAgents = Array.isArray(args.agents) ? args.agents : [];
-  const list: { name: string; instructions: string }[] = rawAgents
-    .map((a: any) => ({
-      name: String(a?.name ?? 'Агент').slice(0, 60),
-      instructions: String(a?.instructions ?? '').trim(),
-    }))
+  const agentsRaw: unknown[] = Array.isArray(args.agents) ? args.agents : [];
+  const list: { name: string; instructions: string }[] = agentsRaw
+    .map(item => {
+      const a = item as { name?: unknown; instructions?: unknown };
+      return {
+        name: String(a?.name ?? 'Агент').slice(0, 60),
+        instructions: String(a?.instructions ?? '').trim(),
+      };
+    })
     .filter(a => a.instructions.length > 0)
     .slice(0, 5);
   if (list.length === 0) {

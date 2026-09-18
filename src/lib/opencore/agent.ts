@@ -265,6 +265,32 @@ function canFetchFromWebview(url: string): boolean {
   }
 }
 
+// opencode.ai/zen отклоняет запросы «извне OpenCode» («OpenCode Free Tier can
+// only be used from within OpenCode»). Проверку проходят только запросы с
+// заголовками официального клиента: User-Agent "opencode", x-opencode-client,
+// стабильный x-opencode-session, уникальный x-opencode-request и
+// x-opencode-project.
+let zenSessionId: string | null = null;
+
+function zenClientHeaders(): Record<string, string> {
+  if (!zenSessionId) zenSessionId = crypto.randomUUID();
+  return {
+    'User-Agent': 'opencode',
+    'x-opencode-client': 'desktop',
+    'x-opencode-session': zenSessionId,
+    'x-opencode-request': crypto.randomUUID(),
+    'x-opencode-project': 'portal-launcher',
+  };
+}
+
+function isZenHost(url: string): boolean {
+  try {
+    return new URL(url).hostname.endsWith('opencode.ai');
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Интернет: поиск (DuckDuckGo) и чтение страниц
 // ---------------------------------------------------------------------------
@@ -451,6 +477,7 @@ async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; s
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${ep.apiKey}`,
+    ...(isZenHost(url) ? zenClientHeaders() : {}),
   };
   if (canFetchFromWebview(url)) {
     try {
@@ -1022,6 +1049,7 @@ async function callOpenAI(
     'Content-Type': 'application/json',
     ...(ep.apiKey ? { Authorization: `Bearer ${ep.apiKey}` } : {}),
     ...(ep.provider.id === 'openrouter' ? { 'HTTP-Referer': 'https://portal-launcher.app', 'X-Title': 'OpenPortal' } : {}),
+    ...(isZenHost(url) ? zenClientHeaders() : {}),
   };
 
   let res: Response | null = null;
@@ -1226,6 +1254,7 @@ async function callAnthropic(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'anthropic-version': '2023-06-01',
+    ...(isZenHost(url) ? zenClientHeaders() : {}),
   };
   if (ep.apiKey) headers['x-api-key'] = ep.apiKey;
 

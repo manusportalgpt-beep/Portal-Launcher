@@ -449,7 +449,8 @@ async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; s
     if ((e as DOMException)?.name === 'AbortError') throw e;
     const fr = await httpViaRust('POST', url, headers, JSON.stringify(body), 180000);
     if (!fr.ok) {
-      return { ok: false, output: `Генерация недоступна: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}`.trim() };
+      const snippet = fr.text.trim().slice(0, 240);
+      return { ok: false, output: `Генерация недоступна: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim() };
     }
     try {
       data = JSON.parse(fr.text);
@@ -1011,9 +1012,19 @@ async function callOpenAI(
   } catch (e) {
     if ((e as DOMException)?.name === 'AbortError') throw e;
     // Фолбэк: веб-вью не может дотянуться (CORS/сеть) — идём через бэкенд.
-    const fr = await httpViaRust('POST', url, headers, JSON.stringify(body), 180000);
+    // Через бэкенд шлём не-стриминговый запрос: SSE-ответ без потоковой обработки
+    // не разобрать, а часть шлюзов отклоняет стриминг от не-браузерных клиентов.
+    const fbBody: Record<string, unknown> = {
+      model: body.model,
+      messages: body.messages,
+      tools: body.tools,
+      temperature: body.temperature,
+      max_tokens: body.max_tokens,
+    };
+    const fr = await httpViaRust('POST', url, { ...headers, Accept: 'application/json' }, JSON.stringify(fbBody), 180000);
     if (!fr.ok) {
-      throw new Error(`${ep.provider.name} недоступен: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}`.trim());
+      const snippet = fr.text.trim().slice(0, 240);
+      throw new Error(`${ep.provider.name} недоступен: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim());
     }
     try {
       return parseOpenAIJson(JSON.parse(fr.text));
@@ -1203,7 +1214,8 @@ async function callAnthropic(
     if ((e as DOMException)?.name === 'AbortError') throw e;
     const fr = await httpViaRust('POST', url, headers, JSON.stringify(body), 180000);
     if (!fr.ok) {
-      throw new Error(`${ep.provider.name} недоступен: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}`.trim());
+      const snippet = fr.text.trim().slice(0, 240);
+      throw new Error(`${ep.provider.name} недоступен: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim());
     }
     try {
       return parseAnthropicJson(JSON.parse(fr.text));

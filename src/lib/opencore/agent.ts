@@ -1,0 +1,686 @@
+import { invoke } from '@/lib/invoke-shim';
+import type {
+  ChatMessage,
+  ToolCall,
+  PermissionRequest,
+  PortalRoot,
+  CmdResult,
+  FetchResult,
+  FsEntry,
+} from '@/lib/opencore/types';
+
+// ---------------------------------------------------------------------------
+// Описания инструментов (единый реестр для всех форматов провайдеров)
+// ---------------------------------------------------------------------------
+
+export interface ToolDef {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  /** Рут, к которому привязан инструмент (для пермишн-ключа root: '*' = любой). */
+  root?: PortalRoot | '*';
+  requiresPermission: boolean;
+}
+
+export const TOOLS: ToolDef[] = [
+  {
+    name: 'web_search',
+    description:
+      'Читает любую веб-страницу по URL и возвращает её текст (markdown/HTML без побочных стилей). ' +
+      'Используй для документации, GitHub README, страниц модов, release-нот и т.п.',
+    parameters: {
+      type: 'object',
+      properties: { url: { type: 'string', description: 'Полный URL страницы' } },
+      required: ['url'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'list_dir',
+    description: 'Список содержимого каталога в песочнице. Вернёт файлы и папки с размерами.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона: portal — папка OpenPortal, temp — системная Temp, launcher — каталог лаунчера' },
+        path: { type: 'string', description: 'Абсолютный путь внутри зоны' },
+      },
+      required: ['root', 'path'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'read_text',
+    description: 'Читает текстовый файл (до 512 КБ) из песочницы. Для, например, settings.json, README, TODO, логов.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона: portal | temp | launcher' },
+        path: { type: 'string', description: 'Абсолютный путь к файлу' },
+      },
+      required: ['root', 'path'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'write_text',
+    description:
+      'Создаёт/перезаписывает текстовый файл в песочнице (выполнение запросит разрешение). ' +
+      'Писать лаунчер можно только в settings.json. Никогда не переписывай исходники лаунчера.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона записи' },
+        path: { type: 'string', description: 'Абсолютный путь к файлу' },
+        content: { type: 'string', description: 'Новое содержимое' },
+      },
+      required: ['root', 'path', 'content'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'run_command',
+    description:
+      'Запускает команду в песочнице (выполнение запросит разрешение). ' +
+      'Рабочая папка обязательно внутри зоны. Используй для git init/commit/pull, npm/pnpm, сборок, тестов.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона, в которой лежит cwd' },
+        cwd: { type: 'string', description: 'Рабочая папка (абсолютный путь внутри зоны)' },
+        command: { type: 'string', description: 'Команда для cmd/sh' },
+        timeout_ms: { type: 'number', description: 'Таймаут, мс (по умолчанию 120000)' },
+      },
+      required: ['root', 'cwd', 'command'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Выполнение инструментов
+// ---------------------------------------------------------------------------
+
+export interface ExecResult {
+  ok: boolean;
+  output: string;
+}
+
+async function execWebFetch(args: { url: string }): Promise<ExecResult> {
+  if (!/^https?:\/\//i.test(args.url)) {
+    return { ok: false, output: 'Некорректный URL — только http/https.' };
+  }
+  const res = await invoke<FetchResult>('op_web_fetch', { url: args.url });
+  if (!res.ok || (res.text.length === 0 && res.error)) {
+    return { ok: false, output: `HTTP ${res.status}: ${res.error ?? 'пустой ответ'}` };
+  }
+  return { ok: true, output: `HTTP ${res.status}\n${res.text}` };
+}
+
+async function lookupRoot(root: PortalRoot): Promise<string> {
+  const layout = await invoke<{ temp: string; launcher: string; base: string; projects: string }>('op_layout');
+  switch (root) {
+    case 'portal': return layout.base;
+    case 'temp': return layout.temp;
+    case 'launcher': return layout.launcher;
+    default: return layout.base;
+  }
+}
+
+async function execListDir(args: { root: PortalRoot; path: string }): Promise<ExecResult> {
+  try {
+    const entries = await invoke<FsEntry[]>('op_list_dir', { root: String(args.root), path: args.path });
+    if (entries.length === 0) return { ok: true, output: '(каталог пуст)' };
+    const lines = entries.map(e =>
+      `${e.is_dir ? '[dir ]' : '[file]'} ${e.name}${e.is_dir ? '/' : ''}${e.is_dir ? '' : `  (${fmtSize(e.size)})`}`,
+    );
+    return { ok: true, output: lines.join('\n') };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+function fmtSize(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function execReadText(args: { root: PortalRoot; path: string }): Promise<ExecResult> {
+  try {
+    const text = await invoke<string>('op_read_text', { root: String(args.root), path: args.path });
+    return { ok: true, output: text || '(файл пуст)' };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execWriteText(args: { root: PortalRoot; path: string; content: string }): Promise<ExecResult> {
+  try {
+    await invoke('op_write_text', { root: String(args.root), path: args.path, content: args.content });
+    return { ok: true, output: `Записано в ${args.path}` };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execRunCommand(args: { root: PortalRoot; cwd: string; command: string; timeout_ms?: number }): Promise<ExecResult> {
+  try {
+    const res = await invoke<CmdResult>('op_run_command', {
+      root: String(args.root),
+      cwd: args.cwd,
+      command: args.command,
+      timeout_ms: args.timeout_ms ?? 120000,
+    });
+    const parts: string[] = [`exit=${res.exit_code}`];
+    if (res.timed_out) parts.push('[превышен таймаут]');
+    if (res.stdout.trim()) parts.push('--- stdout ---\n' + res.stdout.slice(0, 12000));
+    if (res.stderr.trim()) parts.push('--- stderr ---\n' + res.stderr.slice(0, 6000));
+    return { ok: res.exit_code === 0, output: parts.join('\n') };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+export async function executeTool(
+  tool: string,
+  argsRaw: string,
+  requestPermission: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>,
+): Promise<ExecResult> {
+  let args: any;
+  try {
+    args = JSON.parse(argsRaw || '{}');
+  } catch {
+    return { ok: false, output: 'Не удалось разобрать аргументы инструмента (JSON).' };
+  }
+
+  if (tool === 'web_search') {
+    if (!args.url) return { ok: false, output: 'Нет аргумента url.' };
+    return execWebFetch(args);
+  }
+
+  if (tool === 'list_dir') return execListDir(args);
+  if (tool === 'read_text') return execReadText(args);
+
+  // Безопасные инструменты с запросом разрешения:
+  if (tool === 'write_text' || tool === 'run_command') {
+    const root: PortalRoot = String(args.root || 'portal') as PortalRoot;
+    if (!['portal', 'temp', 'launcher'].includes(root)) {
+      return { ok: false, output: `Неизвестная зона: ${root}` };
+    }
+    const rootBase = await lookupRoot(root);
+    const label = tool === 'write_text' ? 'Запись файла' : 'Выполнение команды';
+    const detail = tool === 'write_text'
+      ? `Путь: ${args.path}`
+      : `Команда: ${args.command}\nПапка: ${args.cwd}`;
+    const decision = await requestPermission({
+      tool,
+      root,
+      label,
+      detail,
+      cwdLabel: `${label} → ${args.path ?? args.cwd ?? ''}`,
+      resolve: () => {},
+    });
+    if (decision === 'deny' || decision === 'never') {
+      return { ok: false, output: `Пользователь не разрешил: ${label}.` };
+    }
+    if (decision === 'allow' || decision === 'always') {
+      if (tool === 'write_text') return execWriteText(args);
+      return execRunCommand(args);
+    }
+    return { ok: false, output: 'Разрешение не получено.' };
+  }
+
+  return { ok: false, output: `Неизвестный инструмент: ${tool}` };
+}
+
+// ---------------------------------------------------------------------------
+// Сборка тела запроса для разных форматов
+// ---------------------------------------------------------------------------
+
+import { OP_PROVIDERS, type ProviderDef, type ModelDef, type ProviderKind } from '@/lib/opencore/providers';
+
+export interface ResolvedEndpoint {
+  provider: ProviderDef;
+  model: ModelDef;
+  baseUrl: string;
+  apiKey: string;
+  format: 'openai' | 'anthropic';
+  useZen: boolean;
+  isCustom: boolean;
+}
+
+export function resolveEndpoint(
+  providerId: string,
+  modelId: string,
+  providersState: Record<string, { apiKey?: string; baseUrl?: string }>,
+): ResolvedEndpoint {
+  const preset = OP_PROVIDERS.find(p => p.id === providerId);
+  const st = providersState?.[providerId] ?? {};
+  const isCustom = providerId.startsWith('custom:');
+
+  let baseUrl: string;
+  let kind: ProviderKind = preset?.kind ?? 'openai';
+  let model: ModelDef;
+
+  if (preset) {
+    baseUrl = st.baseUrl || preset.baseUrl || '';
+    model = preset.models.find(m => m.id === modelId) ?? { id: modelId };
+  } else {
+    // кастомный провайдер
+    baseUrl = st.baseUrl || '';
+    kind = baseUrl.includes('anthropic') ? 'anthropic' : 'openai';
+    model = { id: modelId };
+  }
+
+  const useZen = kind === 'zen';
+  const format: 'openai' | 'anthropic' =
+    kind === 'anthropic' || (useZen && model.family === 'anthropic') ? 'anthropic' : 'openai';
+
+  return {
+    provider: preset ?? ({ id: providerId, name: 'Custom', kind: 'openai', baseUrl, models: [model] } as ProviderDef),
+    model,
+    baseUrl,
+    apiKey: st.apiKey || '',
+    format,
+    useZen,
+    isCustom,
+  };
+}
+
+export interface ChatTurn {
+  role: 'user' | 'assistant' | 'tool';
+  content: string;
+  toolCallId?: string;
+  toolName?: string;
+  toolCalls?: ToolCall[];
+  attachments?: { dataUrl?: string; base64?: string; type?: string }[];
+}
+
+// ---------------------------------------------------------------------------
+// Нормализация ответов провайдеров в единый вид
+// ---------------------------------------------------------------------------
+
+export interface ApiOutcome {
+  text: string;
+  thinking?: string;
+  toolCalls?: ToolCall[];
+  raw: unknown;
+  model?: string;
+}
+
+export async function callProvider(
+  ep: ResolvedEndpoint,
+  systemPrompt: string,
+  turns: ChatTurn[],
+  signal?: AbortSignal,
+): Promise<ApiOutcome> {
+  if (!ep.baseUrl) throw new Error('Не настроен baseUrl провайдера.');
+  if (!ep.apiKey && ep.provider.kind !== 'zen' && !ep.provider.id.includes('custom:')) {
+    // Локальные провайдеры (ollama/lmstudio) ключа не требуют
+    if (!['ollama', 'lmstudio'].includes(ep.provider.id)) {
+      throw new Error(`Нет API-ключа для ${ep.provider.name}. Добавь ключ в меню моделей.`);
+    }
+  }
+
+  if (ep.format === 'anthropic') return callAnthropic(ep, systemPrompt, turns, signal);
+  return callOpenAI(ep, systemPrompt, turns, signal);
+}
+
+async function callOpenAI(
+  ep: ResolvedEndpoint,
+  systemPrompt: string,
+  turns: ChatTurn[],
+  signal?: AbortSignal,
+): Promise<ApiOutcome> {
+  const url = `${ep.baseUrl.replace(/\/+$/, '')}/chat/completions`;
+
+  const messages: any[] = [{ role: 'system', content: systemPrompt }];
+  for (const t of turns) {
+    if (t.role === 'user') {
+      if (t.attachments && t.attachments.length > 0) {
+        const images = t.attachments.filter(a => a.dataUrl || a.base64);
+        if (images.length > 0) {
+          messages.push({
+            role: 'user',
+            content: [
+              { type: 'text', text: t.content },
+              ...images.map(a => ({
+                type: 'image_url',
+                image_url: { url: a.dataUrl || `data:${a.type ?? 'image/png'};base64,${a.base64}` },
+              })),
+            ],
+          });
+          continue;
+        }
+      }
+      messages.push({ role: 'user', content: t.content });
+    } else if (t.role === 'assistant') {
+      const msg: any = { role: 'assistant', content: t.content || null };
+      if (t.toolCalls && t.toolCalls.length > 0) {
+        msg.tool_calls = t.toolCalls.map(tc => ({
+          id: tc.id,
+          type: 'function',
+          function: { name: tc.name, arguments: tc.arguments },
+        }));
+      }
+      messages.push(msg);
+    } else if (t.role === 'tool') {
+      messages.push({
+        role: 'tool',
+        tool_call_id: t.toolCallId,
+        content: t.content,
+      });
+    }
+  }
+
+  const tools = TOOLS.map(t => ({
+    type: 'function',
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.parameters,
+    },
+  }));
+
+  const body: Record<string, unknown> = {
+    model: ep.model.id,
+    messages,
+    tools,
+    temperature: 0.4,
+    max_tokens: 8192,
+  };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    signal,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(ep.apiKey ? { Authorization: `Bearer ${ep.apiKey}` } : {}),
+      ...(ep.provider.id === 'openrouter' ? { 'HTTP-Referer': 'https://portal-launcher.app', 'X-Title': 'OpenPortal' } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 500)}`);
+  }
+  const data = await res.json();
+  const choice = data?.choices?.[0];
+  const msg = choice?.message;
+  const text = msg?.content || '';
+  // Reasoning: DeepSeek/xAI/Grok и совместимые отдают as reasoning_content
+  const thinking = trimThinking(msg?.reasoning_content ?? msg?.reasoning ?? '');
+  const toolCalls: ToolCall[] | undefined = (msg?.tool_calls ?? []).map((tc: any) => ({
+    id: String(tc.id ?? ''),
+    name: String(tc.function?.name ?? ''),
+    arguments: String(tc.function?.arguments ?? '{}'),
+  }));
+  return {
+    text: text ?? '',
+    thinking: thinking || undefined,
+    toolCalls: toolCalls.length ? toolCalls : undefined,
+    raw: data,
+    model: data?.model,
+  };
+}
+
+async function callAnthropic(
+  ep: ResolvedEndpoint,
+  systemPrompt: string,
+  turns: ChatTurn[],
+  signal?: AbortSignal,
+): Promise<ApiOutcome> {
+  const base = `${ep.baseUrl.replace(/\/+$/, '')}`;
+  const url = `${base}/v1/messages`;
+
+  const messages: any[] = turns.map(t => {
+    if (t.role === 'user') {
+      if (t.attachments && t.attachments.length > 0) {
+        const images = t.attachments.filter(a => a.dataUrl || a.base64);
+        if (images.length > 0) {
+          return {
+            role: 'user',
+            content: [
+              { type: 'text', text: t.content },
+              ...images.map(a => ({
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: (a.type ?? 'image/png').replace('image/', 'image/'),
+                  data: (a.base64 ?? a.dataUrl?.split(',')[1] ?? '') as string,
+                },
+              })),
+            ],
+          };
+        }
+      }
+      return { role: 'user', content: t.content };
+    }
+    if (t.role === 'assistant') {
+      const blocks: any[] = [];
+      if (t.content) blocks.push({ type: 'text', text: t.content });
+      if (t.toolCalls && t.toolCalls.length > 0) {
+        for (const tc of t.toolCalls) {
+          blocks.push({ type: 'tool_use', id: tc.id, name: tc.name, input: JSON.parse(tc.arguments || '{}') });
+        }
+      }
+      return { role: 'assistant', content: blocks };
+    }
+    // tool
+    return {
+      role: 'user',
+      content: [
+        { type: 'tool_result', tool_use_id: t.toolCallId, content: t.content },
+      ],
+    };
+  });
+
+  const tools = TOOLS.map(t => ({
+    name: t.name,
+    description: t.description,
+    input_schema: t.parameters,
+  }));
+
+  const body: Record<string, unknown> = {
+    model: ep.model.id,
+    max_tokens: 8192,
+    system: systemPrompt,
+    messages,
+    tools,
+  };
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'anthropic-version': '2023-06-01',
+  };
+  if (ep.apiKey) headers['x-api-key'] = ep.apiKey;
+
+  const res = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(body) });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 500)}`);
+  }
+  const data = await res.json();
+
+  let text = '';
+  let thinking: string | undefined;
+  const toolCalls: ToolCall[] = [];
+  for (const block of data?.content ?? []) {
+    if (block.type === 'thinking') thinking = (thinking ? thinking + '\n' : '') + block.thinking;
+    if (block.type === 'text') text += block.text;
+    if (block.type === 'tool_use') toolCalls.push({ id: block.id, name: block.name, arguments: JSON.stringify(block.input ?? {}) });
+  }
+  return {
+    text,
+    thinking: thinking ? trimThinking(thinking) : undefined,
+    toolCalls: toolCalls.length ? toolCalls : undefined,
+    raw: data,
+    model: data?.model,
+  };
+}
+
+function trimThinking(s: string): string {
+  if (!s) return '';
+  return s.length > 4000 ? s.slice(0, 4000) + '…' : s;
+}
+
+// ---------------------------------------------------------------------------
+// Сжатие истории/контекста
+// ---------------------------------------------------------------------------
+
+export function compressHistory(messages: ChatMessage[], max = 48): ChatMessage[] {
+  if (messages.length <= max) return messages;
+  const head = messages.slice(0, 6);
+  const tail = messages.slice(-Math.max(max - 8, 20));
+  const summary: ChatMessage = {
+    id: `__contraction-${Date.now()}`,
+    role: 'assistant',
+    content: `… [${messages.length - head.length - tail.length} сообщений сжато — история сокращена OpenPortal для экономии контекста] …`,
+    timestamp: Date.now(),
+  };
+  return [...head, summary, ...tail];
+}
+
+// ---------------------------------------------------------------------------
+// Системный промпт
+// ---------------------------------------------------------------------------
+
+export function buildSystemPrompt(opts: {
+  mode: 'build' | 'plan';
+  extra?: string;
+}): string {
+  const rules = opts.mode === 'build'
+    ? 'Режим BUILD: ты полноценный агент-программист — выполняешь задачи, используя инструменты, включая изменение файлов и запуск команд. Этично и безопасно.'
+    : 'Режим PLAN: ты архитектор. Не изменяй файлы и не запускай команды. Составляй детальный пошаговый план с оценкой рисков и файлами, которых это коснётся.';
+  return [
+    `Ты — OpenPortal, встроенный ИИ-агент портал-лаунчера (активный агент из двух режимов).`,
+    `Режим: ${opts.mode === 'build' ? 'BUILD — выполнять' : 'PLAN — планировать'}.`,
+    rules,
+    '',
+    'Правила работы:',
+    '- Отвечай на языке пользователя (по умолчанию русский).',
+    '- Формат: сплошной текст, короткие строки, markdown-заголовки, не более 80 символов в строке.',
+    '- Для работы с файлами/командами используй инструменты: list_dir, read_text, write_text, run_command, web_search.',
+    '- Работай только внутри разрешённых зон (portal — папка OpenPortal, temp — системная Temp, launcher — только чтение и settings.json).',
+    '- Никогда не изменяй исходный код лаунчера целиком; правки настроек лаунчера — только settings.json.',
+    '- Любая запись файлов или запуск команд потребуют подтверждения пользователя. Дождись ответа инструмента.',
+    '- Сначала проведи разведку (list_dir/read_text), затем предлагай изменения; в режиме BUILD применяй их шаг за шагом.',
+    '- Используй web_search для чтения документации, инструкций и страниц модов.',
+    opts.extra ? `\nДополнительно:\n${opts.extra}` : '',
+  ].join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Оркестратор: цикл «запрос → инструменты → ещё запрос»
+// ---------------------------------------------------------------------------
+
+export interface RunTurnOptions {
+  ep: ResolvedEndpoint;
+  systemPrompt: string;
+  /** Входные сообщения (уже включая новый user-turn). Возвращаются обновлённые. */
+  input: ChatMessage[];
+  mode: 'build' | 'plan';
+  requestPermission: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>;
+  signal?: AbortSignal;
+  onAppend?: (msgs: ChatMessage[]) => void;
+  onUpdate?: (id: string, patch: Partial<ChatMessage>) => void;
+  maxIterations?: number;
+}
+
+export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]> {
+  const { ep, systemPrompt, requestPermission, signal, maxIterations = 12 } = opts;
+  let messages: ChatMessage[] = opts.input;
+
+  const push = (m: ChatMessage) => {
+    messages = [...messages, m];
+    opts.onAppend?.([m]);
+  };
+  const patch = (id: string, p: Partial<ChatMessage>) => {
+    messages = messages.map(m => (m.id === id ? { ...m, ...p } : m));
+    opts.onUpdate?.(id, p);
+  };
+
+  for (let iter = 0; iter < maxIterations; iter++) {
+    if (signal?.aborted) throw new Error('Отменено пользователем.');
+
+    const turns: ChatTurn[] = toTurns(messages);
+    const outcome = await callProvider(ep, systemPrompt, turns, signal);
+
+    const assistantId = `asst-${Date.now()}-${iter}`;
+    const assistantBase: ChatMessage = {
+      id: assistantId,
+      role: 'assistant',
+      content: outcome.text || '',
+      thinking: outcome.thinking,
+      model: ep.model.id,
+      timestamp: Date.now(),
+    };
+
+    if (outcome.toolCalls?.length) {
+      const assistantMsg: ChatMessage = {
+        ...assistantBase,
+        toolCalls: outcome.toolCalls,
+      };
+      push(assistantMsg);
+
+      // Perform sequentially so a single permission modal shows at a time.
+      for (let i = 0; i < outcome.toolCalls.length; i++) {
+        if (signal?.aborted) throw new Error('Отменено пользователем.');
+        const tc = outcome.toolCalls[i];
+        const toolMsg: ChatMessage = {
+          id: `tool-${tc.id}`, role: 'tool', content: '… выполняется …',
+          toolCallId: tc.id, toolName: tc.name, timestamp: Date.now(),
+        };
+        push(toolMsg);
+        const res = await executeTool(tc.name, tc.arguments, requestPermission);
+        patch(toolMsg.id, { content: res.output, error: !res.ok });
+        if (signal?.aborted) throw new Error('Отменено пользователем.');
+      }
+
+      // Не даём модели бесконечно слинковать инструменты без финального ответа.
+      if (iter === maxIterations - 1) {
+        push({
+          id: `final-${Date.now()}`,
+          role: 'assistant',
+          content: 'Достигнут лимит итераций инструментов OpenPortal. Опиши сделанное и предложи следующий шаг пользователю.',
+          timestamp: Date.now(),
+          model: ep.model.id,
+        });
+      }
+      continue;
+    }
+
+    // Финальный ответ без tool-вызовов
+    push({ ...assistantBase });
+    return messages;
+  }
+  return messages;
+}
+
+function toTurns(messages: ChatMessage[]): ChatTurn[] {
+  const turns: ChatTurn[] = [];
+  for (const m of messages) {
+    if (m.role === 'user') {
+      turns.push({ role: 'user', content: m.content, attachments: m.attachments });
+    } else if (m.role === 'assistant') {
+      turns.push({
+        role: 'assistant',
+        content: m.content,
+        toolCalls: m.toolCalls,
+      });
+    } else if (m.role === 'tool') {
+      turns.push({
+        role: 'tool',
+        content: m.content,
+        toolCallId: m.toolCallId,
+        toolName: m.toolName,
+      });
+    }
+  }
+  return turns;
+}

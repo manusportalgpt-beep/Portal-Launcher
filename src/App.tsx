@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { SplashScreen } from '@/components/splash/SplashScreen';
@@ -35,7 +35,7 @@ import { InstallEffectOverlay } from '@/components/InstallEffectOverlay';
 import { BottomProgressBar } from '@/components/BottomProgressBar';
 import { DialogHost } from '@/components/DialogHost';
 import { SettingsOverlay } from '@/components/SettingsOverlay';
-import { AIAgent } from '@/components/ai/AIAgent';
+import { OpenPortalPage } from '@/pages/OpenPortalPage';
 import { FileToastHost } from '@/components/ai/FileToast';
 import { UpdateChecker } from '@/components/UpdateChecker';
 import { BackgroundMusicPlayer } from '@/components/BackgroundMusicPlayer';
@@ -53,7 +53,6 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { initDiscord, setLauncherStatus } from '@/lib/discord';
 
 const WELCOME_KEY = 'portal-welcome-shown';
-const AI_PANEL_KEY = 'portal-ai-panel-open';
 
 function App() {
   const [loading, setLoading] = useState(false);
@@ -126,13 +125,6 @@ function App() {
     };
   }, []);
   useUiEffects();
-  const [aiOpen, setAiOpen] = useState(false);
-  const toggleAi = useCallback(() => { setAiOpen(prev => { localStorage.setItem(AI_PANEL_KEY, !prev ? '1' : '0'); return !prev; }); }, []);
-  useEffect(() => {
-    const handler = () => toggleAi();
-    window.addEventListener('portal:toggle-ai', handler);
-    return () => window.removeEventListener('portal:toggle-ai', handler);
-  }, [toggleAi]);
   const addNotif = useNotifStore(s => s.add);
   const instances = useInstanceStore(s => s.instances);
   const syncInstances = useInstanceStore(s => s.syncFromBackend);
@@ -230,6 +222,7 @@ function App() {
             <Route path="/settings" element={layoutMode === 'innovative' ? <InnovativeSettings /> : <SettingsPage />} />
             <Route path="/settings/:section" element={layoutMode === 'innovative' ? <InnovativeSettings /> : <SettingsPage />} />
             <Route path="/settings/extended" element={<ExtendedSettings />} />
+            <Route path="/openportal" element={<OpenPortalPage />} />
           </Routes>
           <BottomProgressBar />
         </LayoutRouter>
@@ -240,7 +233,6 @@ function App() {
       <SettingsOverlay />
       <DialogHost />
       {!loading && <FirstLaunchExperience />}
-      {!loading && aiOpen && <AIAgent onClose={() => setAiOpen(false)} />}
       <FileToastHost />
       <UpdateChecker />
       </div>

@@ -17,13 +17,14 @@ import { toIconSrc } from '@/lib/icon-src';
 import { CachedPlayerFace } from '@/components/CachedPlayerFace';
 import './portal-sidebar.css';
 
-interface NavItem { to: string; icon: LucideIcon; labelKey: 'home' | 'discover' | 'skins' | 'library' | 'settings'; end?: boolean }
+interface NavItem { to: string; icon: LucideIcon; labelKey: 'home' | 'discover' | 'skins' | 'library' | 'settings' | 'openportal'; end?: boolean }
 
 const NAV: NavItem[] = [
   { to: '/home', icon: House, labelKey: 'home', end: true },
   { to: '/discover', icon: Search, labelKey: 'discover' },
   { to: '/skins', icon: Shirt, labelKey: 'skins' },
   { to: '/library', icon: Boxes, labelKey: 'library' },
+  { to: '/openportal', icon: Bot, labelKey: 'openportal' },
 ];
 
 function orderedNav(order: string[]) {
@@ -284,6 +285,7 @@ function SidebarNav() {
 /** Выезжающая минималистичная Notch-панель. Перетаскивание окна отключено. */
 function NotchNav({ extendedOrder, extendedCompact }: { extendedOrder?: string[]; extendedCompact?: boolean }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { notchPinned, notchSide, notchHotzone, notchOpenOnTab, notchAboveHotzone, notchDockScale, navItemScale, navItemOrder, panelVersion, uiMode, titlebarHeight, notchPanelAppearance: appearance, set } = useUiStore();
   const visualPanelVersion = uiMode === 'old' ? 'old' : panelVersion;
   const items = orderedNav(extendedOrder && extendedOrder.length > 0 ? extendedOrder : navItemOrder);
@@ -382,7 +384,7 @@ function NotchNav({ extendedOrder, extendedCompact }: { extendedOrder?: string[]
               <div className={`flex ${vertical ? 'flex-col' : 'flex-row'} items-center gap-1`}>
                 <AccountButton vertical={vertical} />
                 <DockButton item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} vertical={vertical} scale={navItemScale} appearance={appearance} />
-                <button title="AI Assistant" onClick={() => window.dispatchEvent(new CustomEvent('portal:toggle-ai'))} className="flex items-center justify-center rounded-sm" style={{ width:28, height:28, color: 'var(--color-primary)', background:'transparent', border:'1px solid var(--color-border)' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><Bot size={16} /></button>
+                <button title="OpenPortal — ИИ-агент" onClick={() => navigate('/openportal')} className="flex items-center justify-center rounded-sm" style={{ width:28, height:28, color: 'var(--color-primary)', background:'transparent', border:'1px solid var(--color-border)' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><Bot size={16} /></button>
                 <button title="Назад" onClick={() => window.history.back()} className="ore-flat flex items-center justify-center rounded-sm" style={{ width:28, height:28, color:'var(--color-text-secondary)', background:'transparent', border:'1px solid var(--color-border)' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronLeft size={18} /></button>
                 <button title="Вперёд" onClick={() => window.history.forward()} className="ore-flat flex items-center justify-center rounded-sm" style={{ width:28, height:28, color:'var(--color-text-secondary)', background:'transparent', border:'1px solid var(--color-border)' }} onMouseEnter={event => { event.currentTarget.style.background = 'var(--color-surface-hover)'; }} onMouseLeave={event => { event.currentTarget.style.background = 'transparent'; }}><ChevronRight size={18} /></button>
                 <button title={t('notch.pin')} onClick={() => set('notchPinned', !notchPinned)}

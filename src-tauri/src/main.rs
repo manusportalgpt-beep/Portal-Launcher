@@ -292,6 +292,22 @@ fn main() {
             services::discord::set_launcher_status,
             services::discord::set_game_status,
             services::discord::clear_discord_status,
+            // OpenPortal — встроенный ИИ-агент
+            commands::opencode::op_layout,
+            commands::opencode::op_list_sessions,
+            commands::opencode::op_save_session,
+            commands::opencode::op_load_session,
+            commands::opencode::op_delete_session,
+            commands::opencode::op_load_config,
+            commands::opencode::op_save_config,
+            commands::opencode::op_load_permissions,
+            commands::opencode::op_save_permissions,
+            commands::opencode::op_list_dir,
+            commands::opencode::op_read_text,
+            commands::opencode::op_write_text,
+            commands::opencode::op_launcher_settings_path,
+            commands::opencode::op_run_command,
+            commands::opencode::op_web_fetch,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

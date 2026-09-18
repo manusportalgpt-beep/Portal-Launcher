@@ -5,10 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Cpu, Palette,
   LogIn, RefreshCw, Trash2, Check, X,
-  Volume2, Code, Shield, Save, Layout, Upload, Gamepad2, Globe, Github, ExternalLink, Search, SlidersHorizontal, Bot,
+  Volume2, Code, Shield, Save, Layout, Upload, Gamepad2, Globe, Github, ExternalLink, Search, SlidersHorizontal,
 } from 'lucide-react';
 import { invoke } from '@/lib/invoke-shim';
-import { PROVIDERS, endpointFor, defaultModelFor, modelGroups } from '@/lib/ai-providers';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useCurrentUser, useIsAuthenticated, useAuthStore } from '@/stores/authStore';
@@ -763,28 +762,10 @@ function AdvancedSection() {
   const [proxyStatus, setProxyStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>('idle');
   const [proxyMessage, setProxyMessage] = useState('');
   const [saved, setSaved] = useState(false);
-  const [aiSettings, setAiSettings] = useState(() => { try { const raw = JSON.parse(localStorage.getItem('portal-ai-settings') || '{}'); return { useProxy: false, ...raw }; } catch { return { useProxy: false }; } });
-  const [aiSaved, setAiSaved] = useState(false);
   function saveCfKey() {
     s.setSetting('curseforgeApiKey', cfKey);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }
-  function saveAiSettings() {
-    localStorage.setItem('portal-ai-settings', JSON.stringify(aiSettings));
-    setAiSaved(true);
-    setTimeout(() => setAiSaved(false), 2000);
-  }
-  function updateAiSetting(key: string, value: any) {
-    const next = { ...aiSettings, [key]: value };
-    setAiSettings(next);
-    localStorage.setItem('portal-ai-settings', JSON.stringify(next));
-  }
-  function selectAiProvider(provider: any) {
-    updateAiSetting('provider', provider.id);
-    updateAiSetting('endpoint', endpointFor(provider.id, false));
-    const firstModel = defaultModelFor(provider.id);
-    if (firstModel) updateAiSetting('model', firstModel);
   }
   async function testModrinthProxy() {
     const url = proxyUrl.trim().replace(/\/$/, '');
@@ -847,77 +828,7 @@ function AdvancedSection() {
         )}
       </div>
 
-      {/* AI Agent Settings */}
-      <div className="py-3.5" style={{ borderBottom:'1px solid var(--color-border)' }}>
-        <div className="flex items-center gap-2 mb-1">
-          <Bot className="w-4 h-4" style={{ color:'var(--color-primary)' }} />
-          <p className="text-sm font-semibold" style={{ color:'var(--color-text)' }}>AI Agent</p>
-        </div>
-        <p className="text-xs mb-3" style={{ color:'var(--color-text-secondary)' }}>
-          Select a provider and add your API key. Proxy mode routes requests through a third-party endpoint for regions with restricted access.
-        </p>
-        <div className="flex flex-wrap gap-1.5 mb-3">
-          {PROVIDERS.map(p => (
-            <button key={p.id} onClick={() => selectAiProvider(p)}
-              className="flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium"
-              style={{ background: aiSettings.provider === p.id ? 'var(--color-primary-dim)' : 'var(--color-surface-2)', color: aiSettings.provider === p.id ? 'var(--color-primary)' : 'var(--color-text)', border: `1px solid ${aiSettings.provider === p.id ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRadius: 4 }}>
-              {p.name}
-            </button>
-          ))}
-        </div>
-        <div className="space-y-2">
-          <div>
-            <label className="text-[11px] font-semibold block mb-1" style={{ color:'var(--color-text-tertiary)' }}>API Key</label>
-            <input type="password" value={aiSettings.apiKey || ''} onChange={e => updateAiSetting('apiKey', e.target.value)}
-              placeholder={aiSettings.provider === 'claude' ? 'sk-ant-...' : 'sk-...'}
-              className="w-full px-3 py-2.5 text-sm" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)', borderRadius: 4 }} />
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold block mb-1" style={{ color:'var(--color-text-tertiary)' }}>Endpoint</label>
-            <input value={aiSettings.endpoint || PROVIDERS.find(p => p.id === (aiSettings.provider || 'openai'))?.endpoint || ''} onChange={e => updateAiSetting('endpoint', e.target.value)}
-              className="w-full px-3 py-2.5 text-sm" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)', borderRadius: 4 }} />
-          </div>
-          <div>
-            <label className="text-[11px] font-semibold block mb-1" style={{ color:'var(--color-text-tertiary)' }}>Модель</label>
-            {(() => {
-              const p = PROVIDERS.find(x => x.id === (aiSettings.provider || 'openai'));
-              const groups = p ? modelGroups(p) : [];
-              const current = aiSettings.model || p?.models?.[0] || '';
-              if (groups.length > 0) {
-                return (
-                  <select value={current} onChange={e => updateAiSetting('model', e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)', borderRadius: 4 }}>
-                    {groups.map(group => (
-                      <optgroup key={group.label} label={group.label}>
-                        {group.models.map(m => <option key={m} value={m}>{m}{group.label === 'Бесплатные' ? ' · Free' : ''}</option>)}
-                      </optgroup>
-                    ))}
-                  </select>
-                );
-              }
-              return (
-                <input value={aiSettings.model || ''} onChange={e => updateAiSetting('model', e.target.value)}
-                  placeholder="model-name"
-                  className="w-full px-3 py-2.5 text-sm" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)', borderRadius: 4 }} />
-              );
-            })()}
-          </div>
-          <div className="flex items-center gap-3 py-1">
-            <label className="text-[11px] font-semibold" style={{ color:'var(--color-text-secondary)' }}>Прокси включён</label>
-            <button onClick={() => { const next = !aiSettings.useProxy; updateAiSetting('useProxy', next); if (next) { updateAiSetting('endpoint', aiSettings.endpoint); } else { updateAiSetting('endpoint', endpointFor(aiSettings.provider || 'openai', false)); } }}
-              className="relative" style={{ width: 38, height: 20 }}>
-              <div className="absolute inset-0" style={{ background: aiSettings.useProxy ? 'var(--color-primary)' : 'var(--color-surface-2)', border: `1px solid ${aiSettings.useProxy ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRadius: 10 }} />
-              <div className="absolute top-0.5 transition-[left]" style={{ width: 12, height: 12, background: '#fff', borderRadius: 6, left: aiSettings.useProxy ? 22 : 3 }} />
-            </button>
-          </div>
-          <p className="text-[10px] leading-4" style={{ color:'var(--color-text-tertiary)' }}>
-            Встроенных прокси-адресов нет. Если ключ не работает из РФ, укажи в поле Endpoint рабочий адрес своего прокси (или ключа-прокси): обычно он выдаётся вместе с ключом и заканчивается на <code style={{ fontFamily:'monospace' }}>/v1/chat/completions</code>.
-          </p>
-          <button onClick={saveAiSettings} className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold transition-all" style={{ background: aiSaved ? 'rgba(46,204,113,0.15)' : 'var(--color-primary)', color: aiSaved ? '#2ECC71' : 'var(--color-primary-text)', borderRadius: 4, border: aiSaved ? '1px solid #2ECC7144' : 'none' }}>
-            {aiSaved ? <><Check className="w-4 h-4" />Saved</> : <><Save className="w-4 h-4" />Save</>}
-          </button>
-        </div>
-      </div>
+      {/* AI Agent настройки перенесены в OpenPortal (вкладка «OpenPortal» в лаунчере). */}
 
       <Row label="Автоочистка удалённых материалов" desc="Удалённые сборки, моды, ресурс-паки, шейдеры, дата-паки и миры можно восстановить до окончания выбранного срока.">
         <select value={s.deletedInstanceRetentionMinutes} onChange={event => s.setSetting('deletedInstanceRetentionMinutes', Number(event.target.value))} className="rounded-xl px-3 py-2 text-xs font-bold" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }}>

@@ -826,6 +826,9 @@ pub async fn op_http_request(
     let client = reqwest::Client::builder()
         .timeout(timeout)
         .user_agent("Mozilla/5.0 (Portal-Launcher OpenPortal; like Gecko)")
+        // HTTP/1.1: часть шлюзов (Cloudflare и др.) возвращает 403 на POST по
+        // HTTP/2 от не-браузерных клиентов (TLS/фреймовый фингерпринт).
+        .http1_only()
         .build()
         .unwrap_or_else(|_| reqwest::Client::new());
     let mut req = client.request(method, &url);

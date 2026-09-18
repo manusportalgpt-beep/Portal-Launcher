@@ -97,8 +97,7 @@ function ChatBubble({ m }: { m: ChatMessage }) {
   if (m.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-2xl rounded-br-md px-3.5 py-2.5 text-[13px] leading-6"
-          style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+        <div className="max-w-[80%] rounded-2xl rounded-br-md px-3.5 py-2.5 text-[13px] leading-6" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', cursor: 'text', userSelect: 'text' }}>
           <Markdown text={m.content} />
         </div>
       </div>
@@ -113,7 +112,7 @@ function ChatBubble({ m }: { m: ChatMessage }) {
         </div>
         {m.thinking && <ThinkingBlock text={m.thinking} />}
         {m.content ? (
-          <div className="rounded-2xl rounded-bl-md px-3.5 py-2.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+          <div className="rounded-2xl rounded-bl-md px-3.5 py-2.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', cursor: 'text', userSelect: 'text' }}>
             <Markdown text={m.content} />
           </div>
         ) : null}

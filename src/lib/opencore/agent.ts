@@ -251,6 +251,20 @@ async function httpViaRust(
   });
 }
 
+/**
+ * opencode.ai не отдаёт `Access-Control-Allow-Origin` для origin'а вебвью
+ * (`tauri.localhost`) — `fetch()` из вебвью к нему всегда падает по CORS.
+ * Для таких хостов сразу идём через бэкенд (`op_http_request`).
+ */
+function canFetchFromWebview(url: string): boolean {
+  try {
+    const host = new URL(url).hostname;
+    return !host.endsWith('opencode.ai');
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Интернет: поиск (DuckDuckGo) и чтение страниц
 // ---------------------------------------------------------------------------
@@ -438,15 +452,19 @@ async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; s
     'Content-Type': 'application/json',
     Authorization: `Bearer ${ep.apiKey}`,
   };
-  try {
-    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      return { ok: false, output: `${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 400)}` };
+  if (canFetchFromWebview(url)) {
+    try {
+      const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        return { ok: false, output: `${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 400)}` };
+      }
+      data = await res.json().catch(() => null);
+    } catch (e) {
+      if ((e as DOMException)?.name === 'AbortError') throw e;
     }
-    data = await res.json().catch(() => null);
-  } catch (e) {
-    if ((e as DOMException)?.name === 'AbortError') throw e;
+  }
+  if (data === undefined) {
     const fr = await httpViaRust('POST', url, headers, JSON.stringify(body), 180000);
     if (!fr.ok) {
       const snippet = fr.text.trim().slice(0, 240);
@@ -1006,11 +1024,15 @@ async function callOpenAI(
     ...(ep.provider.id === 'openrouter' ? { 'HTTP-Referer': 'https://portal-launcher.app', 'X-Title': 'OpenPortal' } : {}),
   };
 
-  let res: Response;
-  try {
-    res = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(body) });
-  } catch (e) {
-    if ((e as DOMException)?.name === 'AbortError') throw e;
+  let res: Response | null = null;
+  if (canFetchFromWebview(url)) {
+    try {
+      res = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(body) });
+    } catch (e) {
+      if ((e as DOMException)?.name === 'AbortError') throw e;
+    }
+  }
+  if (res === null) {
     // Фолбэк: веб-вью не может дотянуться (CORS/сеть) — идём через бэкенд.
     // Через бэкенд шлём не-стриминговый запрос: SSE-ответ без потоковой обработки
     // не разобрать, а часть шлюзов отклоняет стриминг от не-браузерных клиентов.
@@ -1207,11 +1229,15 @@ async function callAnthropic(
   };
   if (ep.apiKey) headers['x-api-key'] = ep.apiKey;
 
-  let res: Response;
-  try {
-    res = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(body) });
-  } catch (e) {
-    if ((e as DOMException)?.name === 'AbortError') throw e;
+  let res: Response | null = null;
+  if (canFetchFromWebview(url)) {
+    try {
+      res = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(body) });
+    } catch (e) {
+      if ((e as DOMException)?.name === 'AbortError') throw e;
+    }
+  }
+  if (res === null) {
     const fr = await httpViaRust('POST', url, headers, JSON.stringify(body), 180000);
     if (!fr.ok) {
       const snippet = fr.text.trim().slice(0, 240);

@@ -2250,7 +2250,14 @@ export function LibraryPage() {
   };
 
   const handleDelete = async (id: string) => {
-    try { await invoke('delete_instance', { id }); } catch { /* best-effort */ }
+    try {
+      await invoke('delete_instance', { id });
+    } catch (error) {
+      // Не удаляем из стора, если бэкенд не смог удалить папку — иначе после
+      // перезапуска сборка «воскреснет» из get_instances на диске.
+      dialog.alert(`Не удалось удалить сборку: ${String(error)}`, { title: 'Удаление сборки', danger: true });
+      return;
+    }
     remove(id);
     if (selectedId === id) {
       const remaining = instances.filter(i => i.id !== id);

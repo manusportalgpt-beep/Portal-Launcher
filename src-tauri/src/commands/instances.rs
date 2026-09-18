@@ -364,12 +364,31 @@ pub async fn update_instance(id: String, updates: serde_json::Value) -> Result<I
 
 #[tauri::command]
 pub async fn delete_instance(id: String) -> Result<(), String> {
+    if let Ok(running) = crate::mc::launch::RUNNING.lock() {
+        if running.contains_key(&id) {
+            return Err("Сборка сейчас запущена — сначала закройте игру.".to_string());
+        }
+    }
     let dir = instances_dir().join(&id);
     if !dir.exists() { return Ok(()); }
     let instance = load_instance(&id).ok_or("Сборка не найдена или её instance.json повреждён")?;
     let recovery_id = format!("{}-{}", id, uuid::Uuid::new_v4());
     let recovery_dir = deleted_instances_dir().join(&recovery_id);
-    std::fs::rename(&dir, &recovery_dir).map_err(|e| format!("Не удалось переместить сборку в удалённые: {e}"))?;
+    // Windows может на короткое время держать файлы (антивирус, только что
+    // закрытая игра) — пробуем переместить несколько раз, прежде чем сдаться.
+    let mut last_err: Option<std::io::Error> = None;
+    for attempt in 0..4 {
+        match std::fs::rename(&dir, &recovery_dir) {
+            Ok(()) => { last_err = None; break; }
+            Err(e) => {
+                last_err = Some(e);
+                std::thread::sleep(std::time::Duration::from_millis(300 * (attempt as u64 + 1)));
+            }
+        }
+    }
+    if let Some(e) = last_err {
+        return Err(format!("Не удалось переместить сборку в удалённые (возможно, игра всё ещё запущена или файлы заняты): {e}"));
+    }
     let deleted = DeletedInstance { recovery_id: recovery_id.clone(), instance, deleted_at: chrono::Utc::now().to_rfc3339(), size_bytes: directory_size(&recovery_dir) };
     std::fs::write(deleted_instance_meta_path(&recovery_id), serde_json::to_string_pretty(&deleted).map_err(|e| e.to_string())?)
         .map_err(|e| format!("Не удалось сохранить запись удалённой сборки: {e}"))

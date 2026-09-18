@@ -140,9 +140,10 @@ function App() {
   useEffect(() => {
     invoke<any[]>('get_instances')
       .then(backendInstances => {
-        if (backendInstances && backendInstances.length > 0) {
-          syncInstances(backendInstances);
-        }
+        // Backend is the source of truth: overwrite the persisted store even when
+        // the list is empty, so a deleted instance can never "resurrect" from a
+        // stale localStorage snapshot after the app restarts.
+        syncInstances(backendInstances ?? []);
       })
       .catch(err => console.error('Failed to sync instances from backend:', err));
   }, [syncInstances]);

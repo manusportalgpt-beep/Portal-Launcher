@@ -15,15 +15,15 @@ import { ModelManager } from '@/components/openportal/ModelManager';
 import { PermissionModal } from '@/components/openportal/PermissionModal';
 import type { ChatMessage, SessionData, PermissionRequest, Attachment, ProjectContext } from '@/lib/opencore/types';
 
-const SKILLS: Array<{ cmd: string; desc: string }> = [
-  { cmd: '/new', desc: 'Новый чат' },
-  { cmd: '/plan', desc: 'Режим PL — только план, без изменений' },
-  { cmd: '/build', desc: 'Режим BUILD — выполнять задачи' },
-  { cmd: '/models', desc: 'Открыть меню моделей' },
-  { cmd: '/clear', desc: 'Очистить переписку текущего чата' },
-  { cmd: '/help', desc: 'Список команд' },
-  { cmd: '/fetch <url>', desc: 'Прочитать страницу из интернета' },
-];
+const HELP_TEXT = [
+  '**Команды OpenPortal:**',
+  '- `/help` — список команд',
+  '- `/models` — выбрать модели',
+  '- `/skill-creator <описание>` — агент создаст новый навык',
+  '- `/skill-installer <имя/ссылка>` — агент найдёт и установит навык',
+  '',
+  'Полное описание — в чате: попроси, и агент сам выполнит.',
+].join('\n');
 
 function ThinkingBlock({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
@@ -271,7 +271,6 @@ export function OpenPortalPage() {
   const layout = useOpenCoreStore(s => s.layout);
 
   const [input, setInput] = useState('');
-  const [skillOpen, setSkillOpen] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -326,9 +325,9 @@ export function OpenPortalPage() {
     const text = input.trim();
     if (!text || running) return;
     setInput('');
-    setSkillOpen(false);
 
-    // Навыки "/"
+    // Команды "/"
+    let taskDirective: string | undefined;
     if (text.startsWith('/')) {
       const cmd = text.split(/\s+/)[0].toLowerCase();
       const arg = text.slice(cmd.length).trim();
@@ -341,33 +340,34 @@ export function OpenPortalPage() {
       }
       if (cmd === '/models') { useOpenCoreStore.getState().setModelsMenuOpen(true); return; }
       if (cmd === '/help') {
-        const help = 'Доступные команды:\n' + SKILLS.map(s => `- **${s.cmd}** — ${s.desc}`).join('\n');
-        const msg: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: help, timestamp: Date.now() };
+        const msg: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: HELP_TEXT, timestamp: Date.now() };
         useOpenCoreStore.getState().appendMessages([msg]);
         return;
       }
-      if (cmd === '/fetch') {
+      if (cmd === '/skill-creator' || cmd === '/skill-installer') {
         if (!arg) {
-          const msg: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: 'Укажи URL: `/fetch https://example.com`', timestamp: Date.now() };
-          useOpenCoreStore.getState().appendMessages([msg]);
-          return;
-        }
-        try {
-          const res = await invoke<{ ok: boolean; text: string }>('op_web_fetch', { url: arg });
           const msg: ChatMessage = {
             id: `sys-${Date.now()}`, role: 'assistant',
-            content: `**/fetch ${arg}**\n\n${res.text.slice(0, 4000)}`,
+            content: cmd === '/skill-creator'
+              ? 'Опиши навык: `/skill-creator <описание>`'
+              : 'Укажи имя/ссылку: `/skill-installer <что ищем>`',
             timestamp: Date.now(),
           };
           useOpenCoreStore.getState().appendMessages([msg]);
-        } catch (e) {
-          useOpenCoreStore.getState().appendMessages([{ id: `sys-${Date.now()}`, role: 'assistant', content: `Ошибка загрузки: ${String(e)}`, timestamp: Date.now(), error: true }]);
+          return;
         }
+        if (cmd === '/skill-creator') {
+          taskDirective = `Ты запущен командой /skill-creator. Задача: создать новый навык для агента «${arg}». Навык — папка <portal base>/Skills/<slug>/SKILL.md с frontmatter (name, description) и инструкциями. Используй write_text.`;
+          text = `Команда /skill-creator: создай навык «${arg}» и сохрани его SKILL.md в папке навыков.`;
+        } else {
+          taskDirective = `Ты запущен командой /skill-installer. Задача: найти в интернете (web_search) навык «${arg}», скачать содержимое и установить как <portal base>/Skills/<slug>/SKILL.md с frontmatter (name, description).`;
+          text = `Команда /skill-installer: найди подходящий навык «${arg}», установи его SKILL.md в папку навыков и кратко объясни, что он делает.`;
+        }
+      } else {
+        const unknown: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: `Неизвестная команда **${cmd}**. Набери /help`, timestamp: Date.now() };
+        useOpenCoreStore.getState().appendMessages([unknown]);
         return;
       }
-      const unknown: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: `Неизвестная команда **${cmd}**. Набери /help`, timestamp: Date.now() };
-      useOpenCoreStore.getState().appendMessages([unknown]);
-      return;
     }
 
     // Создать сессию при необходимости
@@ -383,7 +383,7 @@ export function OpenPortalPage() {
     useOpenCoreStore.getState().appendMessages([userMsg]);
     setAttachments([]);
 
-    const mode = cfg.mode;
+    const mode: 'build' | 'plan' = taskDirective ? 'build' : cfg.mode;
     const ep = resolveEndpoint(cfg.activeProviderId, cfg.activeModelId, cfg.providers);
 
     const portalRoot = layout?.projects ?? '';
@@ -398,10 +398,20 @@ export function OpenPortalPage() {
         workspaceZone = 'launcher';
       } catch { /* папка сборки не определилась — остаёмся на portal */ }
     }
-    const extra = layout
-      ? `Рабочая область агента: ${workspaceLabel}${workspaceZone === 'launcher' ? ' (сборка)' : ''}\nПапка: ${workspaceDir}\nПрава: ${workspaceZone === 'launcher' ? 'чтение лаунчера везде; запись — только в папку сборки и в settings.json' : 'полный доступ внутри OpenPortal Projects'}\nВременная (Temp): ${layout.temp}\nКаталог лаунчера: ${layout.launcher}\nАктивная модель: ${cfg.activeModelId} (${ep.provider.name}).`
+    const extraBase = layout
+      ? `Рабочая область агента: ${workspaceLabel}${workspaceZone === 'launcher' ? ' (сборка)' : ''}\nПапка: ${workspaceDir}\nПрава: ${workspaceZone === 'launcher' ? 'чтение лаунчера везде; запись — только в папку сборки и в settings.json' : 'полный доступ внутри OpenPortal Projects'}\nВременная (Temp): ${layout.temp}\nКаталог лаунчера: ${layout.launcher}\nПортал (OpenPortal): ${layout.base}\nАктивная модель: ${cfg.activeModelId} (${ep.provider.name}).`
       : undefined;
-    const systemPrompt = buildSystemPrompt({ mode, extra });
+    const extra = taskDirective && extraBase
+      ? `${extraBase}\nПапка навыков агента: ${layout?.base}\\Skills`
+      : extraBase;
+    const skills = store.skills.length
+      ? store.skills.map(s => `- ${s.name} — ${s.description || 'нет описания'}`).join('\n')
+      : undefined;
+    const systemPrompt = buildSystemPrompt({
+      mode,
+      extra: taskDirective ? `${extra ?? ''}\n\n${taskDirective}`.trim() : extra,
+      skills,
+    });
 
     const abort = new AbortController();
     abortRef.current = abort;
@@ -516,17 +526,8 @@ export function OpenPortalPage() {
               <h1 className="text-lg font-black" style={{ color: 'var(--color-text)' }}>OpenPortal</h1>
               <p className="max-w-sm text-center text-xs leading-5" style={{ color: 'var(--color-text-secondary)' }}>
                 Встроенный ИИ-агент лаунчера. Режим <b>Build</b> — выполняет задачи с файлами и командами, <b>Plan</b> — только план.
-                Навыки: <code className="font-mono text-[var(--color-primary)]">/help</code>
+                Команды: <code className="font-mono text-[var(--color-primary)]">/help</code>
               </p>
-              <div className="mt-3 flex max-w-sm flex-wrap justify-center gap-1.5">
-                {SKILLS.slice(0, 5).map(s => (
-                  <button key={s.cmd} onClick={() => setInput(`/`)}
-                    className="rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors hover:bg-[var(--color-surface-2)]"
-                    style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
-                    {s.cmd}
-                  </button>
-                ))}
-              </div>
             </div>
           ) : (
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
@@ -556,19 +557,6 @@ export function OpenPortalPage() {
               ))}
             </div>
           )}
-          {skillOpen && input.startsWith('/') && (
-            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-              className="absolute bottom-full left-4 z-30 mb-2 w-72 rounded-2xl border p-2"
-              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 16px 48px rgba(0,0,0,.4)' }}>
-              {SKILLS.filter(s => s.cmd.startsWith(input.split(/\s+/)[0])).map(s => (
-                <button key={s.cmd} onClick={() => { setInput(s.cmd + ' '); setSkillOpen(false); }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-[var(--color-surface-2)]">
-                  <span className="font-bold text-[var(--color-primary)]">{s.cmd}</span>
-                  <span className="truncate text-[var(--color-text-tertiary)]">{s.desc}</span>
-                </button>
-              ))}
-            </motion.div>
-          )}
           <div className="mx-auto flex max-w-3xl items-end gap-2">
             <input type="file" id="op-file" className="hidden" onChange={onFilePicked} />
             <label htmlFor="op-file" title="Прикрепить файл/картинку"
@@ -578,7 +566,7 @@ export function OpenPortalPage() {
             </label>
             <textarea
               value={input}
-              onChange={e => { setInput(e.target.value); setSkillOpen(e.target.value.startsWith('/')); }}
+              onChange={e => { setInput(e.target.value); }}
               onKeyDown={onKeyDown}
               rows={1}
               placeholder={running ? 'Агент занят…' : 'Что сделать?  (/ — команды)'}

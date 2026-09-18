@@ -116,3 +116,10 @@ export interface FsEntry {
 }
 
 export type PortalRoot = 'portal' | 'temp' | 'launcher';
+
+/** Установленный навык агента: `OpenPortal/Skills/<slug>/SKILL.md`. */
+export interface SkillMeta {
+  name: string;
+  path: string;
+  description: string;
+}

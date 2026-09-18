@@ -14,6 +14,7 @@ import type {
   PortalRoot,
   ProjectContext,
   ChatMessage,
+  SkillMeta,
 } from '@/lib/opencore/types';
 
 const CONFIG_VERSION = 1;
@@ -63,6 +64,8 @@ interface OpenCoreState {
   pendingPermission: PermissionRequest | null;
   modelsMenuOpen: boolean;
   loading: boolean;
+  /** Установленные навыки агента (SKILL.md). */
+  skills: SkillMeta[];
 
   init: () => Promise<void>;
   updateConfig: (patch: Partial<OpenPortalConfig>) => void;
@@ -114,6 +117,7 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
       pendingPermission: null,
       modelsMenuOpen: false,
       loading: true,
+      skills: [],
 
       async init() {
         try {
@@ -132,7 +136,11 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
         try {
           sessions = await invoke<SessionMeta[]>('op_list_sessions');
         } catch { /* пусто */ }
-        set({ config: cfg, permissions, sessions, loading: false });
+        let skills: SkillMeta[] = [];
+        try {
+          skills = await invoke<SkillMeta[]>('op_list_skills');
+        } catch { /* пусто */ }
+        set({ config: cfg, permissions, sessions, skills, loading: false });
         // Автоматически открыть самую свежую сессию.
         if (sessions.length > 0) {
           await get().openSession(sessions[0].id);

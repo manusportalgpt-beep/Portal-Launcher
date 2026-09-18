@@ -310,6 +310,9 @@ fn main() {
             commands::opencode::op_web_fetch,
             commands::opencode::op_set_active_build,
             commands::opencode::op_resolve_build,
+            commands::opencode::op_list_skills,
+            commands::opencode::op_save_image,
+            commands::opencode::op_image_read,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

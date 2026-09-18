@@ -93,10 +93,45 @@ export const TOOLS: ToolDef[] = [
         cwd: { type: 'string', description: 'Рабочая папка (абсолютный путь внутри зоны)' },
         command: { type: 'string', description: 'Команда для cmd/sh' },
         timeout_ms: { type: 'number', description: 'Таймаут, мс (по умолчанию 120000)' },
+        shell: { type: 'string', enum: ['cmd', 'powershell'], description: 'Оболочка: cmd (по умолчанию) или powershell' },
       },
       required: ['root', 'cwd', 'command'],
     },
     root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'terminal',
+    description:
+      'Запускает команду в PowerShell-терминале (выполнение запросит разрешение). ' +
+      'Рабочая папка обязательно внутри зоны. `shell` по умолчанию powershell.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона, в которой лежит cwd' },
+        cwd: { type: 'string', description: 'Рабочая папка (абсолютный путь внутри зоны)' },
+        command: { type: 'string', description: 'Команда для PowerShell' },
+        timeout_ms: { type: 'number', description: 'Таймаут, мс (по умолчанию 120000)' },
+      },
+      required: ['root', 'cwd', 'command'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'generate_image',
+    description:
+      'Генерирует изображение через активного провайдера (если он поддерживает images API). ' +
+      'Результат — файл с изображением; вставь его в ответ как `![подпись](/op-image/<name>)`.',
+    parameters: {
+      type: 'object',
+      properties: {
+        prompt: { type: 'string', description: 'Описание того, что должно быть на картинке (по-русски или по-английски)' },
+        size: { type: 'string', enum: ['512x512', '1024x1024', '2048x2048'], description: 'Размер изображения (по умолчанию 1024x1024)' },
+      },
+      required: ['prompt'],
+    },
+    root: 'portal',
     requiresPermission: true,
   },
 ];
@@ -150,6 +185,16 @@ function fmtSize(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Blob → base64-строка (для сохранения скачанного изображения). */
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result).replace(/^data:[^,]+,/, ''));
+    fr.onerror = () => reject(fr.error ?? new Error('FileReader error'));
+    fr.readAsDataURL(blob);
+  });
+}
+
 async function execReadText(args: { root: PortalRoot; path: string }): Promise<ExecResult> {
   try {
     const text = await invoke<string>('op_read_text', { root: String(args.root), path: args.path });
@@ -168,13 +213,14 @@ async function execWriteText(args: { root: PortalRoot; path: string; content: st
   }
 }
 
-async function execRunCommand(args: { root: PortalRoot; cwd: string; command: string; timeout_ms?: number }): Promise<ExecResult> {
+async function execRunCommand(args: { root: PortalRoot; cwd: string; command: string; timeout_ms?: number; shell?: string }): Promise<ExecResult> {
   try {
     const res = await invoke<CmdResult>('op_run_command', {
       root: String(args.root),
       cwd: args.cwd,
       command: args.command,
       timeout_ms: args.timeout_ms ?? 120000,
+      shell: args.shell ?? null,
     });
     const parts: string[] = [`exit=${res.exit_code}`];
     if (res.timed_out) parts.push('[превышен таймаут]');
@@ -186,10 +232,63 @@ async function execRunCommand(args: { root: PortalRoot; cwd: string; command: st
   }
 }
 
+/** Генерация изображения через images API активного провайдера (OpenAI-совместимо). */
+async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; size?: string }): Promise<ExecResult> {
+  if (!ep.baseUrl) return { ok: false, output: 'Не настроен baseUrl провайдера для генерации.' };
+  if (!ep.apiKey) return { ok: false, output: `Нет API-ключа для ${ep.provider.name}. Добавь ключ в меню моделей.` };
+  const url = `${ep.baseUrl.replace(/\/+$/, '')}/images/generations`;
+  const body = {
+    model: ep.model.id,
+    prompt: args.prompt,
+    n: 1,
+    size: args.size ?? '1024x1024',
+    response_format: 'b64_json',
+  };
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ep.apiKey}` },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    return { ok: false, output: `Сеть: ${String(e)}` };
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    return { ok: false, output: `${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 400)}` };
+  }
+  const data: any = await res.json().catch(() => null);
+  const b64: string | undefined = data?.data?.[0]?.b64_json ?? data?.data?.[0]?.b64 ?? data?.b64_json;
+  if (!b64) {
+    const rev = data?.data?.[0]?.url;
+    if (rev && /^https?:/i.test(rev)) {
+      try {
+        const blobRes = await fetch(rev);
+        if (!blobRes.ok) return { ok: false, output: `Скачивание изображения: HTTP ${blobRes.status}` };
+        const blob = await blobRes.blob();
+        const b64 = await blobToBase64(blob);
+        const name = await invoke<string>('op_save_image', { b64 });
+        return { ok: true, output: `Изображение: /op-image/${name}` };
+      } catch (e) {
+        return { ok: false, output: `Не удалось скачать изображение: ${String(e)}` };
+      }
+    }
+    return { ok: false, output: 'Провайдер не вернул изображение (ожидали b64_json).' };
+  }
+  try {
+    const name = await invoke<string>('op_save_image', { b64 });
+    return { ok: true, output: `Изображение: /op-image/${name}` };
+  } catch (e) {
+    return { ok: false, output: `Не удалось сохранить картинку: ${String(e)}` };
+  }
+}
+
 export async function executeTool(
   tool: string,
   argsRaw: string,
   requestPermission: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>,
+  ep: ResolvedEndpoint,
 ): Promise<ExecResult> {
   let args: any;
   try {
@@ -206,14 +305,37 @@ export async function executeTool(
   if (tool === 'list_dir') return execListDir(args);
   if (tool === 'read_text') return execReadText(args);
 
+  if (tool === 'generate_image') {
+    if (!args.prompt || typeof args.prompt !== 'string') return { ok: false, output: 'Нет аргумента prompt.' };
+    const root: PortalRoot = 'portal';
+    const decision = await requestPermission({
+      tool,
+      root,
+      label: 'Генерация изображения',
+      detail: `Промпт: ${args.prompt}`,
+      cwdLabel: `Генерация изображения → ${args.prompt.slice(0, 60)}`,
+      resolve: () => {},
+    });
+    if (decision === 'deny' || decision === 'never') {
+      return { ok: false, output: 'Пользователь не разрешил генерацию изображения.' };
+    }
+    if (decision === 'allow' || decision === 'always') {
+      return execGenerateImage(ep, args);
+    }
+    return { ok: false, output: 'Разрешение не получено.' };
+  }
+
   // Безопасные инструменты с запросом разрешения:
-  if (tool === 'write_text' || tool === 'run_command') {
+  if (tool === 'write_text' || tool === 'run_command' || tool === 'terminal') {
     const root: PortalRoot = String(args.root || 'portal') as PortalRoot;
     if (!['portal', 'temp', 'launcher'].includes(root)) {
       return { ok: false, output: `Неизвестная зона: ${root}` };
     }
     const rootBase = await lookupRoot(root);
-    const label = tool === 'write_text' ? 'Запись файла' : 'Выполнение команды';
+    if (tool === 'terminal') {
+      args = { ...args, shell: args.shell ?? 'powershell' };
+    }
+    const label = tool === 'write_text' ? 'Запись файла' : tool === 'terminal' ? 'Команда в PowerShell' : 'Выполнение команды';
     const detail = tool === 'write_text'
       ? `Путь: ${args.path}`
       : `Команда: ${args.command}\nПапка: ${args.cwd}`;
@@ -646,10 +768,15 @@ export function buildSystemPrompt(opts: {
   mode: 'build' | 'plan';
   /** Доп. сведения об окружении (сборка, пути). */
   extra?: string;
+  /** Установленные навыки (описание) — агент их знает. */
+  skills?: string;
 }): string {
   const rules = opts.mode === 'build'
     ? `Режим BUILD: ты полноценный агент-исполнитель. Ты достигаешь цели пользователя через инструменты: изучаешь файлы, правишь их, запускаешь команды, шаг за шагом добиваясь результата.`
     : `Режим PLAN: ты архитектор-аналитик. Ты НЕ изменяешь файлы и НЕ запускаешь команды. Отвечаешь детальным пошаговым планом: что сделать, какими файлами заняться, какие риски, как проверить результат.`;
+  const skills = opts.skills?.trim()
+    ? `\nУстановленные навыки (в папке OpenPortal/Skills/<slug>/SKILL.md — прочитай нужный, если задача соответствует):\n${opts.skills}`
+    : '';
   return [
     `Ты — OpenPortal, встроенный агент посртал-лаунчера (Minecraft). Имя пользователя — хозяин лаунчера.`,
     `Режим: ${opts.mode === 'build' ? 'BUILD — выполнять' : 'PLAN — только план'}.`,
@@ -662,7 +789,13 @@ export function buildSystemPrompt(opts: {
     `- list_dir(root, path) — список каталога. root: portal | temp | launcher.`,
     `- read_text(root, path) — прочесть текстовый файл (до 512 КБ).`,
     `- write_text(root, path, content) — создать/перезаписать файл (спросит разрешение у пользователя).`,
-    `- run_command(root, cwd, command, timeout_ms) — команда (спросит разрешение).`,
+    `- run_command(root, cwd, command, timeout_ms) — команда (спросит разрешение). Оболочка по умолчанию cmd, можно передать shell: 'powershell'.`,
+    `- terminal(root, cwd, command) — команда в PowerShell-терминале (спросит разрешение).`,
+    `- generate_image(prompt, size?) — сгенерировать изображение (спросит разрешение).`,
+    '',
+    `Как показывать изображения в чате: после generate_image ты получаешь ` + '`/op-image/<name>`' +
+      ` — вставь его в ответ как markdown-картинку: ` + '`![описание](/op-image/<name>)`' +
+      ` (пользователь может её скопировать или скачать).`,
     '',
     `Правила работы с файлами:`,
     `- Зона portal — папка OpenPortal (проекты, настройки агента); temp — системная Temp; launcher — каталог лаунчера.`,
@@ -671,8 +804,12 @@ export function buildSystemPrompt(opts: {
     `- Не удаляй то, что не создавал, и не трогай чужие папки без явной просьбы.`,
     `- Команды запускай с осторожностью; для git/npm/pnpm работай в каталоге проекта.`,
     `- Опасные команды (форматирование, удаление системных файлов, изменение реестра, выключение ПК) запрещены и будут отклонены защитой.`,
+    `- Если пользователь просит что-то, что выглядит как команда из списка (например /fetch <url>), выполни её через инструменты (web_search).`,
     '',
-    `Каждое write_text / run_command показывает пользователю модалку разрешения — дождись результата инструмента, его не будет, если пользователь отказал.`,
+    `Каждое write_text / run_command / generate_image показывает пользователю модалку разрешения — дождись результата инструмента, его не будет, если пользователь отказал.`,
+    `Создание навыков: если пользователь просит создать/установить навык — создай папку ` + '`<portal base>/Skills/<slug>/`' +
+      ` и файл SKILL.md с frontmatter (name, description) и инструкциями.`,
+    skills,
     ``,
     opts.extra ? `Окружение:\n${opts.extra}` : '',
   ].join('\n');
@@ -751,7 +888,7 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
           toolCallId: tc.id, toolName: tc.name, timestamp: Date.now(),
         };
         push(toolMsg);
-        const res = await executeTool(tc.name, tc.arguments, requestPermission);
+        const res = await executeTool(tc.name, tc.arguments, requestPermission, ep);
         patch(toolMsg.id, { content: res.output, error: !res.ok });
         if (signal?.aborted) throw new Error('Отменено пользователем.');
       }

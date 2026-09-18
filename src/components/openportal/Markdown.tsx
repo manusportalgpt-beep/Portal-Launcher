@@ -1,4 +1,81 @@
-import { memo, type ReactNode } from 'react';
+import { memo, useEffect, useState, type ReactNode } from 'react';
+import { invoke } from '@/lib/invoke-shim';
+
+/** Кеш data-URL изображений, чтобы не перечитывать файл на каждый рендер. */
+const imageCache = new Map<string, Promise<string> | string>();
+
+function loadImage(name: string): Promise<string> {
+  const hit = imageCache.get(name);
+  if (hit) return Promise.resolve(hit);
+  const p = invoke<string>('op_image_read', { file: name })
+    .then(dataUrl => { imageCache.set(name, dataUrl); return dataUrl; })
+    .catch(e => { imageCache.delete(name); throw e; });
+  imageCache.set(name, p);
+  return p;
+}
+
+/** Встраивает изображение из кеша OpenPortal (`/op-image/<name>`). */
+function PortalImage({ name }: { name: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [err, setErr] = useState('');
+  const [menu, setMenu] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    loadImage(name)
+      .then(dataUrl => { if (alive) setSrc(dataUrl); })
+      .catch(e => { if (alive) setErr(String(e)); });
+    return () => { alive = false; };
+  }, [name]);
+
+  const copy = async () => {
+    const dataUrl = src ?? '';
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      const item = new ClipboardItem({ 'image/png': blob });
+      await navigator.clipboard.write([item]);
+    } catch {
+      await navigator.clipboard.writeText(dataUrl);
+    }
+    setMenu(false);
+  };
+
+  const download = () => {
+    const a = document.createElement('a');
+    a.href = src ?? '';
+    a.download = name;
+    a.click();
+    setMenu(false);
+  };
+
+  if (err) return <span className="text-[12px] italic" style={{ color: 'var(--color-error)' }}>Не удалось загрузить картинку: {err}</span>;
+
+  return (
+    <span className="not-prose relative inline-block">
+      {src
+        ? <img
+            src={src}
+            alt={name}
+            className="max-h-96 rounded-xl border object-contain"
+            style={{ borderColor: 'var(--color-border)' }}
+            onContextMenu={e => { e.preventDefault(); setMenu(m => !m); }}
+          />
+        : <span className="inline-block h-24 w-36 rounded-xl animate-pulse" style={{ background: 'var(--color-surface-2)' }} />}
+      {menu && (
+        <>
+          <span className="fixed inset-0 z-40" onClick={() => setMenu(false)} />
+          <span
+            className="absolute left-0 top-full z-50 mt-1 flex flex-col rounded-xl border p-1"
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 12px 32px rgba(0,0,0,.35)' }}
+            onClick={() => setMenu(false)}>
+            <button onClick={copy} className="rounded-lg px-3 py-1.5 text-left text-[12px] font-semibold hover:bg-[var(--color-surface-2)]" style={{ color: 'var(--color-text)' }}>Копировать</button>
+            <button onClick={download} className="rounded-lg px-3 py-1.5 text-left text-[12px] font-semibold hover:bg-[var(--color-surface-2)]" style={{ color: 'var(--color-text)' }}>Скачать</button>
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
 
 /** Минимальный markdown-рендерер без зависимостей. */
 function renderInline(text: string): ReactNode[] {
@@ -6,7 +83,27 @@ function renderInline(text: string): ReactNode[] {
   const regex = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
   let last = 0;
   let m: RegExpExecArray | null;
+
+  // Сначала — изображения: `![подпись](/op-image/<name>)`
+  const imgRe = /!\[[^\]]*\]\((\/op-image\/[^)]+)\)/g;
+  imgRe.lastIndex = 0;
+  let im: RegExpExecArray | null;
   let key = 0;
+  const parts: ReactNode[] = [];
+  let anchor = 0;
+  const find = () => imgRe.exec(text);
+  while ((im = find()) !== null) {
+    const name = im[1].replace(/^\/op-image\//, '').split('?')[0];
+    if (!/^[\w-]+\.png$/.test(name)) continue;
+    if (im.index > anchor) parts.push(<span key={`t${key++}`}>{text.slice(anchor, im.index)}</span>);
+    parts.push(<PortalImage key={`i${key++}`} name={name} />);
+    anchor = im.index + im[0].length;
+  }
+  if (anchor > 0) {
+    if (anchor < text.length) parts.push(<span key={`t${key++}`}>{text.slice(anchor)}</span>);
+    return parts;
+  }
+
   while ((m = regex.exec(text)) !== null) {
     if (m.index > last) nodes.push(text.slice(last, m.index));
     const tok = m[0];

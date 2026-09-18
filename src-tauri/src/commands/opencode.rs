@@ -11,6 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use base64::Engine as _;
 
 const MAX_TEXT_READ: usize = 512 * 1024;
 const MAX_FETCH_BYTES: usize = 2 * 1024 * 1024;
@@ -40,8 +41,24 @@ pub fn config_dir() -> PathBuf {
     openportal_dir().join("Config")
 }
 
+pub fn images_dir() -> PathBuf {
+    cache_dir().join("images")
+}
+
+pub fn skills_dir() -> PathBuf {
+    openportal_dir().join("Skills")
+}
+
 fn ensure_all() {
-    for d in [openportal_dir(), projects_dir(), sessions_dir(), cache_dir(), config_dir()] {
+    for d in [
+        openportal_dir(),
+        projects_dir(),
+        sessions_dir(),
+        cache_dir(),
+        config_dir(),
+        images_dir(),
+        skills_dir(),
+    ] {
         std::fs::create_dir_all(&d).ok();
     }
 }
@@ -207,6 +224,134 @@ pub fn op_resolve_build(instance_id: String) -> Result<String, String> {
     let dir = valid_instance_dir(&instance_id)
         .ok_or_else(|| format!("Сборка не найдена: {instance_id}"))?;
     Ok(dir.to_string_lossy().to_string())
+}
+
+// ---------------------------------------------------------------------------
+// Навыки (SKILL.md) — агент может создавать/устанавливать их сам
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SkillMeta {
+    /// slug папки навыка (например `file-browser`).
+    pub name: String,
+    /// Абсолютный путь к папке навыка.
+    pub path: String,
+    /// Короткое описание из frontmatter SKILL.md.
+    pub description: String,
+}
+
+/// Список установленных навыков `OpenPortal/Skills/<slug>/SKILL.md`.
+#[tauri::command]
+pub fn op_list_skills() -> Vec<SkillMeta> {
+    ensure_all();
+    let mut out = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(skills_dir()) {
+        for e in rd.flatten() {
+            let dir = e.path();
+            if !dir.is_dir() {
+                continue;
+            }
+            let slug = dir
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_default();
+            if !is_safe_id(&slug) || slug.is_empty() {
+                continue;
+            }
+            let md = dir.join("SKILL.md");
+            if !md.is_file() {
+                continue;
+            }
+            let description = std::fs::read_to_string(&md)
+                .ok()
+                .map(|raw| parse_skill_description(&raw))
+                .unwrap_or_default();
+            out.push(SkillMeta {
+                name: slug,
+                path: dir.to_string_lossy().to_string(),
+                description,
+            });
+        }
+    }
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
+}
+
+/// Достаёт `description:` из frontmatter `---\n...\n---` в начале SKILL.md.
+fn parse_skill_description(raw: &str) -> String {
+    let body = raw.trim_start();
+    let Some(stripped) = body.strip_prefix("---") else {
+        return String::new();
+    };
+    let Some(end) = stripped.find("\n---") else {
+        return String::new();
+    };
+    for line in stripped[..end].lines() {
+        let line = line.trim();
+        if let Some(rest) = line.strip_prefix("description:") {
+            let v = rest.trim().trim_matches('"').trim();
+            if !v.is_empty() {
+                return v.to_string();
+            }
+        }
+    }
+    String::new()
+}
+
+// ---------------------------------------------------------------------------
+// Изображения (генерация + чтение для чата)
+// ---------------------------------------------------------------------------
+
+/// Разрешённый формат имени файла изображения в кеше.
+fn is_safe_image_file(name: &str) -> bool {
+    let lower = name.to_lowercase();
+    if !lower.ends_with(".png") {
+        return false;
+    }
+    let stem = &lower[..lower.len() - 4];
+    is_safe_id(stem)
+}
+
+/// Сохраняет сгенерированное изображение (base64 PNG) в `Cache/images/`.
+/// Возвращает имя файла, которое вставляется в markdown как `/op-image/<name>`.
+#[tauri::command]
+pub fn op_save_image(b64: String) -> Result<String, String> {
+    ensure_all();
+    if b64.is_empty() || b64.len() > 30 * 1024 * 1024 {
+        return Err("Изображение пустое или слишком большое.".into());
+    }
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64.trim())
+        .map_err(|e| format!("Некорректный base64: {e}"))?;
+    if bytes.is_empty() {
+        return Err("Изображение пустое.".into());
+    }
+    let name = format!(
+        "img-{}-{}.png",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0),
+        uuid::Uuid::new_v4().simple(),
+    );
+    let dest = images_dir().join(&name);
+    std::fs::write(&dest, bytes).map_err(|e| format!("Запись изображения: {e}"))?;
+    Ok(name)
+}
+
+/// Читает изображение из кеша как data URL для отображения/скачивания в чате.
+#[tauri::command]
+pub fn op_image_read(file: String) -> Result<String, String> {
+    if !is_safe_image_file(&file) {
+        return Err("Некорректное имя файла изображения.".into());
+    }
+    let path = images_dir().join(&file);
+    let bytes = std::fs::read(&path).map_err(|e| format!("Чтение изображения: {e}"))?;
+    if bytes.is_empty() || bytes.len() > 30 * 1024 * 1024 {
+        return Err("Изображение пустое или слишком большое.".into());
+    }
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("data:image/png;base64,{b64}"))
 }
 
 // ---------------------------------------------------------------------------
@@ -431,6 +576,7 @@ pub async fn op_run_command(
     cwd: String,
     command: String,
     timeout_ms: Option<u64>,
+    shell: Option<String>,
 ) -> Result<CmdResult, String> {
     let r = root_from_name(&root)?;
     let cwd_path = enforce_root(r, Path::new(&cwd), false)?;
@@ -443,6 +589,7 @@ pub async fn op_run_command(
                 .into(),
         );
     }
+    let use_powershell = shell.as_deref() == Some("powershell");
 
     let cwd_path_for_block = cwd_path.clone();
     let command_for_block = command.clone();
@@ -460,6 +607,13 @@ pub async fn op_run_command(
             let mut c = crate::utils::create_hidden_command(&exe);
             c.current_dir(&cwd_path_for_block);
             c.args(program);
+            c.stdout(std::process::Stdio::piped());
+            c.stderr(std::process::Stdio::piped());
+            c.output()
+        } else if cfg!(target_os = "windows") && use_powershell {
+            let mut c = crate::utils::create_hidden_command("powershell");
+            c.current_dir(&cwd_path_for_block);
+            c.args(["-NoProfile", "-NonInteractive", "-Command", &command_for_block]);
             c.stdout(std::process::Stdio::piped());
             c.stderr(std::process::Stdio::piped());
             c.output()

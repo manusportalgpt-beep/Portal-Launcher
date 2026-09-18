@@ -50,6 +50,11 @@ export interface SessionData {
   messages: ChatMessage[];
 }
 
+/** Контекст работы агента: без сборки (OpenPortal Projects) или конкретная сборка. */
+export type ProjectContext =
+  | { kind: 'none' }
+  | { kind: 'build'; instanceId: string };
+
 /** Состояние провайдера в конфиге: включён ли он и какие модели активны. */
 export interface ProviderState {
   enabled: boolean;
@@ -66,6 +71,8 @@ export interface OpenPortalConfig {
   activeProviderId: string;
   activeModelId: string;
   mode: 'build' | 'plan';
+  /** С какой сборкой (или без) работает агент. */
+  project?: ProjectContext;
   /** Последняя рабочая папка (root: portal|temp|launcher + путь). */
   cwd?: { root: string; path: string };
   temperature?: number;

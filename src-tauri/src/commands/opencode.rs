@@ -108,18 +108,31 @@ fn canonical(p: &Path) -> Option<PathBuf> {
 }
 
 /// Проверяет, что `path` находится внутри корня `root`.
-/// Для записи в Launcher разрешён только settings.json на верхнем уровне.
+/// Для записи в Launcher разрешён только settings.json на верхнем уровне,
+/// либо любая папка ативной сборки (instance), выбранной в OpenPortal.
 fn enforce_root(root: Root, path: &Path, write: bool) -> Result<PathBuf, String> {
     let base = root_path(root);
     let base = canonical(&base).unwrap_or(base);
     if matches!(root, Root::Launcher) && write {
-        // Launcher: запись разрешена только в settings.json.
-        let allowed = launcher_settings_path();
-        let normalized = canonical(&allowed).unwrap_or(allowed);
-        if path != normalized {
-            return Err("Запись разрешена только в settings.json лаунчера.".into());
+        // Launcher: всегда можно трогать только settings.json…
+        let settings = launcher_settings_path();
+        let settings = canonical(&settings).unwrap_or(settings);
+        if path == settings {
+            return Ok(settings);
         }
-        return Ok(normalized);
+        // …и полные права внутри папки активной сборки (изменения подтверждаются
+        // пермишн-модалкой — запись в любой момент может быть отклонена).
+        if let Some(dir) = active_build_dir() {
+            if let Some(p) = canonical(path) {
+                if p.starts_with(&dir) {
+                    return Ok(p);
+                }
+            }
+        }
+        return Err(
+            "Запись разрешена только в settings.json лаунчера или внутри выбранной сборки."
+                .into(),
+        );
     }
     let ok = if write {
         // Для записи файл может ещё не существовать — канонизируем родителя.
@@ -139,6 +152,61 @@ fn enforce_root(root: Root, path: &Path, write: bool) -> Result<PathBuf, String>
         ));
     }
     Ok(canonical(path).unwrap_or_else(|| path.to_path_buf()))
+}
+
+// ---------------------------------------------------------------------------
+// Активная сборка
+// ---------------------------------------------------------------------------
+
+/// Разрешает id сборки в папку инстанса. Никакие произвольные пути от клиента
+/// не принимаются — только существующие инстансы из каталога лаунчера.
+fn valid_instance_dir(id: &str) -> Option<PathBuf> {
+    if !is_safe_id(id) {
+        return None;
+    }
+    let dir = crate::commands::instances::instances_dir().join(id);
+    if dir.join("instance.json").is_file() {
+        Some(dir)
+    } else {
+        None
+    }
+}
+
+fn active_build_id() -> Option<String> {
+    let p = config_dir().join("active_build.json");
+    let raw = std::fs::read_to_string(&p).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    v.get("instance_id").and_then(|x| x.as_str()).map(|s| s.to_string())
+}
+
+fn active_build_dir() -> Option<PathBuf> {
+    let id = active_build_id()?;
+    valid_instance_dir(&id)
+}
+
+/// Задаёт активную сборку для OpenPortal (`None` — «без сборки»).
+#[tauri::command]
+pub fn op_set_active_build(instance_id: Option<String>) -> Result<(), String> {
+    ensure_all();
+    if let Some(id) = &instance_id {
+        if valid_instance_dir(id).is_none() {
+            return Err(format!("Сборка не найдена: {id}"));
+        }
+    }
+    let payload = serde_json::json!({ "instance_id": instance_id });
+    std::fs::write(
+        config_dir().join("active_build.json"),
+        serde_json::to_string(&payload).unwrap_or_default(),
+    )
+    .map_err(|e| format!("Запись активной сборки: {e}"))
+}
+
+/// Возвращает абсолютный путь папки сборки (для системного промпта и UI).
+#[tauri::command]
+pub fn op_resolve_build(instance_id: String) -> Result<String, String> {
+    let dir = valid_instance_dir(&instance_id)
+        .ok_or_else(|| format!("Сборка не найдена: {instance_id}"))?;
+    Ok(dir.to_string_lossy().to_string())
 }
 
 // ---------------------------------------------------------------------------
@@ -369,12 +437,33 @@ pub async fn op_run_command(
     if command.trim().is_empty() {
         return Err("Пустая команда".into());
     }
+    if is_dangerous_command(&command) {
+        return Err(
+            "Команда заблокирована защитой OpenPortal: похоже на действие, опасное для системы."
+                .into(),
+        );
+    }
 
     let cwd_path_for_block = cwd_path.clone();
     let command_for_block = command.clone();
     let timeout = timeout_ms.unwrap_or(DEFAULT_CMD_TIMEOUT_MS).min(600_000);
+
     let finished = tokio::task::spawn_blocking(move || {
-        let out = if cfg!(target_os = "windows") {
+        let parts = split_command_line(&command_for_block);
+        let direct = parts.first().is_some_and(|p| {
+            let p = p.to_lowercase();
+            p.contains('\\') || p.contains('/') || p.ends_with(".exe")
+        });
+        let out = if direct && !parts.is_empty() {
+            let mut program = parts.clone();
+            let exe = program.remove(0);
+            let mut c = crate::utils::create_hidden_command(&exe);
+            c.current_dir(&cwd_path_for_block);
+            c.args(program);
+            c.stdout(std::process::Stdio::piped());
+            c.stderr(std::process::Stdio::piped());
+            c.output()
+        } else if cfg!(target_os = "windows") {
             let mut c = crate::utils::create_hidden_command("cmd");
             c.current_dir(&cwd_path_for_block);
             c.args(["/C", &command_for_block]);
@@ -408,6 +497,78 @@ pub async fn op_run_command(
             timed_out: true,
         }),
     }
+}
+
+/// Простой парсер командной строки Windows (уважает двойные кавычки).
+/// Нужен, чтобы запускать прямые исполняемые файлы без обёртки `cmd /C`.
+fn split_command_line(line: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let mut in_quotes = false;
+    let mut started = false;
+    for ch in line.chars() {
+        match ch {
+            '"' => in_quotes = !in_quotes,
+            c if c.is_whitespace() && !in_quotes => {
+                if started {
+                    out.push(std::mem::take(&mut cur));
+                    started = false;
+                }
+            }
+            c => {
+                cur.push(c);
+                started = true;
+            }
+        }
+    }
+    if started {
+        out.push(cur);
+    }
+    out
+}
+
+/// Вручную заблокированные деструктивные/системные паттерны команд.
+/// Срабатывает до запуска процесса — такие команды запрещены всегда,
+/// независимо от выданного разрешения.
+fn is_dangerous_command(cmd: &str) -> bool {
+    let lower = cmd.to_lowercase();
+    const PATTERNS: &[&str] = &[
+        "format c:",
+        "format /q /y",
+        "rm -rf /",
+        "rm -rf /*",
+        "rm -rf ~",
+        "rm -rf c:",
+        "rd /s /q c:",
+        "rd /s c:\\windows",
+        "del /s /q c:",
+        "del c:\\windows",
+        "deltree /y c:",
+        "rd /s /q \"c:",
+        "shutdown",
+        "halt",
+        "poweroff",
+        "diskpart",
+        "mountvol",
+        "bcdedit",
+        "reg add hklm",
+        "reg delete hklm",
+        "reg add hkcu /v run",
+        "reg add hkcu\\software\\microsoft\\windows\\currentversion\\run",
+        "schtasks",
+        "net user",
+        "net localgroup",
+        "certutil",
+        "esentutl",
+        "powershell -e",
+        "powershell -enc",
+        "powershell -encodedcommand",
+        "pwsh -e",
+        "invoke-expression",
+        "iex(",
+        "rundll32",
+    ];
+    PATTERNS.iter().any(|p| lower.contains(p))
 }
 
 // ---------------------------------------------------------------------------

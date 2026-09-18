@@ -313,11 +313,19 @@ export interface ApiOutcome {
   model?: string;
 }
 
+export interface StreamDelta {
+  /** Полный текущий текст ответа (для live-обновления одного сообщения). */
+  content?: string;
+  /** Полный текущий текст «рассуждений» модели. */
+  thinking?: string;
+}
+
 export async function callProvider(
   ep: ResolvedEndpoint,
   systemPrompt: string,
   turns: ChatTurn[],
   signal?: AbortSignal,
+  onDelta?: (d: StreamDelta) => void,
 ): Promise<ApiOutcome> {
   if (!ep.baseUrl) throw new Error('Не настроен baseUrl провайдера.');
   if (!ep.apiKey && ep.provider.kind !== 'zen' && !ep.provider.id.includes('custom:')) {
@@ -328,7 +336,7 @@ export async function callProvider(
   }
 
   if (ep.format === 'anthropic') return callAnthropic(ep, systemPrompt, turns, signal);
-  return callOpenAI(ep, systemPrompt, turns, signal);
+  return callOpenAI(ep, systemPrompt, turns, signal, onDelta);
 }
 
 async function callOpenAI(
@@ -336,6 +344,7 @@ async function callOpenAI(
   systemPrompt: string,
   turns: ChatTurn[],
   signal?: AbortSignal,
+  onDelta?: (d: StreamDelta) => void,
 ): Promise<ApiOutcome> {
   const url = `${ep.baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
@@ -394,6 +403,10 @@ async function callOpenAI(
     temperature: 0.4,
     max_tokens: 8192,
   };
+  if (onDelta) {
+    body.stream = true;
+    body.stream_options = { include_usage: true };
+  }
 
   const res = await fetch(url, {
     method: 'POST',
@@ -409,7 +422,16 @@ async function callOpenAI(
     const text = await res.text().catch(() => '');
     throw new Error(`${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 500)}`);
   }
+
+  const ct = res.headers.get('content-type') || '';
+  if (onDelta && res.body && ct.includes('text/event-stream')) {
+    return parseSSE(res.body, signal, onDelta);
+  }
   const data = await res.json();
+  return parseOpenAIJson(data);
+}
+
+function parseOpenAIJson(data: any): ApiOutcome {
   const choice = data?.choices?.[0];
   const msg = choice?.message;
   const text = msg?.content || '';
@@ -427,6 +449,76 @@ async function callOpenAI(
     raw: data,
     model: data?.model,
   };
+}
+
+/** Разбор SSE-потока OpenAI-совместимого chat/completions. */
+async function parseSSE(
+  body: ReadableStream<Uint8Array>,
+  signal: AbortSignal | undefined,
+  onDelta: (d: StreamDelta) => void,
+): Promise<ApiOutcome> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  let text = '';
+  let thinking = '';
+  let model: string | undefined;
+  const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
+
+  const finish = (): ApiOutcome => {
+    const calls: ToolCall[] = [...toolCalls.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([, v]) => ({ id: v.id, name: v.name, arguments: v.arguments || '{}' }));
+    return {
+      text,
+      thinking: thinking ? trimThinking(thinking) : undefined,
+      toolCalls: calls.length ? calls : undefined,
+      raw: { stream: true },
+      model,
+    };
+  };
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (data === '[DONE]') return finish();
+      let json: any;
+      try {
+        json = JSON.parse(data);
+      } catch {
+        continue;
+      }
+      model = json.model ?? model;
+      const delta = json.choices?.[0]?.delta;
+      if (!delta) continue;
+      if (delta.content) {
+        text += delta.content;
+        onDelta({ content: text });
+      }
+      if (delta.reasoning_content) {
+        thinking += delta.reasoning_content;
+        onDelta({ thinking });
+      }
+      if (Array.isArray(delta.tool_calls)) {
+        for (const tc of delta.tool_calls) {
+          const idx = tc.index ?? 0;
+          const cur = toolCalls.get(idx) ?? { id: '', name: '', arguments: '' };
+          if (tc.id) cur.id = tc.id;
+          if (tc.function?.name) cur.name += tc.function.name;
+          if (tc.function?.arguments) cur.arguments += tc.function.arguments;
+          toolCalls.set(idx, cur);
+        }
+      }
+    }
+  }
+  return finish();
 }
 
 async function callAnthropic(
@@ -552,26 +644,37 @@ export function compressHistory(messages: ChatMessage[], max = 48): ChatMessage[
 
 export function buildSystemPrompt(opts: {
   mode: 'build' | 'plan';
+  /** Доп. сведения об окружении (сборка, пути). */
   extra?: string;
 }): string {
   const rules = opts.mode === 'build'
-    ? 'Режим BUILD: ты полноценный агент-программист — выполняешь задачи, используя инструменты, включая изменение файлов и запуск команд. Этично и безопасно.'
-    : 'Режим PLAN: ты архитектор. Не изменяй файлы и не запускай команды. Составляй детальный пошаговый план с оценкой рисков и файлами, которых это коснётся.';
+    ? `Режим BUILD: ты полноценный агент-исполнитель. Ты достигаешь цели пользователя через инструменты: изучаешь файлы, правишь их, запускаешь команды, шаг за шагом добиваясь результата.`
+    : `Режим PLAN: ты архитектор-аналитик. Ты НЕ изменяешь файлы и НЕ запускаешь команды. Отвечаешь детальным пошаговым планом: что сделать, какими файлами заняться, какие риски, как проверить результат.`;
   return [
-    `Ты — OpenPortal, встроенный ИИ-агент портал-лаунчера (активный агент из двух режимов).`,
-    `Режим: ${opts.mode === 'build' ? 'BUILD — выполнять' : 'PLAN — планировать'}.`,
+    `Ты — OpenPortal, встроенный агент посртал-лаунчера (Minecraft). Имя пользователя — хозяин лаунчера.`,
+    `Режим: ${opts.mode === 'build' ? 'BUILD — выполнять' : 'PLAN — только план'}.`,
     rules,
     '',
-    'Правила работы:',
-    '- Отвечай на языке пользователя (по умолчанию русский).',
-    '- Формат: сплошной текст, короткие строки, markdown-заголовки, не более 80 символов в строке.',
-    '- Для работы с файлами/командами используй инструменты: list_dir, read_text, write_text, run_command, web_search.',
-    '- Работай только внутри разрешённых зон (portal — папка OpenPortal, temp — системная Temp, launcher — только чтение и settings.json).',
-    '- Никогда не изменяй исходный код лаунчера целиком; правки настроек лаунчера — только settings.json.',
-    '- Любая запись файлов или запуск команд потребуют подтверждения пользователя. Дождись ответа инструмента.',
-    '- Сначала проведи разведку (list_dir/read_text), затем предлагай изменения; в режиме BUILD применяй их шаг за шагом.',
-    '- Используй web_search для чтения документации, инструкций и страниц модов.',
-    opts.extra ? `\nДополнительно:\n${opts.extra}` : '',
+    `Отвечай на русском, если пользователь не просил иначе. Пиши по делу: короткие абзацы, markdown (заголовки ## / ###, списки, ``` код ```). Не приукрашивай, без эмодзи, без «вау», без лишних заверений.`,
+    '',
+    `Доступные инструменты (когда нужен доступ к файлам/командам — обязательно используй их):`,
+    `- web_search(ur) — прочитать любой сайт: документацию, GitHub, страницы модов, гайды.`,
+    `- list_dir(root, path) — список каталога. root: portal | temp | launcher.`,
+    `- read_text(root, path) — прочесть текстовый файл (до 512 КБ).`,
+    `- write_text(root, path, content) — создать/перезаписать файл (спросит разрешение у пользователя).`,
+    `- run_command(root, cwd, command, timeout_ms) — команда (спросит разрешение).`,
+    '',
+    `Правила работы с файлами:`,
+    `- Зона portal — папка OpenPortal (проекты, настройки агента); temp — системная Temp; launcher — каталог лаунчера.`,
+    `- В launcher всегда можно читать. Писать можно только settings.json или внутри папки выбранной сборки.`,
+    `- Перед изменениями проведи разведку: list_dir / read_text. Не гадай о содержимом — прочти.`,
+    `- Не удаляй то, что не создавал, и не трогай чужие папки без явной просьбы.`,
+    `- Команды запускай с осторожностью; для git/npm/pnpm работай в каталоге проекта.`,
+    `- Опасные команды (форматирование, удаление системных файлов, изменение реестра, выключение ПК) запрещены и будут отклонены защитой.`,
+    '',
+    `Каждое write_text / run_command показывает пользователю модалку разрешения — дождись результата инструмента, его не будет, если пользователь отказал.`,
+    ``,
+    opts.extra ? `Окружение:\n${opts.extra}` : '',
   ].join('\n');
 }
 
@@ -608,27 +711,38 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
   for (let iter = 0; iter < maxIterations; iter++) {
     if (signal?.aborted) throw new Error('Отменено пользователем.');
 
-    const turns: ChatTurn[] = toTurns(messages);
-    const outcome = await callProvider(ep, systemPrompt, turns, signal);
-
     const assistantId = `asst-${Date.now()}-${iter}`;
-    const assistantBase: ChatMessage = {
+    // Заглушка — при стриминге тело заполняется по мере получения данных.
+    push({
       id: assistantId,
       role: 'assistant',
-      content: outcome.text || '',
-      thinking: outcome.thinking,
+      content: '',
       model: ep.model.id,
       timestamp: Date.now(),
-    };
+    });
+
+    const turns: ChatTurn[] = toTurns(messages);
+    let outcome: ApiOutcome;
+    try {
+      outcome = await callProvider(ep, systemPrompt, turns, signal, d => {
+        const patchData: Partial<ChatMessage> = {};
+        if (d.content !== undefined) patchData.content = d.content;
+        if (d.thinking !== undefined) patchData.thinking = d.thinking;
+        if (Object.keys(patchData).length) patch(assistantId, patchData);
+      });
+    } catch (e: unknown) {
+      if (signal?.aborted) throw new Error('Отменено пользователем.');
+      throw e;
+    }
+
+    patch(assistantId, {
+      content: outcome.text || '',
+      thinking: outcome.thinking || undefined,
+    });
 
     if (outcome.toolCalls?.length) {
-      const assistantMsg: ChatMessage = {
-        ...assistantBase,
-        toolCalls: outcome.toolCalls,
-      };
-      push(assistantMsg);
+      patch(assistantId, { toolCalls: outcome.toolCalls });
 
-      // Perform sequentially so a single permission modal shows at a time.
       for (let i = 0; i < outcome.toolCalls.length; i++) {
         if (signal?.aborted) throw new Error('Отменено пользователем.');
         const tc = outcome.toolCalls[i];
@@ -642,21 +756,17 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
         if (signal?.aborted) throw new Error('Отменено пользователем.');
       }
 
-      // Не даём модели бесконечно слинковать инструменты без финального ответа.
       if (iter === maxIterations - 1) {
         push({
           id: `final-${Date.now()}`,
           role: 'assistant',
-          content: 'Достигнут лимит итераций инструментов OpenPortal. Опиши сделанное и предложи следующий шаг пользователю.',
+          content: 'Достигнут лимит итераций. Опиши, что сделано, и предложи следующий шаг.',
           timestamp: Date.now(),
           model: ep.model.id,
         });
       }
       continue;
     }
-
-    // Финальный ответ без tool-вызовов
-    push({ ...assistantBase });
     return messages;
   }
   return messages;

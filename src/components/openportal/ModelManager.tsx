@@ -53,7 +53,7 @@ function ProviderRow({ p, onSelect, onToggle, isActive }: {
             <p className="truncate text-sm font-bold" style={{ color: 'var(--color-text)' }}>{p.name}</p>
             <p className="truncate text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
               {p.models.length} моделей · {enabled ? 'вкл' : 'выкл'}{p.apiKeyHint ? ' · ключ нужен' : ''}
-              {hasApi ? ' · 🗝️' : ''}
+              {hasApi ? ' · ключ задан' : ''}
             </p>
           </div>
         </button>

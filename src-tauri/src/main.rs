@@ -308,6 +308,8 @@ fn main() {
             commands::opencode::op_launcher_settings_path,
             commands::opencode::op_run_command,
             commands::opencode::op_web_fetch,
+            commands::opencode::op_set_active_build,
+            commands::opencode::op_resolve_build,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

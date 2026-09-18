@@ -12,6 +12,7 @@ import type {
   PermissionsMap,
   PortalLayout,
   PortalRoot,
+  ProjectContext,
   ChatMessage,
 } from '@/lib/opencore/types';
 
@@ -36,6 +37,7 @@ function defaultConfig(): OpenPortalConfig {
     activeProviderId: 'openrouter',
     activeModelId: 'moonshotai/kimi-k2',
     mode: 'build',
+    project: { kind: 'none' },
     temperature: 0.4,
   };
 }
@@ -70,6 +72,7 @@ interface OpenCoreState {
   setProviderBaseUrl: (providerId: string, baseUrl: string) => void;
   setActiveModel: (providerId: string, modelId: string) => void;
   setMode: (mode: 'build' | 'plan') => void;
+  setProject: (project: ProjectContext) => void;
   setCwd: (root: PortalRoot, path: string) => void;
 
   resolvePermission: (decision: 'allow' | 'deny' | 'always' | 'never') => void;
@@ -203,6 +206,14 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
 
       setMode(mode) {
         get().updateConfig({ mode });
+      },
+
+      setProject(project) {
+        get().updateConfig({ project });
+        // Сообщаем бэкенду активную сборку (для песочницы записи).
+        void invoke('op_set_active_build', {
+          instanceId: project.kind === 'build' ? project.instanceId : null,
+        }).catch(() => {});
       },
 
       setCwd(root, path) {

@@ -2,16 +2,18 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, MessageSquare, Trash2, Sparkles, Send, StopCircle, ChevronDown, ChevronRight,
-  Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Paperclip,
+  Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Paperclip, Boxes, Check,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
 import { useOpenCoreStore, activeProviders, isModelEnabled } from '@/stores/opencoreStore';
+import { useInstanceStore } from '@/stores/instanceStore';
+import { toIconSrc } from '@/lib/icon-src';
 import { resolveEndpoint, runAgentTurn, buildSystemPrompt, compressHistory } from '@/lib/opencore/agent';
 import { Markdown } from '@/components/openportal/Markdown';
 import { ModelManager } from '@/components/openportal/ModelManager';
 import { PermissionModal } from '@/components/openportal/PermissionModal';
-import type { ChatMessage, SessionData, PermissionRequest, Attachment } from '@/lib/opencore/types';
+import type { ChatMessage, SessionData, PermissionRequest, Attachment, ProjectContext } from '@/lib/opencore/types';
 
 const SKILLS: Array<{ cmd: string; desc: string }> = [
   { cmd: '/new', desc: 'Новый чат' },
@@ -177,6 +179,87 @@ function CurrentModelPicker() {
   );
 }
 
+/** Выбор рабочей сборки: «Без сборки» или конкретная сборка (иконка + название). */
+function BuildPicker() {
+  const instances = useInstanceStore(s => s.instances);
+  const cfg = useOpenCoreStore(s => s.config);
+  const setProject = useOpenCoreStore(s => s.setProject);
+  const [open, setOpen] = useState(false);
+
+  const active = cfg.project?.kind === 'build'
+    ? instances.find(i => i.id === cfg.project!.instanceId)
+    : undefined;
+
+  const choose = (project: ProjectContext) => {
+    setProject(project);
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative shrink-0">
+      <button onClick={() => setOpen(o => !o)} title="Сборка — рабочая область агента"
+        className="flex max-w-[210px] items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold"
+        style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}>
+        {active?.iconPath
+          ? <img src={toIconSrc(active.iconPath)} alt="" className="h-4 w-4 shrink-0 rounded object-cover" />
+          : active
+            ? <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[9px] font-black"
+                style={{ background: active.color || 'var(--color-primary)', color: '#fff' }}>
+                {active.name.slice(0, 1).toUpperCase()}
+              </span>
+            : <Boxes size={13} className="shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />}
+        <span className="truncate">{active ? active.name : 'Без сборки'}</span>
+        <ChevronDown size={12} className={`transition-transform ${open ? 'rotate-180' : ''}`} style={{ color: 'var(--color-text-tertiary)' }} />
+      </button>
+      <AnimatePresence>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.12 }}
+            className="absolute right-0 top-full z-50 mt-2 w-72 rounded-2xl border p-2"
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 24px 60px rgba(0,0,0,.4)' }}>
+            <button onClick={() => choose({ kind: 'none' })}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-[var(--color-surface-2)]"
+              style={{ color: !active ? 'var(--color-primary)' : 'var(--color-text)' }}>
+              <Boxes size={14} className="shrink-0" />
+              <span className="flex-1 font-semibold">Без сборки</span>
+              {!active && <Check size={13} className="text-[var(--color-primary)]" />}
+            </button>
+            <p className="px-2 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>Сборки</p>
+            <div className="max-h-60 overflow-y-auto">
+              {instances.map(inst => (
+                <button key={inst.id} onClick={() => choose({ kind: 'build', instanceId: inst.id })}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-[var(--color-surface-2)]"
+                  style={{ color: active?.id === inst.id ? 'var(--color-primary)' : 'var(--color-text)' }}>
+                  {inst.iconPath
+                    ? <img src={toIconSrc(inst.iconPath)} alt="" className="h-5 w-5 shrink-0 rounded object-cover" />
+                    : <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-black"
+                        style={{ background: inst.color || 'var(--color-primary)', color: '#fff' }}>
+                        {inst.name.slice(0, 1).toUpperCase()}
+                      </span>}
+                  <span className="min-w-0 flex-1 truncate font-semibold">{inst.name}</span>
+                  {active?.id === inst.id && <Check size={13} className="shrink-0 text-[var(--color-primary)]" />}
+                </button>
+              ))}
+              {instances.length === 0 && (
+                <p className="px-2.5 py-2 text-[11px] leading-5" style={{ color: 'var(--color-text-tertiary)' }}>
+                  Сборок пока нет. Создай их в разделе «Библиотека», чтобы агент мог с ними работать.
+                </p>
+              )}
+            </div>
+            <p className="mt-1 border-t px-2.5 pt-2 text-[10px] leading-4" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }}>
+              Агент получит доступ к папке выбранной сборки. Запись — только через подтверждение в модалке.
+            </p>
+          </motion.div>
+        </>
+      )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function OpenPortalPage() {
   const navigate = useNavigate();
   const store = useOpenCoreStore();
@@ -304,8 +387,19 @@ export function OpenPortalPage() {
     const ep = resolveEndpoint(cfg.activeProviderId, cfg.activeModelId, cfg.providers);
 
     const portalRoot = layout?.projects ?? '';
+    let workspaceLabel = 'OpenPortal Projects';
+    let workspaceDir = portalRoot;
+    let workspaceZone: 'portal' | 'launcher' = 'portal';
+    if (cfg.project?.kind === 'build' && cfg.project.instanceId) {
+      const inst = useInstanceStore.getState().instances.find(i => i.id === cfg.project!.instanceId);
+      workspaceLabel = inst?.name ?? cfg.project.instanceId;
+      try {
+        workspaceDir = await invoke<string>('op_resolve_build', { instanceId: cfg.project.instanceId });
+        workspaceZone = 'launcher';
+      } catch { /* папка сборки не определилась — остаёмся на portal */ }
+    }
     const extra = layout
-      ? `Рабочая папка OpenPortal: ${portalRoot}\nВременная (Temp): ${layout.temp}\nЛаунчер: ${layout.launcher}\nСейчас активная модель: ${cfg.activeModelId} (${ep.provider.name}).`
+      ? `Рабочая область агента: ${workspaceLabel}${workspaceZone === 'launcher' ? ' (сборка)' : ''}\nПапка: ${workspaceDir}\nПрава: ${workspaceZone === 'launcher' ? 'чтение лаунчера везде; запись — только в папку сборки и в settings.json' : 'полный доступ внутри OpenPortal Projects'}\nВременная (Temp): ${layout.temp}\nКаталог лаунчера: ${layout.launcher}\nАктивная модель: ${cfg.activeModelId} (${ep.provider.name}).`
       : undefined;
     const systemPrompt = buildSystemPrompt({ mode, extra });
 
@@ -408,6 +502,7 @@ export function OpenPortalPage() {
             <span className="text-xs font-black" style={{ color: 'var(--color-text)' }}>OpenPortal</span>
           </div>
           <div className="flex-1" />
+          <BuildPicker />
           <CurrentModelPicker />
         </header>
 
@@ -415,7 +510,7 @@ export function OpenPortalPage() {
           {messages.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2">
               <div className="mb-1 flex h-14 w-14 items-center justify-center rounded-2xl"
-                style={{ background: 'linear-gradient(135deg, var(--color-primary-dim), transparent)' }}>
+                style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
                 <Sparkles size={26} className="text-[var(--color-primary)]" />
               </div>
               <h1 className="text-lg font-black" style={{ color: 'var(--color-text)' }}>OpenPortal</h1>

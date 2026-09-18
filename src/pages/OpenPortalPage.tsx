@@ -108,8 +108,8 @@ function ChatBubble({ m }: { m: ChatMessage }) {
   return (
     <div className="flex justify-start">
       <div className="max-w-[92%] min-w-0 flex-1">
-        <div className="mb-0.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>
-          <Bot size={11} /> OpenPortal{m.model ? ` · ${m.model}` : ''}
+        <div className="mb-0.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>
+          <Bot size={11} /> {m.model ? `${m.model}` : 'OpenPortal'}
         </div>
         {m.thinking && <ThinkingBlock text={m.thinking} />}
         {m.content ? (
@@ -411,6 +411,8 @@ export function OpenPortalPage() {
 
     const mode: 'build' | 'plan' = taskDirective ? 'build' : cfg.mode;
     const ep = resolveEndpoint(providerId, modelId, cfgNow.providers);
+    ep.serviceTokens = useOpenCoreStore.getState().config.serviceTokens ?? {};
+    ep.onSetToken = (host, token) => useOpenCoreStore.getState().setServiceToken(host, token);
 
     const portalRoot = layout?.projects ?? '';
     const proj = cfg.project ?? { kind: 'none' as const };

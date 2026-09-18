@@ -799,6 +799,102 @@ pub async fn op_web_fetch(url: String, headers: Option<Vec<(String, String)>>) -
     }
 }
 
+/// Универсальный HTTP-запрос к любому REST API (обход CORS через бэкенд).
+/// Используется инструментами агента: `http_request`, а также как фолбэк для
+/// прямых `fetch()` в вебвью (когда провайдер недоступен из-за CORS/сети).
+#[tauri::command]
+pub async fn op_http_request(
+    url: String,
+    method: Option<String>,
+    headers: Option<Vec<(String, String)>>,
+    body: Option<String>,
+    timeout_ms: Option<u64>,
+) -> FetchResult {
+    let lower = url.to_lowercase();
+    if !lower.starts_with("http://") && !lower.starts_with("https://") {
+        return FetchResult {
+            ok: false,
+            status: 0,
+            content_type: String::new(),
+            text: String::new(),
+            error: Some("Некорректный URL — только http/https.".into()),
+        };
+    }
+    let method = method.unwrap_or_else(|| "GET".to_string());
+    let method = reqwest::Method::from_bytes(method.as_bytes()).unwrap_or(reqwest::Method::GET);
+    let timeout = std::time::Duration::from_millis(timeout_ms.unwrap_or(90_000).min(600_000));
+    let client = reqwest::Client::builder()
+        .timeout(timeout)
+        .user_agent("Mozilla/5.0 (Portal-Launcher OpenPortal; like Gecko)")
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
+    let mut req = client.request(method, &url);
+    if let Some(hs) = headers {
+        for (k, v) in hs {
+            if k.eq_ignore_ascii_case("host") || k.eq_ignore_ascii_case("content-length") {
+                continue;
+            }
+            if let (Ok(k), Ok(v)) = (
+                reqwest::header::HeaderName::from_bytes(k.as_bytes()),
+                reqwest::header::HeaderValue::from_str(&v),
+            ) {
+                req = req.header(k, v);
+            }
+        }
+    }
+    if let Some(b) = body {
+        req = req.body(b);
+    }
+    match req.send().await {
+        Ok(resp) => {
+            let status = resp.status().as_u16();
+            let content_type = resp
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("")
+                .to_string();
+            let bytes = match resp.bytes().await {
+                Ok(b) => b,
+                Err(e) => {
+                    return FetchResult {
+                        ok: false,
+                        status,
+                        content_type,
+                        text: String::new(),
+                        error: Some(format!("Чтение тела: {e}")),
+                    }
+                }
+            };
+            let truncated = bytes.len() > MAX_FETCH_BYTES;
+            let sliced = bytes
+                .iter()
+                .take(MAX_FETCH_BYTES)
+                .copied()
+                .collect::<Vec<u8>>();
+            FetchResult {
+                ok: status < 400,
+                status,
+                content_type,
+                text: String::from_utf8_lossy(&sliced).to_string(),
+                error: Some(if truncated {
+                    format!("Ответ обрезан на {} КБ.", MAX_FETCH_BYTES / 1024)
+                } else {
+                    String::new()
+                })
+                .filter(|e| !e.is_empty()),
+            }
+        }
+        Err(e) => FetchResult {
+            ok: false,
+            status: 0,
+            content_type: String::new(),
+            text: String::new(),
+            error: Some(format!("Сеть: {e}")),
+        },
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Listing моделей провайдера (GET {url}/models, обход CORS через бэкенд)
 // ---------------------------------------------------------------------------

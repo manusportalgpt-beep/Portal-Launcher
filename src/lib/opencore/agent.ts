@@ -1,4 +1,5 @@
 import { invoke } from '@/lib/invoke-shim';
+import { useOpenCoreStore } from '@/stores/opencoreStore';
 import type {
   ChatMessage,
   ToolCall,
@@ -26,15 +27,100 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'web_search',
     description:
-      'Читает любую веб-страницу по URL и возвращает её текст (markdown/HTML без побочных стилей). ' +
-      'Используй для документации, GitHub README, страниц модов, release-нот и т.п.',
+      'Поиск в интернете по текстовому запросу (DuckDuckGo): вернёт до 8 результатов — заголовок, URL, сниппет. ' +
+      'Используй для «найди/поищи/что там по теме», для ответов на актуальные вопросы, для поиска страниц перед чтением. ' +
+      'Если передана ссылка (http) — просто прочитает страницу целиком.',
     parameters: {
       type: 'object',
-      properties: { url: { type: 'string', description: 'Полный URL страницы' } },
+      properties: {
+        query: { type: 'string', description: 'Короткий поисковый запрос (2–6 слов)' },
+        max_results: { type: 'number', description: 'Сколько результатов вернуть (1–8, по умолчанию 5)' },
+      },
+      required: ['query'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'fetch_page',
+    description:
+      'Читает конкретную веб-страницу по URL и возвращает её текст. Используй для документации, GitHub README/issues, ' +
+      'страниц модов, release-нот — когда знаешь точный адрес или он получен из web_search.',
+    parameters: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Полный URL страницы' },
+        max_chars: { type: 'number', description: 'Максимум символов текста (до 120000, по умолчанию 20000)' },
+      },
       required: ['url'],
     },
     root: '*',
     requiresPermission: false,
+  },
+  {
+    name: 'http_request',
+    description:
+      'Прямой HTTP-запрос к любому REST API (GitHub, GitLab, любой сервис). Обходит CORS, идёт через бэкенд. ' +
+      'Если для хоста сохранён токен — заголовок Authorization: Bearer <токен> подставится автоматически. ' +
+      'Используй для работы с API: репозитории, issues, releases, webhooks и т.п.',
+    parameters: {
+      type: 'object',
+      properties: {
+        method: { type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'], description: 'HTTP-метод (по умолчанию GET)' },
+        url: { type: 'string', description: 'Полный адрес эндпоинта' },
+        headers: { type: 'object', description: 'Необязательные заголовки (объект имя: значение)' },
+        jsonBody: { type: 'object', description: 'JSON-тело запроса (для POST/PUT/PATCH), сериализуется автоматически' },
+        body: { type: 'string', description: 'Сырое тело запроса (если не jsonBody)' },
+        timeout_ms: { type: 'number', description: 'Таймаут в мс (до 600000)' },
+      },
+      required: ['url'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'set_service_token',
+    description:
+      'Сохраняет API-токен сервиса (например GitHub) локально в настройках портала. После этого http_request для этого хоста ' +
+      'сам добавит Authorization: Bearer. Спросит подтверждение у пользователя. Никому не отправляется.',
+    parameters: {
+      type: 'object',
+      properties: {
+        host: { type: 'string', description: 'Хост сервиса, например api.github.com или gitlab.com' },
+        token: { type: 'string', description: 'Сам токен' },
+      },
+      required: ['host', 'token'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'spawn_agents',
+    description:
+      'Запускает параллельно несколько субагентов: каждый получает свою часть общей задачи и работает автономно ' +
+      'инструментами (поиск, чтение страниц, файлы, команды, HTTP). В конце возвращает сводный отчёт всех субагентов. ' +
+      'Используй для больших задач, где можно параллелить: исследование, сравнение, сбор информации по нескольким темам разом.',
+    parameters: {
+      type: 'object',
+      properties: {
+        task: { type: 'string', description: 'Общая задача, которую субагенты делят между собой' },
+        agents: {
+          type: 'array',
+          description: 'Список субагентов (до 5)',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Короткое имя субагента' },
+              instructions: { type: 'string', description: 'Точная инструкция: что именно найти/сделать и в каком виде вернуть' },
+            },
+            required: ['name', 'instructions'],
+          },
+        },
+      },
+      required: ['task', 'agents'],
+    },
+    root: '*',
+    requiresPermission: true,
   },
   {
     name: 'list_dir',
@@ -145,15 +231,118 @@ export interface ExecResult {
   output: string;
 }
 
-async function execWebFetch(args: { url: string }): Promise<ExecResult> {
-  if (!/^https?:\/\//i.test(args.url)) {
-    return { ok: false, output: 'Некорректный URL — только http/https.' };
+/** HTTP-запрос через Rust (нет CORS, есть сеть бэкенда). Нужен инструментам и фолбэку провайдеров. */
+async function httpViaRust(
+  method: string,
+  url: string,
+  headers: Record<string, string> | undefined,
+  body: string | null,
+  timeout_ms?: number,
+): Promise<FetchResult> {
+  const pairs: [string, string][] = headers
+    ? Object.entries(headers).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+    : [];
+  return invoke<FetchResult>('op_http_request', {
+    url,
+    method,
+    headers: pairs,
+    body,
+    timeout_ms: timeout_ms ?? 120000,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Интернет: поиск (DuckDuckGo) и чтение страниц
+// ---------------------------------------------------------------------------
+
+function htmlDecode(s: string): string {
+  return s
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0*39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** `//duckduckgo.com/l/?uddg=<url>` → реальный URL результата. */
+function decodeDdgHref(href: string): string {
+  let h = href.trim();
+  if (h.startsWith('//')) h = 'https:' + h;
+  const m = /[?&]uddg=([^&]+)/.exec(h);
+  if (m) {
+    try {
+      const dec = decodeURIComponent(m[1]);
+      if (/^https?:\/\//i.test(dec)) return dec;
+    } catch { /* оставляем оригинал */ }
   }
-  const res = await invoke<FetchResult>('op_web_fetch', { url: args.url });
+  return h;
+}
+
+/** Парсер HTML-выдачи DuckDuckGo (html.duckduckgo.com) без внешних зависимостей. */
+function parseDuckDuckGo(html: string, max: number): { title: string; url: string; snippet: string }[] {
+  const out: { title: string; url: string; snippet: string }[] = [];
+  const re = /<a[^>]+class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null && out.length < max) {
+    const url = decodeDdgHref(m[1]);
+    const title = htmlDecode(m[2]);
+    if (!title || !/^https?:\/\//i.test(url)) continue;
+    const seg = html.slice(m.index + m[0].length, m.index + m[0].length + 900);
+    const sm = /result__snippet[^>]*>([\s\S]*?)<\/a>/i.exec(seg);
+    out.push({ title, url, snippet: sm ? htmlDecode(sm[1]) : '' });
+  }
+  return out;
+}
+
+/** Поиск по интернету через DuckDuckGo. Если user передал URL — просто прочитать страницу. */
+async function execWebSearch(args: { query?: string; url?: string; max_results?: number }): Promise<ExecResult> {
+  const rawQuery = String(args.query ?? args.url ?? '').trim();
+  if (!rawQuery) return { ok: false, output: 'Нет поискового запроса (query).' };
+  if (/^https?:\/\//i.test(rawQuery)) {
+    return execFetchPage({ url: rawQuery, max_chars: args.max_results ? args.max_results * 2000 : undefined });
+  }
+  const max = Math.max(1, Math.min(8, Number(args.max_results) || 5));
+  const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(rawQuery)}`;
+  let res: FetchResult;
+  try {
+    res = await invoke<FetchResult>('op_web_fetch', { url });
+  } catch (e) {
+    return { ok: false, output: `Поиск не выполнился: ${String(e)}` };
+  }
+  if (!res.ok && res.status === 0) {
+    return { ok: false, output: `Поиск не выполнился: ${res.error ?? 'нет сети'}` };
+  }
+  const results = parseDuckDuckGo(res.text, max);
+  if (results.length === 0) {
+    return {
+      ok: false,
+      output: `Поиск по «${rawQuery}» не дал результатов. Попробуй иначе сформулировать запрос или прочитай конкретную страницу через fetch_page(url).`,
+    };
+  }
+  const body = results.map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.snippet || '(описание недоступно)'}`).join('\n');
+  return { ok: true, output: `Результаты поиска по «${rawQuery}»:\n\n${body}` };
+}
+
+async function execFetchPage(args: { url?: string; max_chars?: number }): Promise<ExecResult> {
+  const url = String(args.url ?? '').trim();
+  if (!/^https?:\/\//i.test(url)) {
+    return { ok: false, output: 'Нет корректного url — это должен быть полный http(s) адрес страницы.' };
+  }
+  const res = await invoke<FetchResult>('op_web_fetch', { url });
   if (!res.ok || (res.text.length === 0 && res.error)) {
-    return { ok: false, output: `HTTP ${res.status}: ${res.error ?? 'пустой ответ'}` };
+    const hint = !res.status
+      ? 'Не удалось загрузить страницу (нет сети или сайт недоступен).'
+      : `Сайт вернул HTTP ${res.status}.`;
+    return { ok: false, output: `${hint} ${res.error ?? ''}`.trim() };
   }
-  return { ok: true, output: `HTTP ${res.status}\n${res.text}` };
+  const maxChars = Math.min(120_000, Number(args.max_chars) || 20_000);
+  const text = res.text.length > maxChars ? res.text.slice(0, maxChars) + '\n… (обрезано)' : res.text;
+  return { ok: true, output: `HTTP ${res.status}\n${text}` };
 }
 
 async function lookupRoot(root: PortalRoot): Promise<string> {
@@ -244,21 +433,31 @@ async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; s
     size: args.size ?? '1024x1024',
     response_format: 'b64_json',
   };
-  let res: Response;
+  let data: any;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${ep.apiKey}`,
+  };
   try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ep.apiKey}` },
-      body: JSON.stringify(body),
-    });
+    const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { ok: false, output: `${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 400)}` };
+    }
+    data = await res.json().catch(() => null);
   } catch (e) {
-    return { ok: false, output: `Сеть: ${String(e)}` };
+    if ((e as DOMException)?.name === 'AbortError') throw e;
+    const fr = await httpViaRust('POST', url, headers, JSON.stringify(body), 180000);
+    if (!fr.ok) {
+      return { ok: false, output: `Генерация недоступна: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}`.trim() };
+    }
+    try {
+      data = JSON.parse(fr.text);
+    } catch {
+      return { ok: false, output: `${ep.provider.name} прислал неожиданный ответ при фолбэке через бэкенд.` };
+    }
   }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    return { ok: false, output: `${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 400)}` };
-  }
-  const data: any = await res.json().catch(() => null);
+
   const b64: string | undefined = data?.data?.[0]?.b64_json ?? data?.data?.[0]?.b64 ?? data?.b64_json;
   if (!b64) {
     const rev = data?.data?.[0]?.url;
@@ -284,11 +483,267 @@ async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; s
   }
 }
 
+// ---------------------------------------------------------------------------
+// Новые инструменты: http_request, set_service_token, spawn_agents (субагенты)
+// ---------------------------------------------------------------------------
+
+function maskToken(t: string): string {
+  if (t.length <= 8) return '••••';
+  return `${t.slice(0, 4)}••••${t.slice(-4)}`;
+}
+
+function truncateText(s: string, max: number): string {
+  return s.length > max ? s.slice(0, max) + '\n… (обрезано)' : s;
+}
+
+/** Находит сохранённый токен для хоста url (точное совпадение или поддомен). */
+function bearerForUrl(url: string, tokens: Record<string, string> | undefined): string | undefined {
+  if (!tokens) return undefined;
+  let host = '';
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return undefined;
+  }
+  if (tokens[host]) return tokens[host];
+  for (const [k, v] of Object.entries(tokens)) {
+    const key = k.toLowerCase();
+    if (host === key || host.endsWith(`.${key}`)) return v;
+  }
+  return undefined;
+}
+
+async function execHttpRequest(
+  ep: ResolvedEndpoint,
+  args: any,
+  requestPermission: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>,
+): Promise<ExecResult> {
+  const method = String(args.method || 'GET').toUpperCase();
+  if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'].includes(method)) {
+    return { ok: false, output: `Метод ${method} не поддерживается (GET/POST/PUT/PATCH/DELETE/HEAD).` };
+  }
+  const url = String(args.url || '').trim();
+  if (!/^https?:\/\//i.test(url)) {
+    return { ok: false, output: 'Некорректный url — только http/https.' };
+  }
+  const decision = await requestPermission({
+    tool: 'http_request',
+    root: 'portal',
+    label: 'HTTP-запрос к API',
+    detail: `${method} ${url}`,
+    cwdLabel: `HTTP → ${url.slice(0, 70)}`,
+    resolve: () => {},
+  });
+  if (decision === 'deny' || decision === 'never') return { ok: false, output: 'Пользователь не разрешил HTTP-запрос.' };
+  if (decision !== 'allow' && decision !== 'always') return { ok: false, output: 'Разрешение не получено.' };
+
+  const headers: Record<string, string> = {};
+  if (args.headers && typeof args.headers === 'object') {
+    for (const [k, v] of Object.entries(args.headers)) {
+      if (typeof v === 'string' || typeof v === 'number') headers[k] = String(v);
+    }
+  }
+  const bearer = bearerForUrl(url, ep.serviceTokens);
+  if (bearer && !Object.keys(headers).some(k => k.toLowerCase() === 'authorization')) {
+    headers['Authorization'] = `Bearer ${bearer}`;
+  }
+  let body: string | null = null;
+  if (method !== 'GET' && args.jsonBody && typeof args.jsonBody === 'object') {
+    body = JSON.stringify(args.jsonBody);
+    if (!Object.keys(headers).some(k => k.toLowerCase() === 'content-type')) {
+      headers['Content-Type'] = 'application/json';
+    }
+  } else if (typeof args.body === 'string') {
+    body = args.body;
+  }
+
+  let res: FetchResult;
+  try {
+    res = await httpViaRust(method, url, headers, body, args.timeout_ms);
+  } catch (e) {
+    return { ok: false, output: `HTTP-запрос не выполнился: ${String(e)}` };
+  }
+  if (!res.ok && res.status === 0) {
+    return { ok: false, output: `HTTP-запрос не выполнился: ${res.error ?? 'нет сети'}` };
+  }
+  if (!res.ok) {
+    return { ok: false, output: `${method} ${url} → HTTP ${res.status}: ${(res.error ?? res.text).slice(0, 400)}` };
+  }
+  if (res.content_type.includes('json') && res.text.trim()) {
+    try {
+      const parsed = JSON.parse(res.text);
+      return { ok: true, output: truncateText(JSON.stringify(parsed, null, 2), 60000) };
+    } catch { /* не JSON — отдаём текст */ }
+  }
+  return { ok: true, output: `${method} ${url} → HTTP ${res.status}\n${truncateText(res.text, 20000)}` };
+}
+
+async function execSetServiceToken(
+  ep: ResolvedEndpoint,
+  args: any,
+  requestPermission: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>,
+): Promise<ExecResult> {
+  const host = String(args.host || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/.*$/, '');
+  const token = String(args.token || '').trim();
+  if (!host) return { ok: false, output: 'Укажи host сервиса, например api.github.com.' };
+  if (!token) return { ok: false, output: 'Укажи token.' };
+  if (!ep.onSetToken) return { ok: false, output: 'Сохранение токенов сервисов недоступно.' };
+  const decision = await requestPermission({
+    tool: 'set_service_token',
+    root: 'portal',
+    label: 'Сохранение токена сервиса',
+    detail: `Хост: ${host}\nТокен: ${maskToken(token)}`,
+    cwdLabel: `Сервис → ${host}`,
+    resolve: () => {},
+  });
+  if (decision === 'deny' || decision === 'never') return { ok: false, output: 'Пользователь не разрешил сохранение токена.' };
+  if (decision !== 'allow' && decision !== 'always') return { ok: false, output: 'Разрешение не получено.' };
+  ep.onSetToken(host, token);
+  return {
+    ok: true,
+    output: `Токен сохранён локально для ${host}. Инструмент http_request теперь подставляет его в Authorization автоматически.`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Субагенты: параллельный запуск отдельных агентов (как Task-инструмент)
+// ---------------------------------------------------------------------------
+
+let subAgentDepth = 0;
+
+function subAgentSystemPrompt(name: string): string {
+  const layout = useOpenCoreStore.getState().layout;
+  const env = layout
+    ? `Портал (OpenPortal): ${layout.base}\nProjects: ${layout.projects}\nTemp: ${layout.temp}\nЛаунчер: ${layout.launcher}`
+    : `Зоны: portal (OpenPortal), temp (Temp), launcher (лаунчер). Пути уточни через list_dir.`;
+  return [
+    `Ты — субагент «${name}» внутри ИИ-агента OpenPortal (лаунчер Minecraft).`,
+    ``,
+    `Ты работаешь параллельно с другими субагентами над одной большой задачей. Твоя часть — только твоя ответственность, не дублируй работу других.`,
+    ``,
+    `Инструменты:`,
+    `- web_search(query) — поиск в интернете.`,
+    `- fetch_page(url) — прочитать страницу/документацию/GitHub-README.`,
+    `- list_dir(root, path) / read_text / write_text — файлы в зонах portal | temp | launcher.`,
+    `- run_command(root, cwd, command) / terminal — команды (git, curl, npm, python и т.п.); cwd обязательно внутри зоны.`,
+    `- http_request — любой REST API (GitHub, GitLab и др.); сохранённый токен хоста подставляется автоматически.`,
+    `- set_service_token — сохранить API-токен сервиса (спросит пользователя).`,
+    `- spawn_agents — НЕ используй: субагентам запрещено запускать других субагентов.`,
+    ``,
+    `Окружение:\n${env}`,
+    ``,
+    `Правила:`,
+    `- Действуй самостоятельно и до конца: ищи, читай, выполняй команды. Не задавай уточняющих вопросов пользователю.`,
+    `- Если инструмент вернул ошибку — попробуй другой способ (другой URL, другой инструмент) и продолжай.`,
+    `- В конце верни ТОЛЬКО итог по твоей части: факты, найденные данные, ответы, выводы, ссылки (до ~300 слов). Без приветствий и описания процесса.`,
+  ].join('\n');
+}
+
+/** Отдельный агентный цикл субагента: свой контекст, свои инструменты, без GUI-стриминга. */
+async function runSubAgentTurn(
+  ep: ResolvedEndpoint,
+  systemPrompt: string,
+  userTaskText: string,
+  requestPermission: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>,
+  signal?: AbortSignal,
+  maxIterations = 6,
+): Promise<string> {
+  let msgs: ChatMessage[] = [
+    { id: `sub-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, role: 'user', content: userTaskText, timestamp: Date.now() },
+  ];
+  let lastText = '';
+  for (let iter = 0; iter < maxIterations; iter++) {
+    if (signal?.aborted) return '(остановлено пользователем)';
+    let outcome: ApiOutcome;
+    try {
+      outcome = await callProvider(ep, systemPrompt, toTurns(msgs), signal);
+    } catch (e: unknown) {
+      return `Ошибка субагента: ${e instanceof Error ? e.message : String(e)}`;
+    }
+    lastText = outcome.text || lastText;
+    if (!outcome.toolCalls?.length) {
+      return outcome.text && outcome.text.trim() ? outcome.text : '(пустой ответ)';
+    }
+    msgs.push({ id: `sub-asst-${Date.now()}-${iter}`, role: 'assistant', content: outcome.text || '', toolCalls: outcome.toolCalls, timestamp: Date.now() });
+    for (const tc of outcome.toolCalls) {
+      if (signal?.aborted) return '(остановлено пользователем)';
+      const tmId = `sub-tool-${Date.now()}-${iter}-${tc.id}`;
+      msgs.push({ id: tmId, role: 'tool', content: '…', toolCallId: tc.id, toolName: tc.name, timestamp: Date.now() });
+      const res = await executeTool(tc.name, tc.arguments, requestPermission, ep, signal);
+      msgs = msgs.map(m => (m.id === tmId ? { ...m, content: res.output } : m));
+    }
+  }
+  return (lastText || '(субагент не успел ответить)') + '\n\n(достигнут лимит итераций)';
+}
+
+async function execSpawnAgents(
+  ep: ResolvedEndpoint,
+  args: any,
+  requestPermission: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>,
+  signal?: AbortSignal,
+): Promise<ExecResult> {
+  const rawAgents = Array.isArray(args.agents) ? args.agents : [];
+  const list: { name: string; instructions: string }[] = rawAgents
+    .map((a: any) => ({
+      name: String(a?.name ?? 'Агент').slice(0, 60),
+      instructions: String(a?.instructions ?? '').trim(),
+    }))
+    .filter(a => a.instructions.length > 0)
+    .slice(0, 5);
+  if (list.length === 0) {
+    return { ok: false, output: 'Нужен список субагентов: agents: [{ name, instructions }, …] с непустыми instructions.' };
+  }
+  const task = String(args.task ?? '').trim();
+  if (!task) return { ok: false, output: 'Укажи общую задачу (task).' };
+  if (subAgentDepth > 0) return { ok: false, output: 'Субагентам запрещено запускать других субагентов.' };
+
+  const decision = await requestPermission({
+    tool: 'spawn_agents',
+    root: 'portal',
+    label: `Запуск ${list.length} субагентов`,
+    detail: `Задача: ${task.slice(0, 160)}\nСубагенты: ${list.map(a => a.name).join(', ')}`,
+    cwdLabel: `Субагенты × ${list.length}`,
+    resolve: () => {},
+  });
+  if (decision === 'deny' || decision === 'never') return { ok: false, output: 'Пользователь не разрешил запуск субагентов.' };
+  if (decision !== 'allow' && decision !== 'always') return { ok: false, output: 'Разрешение не получено.' };
+
+  subAgentDepth++;
+  try {
+    const results = await Promise.all(
+      list.map(async a => {
+        const sys = subAgentSystemPrompt(a.name);
+        const text = await runSubAgentTurn(
+          ep,
+          sys,
+          `Общая задача:\n${task}\n\nТвоя часть:\n${a.instructions}`,
+          requestPermission,
+          signal,
+          6,
+        );
+        return { name: a.name, text };
+      }),
+    );
+    const sections = results.map(r => `### Субагент: ${r.name}\n\n${r.text.trim()}`).join('\n\n---\n\n');
+    return {
+      ok: true,
+      output: `Отчёт ${results.length} субагентов (общая задача: ${task.slice(0, 120)}):\n\n${truncateText(sections, 60000)}`,
+    };
+  } finally {
+    subAgentDepth--;
+  }
+}
+
 export async function executeTool(
   tool: string,
   argsRaw: string,
   requestPermission: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>,
   ep: ResolvedEndpoint,
+  signal?: AbortSignal,
 ): Promise<ExecResult> {
   let args: any;
   try {
@@ -297,10 +752,11 @@ export async function executeTool(
     return { ok: false, output: 'Не удалось разобрать аргументы инструмента (JSON).' };
   }
 
-  if (tool === 'web_search') {
-    if (!args.url) return { ok: false, output: 'Нет аргумента url.' };
-    return execWebFetch(args);
-  }
+  if (tool === 'web_search') return execWebSearch(args);
+  if (tool === 'fetch_page') return execFetchPage(args);
+  if (tool === 'http_request') return execHttpRequest(ep, args, requestPermission);
+  if (tool === 'set_service_token') return execSetServiceToken(ep, args, requestPermission);
+  if (tool === 'spawn_agents') return execSpawnAgents(ep, args, requestPermission, signal);
 
   if (tool === 'list_dir') return execListDir(args);
   if (tool === 'read_text') return execReadText(args);
@@ -374,6 +830,10 @@ export interface ResolvedEndpoint {
   format: 'openai' | 'anthropic';
   useZen: boolean;
   isCustom: boolean;
+  /** Токены сервисов (host → token) для инструмента http_request. */
+  serviceTokens?: Record<string, string>;
+  /** Персист сохранённого токена сервиса. */
+  onSetToken?: (host: string, token: string) => void;
 }
 
 export function resolveEndpoint(
@@ -414,6 +874,7 @@ export function resolveEndpoint(
     format,
     useZen,
     isCustom,
+    serviceTokens: {},
   };
 }
 
@@ -535,16 +996,29 @@ async function callOpenAI(
     body.stream_options = { include_usage: true };
   }
 
-  const res = await fetch(url, {
-    method: 'POST',
-    signal,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(ep.apiKey ? { Authorization: `Bearer ${ep.apiKey}` } : {}),
-      ...(ep.provider.id === 'openrouter' ? { 'HTTP-Referer': 'https://portal-launcher.app', 'X-Title': 'OpenPortal' } : {}),
-    },
-    body: JSON.stringify(body),
-  });
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(ep.apiKey ? { Authorization: `Bearer ${ep.apiKey}` } : {}),
+    ...(ep.provider.id === 'openrouter' ? { 'HTTP-Referer': 'https://portal-launcher.app', 'X-Title': 'OpenPortal' } : {}),
+  };
+
+  let res: Response;
+  try {
+    res = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(body) });
+  } catch (e) {
+    if ((e as DOMException)?.name === 'AbortError') throw e;
+    // Фолбэк: веб-вью не может дотянуться (CORS/сеть) — идём через бэкенд.
+    const fr = await httpViaRust('POST', url, headers, JSON.stringify(body), 180000);
+    if (!fr.ok) {
+      throw new Error(`${ep.provider.name} недоступен: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}`.trim());
+    }
+    try {
+      return parseOpenAIJson(JSON.parse(fr.text));
+    } catch {
+      throw new Error(`${ep.provider.name} прислал неожиданный ответ при фолбэке через бэкенд.`);
+    }
+  }
+
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 500)}`);
@@ -719,13 +1193,32 @@ async function callAnthropic(
   };
   if (ep.apiKey) headers['x-api-key'] = ep.apiKey;
 
-  const res = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(body) });
+  let res: Response;
+  try {
+    res = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(body) });
+  } catch (e) {
+    if ((e as DOMException)?.name === 'AbortError') throw e;
+    const fr = await httpViaRust('POST', url, headers, JSON.stringify(body), 180000);
+    if (!fr.ok) {
+      throw new Error(`${ep.provider.name} недоступен: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}`.trim());
+    }
+    try {
+      return parseAnthropicJson(JSON.parse(fr.text));
+    } catch {
+      throw new Error(`${ep.provider.name} прислал неожиданный ответ при фолбэке через бэкенд.`);
+    }
+  }
+
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 500)}`);
   }
   const data = await res.json();
 
+  return parseAnthropicJson(data);
+}
+
+function parseAnthropicJson(data: any): ApiOutcome {
   let text = '';
   let thinking: string | undefined;
   const toolCalls: ToolCall[] = [];
@@ -789,14 +1282,26 @@ export function buildSystemPrompt(opts: {
     '',
     `Отвечай на русском, если пользователь не просил иначе. Пиши по делу: короткие абзацы, markdown (заголовки ## / ###, списки, \`\`\` код \`\`\`). Не приукрашивай, без эмодзи, без «вау», без лишних заверений.`,
     '',
-    `Доступные инструменты (когда нужен доступ к файлам/командам — обязательно используй их):`,
-    `- web_search(ur) — прочитать любой сайт: документацию, GitHub, страницы модов, гайды.`,
+    `ВАЖНО: обычные вопросы и задания — просто выполнить напрямую. Инструменты (включая web_search) используй ТОЛЬКО когда реально нужно: свежие данные из интернета, работа с файлами/системой/API. Для «hello», вопросов по общим знаниям, пересказов и рефакторинга кода в чате — отвечай сам, без инструментов.`,
+    '',
+    `Доступные инструменты (когда они нужны — обязательно используй, не описывай «я бы сделал»):`,
+    `- web_search(query, max_results?) — поисковый запрос в интернете (актуальные данные, новости, гайды).`,
+    `- fetch_page(url, max_chars?) — прочитать конкретную страницу/документацию/GitHub по URL.`,
+    `- http_request(method, url, headers?, jsonBody?, body?) — прямой REST-запрос к любому API (GitHub, GitLab и др.); сохранённый токен хоста подставится сам.`,
+    `- set_service_token(host, token) — сохранить API-токен сервиса локально (спросит пользователя).`,
+    `- spawn_agents(task, agents[]) — параллельные субагенты для больших задач: исследование, сравнение, сбор информации по нескольким темам разом.`,
     `- list_dir(root, path) — список каталога. root: portal | temp | launcher.`,
     `- read_text(root, path) — прочесть текстовый файл (до 512 КБ).`,
     `- write_text(root, path, content) — создать/перезаписать файл (спросит разрешение у пользователя).`,
     `- run_command(root, cwd, command, timeout_ms) — команда (спросит разрешение). Оболочка по умолчанию cmd, можно передать shell: 'powershell'.`,
     `- terminal(root, cwd, command) — команда в PowerShell-терминале (спросит разрешение).`,
     `- generate_image(prompt, size?) — сгенерировать изображение (спросит разрешение).`,
+    '',
+    `Работа с сервисами (GitHub, git и др.):`,
+    `- GitHub/git: используй http_request к api.github.com или локальные git-команды через run_command/terminal.`,
+    `- Если API требует токен и его ещё нет — предложи пользователю, что ты сохранишь токен через set_service_token.`,
+    `- Для приватных репозиториев и ускорения лимитов токен обязателен; хранится только локально в настройках портала.`,
+    `- Структура данных из API приходит как JSON — сведи её к сути в ответе.`,
     '',
     `Как показывать изображения в чате: после generate_image ты получаешь ` + '`/op-image/<name>`' +
       ` — вставь его в ответ как markdown-картинку: ` + '`![описание](/op-image/<name>)`' +
@@ -893,7 +1398,7 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
           toolCallId: tc.id, toolName: tc.name, timestamp: Date.now(),
         };
         push(toolMsg);
-        const res = await executeTool(tc.name, tc.arguments, requestPermission, ep);
+        const res = await executeTool(tc.name, tc.arguments, requestPermission, ep, signal);
         patch(toolMsg.id, { content: res.output, error: !res.ok });
         if (signal?.aborted) throw new Error('Отменено пользователем.');
       }

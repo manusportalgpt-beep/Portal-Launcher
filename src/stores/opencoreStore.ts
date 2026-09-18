@@ -69,6 +69,7 @@ interface OpenCoreState {
   setMode: (mode: 'build' | 'plan') => void;
   setProject: (project: ProjectContext) => void;
   setCwd: (root: PortalRoot, path: string) => void;
+  setServiceToken: (host: string, token: string) => void;
 
   resolvePermission: (decision: 'allow' | 'deny' | 'always' | 'never' | 'once') => void;
   setPermissionsMap: (map: PermissionsMap) => void;
@@ -229,6 +230,16 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
 
       setCwd(root, path) {
         get().updateConfig({ cwd: { root, path } });
+      },
+
+      setServiceToken(host, token) {
+        const cfg = get().config;
+        const next = {
+          ...cfg,
+          serviceTokens: { ...(cfg.serviceTokens ?? {}), [host]: token.trim() },
+        };
+        set({ config: next });
+        void persistConfig(next);
       },
 
       resolvePermission(decision) {

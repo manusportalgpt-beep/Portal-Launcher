@@ -79,6 +79,8 @@ export interface OpenPortalConfig {
   /** Последняя рабочая папка (root: portal|temp|launcher + путь). */
   cwd?: { root: string; path: string };
   temperature?: number;
+  /** Токены сервисов (API) для инструмента http_request: хост → токен. */
+  serviceTokens?: Record<string, string>;
 }
 
 export type PermissionDecision = 'always' | 'never' | 'once';

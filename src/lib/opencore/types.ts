@@ -46,7 +46,8 @@ export interface SessionData {
   modelId: string;
   providerId: string;
   mode: 'build' | 'plan';
-  cwd?: string;
+  /** Последняя рабочая папка сессии (root: portal|temp|launcher + путь). */
+  cwd?: { root: string; path: string };
   messages: ChatMessage[];
 }
 
@@ -82,6 +83,17 @@ export type PermissionDecision = 'always' | 'never' | 'once';
 
 /** Разрешения: ключ `tool:root` → решение. + «once» живёт в памяти сессии. */
 export type PermissionsMap = Record<string, PermissionDecision>;
+
+/** Запрос разрешения для инструмента агента. */
+export interface PermissionRequest {
+  tool: string;
+  root: PortalRoot;
+  label: string;
+  detail: string;
+  cwdLabel: string;
+  /** Вызов-разрешитель. */
+  resolve: (decision: 'allow' | 'deny' | 'always' | 'never') => void;
+}
 
 export interface PortalLayout {
   base: string;

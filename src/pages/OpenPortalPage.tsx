@@ -186,8 +186,9 @@ function BuildPicker() {
   const setProject = useOpenCoreStore(s => s.setProject);
   const [open, setOpen] = useState(false);
 
-  const active = cfg.project?.kind === 'build'
-    ? instances.find(i => i.id === cfg.project!.instanceId)
+  const project = cfg.project ?? { kind: 'none' as const };
+  const active = project.kind === 'build'
+    ? instances.find(i => i.id === project.instanceId)
     : undefined;
 
   const choose = (project: ProjectContext) => {
@@ -322,7 +323,7 @@ export function OpenPortalPage() {
   }
 
   const send = useCallback(async () => {
-    const text = input.trim();
+    let text = input.trim();
     if (!text || running) return;
     setInput('');
 
@@ -387,14 +388,15 @@ export function OpenPortalPage() {
     const ep = resolveEndpoint(cfg.activeProviderId, cfg.activeModelId, cfg.providers);
 
     const portalRoot = layout?.projects ?? '';
+    const proj = cfg.project ?? { kind: 'none' as const };
     let workspaceLabel = 'OpenPortal Projects';
     let workspaceDir = portalRoot;
     let workspaceZone: 'portal' | 'launcher' = 'portal';
-    if (cfg.project?.kind === 'build' && cfg.project.instanceId) {
-      const inst = useInstanceStore.getState().instances.find(i => i.id === cfg.project!.instanceId);
-      workspaceLabel = inst?.name ?? cfg.project.instanceId;
+    if (proj.kind === 'build' && proj.instanceId) {
+      const inst = useInstanceStore.getState().instances.find(i => i.id === proj.instanceId);
+      workspaceLabel = inst?.name ?? proj.instanceId;
       try {
-        workspaceDir = await invoke<string>('op_resolve_build', { instanceId: cfg.project.instanceId });
+        workspaceDir = await invoke<string>('op_resolve_build', { instanceId: proj.instanceId });
         workspaceZone = 'launcher';
       } catch { /* папка сборки не определилась — остаёмся на portal */ }
     }

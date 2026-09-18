@@ -561,7 +561,7 @@ function parseOpenAIJson(data: any): ApiOutcome {
   const text = msg?.content || '';
   // Reasoning: DeepSeek/xAI/Grok и совместимые отдают as reasoning_content
   const thinking = trimThinking(msg?.reasoning_content ?? msg?.reasoning ?? '');
-  const toolCalls: ToolCall[] | undefined = (msg?.tool_calls ?? []).map((tc: any) => ({
+  const toolCalls: ToolCall[] = (msg?.tool_calls ?? []).map((tc: any) => ({
     id: String(tc.id ?? ''),
     name: String(tc.function?.name ?? ''),
     arguments: String(tc.function?.arguments ?? '{}'),

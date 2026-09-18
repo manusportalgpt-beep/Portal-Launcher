@@ -10,6 +10,7 @@ import type {
   SessionData,
   SessionMeta,
   PermissionsMap,
+  PermissionRequest,
   PortalLayout,
   PortalRoot,
   ProjectContext,
@@ -43,16 +44,6 @@ function defaultConfig(): OpenPortalConfig {
   };
 }
 
-export interface PermissionRequest {
-  tool: string;
-  root: PortalRoot;
-  label: string;
-  detail: string;
-  cwdLabel: string;
-  /** Вызов-разрешитель. */
-  resolve: (decision: 'allow' | 'deny' | 'always' | 'never') => void;
-}
-
 interface OpenCoreState {
   layout: PortalLayout | null;
   config: OpenPortalConfig;
@@ -78,7 +69,7 @@ interface OpenCoreState {
   setProject: (project: ProjectContext) => void;
   setCwd: (root: PortalRoot, path: string) => void;
 
-  resolvePermission: (decision: 'allow' | 'deny' | 'always' | 'never') => void;
+  resolvePermission: (decision: 'allow' | 'deny' | 'always' | 'never' | 'once') => void;
   setPermissionsMap: (map: PermissionsMap) => void;
 
   newSession: () => Promise<void>;
@@ -237,7 +228,8 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
           set({ permissions: next });
           void persistPermissions(next);
         }
-        req.resolve(decision);
+        // 'once' эквивалентен 'allow', но не сохраняется в разрешения.
+        req.resolve(decision === 'once' ? 'allow' : decision);
         set({ pendingPermission: null });
       },
 

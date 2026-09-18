@@ -15,6 +15,8 @@ import { useCurrentUser, useIsAuthenticated, useAuthStore } from '@/stores/authS
 import { MicrosoftAuthOAuth } from '@/components/auth/MicrosoftAuthOAuth';
 import { type ThemeId } from '@/lib/theme-engine';
 import { STYLE_PRESETS } from '@/lib/style-presets';
+import { DawnAccentPicker } from '@/components/DawnAccentPicker';
+import { AccentColorPicker } from '@/components/AccentColorPicker';
 import { ONBOARDING_BACKGROUNDS } from '@/lib/onboarding-backgrounds';
 import { useUiStore } from '@/stores/uiStore';
 import { useLayoutStore, type LayoutMode } from '@/stores/layoutStore';
@@ -446,6 +448,10 @@ function AppearanceSection() {
         value={ui.stylePreset}
         options={STYLE_PRESETS.map(preset => ({ id:preset.id, label:preset.title }))}
         onChange={value => ui.set('stylePreset', value as any)} />
+
+      <div className="mb-5 rounded-2xl p-4" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
+        {['oreui','quadral'].includes(ui.stylePreset) ? <DawnAccentPicker /> : <AccentColorPicker />}
+      </div>
 
       {ui.navMode === 'notch' && (
         <>

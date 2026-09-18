@@ -29,10 +29,19 @@ export interface ProviderDef {
   /** Базовый адрес (без /chat/completions и /v1/messages). */
   baseUrl: string;
   apiKeyHint?: string;
+  /** Кликабельная ссылка «Получить ключ» (открывается в браузере). */
+  keyUrl?: string;
   docs?: string;
   /** По умолчанию список моделей загружается из реестра; пусто — надо у провайдера. */
   models: ModelDef[];
   supportsFree?: boolean;
+}
+
+/** URL листинга моделей провайдера (GET). Zen и Anthropic — /v1/models, остальные — /models. */
+export function modelsListUrl(p: ProviderDef, baseUrl: string): string {
+  const base = (baseUrl || p.baseUrl).replace(/\/+$/, '');
+  if (p.kind === 'zen') return `${base}/v1/models`;
+  return p.kind === 'anthropic' ? `${base}/v1/models` : `${base}/models`;
 }
 
 export const OP_PROVIDERS: ProviderDef[] = [
@@ -41,16 +50,46 @@ export const OP_PROVIDERS: ProviderDef[] = [
     name: 'OpenCode Zen',
     kind: 'zen',
     baseUrl: 'https://opencode.ai/zen',
-    apiKeyHint: 'Ключ со страницы https://opencode.ai/zen после входа и оплаты',
+    apiKeyHint: 'Бесплатный ключ со страницы https://opencode.ai/zen',
+    keyUrl: 'https://opencode.ai/zen',
     docs: 'https://opencode.ai/docs/providers/#opencode-zen',
+    supportsFree: true,
     models: [
-      { id: 'opencode/deepseek-v4-pro', family: 'openai', reasoning: true },
-      { id: 'opencode/kimi-k2', family: 'openai', reasoning: true },
-      { id: 'opencode/minimax-m2', family: 'openai' },
-      { id: 'opencode/glm-4.7', family: 'openai' },
-      { id: 'opencode/qwen3-coder', family: 'anthropic', reasoning: true },
-      { id: 'opencode/claude-sonnet-5', family: 'anthropic', reasoning: true, vision: true },
-      { id: 'opencode/claude-opus-4.5', family: 'anthropic', reasoning: true, vision: true },
+      { id: 'big-pickle', name: 'Big Pickle', family: 'openai', free: true },
+      { id: 'deepseek-v4-pro', family: 'openai', reasoning: true },
+      { id: 'kimi-k3', family: 'openai', reasoning: true },
+      { id: 'minimax-m3', family: 'openai' },
+      { id: 'glm-5.3', family: 'openai' },
+      { id: 'qwen3-coder', family: 'openai', reasoning: true },
+      { id: 'claude-sonnet-5', family: 'anthropic', reasoning: true, vision: true },
+      { id: 'claude-opus-4.5', family: 'anthropic', reasoning: true, vision: true },
+      { id: 'deepseek-v4-flash-free', family: 'openai', free: true },
+      { id: 'muse-spark-1.3-contributor-free', family: 'openai', free: true },
+      { id: 'muse-spark-1.2-contributor-free', family: 'openai', free: true },
+      { id: 'mimo-v2.5-free', family: 'openai', free: true },
+      { id: 'ling-3.0-flash-fin-free', family: 'openai', free: true },
+      { id: 'nemotron-3-ultra-free', family: 'openai', free: true },
+      { id: 'nemotron-3.5-lightning-free', family: 'openai', free: true },
+    ],
+  },
+  {
+    id: 'opencode-go',
+    name: 'OpenCode Go',
+    kind: 'openai',
+    baseUrl: 'https://opencode.ai/zen/go/v1',
+    apiKeyHint: 'Ключ со страницы https://opencode.ai/zen (подписка Go)',
+    keyUrl: 'https://opencode.ai/auth',
+    docs: 'https://opencode.ai/docs/providers/#opencode-go',
+    models: [
+      { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', reasoning: true, vision: true },
+      { id: 'grok-4.6', name: 'Grok 4.6', reasoning: true },
+      { id: 'kimi-k3', name: 'Kimi K3', reasoning: true },
+      { id: 'minimax-m3', name: 'MiniMax M3', reasoning: true },
+      { id: 'glm-5.3', name: 'GLM-5.3', reasoning: true },
+      { id: 'deepseek-v4.1-flash', name: 'DeepSeek V4.1 Flash' },
+      { id: 'qwen3.8-flash', name: 'Qwen3.8 Flash' },
+      { id: 'muse-spark-1.3-contributor', name: 'Muse Spark 1.3 Contributor' },
+      { id: 'omen-alpha', name: 'Omen Alpha', reasoning: true },
     ],
   },
   {

@@ -798,3 +798,57 @@ pub async fn op_web_fetch(url: String, headers: Option<Vec<(String, String)>>) -
         },
     }
 }
+
+// ---------------------------------------------------------------------------
+// Listing моделей провайдера (GET {url}/models, обход CORS через бэкенд)
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ListedModel {
+    pub id: String,
+    pub name: Option<String>,
+}
+
+/// Запрашивает `URL` (готовый endpoint `/models` у провайдера) и возвращает
+/// список моделей в OpenAI-совместимом виде: `{ data: [ { id, name? } ] }`.
+/// Используется как для OpenAI-совместимых, так и для Anthropic (`/v1/models`).
+#[tauri::command]
+pub async fn op_list_models(url: String, api_key: Option<String>) -> Result<Vec<ListedModel>, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .user_agent("Mozilla/5.0 (Portal-Launcher OpenPortal; like Gecko)")
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
+    let mut req = client.get(&url);
+    if let Some(key) = api_key.filter(|k| !k.trim().is_empty()) {
+        req = req.header("Authorization", format!("Bearer {}", key.trim()));
+    }
+    let resp = req.send().await.map_err(|e| format!("Сеть: {e}"))?;
+    let status = resp.status();
+    let text = resp.text().await.unwrap_or_default();
+    if !status.is_success() {
+        let snippet: String = text.chars().take(200).collect();
+        return Err(format!("HTTP {} — {}", status.as_u16(), snippet));
+    }
+    let value: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("JSON: {e}"))?;
+    let mut out: Vec<ListedModel> = Vec::new();
+    if let Some(arr) = value.get("data").and_then(|d| d.as_array()) {
+        for item in arr {
+            if let Some(id) = item.get("id").and_then(|x| x.as_str()) {
+                let name = item.get("name").and_then(|x| x.as_str()).map(|s| s.to_string());
+                out.push(ListedModel { id: id.to_string(), name });
+            }
+        }
+    } else if let Some(arr) = value.as_array() {
+        for item in arr {
+            if let Some(id) = item.get("id").and_then(|x| x.as_str()) {
+                out.push(ListedModel { id: id.to_string(), name: None });
+            }
+        }
+    }
+    out.sort_by(|a, b| a.id.to_lowercase().cmp(&b.id.to_lowercase()));
+    if out.is_empty() {
+        return Err("Сервер не вернул список моделей".to_string());
+    }
+    Ok(out)
+}

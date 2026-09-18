@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, ChevronLeft, ChevronRight, KeyRound, Link2, Server, Check } from 'lucide-react';
-import { OP_PROVIDERS, customProviderId, type ProviderDef } from '@/lib/opencore/providers';
+import { X, Plus, ChevronLeft, ChevronRight, KeyRound, Link2, Server, Check, ExternalLink, RefreshCw } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
+import { OP_PROVIDERS, customProviderId, modelsListUrl, type ProviderDef, type ModelDef } from '@/lib/opencore/providers';
 import { useOpenCoreStore, activeProviders, isProviderEnabled, isModelEnabled } from '@/stores/opencoreStore';
 
 function Toggle({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
@@ -40,6 +41,47 @@ function ProviderRow({ p, onSelect, onToggle, isActive }: {
   const enabled = isProviderEnabled(p, cfg);
   const hasApi = Boolean(cfg.providers[p.id]?.apiKey);
   const [open, setOpen] = useState(false);
+  const [remote, setRemote] = useState<ModelDef[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const baseUrl = (cfg.providers[p.id]?.baseUrl || p.baseUrl).replace(/\/+$/, '');
+
+  async function loadModels() {
+    if (!baseUrl) return;
+    setLoading(true); setError(null);
+    try {
+      const list = await invoke<{ id: string; name?: string | null }[]>('op_list_models', {
+        url: modelsListUrl(p, baseUrl),
+        apiKey: cfg.providers[p.id]?.apiKey ?? null,
+      });
+      setRemote(list.map(m => ({
+        id: m.id,
+        name: m.name || undefined,
+        free: m.id.endsWith('-free') || /free/i.test(m.id),
+      })));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (open && !remote && !loading && baseUrl) void loadModels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const models = useMemo(() => {
+    if (!remote) return p.models;
+    const seen = new Map<string, ModelDef>();
+    for (const m of p.models) seen.set(m.id, m);
+    for (const m of remote) {
+      const cur = seen.get(m.id);
+      seen.set(m.id, cur ? { ...m, ...cur, free: m.free || cur.free } : m);
+    }
+    return Array.from(seen.values());
+  }, [p.models, remote]);
 
   return (
     <div className="rounded-2xl border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}>
@@ -52,7 +94,7 @@ function ProviderRow({ p, onSelect, onToggle, isActive }: {
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold" style={{ color: 'var(--color-text)' }}>{p.name}</p>
             <p className="truncate text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
-              {p.models.length} моделей · {enabled ? 'вкл' : 'выкл'}{p.apiKeyHint ? ' · ключ нужен' : ''}
+              {models.length} моделей · {enabled ? 'вкл' : 'выкл'}{p.apiKeyHint ? ' · ключ нужен' : ''}
               {hasApi ? ' · ключ задан' : ''}
             </p>
           </div>
@@ -73,6 +115,14 @@ function ProviderRow({ p, onSelect, onToggle, isActive }: {
               <KeyInput label="API-ключ" value={cfg.providers[p.id]?.apiKey ?? ''} placeholder={p.apiKeyHint}
                 onChange={v => setProviderApiKey(p.id, v)} />
             )}
+            {p.keyUrl && (
+              <button
+                onClick={() => void invoke('open_url', { url: p.keyUrl }).catch(() => window.open(p.keyUrl, '_blank'))}
+                className="flex items-center gap-1.5 text-[11px] font-semibold transition-opacity hover:opacity-70"
+                style={{ color: 'var(--color-primary)' }}>
+                <ExternalLink size={11} /> Получить ключ{p.id === 'opencode-zen' ? ' (бесплатно)' : ''}
+              </button>
+            )}
             <label className="block">
               <span className="mb-1 flex items-center gap-1 text-[11px] font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>
                 <Link2 size={11} /> Base URL (опционально)
@@ -81,16 +131,27 @@ function ProviderRow({ p, onSelect, onToggle, isActive }: {
                 onChange={e => setProviderBaseUrl(p.id, e.target.value)}
                 className="w-full rounded-lg px-3 py-2 text-xs font-mono" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
             </label>
-            {p.models.length > 0 && (
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>
+                <Server size={11} /> Модели {remote ? `(${models.length})` : ''}
+              </span>
+              <button onClick={() => void loadModels()} disabled={loading || !baseUrl}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold transition-opacity disabled:opacity-40"
+                style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                <RefreshCw size={11} className={loading ? 'animate-spin' : ''} /> {remote ? 'Обновить' : 'Загрузить модели'}
+              </button>
+            </div>
+            {error && <p className="text-[11px]" style={{ color: 'var(--color-error)' }}>{error}</p>}
+            {models.length > 0 && (
               <div className="max-h-56 overflow-y-auto rounded-xl border p-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
-                {p.models.map(m => {
+                {models.map(m => {
                   const on = isModelEnabled(p, m.id, cfg);
                   return (
                     <div key={m.id} className="flex items-center gap-2 py-1.5 px-1">
                       <Toggle value={on} onChange={v => useOpenCoreStore.getState().toggleModel(p.id, m.id, v)} />
                       <span className="min-w-0 flex-1 truncate text-xs" style={{ color: 'var(--color-text)' }}>
                         {m.name ?? m.id}
-                        {m.free ? <span className="ml-1 text-[10px] font-bold" style={{ color: 'var(--color-success)' }}>FREE</span> : null}
+                        {m.free ? <span className="ml-1 text-[10px] font-bold" style={{ color: 'var(--color-success)' }}>Бесплатно</span> : null}
                         {m.reasoning ? <span className="ml-1 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>think</span> : null}
                       </span>
                     </div>

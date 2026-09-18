@@ -468,7 +468,9 @@ async function callOpenAI(
   signal?: AbortSignal,
   onDelta?: (d: StreamDelta) => void,
 ): Promise<ApiOutcome> {
-  const url = `${ep.baseUrl.replace(/\/+$/, '')}/chat/completions`;
+  const url = ep.useZen
+    ? `${ep.baseUrl.replace(/\/+$/, '')}/v1/chat/completions`
+    : `${ep.baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
   const messages: any[] = [{ role: 'system', content: systemPrompt }];
   for (const t of turns) {

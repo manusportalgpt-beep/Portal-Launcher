@@ -308,6 +308,7 @@ fn main() {
             commands::opencode::op_launcher_settings_path,
             commands::opencode::op_run_command,
             commands::opencode::op_web_fetch,
+            commands::opencode::op_list_models,
             commands::opencode::op_set_active_build,
             commands::opencode::op_resolve_build,
             commands::opencode::op_list_skills,

@@ -267,19 +267,33 @@ function canFetchFromWebview(url: string): boolean {
 
 // opencode.ai/zen отклоняет запросы «извне OpenCode» («OpenCode Free Tier can
 // only be used from within OpenCode»). Проверку проходят только запросы с
-// заголовками официального клиента: User-Agent "opencode", x-opencode-client,
-// стабильный x-opencode-session, уникальный x-opencode-request и
-// x-opencode-project.
+// заголовками официального клиента. Форматы значений повторяют исходники
+// opencode (packages/opencode/src/session/llm/request.ts и packages/schema):
+//   x-opencode-session  = "ses_" + 26 символов base62 (SessionID)
+//   x-opencode-request  = "msg_" + 26 символов base62 (id сообщения юзера)
+//   x-opencode-client   = "cli" (значение по умолчанию OPENCODE_CLIENT)
+//   x-opencode-project  = "global" (дефолт вне git-репозитория с remote)
+//   User-Agent          = "opencode/<версия>" (в dev-сборках "opencode/local")
+const ZEN_ALPHABET =
+  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+function zenToken(length = 26): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  let out = '';
+  for (let i = 0; i < length; i++) out += ZEN_ALPHABET[bytes[i] % ZEN_ALPHABET.length];
+  return out;
+}
+
 let zenSessionId: string | null = null;
 
 function zenClientHeaders(): Record<string, string> {
-  if (!zenSessionId) zenSessionId = crypto.randomUUID();
+  if (!zenSessionId) zenSessionId = 'ses_' + zenToken();
   return {
-    'User-Agent': 'opencode',
-    'x-opencode-client': 'desktop',
+    'User-Agent': 'opencode/0.2.315',
+    'x-opencode-client': 'cli',
     'x-opencode-session': zenSessionId,
-    'x-opencode-request': crypto.randomUUID(),
-    'x-opencode-project': 'portal-launcher',
+    'x-opencode-request': 'msg_' + zenToken(),
+    'x-opencode-project': 'global',
   };
 }
 

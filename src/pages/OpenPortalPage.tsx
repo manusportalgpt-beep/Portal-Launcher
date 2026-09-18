@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
-import { useOpenCoreStore, activeProviders, isModelEnabled } from '@/stores/opencoreStore';
+import { useOpenCoreStore, activeProviders, isProviderEnabled, isModelEnabled, firstConnectedProvider } from '@/stores/opencoreStore';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { toIconSrc } from '@/lib/icon-src';
 import { resolveEndpoint, runAgentTurn, buildSystemPrompt, compressHistory } from '@/lib/opencore/agent';
@@ -129,8 +129,8 @@ function CurrentModelPicker() {
   const setModelsMenuOpen = useOpenCoreStore(s => s.setModelsMenuOpen);
   const [open, setOpen] = useState(false);
 
-  const providers = activeProviders(cfg);
-  const activeProvider = providers.find(p => p.id === cfg.activeProviderId) ?? providers[0];
+  const providers = activeProviders(cfg).filter(p => isProviderEnabled(p, cfg));
+  const activeProvider = providers.find(p => p.id === cfg.activeProviderId) ?? firstConnectedProvider(cfg);
   if (!activeProvider) return null;
 
   const models = activeProvider.models.filter(m => isModelEnabled(activeProvider, m.id, cfg));
@@ -296,6 +296,7 @@ export function OpenPortalPage() {
   async function persistSession() {
     if (!currentSessionId) return;
     const msgs = useOpenCoreStore.getState().messages;
+    const cfgNow = useOpenCoreStore.getState().config;
     const firstUser = msgs.find(m => m.role === 'user');
     const title = firstUser ? firstUser.content.replace(/\s+/g, ' ').slice(0, 60) : 'Новая сессия';
     const data: SessionData = {
@@ -303,10 +304,10 @@ export function OpenPortalPage() {
       title,
       createdAt: Date.now(),
       updated: Date.now(),
-      modelId: cfg.activeModelId,
-      providerId: cfg.activeProviderId,
-      mode: cfg.mode,
-      cwd: cfg.cwd,
+      modelId: cfgNow.activeModelId,
+      providerId: cfgNow.activeProviderId,
+      mode: cfgNow.mode,
+      cwd: cfgNow.cwd,
       messages: msgs,
     };
     try {
@@ -371,6 +372,30 @@ export function OpenPortalPage() {
       }
     }
 
+    // Только подключённые провайдеры: если активный выключен/отсутствует — переключаемся на подключённый.
+    const cfgNow = useOpenCoreStore.getState().config;
+    const activePt = activeProviders(cfgNow).find(p => p.id === cfg.activeProviderId && isProviderEnabled(p, cfgNow) && p.models.length > 0);
+    let providerId = cfg.activeProviderId;
+    let modelId = cfg.activeModelId;
+    if (!activePt) {
+      const fallback = firstConnectedProvider(cfgNow);
+      if (fallback && fallback.models.length > 0) {
+        providerId = fallback.id;
+        modelId = fallback.models[0]?.id ?? '';
+        useOpenCoreStore.getState().setActiveModel(providerId, modelId);
+      } else {
+        const sysMsg: ChatMessage = {
+          id: `sys-${Date.now()}`, role: 'assistant',
+          content: 'Нет подключённого провайдера. Открой «Управление моделями» и подключи провайдера — по умолчанию работает бесплатный OpenCode Zen.',
+          timestamp: Date.now(),
+        };
+        useOpenCoreStore.getState().appendMessages([sysMsg]);
+        useOpenCoreStore.getState().setModelsMenuOpen(true);
+        useOpenCoreStore.getState().setRunning(false);
+        return;
+      }
+    }
+
     // Создать сессию при необходимости
     let sessionId = store.currentSessionId;
     if (!sessionId || useOpenCoreStore.getState().messages.length === 0) {
@@ -385,7 +410,7 @@ export function OpenPortalPage() {
     setAttachments([]);
 
     const mode: 'build' | 'plan' = taskDirective ? 'build' : cfg.mode;
-    const ep = resolveEndpoint(cfg.activeProviderId, cfg.activeModelId, cfg.providers);
+    const ep = resolveEndpoint(providerId, modelId, cfgNow.providers);
 
     const portalRoot = layout?.projects ?? '';
     const proj = cfg.project ?? { kind: 'none' as const };
@@ -401,7 +426,7 @@ export function OpenPortalPage() {
       } catch { /* папка сборки не определилась — остаёмся на portal */ }
     }
     const extraBase = layout
-      ? `Рабочая область агента: ${workspaceLabel}${workspaceZone === 'launcher' ? ' (сборка)' : ''}\nПапка: ${workspaceDir}\nПрава: ${workspaceZone === 'launcher' ? 'чтение лаунчера везде; запись — только в папку сборки и в settings.json' : 'полный доступ внутри OpenPortal Projects'}\nВременная (Temp): ${layout.temp}\nКаталог лаунчера: ${layout.launcher}\nПортал (OpenPortal): ${layout.base}\nАктивная модель: ${cfg.activeModelId} (${ep.provider.name}).`
+      ? `Рабочая область агента: ${workspaceLabel}${workspaceZone === 'launcher' ? ' (сборка)' : ''}\nПапка: ${workspaceDir}\nПрава: ${workspaceZone === 'launcher' ? 'чтение лаунчера везде; запись — только в папку сборки и в settings.json' : 'полный доступ внутри OpenPortal Projects'}\nВременная (Temp): ${layout.temp}\nКаталог лаунчера: ${layout.launcher}\nПортал (OpenPortal): ${layout.base}\nАктивная модель: ${modelId} (${ep.provider.name}).`
       : undefined;
     const extra = taskDirective && extraBase
       ? `${extraBase}\nПапка навыков агента: ${layout?.base}\\Skills`

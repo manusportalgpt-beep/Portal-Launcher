@@ -64,6 +64,8 @@ export interface ProviderState {
   customName?: string;
   /** карта modelId → включена. Не задано = включены все из реестра. */
   modelStates?: Record<string, boolean>;
+  /** Модели, загруженные с API провайдера (перезаписывает реестр в пикере). */
+  remoteModels?: { id: string; name?: string; free?: boolean }[];
 }
 
 export interface OpenPortalConfig {

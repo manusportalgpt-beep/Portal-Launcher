@@ -379,7 +379,7 @@ export interface ResolvedEndpoint {
 export function resolveEndpoint(
   providerId: string,
   modelId: string,
-  providersState: Record<string, { apiKey?: string; baseUrl?: string }>,
+  providersState: Record<string, { apiKey?: string; baseUrl?: string; remoteModels?: ModelDef[] }>,
 ): ResolvedEndpoint {
   const preset = OP_PROVIDERS.find(p => p.id === providerId);
   const st = providersState?.[providerId] ?? {};
@@ -391,7 +391,10 @@ export function resolveEndpoint(
 
   if (preset) {
     baseUrl = st.baseUrl || preset.baseUrl || '';
-    model = preset.models.find(m => m.id === modelId) ?? { id: modelId };
+    // Модель может быть из API-списка (remoteModels), а не из реестра — ищем в обоих.
+    model = preset.models.find(m => m.id === modelId)
+      ?? (st.remoteModels ?? []).find(m => m.id === modelId)
+      ?? { id: modelId };
   } else {
     // кастомный провайдер
     baseUrl = st.baseUrl || '';

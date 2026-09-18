@@ -35,9 +35,9 @@ async function readDiskConfig(): Promise<OpenPortalConfig> {
 function defaultConfig(): OpenPortalConfig {
   return {
     version: CONFIG_VERSION,
-    providers: {},
-    activeProviderId: 'openrouter',
-    activeModelId: 'moonshotai/kimi-k2',
+    providers: { 'opencode-zen': { enabled: true } },
+    activeProviderId: 'opencode-zen',
+    activeModelId: 'big-pickle',
     mode: 'build',
     project: { kind: 'none' },
     temperature: 0.4,
@@ -64,6 +64,7 @@ interface OpenCoreState {
   toggleModel: (providerId: string, modelId: string, enabled: boolean) => void;
   setProviderApiKey: (providerId: string, apiKey: string) => void;
   setProviderBaseUrl: (providerId: string, baseUrl: string) => void;
+  setProviderModels: (providerId: string, models: { id: string; name?: string; free?: boolean }[]) => void;
   setActiveModel: (providerId: string, modelId: string) => void;
   setMode: (mode: 'build' | 'plan') => void;
   setProject: (project: ProjectContext) => void;
@@ -185,6 +186,17 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
         const next = {
           ...cfg,
           providers: { ...cfg.providers, [providerId]: { ...prev, baseUrl } },
+        };
+        set({ config: next });
+        void persistConfig(next);
+      },
+
+      setProviderModels(providerId, models) {
+        const cfg = get().config;
+        const prev = cfg.providers[providerId] ?? {};
+        const next = {
+          ...cfg,
+          providers: { ...cfg.providers, [providerId]: { ...prev, remoteModels: models } },
         };
         set({ config: next });
         void persistConfig(next);
@@ -313,28 +325,43 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
     }),
 );
 
-/** Провайдеры для UI: реестр + кастомные из конфига (если добавлены). */
+/** Провайдеры для UI: реестр + кастомные из конфига (если добавлены). Модели мержатся с загруженными из API. */
 export function activeProviders(config: OpenPortalConfig): ProviderDef[] {
-  const list: ProviderDef[] = [...OP_PROVIDERS];
+  const list: ProviderDef[] = OP_PROVIDERS.map(p => {
+    const st = config.providers[p.id];
+    if (!st?.remoteModels || st.remoteModels.length === 0) return p;
+    const registry = new Map(p.models.map(m => [m.id, m]));
+    const merged = st.remoteModels.map(m => {
+      const cur = registry.get(m.id);
+      return cur ? { ...m, ...cur, free: m.free || cur.free, name: cur.name ?? m.name } : m;
+    });
+    return { ...p, models: merged };
+  });
   for (const [id, st] of Object.entries(config.providers)) {
     if (id.startsWith(CUSTOM_PROVIDER_PREFIX)) {
+      const remote = st.remoteModels ?? [];
       list.push({
         id,
         name: st.customName || 'Custom',
         kind: st.baseUrl?.includes('anthropic') ? 'anthropic' : 'openai',
         baseUrl: st.baseUrl || '',
         apiKeyHint: '',
-        models: Object.keys(st.modelStates ?? {}).map(mid => ({ id: mid })),
+        models: remote.length > 0 ? remote : Object.keys(st.modelStates ?? {}).map(mid => ({ id: mid })),
       });
     }
   }
   return list;
 }
 
-/** Разрешён ли провайдер: отсутствие состояния = включён (оптимальный дефолт). */
+/** Разрешён ли провайдер: по умолчанию подключён только OpenCode Zen (бесплатный). */
 export function isProviderEnabled(pt: ProviderDef, config: OpenPortalConfig): boolean {
   const st = config.providers[pt.id];
-  return st ? (st.enabled ?? true) : true;
+  return st ? (st.enabled ?? true) : pt.id === 'opencode-zen';
+}
+
+/** Первый подключённый провайдер (с хоть одной моделью) — фолбэк для send() и пикера. */
+export function firstConnectedProvider(config: OpenPortalConfig): ProviderDef | undefined {
+  return activeProviders(config).find(p => isProviderEnabled(p, config) && p.models.length > 0);
 }
 
 /** Включена ли модель: отсутствие состояния = включена. */

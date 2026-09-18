@@ -242,7 +242,7 @@ export function MicrosoftAuth({ onSuccess, onCancel }: {
               Войти как {offlineNick.trim() || '…'}
             </button>
             <button onClick={() => { setStep('idle'); setOfflineNick(''); setOfflineError(''); }}
-              className="text-sm flex items-center gap-1" style={{ color:'var(--color-text-tertiary)' }}>
+              className="ore-flat text-sm flex items-center gap-1" style={{ color:'var(--color-text-tertiary)' }}>
               ← Назад
             </button>
           </motion.div>

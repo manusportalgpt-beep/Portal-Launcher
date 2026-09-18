@@ -631,7 +631,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFilePicked} />
 
       {/* Main tabs */}
-      <div className="flex items-center gap-1 px-4 pt-3 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
+      <div className="ore-flat flex items-center gap-1 px-4 pt-3 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>
         {MAIN_TABS.map(({ id, labelKey, icon: Icon }) => {
           const active = mainTab === id;
           return (
@@ -648,7 +648,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-3 shrink-0">
+      <div className="ore-flat flex items-center gap-2 px-4 py-3 shrink-0">
         {mainTab === 'files' && (
           <button onClick={() => { setCwd(''); loadFiles(''); }}
             className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={cardStyle}>
@@ -701,7 +701,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
 
       {/* Filter row */}
       {mainTab === 'content' && (
-        <div className="flex items-center gap-2 px-4 pb-3 shrink-0 overflow-x-auto">
+        <div className="ore-flat flex items-center gap-2 px-4 pb-3 shrink-0 overflow-x-auto">
           {contentFilters.map(f => (
             <button key={f.id} onClick={() => setContentFilter(f.id)}
               className="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors"
@@ -934,7 +934,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
 
         {/* ---------- Files ---------- */}
         {mainTab === 'files' && (
-          <div className="rounded-2xl overflow-hidden" style={cardStyle}>
+          <div className="ore-flat rounded-2xl overflow-hidden" style={cardStyle}>
             {cwd && (
               <div className="flex items-center gap-2 px-3 py-2 text-xs" style={{ borderBottom: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
                 <button onClick={() => { setCwd(''); loadFiles(''); }} className="font-bold" style={{ color: 'var(--color-primary)' }}>.minecraft</button>

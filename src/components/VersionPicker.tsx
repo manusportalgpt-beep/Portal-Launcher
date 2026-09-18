@@ -9,7 +9,7 @@ export function VersionPicker({ versions, value, onChange, showSnapshots }: { ve
 
   return (
     <div className="relative">
-      <button type="button" onClick={() => setOpen(current => !current)} className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }}>
+      <button type="button" onClick={() => setOpen(current => !current)} className="ore-flat flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }}>
         <span className="min-w-0">
           <span className="block" style={{ color: value ? 'var(--color-text)' : 'var(--color-text-tertiary)' }}>{value || 'Выберите версию Minecraft'}</span>
           <span className="mt-0.5 block text-[10px] font-medium" style={{ color:'var(--color-text-tertiary)' }}>{showSnapshots ? 'Релизы и snapshot-версии' : 'Только релизные версии'}</span>
@@ -30,7 +30,7 @@ export function VersionPicker({ versions, value, onChange, showSnapshots }: { ve
                 const selected = version === value;
                 const snapshot = /[a-zA-Z]/.test(version.replace(/\./g, ''));
                 return (
-                  <button key={version} type="button" onClick={() => { onChange(version); setOpen(false); setQuery(''); }} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold" style={{ background:selected ? 'var(--color-primary-dim)' : 'transparent', color:selected ? 'var(--color-primary)' : 'var(--color-text-secondary)', border:`1px solid ${selected ? 'var(--color-primary)' : 'transparent'}` }}>
+                  <button key={version} type="button" onClick={() => { onChange(version); setOpen(false); setQuery(''); }} className="ore-flat flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold" style={{ background:selected ? 'var(--color-primary-dim)' : 'transparent', color:selected ? 'var(--color-primary)' : 'var(--color-text-secondary)', border:`1px solid ${selected ? 'var(--color-primary)' : 'transparent'}` }}>
                     <span className="min-w-0 flex-1">{version}</span>
                     {snapshot && <span className="rounded-md px-1.5 py-0.5 text-[9px] font-black" style={{ background:'var(--color-warning)', color:'#1A1200' }}>СНИМОК</span>}
                     {selected && <Check className="h-3.5 w-3.5" />}

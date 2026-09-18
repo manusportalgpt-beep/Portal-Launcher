@@ -368,7 +368,7 @@ export function SkinPixelEditor({ open, initialDataUrl, model, onClose, onSave }
           <div className="flex items-center gap-1.5">
             <button onClick={undo} title="Отменить (Ctrl+Z)" className="flex h-8 w-8 items-center justify-center" style={{ borderRadius: 8, background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}><RotateCcw className="h-4 w-4" /></button>
             <button onClick={redo} title="Повторить (Ctrl+Shift+Z)" className="flex h-8 w-8 items-center justify-center" style={{ borderRadius: 8, background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}><Redo2 className="h-4 w-4" /></button>
-            <button onClick={onClose} title="Закрыть" className="flex h-8 w-8 items-center justify-center" style={{ borderRadius: 8, background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}><X className="h-4 w-4" /></button>
+            <button onClick={onClose} title="Закрыть" className="ore-flat flex h-8 w-8 items-center justify-center" style={{ borderRadius: 8, background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}><X className="h-4 w-4" /></button>
           </div>
         </div>
 

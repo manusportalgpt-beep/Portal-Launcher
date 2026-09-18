@@ -370,7 +370,7 @@ export function FirstLaunchExperience() {
         <div className="flex items-center justify-between px-6 py-4"
           style={{ borderTop: '1px solid var(--color-border)' }}>
           <button onClick={() => step > 0 && setStep(s => s - 1)}
-            className="px-3 py-2 text-xs font-bold disabled:opacity-0"
+            className="ore-flat px-3 py-2 text-xs font-bold disabled:opacity-0"
             style={{ color: 'var(--color-text-secondary)' }}
             disabled={step === 0}>
             Назад

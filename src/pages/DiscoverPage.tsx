@@ -312,7 +312,7 @@ function FilterSidebar({
   );
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-4">
+    <div className="ore-flat flex flex-col h-full overflow-y-auto p-4">
       {/* ── Active / Selected filters ── */}
       {hasFilters && (
         <div className="mb-4">
@@ -687,7 +687,7 @@ export function DiscoverPage() {
           />
           {query && (
             <button onClick={() => setQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2">
+              className="ore-flat absolute right-3 top-1/2 -translate-y-1/2">
               <X className="w-3.5 h-3.5" style={{ color:'var(--color-text-tertiary)' }} />
             </button>
           )}

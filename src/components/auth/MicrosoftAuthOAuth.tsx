@@ -349,7 +349,7 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel, preview = false }: {
               style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:2 }}>
               {altBusy ? 'Вход...' : 'Войти'}
             </button>
-            <button onClick={() => setStep('idle')} className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>Назад</button>
+            <button onClick={() => setStep('idle')} className="ore-flat text-sm" style={{ color: 'var(--color-text-tertiary)' }}>Назад</button>
           </motion.div>
         )}
 
@@ -394,7 +394,7 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel, preview = false }: {
               style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border:'1px solid var(--color-border)', borderRadius:2 }}>
               {altBusy ? 'Вход...' : 'Войти'}
             </button>
-            <button onClick={() => setStep('idle')} className="text-sm" style={{ color: 'var(--color-text-tertiary)' }}>Назад</button>
+            <button onClick={() => setStep('idle')} className="ore-flat text-sm" style={{ color: 'var(--color-text-tertiary)' }}>Назад</button>
           </motion.div>
         )}
 

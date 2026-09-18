@@ -1809,6 +1809,36 @@ html[data-portal-style="quadral"] [role="button"]:not(:disabled):hover {
   filter: brightness(1.12);
 }
 
+/* ── 2D flat: без 3D-бевела для инструментальных элементов ── */
+html[data-portal-style="oreui"] :is(.ore-flat button:not([class*="dbtn"]), .ore-flat [role="button"]:not([class*="dbtn"]), button.ore-flat:not([class*="dbtn"])),
+html[data-portal-style="quadral"] :is(.ore-flat button:not([class*="dbtn"]), .ore-flat [role="button"]:not([class*="dbtn"]), button.ore-flat:not([class*="dbtn"])) {
+  box-shadow: none !important;
+}
+html[data-portal-style="oreui"] :is(.ore-flat button:not([class*="dbtn"]), .ore-flat [role="button"]:not([class*="dbtn"]), button.ore-flat:not([class*="dbtn"])):not(:disabled):hover,
+html[data-portal-style="quadral"] :is(.ore-flat button:not([class*="dbtn"]), .ore-flat [role="button"]:not([class*="dbtn"]), button.ore-flat:not([class*="dbtn"])):not(:disabled):hover {
+  filter: none !important;
+}
+html[data-portal-style="oreui"] :is(.ore-flat button:not([class*="dbtn"]), .ore-flat [role="button"]:not([class*="dbtn"]), button.ore-flat:not([class*="dbtn"])):not(:disabled):active,
+html[data-portal-style="quadral"] :is(.ore-flat button:not([class*="dbtn"]), .ore-flat [role="button"]:not([class*="dbtn"]), button.ore-flat:not([class*="dbtn"])):not(:disabled):active {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Иконочные кнопки (только иконка, без инлайн-фона) — крестики, стрелки назад и т.п. */
+html[data-portal-style="oreui"] :is(button:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child), [role="button"]:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child)),
+html[data-portal-style="quadral"] :is(button:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child), [role="button"]:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child)) {
+  box-shadow: none !important;
+}
+html[data-portal-style="oreui"] :is(button:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child), [role="button"]:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child)):not(:disabled):hover,
+html[data-portal-style="quadral"] :is(button:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child), [role="button"]:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child)):not(:disabled):hover {
+  filter: none !important;
+}
+html[data-portal-style="oreui"] :is(button:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child), [role="button"]:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child)):not(:disabled):active,
+html[data-portal-style="quadral"] :is(button:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child), [role="button"]:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child)):not(:disabled):active {
+  box-shadow: none !important;
+  transform: none !important;
+}
+
 /* Поля и селекты — квадратные, фокус в цвет акцента */
 html[data-portal-style="oreui"] :is(input, select, textarea),
 html[data-portal-style="quadral"] :is(input, select, textarea) {

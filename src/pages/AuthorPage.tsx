@@ -29,7 +29,7 @@ export function AuthorPage() {
   }, [source, name, location.search]);
 
   return (
-    <div className="h-full overflow-y-auto scroll-area p-6 pb-10 text-[var(--color-text)]">
+    <div className="ore-flat h-full overflow-y-auto scroll-area p-6 pb-10 text-[var(--color-text)]">
       <button onClick={() => navigate(-1)} className="mb-4 inline-flex items-center gap-2 text-sm opacity-70 hover:opacity-100">
         <ArrowLeft size={16} /> Назад
       </button>

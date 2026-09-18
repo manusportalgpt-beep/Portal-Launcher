@@ -19,7 +19,7 @@ export function WindowControls() {
   }, [win]);
 
   const btn =
-    'h-6 w-8 inline-flex items-center justify-center text-[var(--color-text)]/65 transition-colors duration-150 hover:text-[var(--color-text)] hover:bg-white/10 active:scale-[0.96]';
+    'ore-flat h-6 w-8 inline-flex items-center justify-center text-[var(--color-text)]/65 transition-colors duration-150 hover:text-[var(--color-text)] hover:bg-white/10 active:scale-[0.96]';
 
   return (
     <div className="flex items-center select-none" data-tauri-drag-region-exclude>

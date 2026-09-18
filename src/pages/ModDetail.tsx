@@ -235,7 +235,7 @@ function ModpackPreviewModal({ preview, onClose, onInstall }: { preview: Modpack
       <motion.div className="w-full max-w-2xl rounded-2xl overflow-hidden" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-lg)' }} initial={{ opacity:0, y:12, scale:0.97 }} animate={{ opacity:1, y:0, scale:1 }} exit={{ opacity:0, y:12, scale:0.97 }}>
         <div className="px-5 py-4 flex items-start justify-between" style={{ borderBottom:'1px solid var(--color-border)' }}>
           <div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-wider" style={{ color:'var(--color-primary)' }}>Предпросмотр установки</p><div className="mt-1 flex items-center gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ background:'var(--color-surface-2)' }}>{preview.icon_url ? <img src={preview.icon_url} alt="" className="h-full w-full object-cover" /> : <Code className="h-4 w-4" style={{ color:'var(--color-primary)' }} />}</div><div className="min-w-0"><h2 className="truncate font-black text-lg" style={{ color:'var(--color-text)' }}>{preview.name}</h2>{preview.author && <div className="flex items-center gap-1.5 text-[11px]" style={{ color:'var(--color-text-secondary)' }}><span className="flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full" style={{ background:'var(--color-surface-2)' }}>{preview.author_avatar_url ? <img src={preview.author_avatar_url} alt="" className="h-full w-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /> : preview.author.trim().slice(0, 1).toUpperCase()}</span>{preview.author_url ? <a href={preview.author_url} target="_blank" rel="noreferrer" className="font-semibold hover:underline" style={{ color:'var(--color-primary)' }}>{preview.author}</a> : <span>{preview.author}</span>}</div>}</div></div><p className="text-xs mt-2" style={{ color:'var(--color-text-secondary)' }}>{preview.minecraft_version} · {preview.loader} · {preview.entries.length} файлов из манифеста</p></div>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="ore-flat w-8 h-8 rounded-xl flex items-center justify-center" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}><X className="w-4 h-4" /></button>
         </div>
         <div className="max-h-[52vh] overflow-y-auto p-3 space-y-4">
           {grouped.map(group => (
@@ -253,7 +253,7 @@ function ModpackPreviewModal({ preview, onClose, onInstall }: { preview: Modpack
             </section>
           ))}
         </div>
-        <div className="px-5 py-4 flex justify-end gap-2" style={{ borderTop:'1px solid var(--color-border)' }}><button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Назад</button><button onClick={onInstall} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Download className="w-4 h-4" />Установить модпак</button></div>
+        <div className="px-5 py-4 flex justify-end gap-2" style={{ borderTop:'1px solid var(--color-border)' }}><button onClick={onClose} className="ore-flat px-4 py-2 rounded-xl text-sm font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Назад</button><button onClick={onInstall} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Download className="w-4 h-4" />Установить модпак</button></div>
       </motion.div>
     </motion.div>
   );
@@ -935,7 +935,7 @@ export function ModDetail() {
           <p className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>Не удалось загрузить модификацию</p>
           <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{error}</p>
           <button onClick={goBack}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold mt-2"
+            className="ore-flat flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold mt-2"
             style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
             <ChevronLeft className="w-4 h-4" />Назад
           </button>

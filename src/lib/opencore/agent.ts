@@ -1064,7 +1064,7 @@ export async function executeTool(
   ep: ResolvedEndpoint,
   signal?: AbortSignal,
 ): Promise<ExecResult> {
-  const args: any = safeJsonParseObject(normalizeToolArguments(argsRaw));
+  let args: any = safeJsonParseObject(normalizeToolArguments(argsRaw));
 
   if (tool === 'web_search') return execWebSearch(args);
   if (tool === 'fetch_page') return execFetchPage(args);

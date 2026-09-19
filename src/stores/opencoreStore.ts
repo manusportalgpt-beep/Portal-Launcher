@@ -262,6 +262,11 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
       },
 
       async newSession() {
+        // Не плодим пустые сессии: если текущий чат ещё пуст — переиспользуем его.
+        if (get().currentSessionId && get().messages.length === 0) {
+          set({ messages: [] });
+          return;
+        }
         const cfg = get().config;
         const id = crypto.randomUUID();
         const now = Date.now();

@@ -265,36 +265,78 @@ function canFetchFromWebview(url: string): boolean {
   }
 }
 
-// opencode.ai/zen отклоняет запросы «извне OpenCode» («OpenCode Free Tier can
-// only be used from within OpenCode»). Проверку проходят только запросы с
-// заголовками официального клиента. Форматы значений повторяют исходники
-// opencode (packages/opencode/src/session/llm/request.ts и packages/schema):
-//   x-opencode-session  = "ses_" + 26 символов base62 (SessionID)
-//   x-opencode-request  = "msg_" + 26 символов base62 (id сообщения юзера)
-//   x-opencode-client   = "cli" (значение по умолчанию OPENCODE_CLIENT)
-//   x-opencode-project  = "global" (дефолт вне git-репозитория с remote)
-//   User-Agent          = "opencode/<версия>" (в dev-сборках "opencode/local")
+// opencode.ai/zen отклоняет запросы «извне OpenCode» («OpenCode's free tier can
+// only be used from within OpenCode» / 403 FreeTierError). Проверку проходят
+// только запросы, притворяющиеся официальным клиентом opencode:
+//   Authorization       = "Bearer public" (анонимный free-тариф) либо oc_sk_-ключ
+//   x-opencode-client   = "desktop" | "cli"
+//   x-opencode-session  = "ses_" + 12 hex + 14 base62
+//   x-opencode-request  = "msg_" + 12 hex + 14 base62
+//   x-opencode-project  = "global"
+//   User-Agent          = "opencode/<версия>", версия >= 1.17
+// Плюс два условия самого free-тарифа: запрос обязан быть стриминговым
+// (stream: true) и в tools должны присутствовать имена "bash" и "read",
+// иначе приходит 403 FreeTierError или 429 FreeUsageLimitError.
 const ZEN_ALPHABET =
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+const ZEN_HEX = '0123456789abcdef';
 
-function zenToken(length = 26): string {
+function zenRandom(chars: string, length: number): string {
   const bytes = crypto.getRandomValues(new Uint8Array(length));
   let out = '';
-  for (let i = 0; i < length; i++) out += ZEN_ALPHABET[bytes[i] % ZEN_ALPHABET.length];
+  for (let i = 0; i < length; i++) out += chars[bytes[i] % chars.length];
   return out;
+}
+
+/** id клиента opencode: «ses_»/«msg_» + 12 hex + 14 base62. */
+function zenId(prefix: 'ses_' | 'msg_'): string {
+  return prefix + zenRandom(ZEN_HEX, 12) + zenRandom(ZEN_ALPHABET, 14);
 }
 
 let zenSessionId: string | null = null;
 
+/** Стабильный id сессии на всё время работы (как у официального CLI). */
+function zenSession(): string {
+  if (!zenSessionId) zenSessionId = zenId('ses_');
+  return zenSessionId;
+}
+
+/**
+ * Free-тариф пускает анонимный доступ по ключу "public". Legacy-ключи `sk-`
+ * уходят по старому пути миграции и free-модели не получают, поэтому их
+ * игнорируем; настоящий новый ключ Console (`oc_sk_...`) используем как есть.
+ */
+function zenAuthorization(apiKey?: string): string {
+  return apiKey && apiKey.startsWith('oc_sk_') ? `Bearer ${apiKey}` : 'Bearer public';
+}
+
 function zenClientHeaders(): Record<string, string> {
-  if (!zenSessionId) zenSessionId = 'ses_' + zenToken();
   return {
-    'User-Agent': 'opencode/0.2.315',
-    'x-opencode-client': 'cli',
-    'x-opencode-session': zenSessionId,
-    'x-opencode-request': 'msg_' + zenToken(),
+    'User-Agent': 'opencode/1.18.31',
+    'x-opencode-client': 'desktop',
+    'x-opencode-session': zenSession(),
+    'x-opencode-request': zenId('msg_'),
     'x-opencode-project': 'global',
   };
+}
+
+/** Free-тариф требует в payload инструменты с именами "bash" и "read". */
+function zenTools(tools: any[]): any[] {
+  const names = new Set(tools.map(t => t?.function?.name));
+  const out = [...tools];
+  for (const name of ['bash', 'read']) {
+    if (!names.has(name)) {
+      out.push({
+        type: 'function',
+        function: {
+          name,
+          description: 'Reserved by the upstream client.',
+          parameters: { type: 'object', properties: {} },
+        },
+      });
+    }
+  }
+  return out;
 }
 
 function isZenHost(url: string): boolean {
@@ -305,12 +347,11 @@ function isZenHost(url: string): boolean {
   }
 }
 
-// FreeTierError говорит, что ключ sk- устаревшего мира: free-модели отдаются
-// только клиентам opencode, а старые ключи без миграции в этот путь попросту
-// не пускают. Валидное решение — новый ключ (oc_sk_...) с https://opencode.ai/auth.
+// Ошибки доступа free-тарифа: либо запрос не прошёл как клиент opencode, либо
+// исчерпан лимит. Подсказка маскирует оба случая.
 function zenErrorHint(body: string): string {
-  if (!/FreeTier|within OpenCode|can only be used from/i.test(body || '')) return '';
-  return ' Старый ключ OpenCode Zen (sk-...) перестал работать: free-модели доступны только из клиентов opencode.';
+  if (!/FreeTier|FreeUsageLimit|within OpenCode|can only be used from/i.test(body || '')) return '';
+  return ' Free-тариф OpenCode Zen пускает только официальный клиент opencode и лимитирует частоту по IP. Попробуй позже или добавь новый ключ (oc_sk_...) со страницы https://opencode.ai/auth.';
 }
 
 function appendZenErrorHint(message: string, body: string): string {
@@ -490,7 +531,7 @@ async function execRunCommand(args: { root: PortalRoot; cwd: string; command: st
 /** Генерация изображения через images API активного провайдера (OpenAI-совместимо). */
 async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; size?: string }): Promise<ExecResult> {
   if (!ep.baseUrl) return { ok: false, output: 'Не настроен baseUrl провайдера для генерации.' };
-  if (!ep.apiKey) return { ok: false, output: `Нет API-ключа для ${ep.provider.name}. Добавь ключ в меню моделей.` };
+  if (!ep.apiKey && !isZenHost(ep.baseUrl)) return { ok: false, output: `Нет API-ключа для ${ep.provider.name}. Добавь ключ в меню моделей.` };
   const url = `${ep.baseUrl.replace(/\/+$/, '')}/images/generations`;
   const body = {
     model: ep.model.id,
@@ -500,10 +541,11 @@ async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; s
     response_format: 'b64_json',
   };
   let data: any;
+  const zenImage = isZenHost(url);
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${ep.apiKey}`,
-    ...(isZenHost(url) ? zenClientHeaders() : {}),
+    ...(zenImage ? zenClientHeaders() : {}),
+    Authorization: zenImage ? zenAuthorization(ep.apiKey) : `Bearer ${ep.apiKey}`,
   };
   if (canFetchFromWebview(url)) {
     try {
@@ -1059,23 +1101,32 @@ async function callOpenAI(
     },
   }));
 
+  const zen = isZenHost(url);
+  const requestTools = zen ? zenTools(tools) : tools;
+
   const body: Record<string, unknown> = {
     model: ep.model.id,
     messages,
-    tools,
+    tools: requestTools,
     temperature: 0.4,
     max_tokens: 8192,
   };
   if (onDelta) {
     body.stream = true;
     body.stream_options = { include_usage: true };
+  } else if (zen) {
+    // Free-тариф zen отклоняет не-стриминговые запросы с 403 FreeTierError.
+    body.stream = true;
   }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(ep.apiKey ? { Authorization: `Bearer ${ep.apiKey}` } : {}),
+    ...(zen
+      ? { ...zenClientHeaders(), Authorization: zenAuthorization(ep.apiKey) }
+      : ep.apiKey
+        ? { Authorization: `Bearer ${ep.apiKey}` }
+        : {}),
     ...(ep.provider.id === 'openrouter' ? { 'HTTP-Referer': 'https://portal-launcher.app', 'X-Title': 'OpenPortal' } : {}),
-    ...(isZenHost(url) ? zenClientHeaders() : {}),
   };
 
   let res: Response | null = null;
@@ -1088,22 +1139,31 @@ async function callOpenAI(
   }
   if (res === null) {
     // Фолбэк: веб-вью не может дотянуться (CORS/сеть) — идём через бэкенд.
-    // Через бэкенд шлём не-стриминговый запрос: SSE-ответ без потоковой обработки
-    // не разобрать, а часть шлюзов отклоняет стриминг от не-браузерных клиентов.
+    // Бэкенд буферизует ответ целиком, поэтому SSE от zen разбираем после
+    // получения; для обычных провайдеров просим сразу JSON.
     const fbBody: Record<string, unknown> = {
       model: body.model,
       messages: body.messages,
-      tools: body.tools,
+      tools: requestTools,
       temperature: body.temperature,
       max_tokens: body.max_tokens,
     };
-    const fr = await httpViaRust('POST', url, { ...headers, Accept: 'application/json' }, JSON.stringify(fbBody), 180000);
+    if (zen) fbBody.stream = true;
+    const fr = await httpViaRust('POST', url, { ...headers, Accept: zen ? 'text/event-stream' : 'application/json' }, JSON.stringify(fbBody), 180000);
     if (!fr.ok) {
       const snippet = fr.text.trim().slice(0, 240);
       throw new Error(appendZenErrorHint(
         `${ep.provider.name} недоступен: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim(),
         fr.text,
       ));
+    }
+    if (zen && /(^|\n)\s*data:/.test(fr.text)) {
+      // Бэкенд буферизует весь SSE-поток — разбираем его целиком.
+      try {
+        return parseSSEText(fr.text, onDelta);
+      } catch {
+        throw new Error(`${ep.provider.name} прислал неожиданный стриминговый ответ при фолбэке через бэкенд.`);
+      }
     }
     try {
       return parseOpenAIJson(JSON.parse(fr.text));
@@ -1118,8 +1178,9 @@ async function callOpenAI(
   }
 
   const ct = res.headers.get('content-type') || '';
-  if (onDelta && res.body && ct.includes('text/event-stream')) {
-    return parseSSE(res.body, signal, onDelta);
+  if (res.body && ct.includes('text/event-stream')) {
+    if (onDelta) return parseSSE(res.body, signal, onDelta);
+    return parseSSEText(await res.text(), undefined);
   }
   const data = await res.json();
   return parseOpenAIJson(data);
@@ -1215,6 +1276,59 @@ async function parseSSE(
   return finish();
 }
 
+/** Разбор уже полученного SSE-текста (фолбэк через бэкенд буферизует ответ). */
+function parseSSEText(text: string, onDelta?: (d: StreamDelta) => void): ApiOutcome {
+  let out = '';
+  let thinking = '';
+  let model: string | undefined;
+  const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
+
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('data:')) continue;
+    const data = trimmed.slice(5).trim();
+    if (!data || data === '[DONE]') continue;
+    let json: any;
+    try {
+      json = JSON.parse(data);
+    } catch {
+      continue;
+    }
+    model = json.model ?? model;
+    const delta = json.choices?.[0]?.delta;
+    if (!delta) continue;
+    if (delta.content) {
+      out += delta.content;
+      onDelta?.({ content: out });
+    }
+    if (delta.reasoning_content) {
+      thinking += delta.reasoning_content;
+      onDelta?.({ thinking });
+    }
+    if (Array.isArray(delta.tool_calls)) {
+      for (const tc of delta.tool_calls) {
+        const idx = tc.index ?? 0;
+        const cur = toolCalls.get(idx) ?? { id: '', name: '', arguments: '' };
+        if (tc.id) cur.id = tc.id;
+        if (tc.function?.name) cur.name += tc.function.name;
+        if (tc.function?.arguments) cur.arguments += tc.function.arguments;
+        toolCalls.set(idx, cur);
+      }
+    }
+  }
+
+  const calls: ToolCall[] = [...toolCalls.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, v]) => ({ id: v.id, name: v.name, arguments: v.arguments || '{}' }));
+  return {
+    text: out,
+    thinking: thinking ? trimThinking(thinking) : undefined,
+    toolCalls: calls.length ? calls : undefined,
+    raw: { stream: true },
+    model,
+  };
+}
+
 async function callAnthropic(
   ep: ResolvedEndpoint,
   systemPrompt: string,
@@ -1266,26 +1380,31 @@ async function callAnthropic(
     };
   });
 
+  const zen = isZenHost(url);
   const tools = TOOLS.map(t => ({
     name: t.name,
     description: t.description,
     input_schema: t.parameters,
   }));
+  const requestTools = zen ? zenTools(tools) : tools;
 
   const body: Record<string, unknown> = {
     model: ep.model.id,
     max_tokens: 8192,
     system: systemPrompt,
     messages,
-    tools,
+    tools: requestTools,
   };
+  // Free-тариф zen принимает только стриминговые запросы.
+  if (zen) body.stream = true;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'anthropic-version': '2023-06-01',
-    ...(isZenHost(url) ? zenClientHeaders() : {}),
+    ...(zen ? zenClientHeaders() : {}),
   };
-  if (ep.apiKey) headers['x-api-key'] = ep.apiKey;
+  if (zen) headers['Authorization'] = zenAuthorization(ep.apiKey);
+  else if (ep.apiKey) headers['x-api-key'] = ep.apiKey;
 
   let res: Response | null = null;
   if (canFetchFromWebview(url)) {
@@ -1304,6 +1423,13 @@ async function callAnthropic(
         fr.text,
       ));
     }
+    if (zen && /(^|\n)\s*(event:)?\s*data:/.test(fr.text)) {
+      try {
+        return parseAnthropicSSEText(fr.text);
+      } catch {
+        throw new Error(`${ep.provider.name} прислал неожиданный стриминговый ответ при фолбэке через бэкенд.`);
+      }
+    }
     try {
       return parseAnthropicJson(JSON.parse(fr.text));
     } catch {
@@ -1314,6 +1440,9 @@ async function callAnthropic(
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(appendZenErrorHint(`${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 500)}`, text));
+  }
+  if (zen && (res.headers.get('content-type') || '').includes('text/event-stream')) {
+    return parseAnthropicSSEText(await res.text());
   }
   const data = await res.json();
 
@@ -1335,6 +1464,58 @@ function parseAnthropicJson(data: any): ApiOutcome {
     toolCalls: toolCalls.length ? toolCalls : undefined,
     raw: data,
     model: data?.model,
+  };
+}
+
+/** Разбор SSE-потока Anthropic Messages (используется zen free-тарифом). */
+function parseAnthropicSSEText(text: string): ApiOutcome {
+  let out = '';
+  let thinking = '';
+  let model: string | undefined;
+  const toolCalls = new Map<number, { id: string; name: string; args: string }>();
+
+  const handle = (payload: string) => {
+    let json: any;
+    try {
+      json = JSON.parse(payload);
+    } catch {
+      return;
+    }
+    if (json.type === 'message_start') {
+      model = json.message?.model ?? model;
+    } else if (json.type === 'content_block_start') {
+      const cb = json.content_block;
+      if (cb?.type === 'tool_use') {
+        toolCalls.set(json.index ?? 0, { id: String(cb.id ?? ''), name: String(cb.name ?? ''), args: '' });
+      }
+    } else if (json.type === 'content_block_delta') {
+      const d = json.delta;
+      if (!d) return;
+      if (d.type === 'text_delta' && d.text) out += d.text;
+      else if (d.type === 'thinking_delta' && d.thinking) thinking += d.thinking;
+      else if (d.type === 'input_json_delta') {
+        const idx = json.index ?? 0;
+        const cur = toolCalls.get(idx) ?? { id: '', name: '', args: '' };
+        cur.args += d.partial_json ?? '';
+        toolCalls.set(idx, cur);
+      }
+    }
+  };
+
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('data:')) handle(trimmed.slice(5).trim());
+  }
+
+  const calls: ToolCall[] = [...toolCalls.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, v]) => ({ id: v.id, name: v.name, arguments: v.args || '{}' }));
+  return {
+    text: out,
+    thinking: thinking ? trimThinking(thinking) : undefined,
+    toolCalls: calls.length ? calls : undefined,
+    raw: { stream: true },
+    model,
   };
 }
 

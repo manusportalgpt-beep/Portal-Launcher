@@ -277,15 +277,15 @@ function CurrentModelPicker() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            initial={{ opacity: 0, y: 4, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 4, scale: 0.98 }}
             transition={{ duration: 0.12 }}
-            className="absolute right-0 top-full z-50 mt-2 w-72 rounded-2xl border p-2"
+            className="absolute bottom-full right-0 z-50 mb-2 w-56 rounded-2xl border p-1.5"
             style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 24px 60px rgba(0,0,0,.4)' }}>
-            <p className="px-2 py-1.5 text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>{activeProvider.name}</p>
-            <div className="max-h-64 overflow-y-auto">
+            <p className="px-2 py-1 text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>{activeProvider.name}</p>
+            <div className="max-h-40 overflow-y-auto">
               {models.map(m => (
                 <button key={m.id} onClick={() => { setActiveModel(activeProvider.id, m.id); setOpen(false); }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-[var(--color-surface-2)]"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-[var(--color-surface-2)]"
                   style={{ color: cfg.activeModelId === m.id ? 'var(--color-primary)' : 'var(--color-text)' }}>
                   <div className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: cfg.activeModelId === m.id ? 'var(--color-primary)' : 'var(--color-border)' }} />
                   <span className="flex-1 truncate font-semibold">{m.name ?? m.id}</span>
@@ -294,9 +294,9 @@ function CurrentModelPicker() {
               ))}
             </div>
             <button onClick={() => { setOpen(false); setModelsMenuOpen(true); }}
-              className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-2 text-[11px] font-bold transition-colors hover:opacity-80"
+              className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-1.5 text-[10px] font-bold transition-colors hover:opacity-80"
               style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
-              <Settings2 size={12} /> Управление моделями
+              <Settings2 size={11} /> Управление моделями
             </button>
           </motion.div>
         </>
@@ -530,9 +530,9 @@ export function OpenPortalPage() {
       }
     }
 
-    // Создать сессию при необходимости
+    // Создать сессию только если чат открыт с нуля; иначе используем текущую и переименуем её при сохранении.
     let sessionId = store.currentSessionId;
-    if (!sessionId || useOpenCoreStore.getState().messages.length === 0) {
+    if (!sessionId) {
       await store.newSession();
       sessionId = useOpenCoreStore.getState().currentSessionId;
     }

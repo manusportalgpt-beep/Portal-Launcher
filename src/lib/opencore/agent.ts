@@ -335,6 +335,30 @@ async function httpViaRust(
   });
 }
 
+/** Гонка промиса (обычно invoke в Rust) с AbortSignal: при отмене сразу кидаем ошибку,
+ *  чтобы цикл агента прерывался мгновенно, даже когда запрос ушёл через бэкенд. */
+function raceSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  return new Promise<T>((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new Error('Отменено пользователем.'));
+      return;
+    }
+    const onAbort = () => reject(new Error('Отменено пользователем.'));
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      v => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(v);
+      },
+      e => {
+        signal.removeEventListener('abort', onAbort);
+        reject(e);
+      },
+    );
+  });
+}
+
 /**
  * opencode.ai не отдаёт `Access-Control-Allow-Origin` для origin'а вебвью
  * (`tauri.localhost`) — `fetch()` из вебвью к нему всегда падает по CORS.
@@ -460,6 +484,33 @@ function htmlDecode(s: string): string {
     .trim();
 }
 
+/** HTML страницы → читаемый текст (срезка скриптов/стилей/тегов, декодирование сущностей). */
+function htmlToText(html: string, max: number): string {
+  let s = html
+    .slice(0, 600_000)
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    .replace(/<\/(?:p|div|li|tr|h[1-6]|section|article|table)>/gi, '\n')
+    .replace(/<(?:br|hr)\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0*39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#0*34;/g, '"')
+    .replace(/&#x22;/g, '"');
+  s = s
+    .split('\n')
+    .map(l => l.replace(/\s+/g, ' ').trim())
+    .filter(l => l.length > 0)
+    .join('\n');
+  return s.length > max ? s.slice(0, max) + '\n… (обрезано)' : s;
+}
+
 /** `//duckduckgo.com/l/?uddg=<url>` → реальный URL результата. */
 function decodeDdgHref(href: string): string {
   let h = href.trim();
@@ -490,25 +541,53 @@ function parseDuckDuckGo(html: string, max: number): { title: string; url: strin
   return out;
 }
 
+/** Парсер lite-выдачи DuckDuckGo (работает даже без JS, другой разметки). */
+function parseDuckDuckGoLite(html: string, max: number): { title: string; url: string; snippet: string }[] {
+  const out: { title: string; url: string; snippet: string }[] = [];
+  const re = /<a[^>]+class="[^"]*result-link[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null && out.length < max) {
+    const url = decodeDdgHref(m[1]);
+    const title = htmlDecode(m[2]);
+    if (!title || !/^https?:\/\//i.test(url)) continue;
+    const seg = html.slice(m.index + m[0].length, m.index + m[0].length + 1200);
+    const sm =
+      /class="[^"]*result-snippet[^"]*"[^>]*>([\s\S]*?)<\/td>/i.exec(seg) ||
+      /class="[^"]*result-snippet[^"]*"[^>]*>([\s\S]*?)<\/tr>/i.exec(seg);
+    out.push({ title, url, snippet: sm ? htmlDecode(sm[1]) : '' });
+  }
+  return out;
+}
+
 /** Поиск по интернету через DuckDuckGo. Если user передал URL — просто прочитать страницу. */
-async function execWebSearch(args: { query?: string; url?: string; max_results?: number }): Promise<ExecResult> {
+async function execWebSearch(args: { query?: string; url?: string; max_results?: number }, signal?: AbortSignal): Promise<ExecResult> {
   const rawQuery = String(args.query ?? args.url ?? '').trim();
   if (!rawQuery) return { ok: false, output: 'Нет поискового запроса (query).' };
   if (/^https?:\/\//i.test(rawQuery)) {
-    return execFetchPage({ url: rawQuery, max_chars: args.max_results ? args.max_results * 2000 : undefined });
+    return execFetchPage({ url: rawQuery, max_chars: args.max_results ? args.max_results * 2000 : undefined }, signal);
   }
   const max = Math.max(1, Math.min(8, Number(args.max_results) || 5));
   const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(rawQuery)}`;
   let res: FetchResult;
   try {
-    res = await invoke<FetchResult>('op_web_fetch', { url });
+    res = await raceSignal(invoke<FetchResult>('op_web_fetch', { url }), signal);
   } catch (e) {
     return { ok: false, output: `Поиск не выполнился: ${String(e)}` };
   }
   if (!res.ok && res.status === 0) {
     return { ok: false, output: `Поиск не выполнился: ${res.error ?? 'нет сети'}` };
   }
-  const results = parseDuckDuckGo(res.text, max);
+  let results = parseDuckDuckGo(res.text, max);
+  if (results.length === 0) {
+    // Запасной парсер/эндпоинт: lite-версия отдаёт чистую разметку без JS.
+    try {
+      const lite = await raceSignal(
+        invoke<FetchResult>('op_web_fetch', { url: `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(rawQuery)}` }),
+        signal,
+      );
+      if (lite.ok) results = parseDuckDuckGoLite(lite.text, max);
+    } catch { /* остаёмся с пустым результатом */ }
+  }
   if (results.length === 0) {
     return {
       ok: false,
@@ -532,12 +611,17 @@ function httpStatusHint(status: number): string {
   return 'неожиданный статус';
 }
 
-async function execFetchPage(args: { url?: string; max_chars?: number }): Promise<ExecResult> {
+async function execFetchPage(args: { url?: string; max_chars?: number }, signal?: AbortSignal): Promise<ExecResult> {
   const url = String(args.url ?? '').trim();
   if (!/^https?:\/\//i.test(url)) {
     return { ok: false, output: 'Нет корректного url — это должен быть полный http(s) адрес страницы.' };
   }
-  const res = await invoke<FetchResult>('op_web_fetch', { url });
+  let res: FetchResult;
+  try {
+    res = await raceSignal(invoke<FetchResult>('op_web_fetch', { url }), signal);
+  } catch (e) {
+    return { ok: false, output: `Страница не загрузилась: ${String(e)}` };
+  }
   if (!res.ok || (res.text.length === 0 && res.error)) {
     const hint = !res.status
       ? 'Не удалось загрузить страницу (нет сети или сайт недоступен).'
@@ -545,7 +629,8 @@ async function execFetchPage(args: { url?: string; max_chars?: number }): Promis
     return { ok: false, output: `${hint} ${res.error ?? ''}`.trim() };
   }
   const maxChars = Math.min(120_000, Number(args.max_chars) || 20_000);
-  const text = res.text.length > maxChars ? res.text.slice(0, maxChars) + '\n… (обрезано)' : res.text;
+  const looksHtml = res.content_type.split(';')[0].trim().toLowerCase().includes('html') || res.text.trim().startsWith('<');
+  const text = looksHtml ? htmlToText(res.text, maxChars) : (res.text.length > maxChars ? res.text.slice(0, maxChars) + '\n… (обрезано)' : res.text);
   return { ok: true, output: `HTTP ${res.status}\n${text}` };
 }
 
@@ -634,11 +719,26 @@ function parseSize(size?: string): [number, number] {
   return [w, h];
 }
 
-/** Скачивает изображение по URL через веб-вью. */
+/** Скачивание бинарных данных (base64) через бэкенд — обход CORS и сетевых ограничений веб-вью. */
+async function httpGetBytesViaRust(url: string, headers?: Record<string, string>): Promise<{ status: number; content_type: string; b64: string; error?: string }> {
+  const pairs: [string, string][] = headers
+    ? Object.entries(headers).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])
+    : [];
+  return invoke<{ status: number; content_type: string; b64: string; error?: string }>('op_http_get_bytes', { url, headers: pairs });
+}
+
+/** Скачивает изображение по URL: сначала через веб-вью, при провале — через бэкенд. */
 async function fetchImageBlob(url: string, headers?: Record<string, string>): Promise<Blob> {
-  const res = await fetch(url, headers ? { headers } : undefined);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.blob();
+  try {
+    const res = await fetch(url, headers ? { headers } : undefined);
+    if (res.ok) return await res.blob();
+  } catch { /* Fallback ниже */ }
+  const bytes = await httpGetBytesViaRust(url, headers);
+  if (!bytes.b64) throw new Error(bytes.error || 'HTTP ' + bytes.status);
+  const bin = atob(bytes.b64);
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new Blob([u8], { type: bytes.content_type || 'image/png' });
 }
 
 /** Сохраняет скачанный blob как изображение портала. */
@@ -842,6 +942,7 @@ async function execHttpRequest(
   ep: ResolvedEndpoint,
   args: any,
   requestPermission: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>,
+  signal?: AbortSignal,
 ): Promise<ExecResult> {
   const method = String(args.method || 'GET').toUpperCase();
   if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'].includes(method)) {
@@ -874,7 +975,7 @@ async function execHttpRequest(
 
   let res: FetchResult;
   try {
-    res = await httpViaRust(method, url, headers, body, args.timeout_ms);
+    res = await raceSignal(httpViaRust(method, url, headers, body, args.timeout_ms), signal);
   } catch (e) {
     return { ok: false, output: `HTTP-запрос не выполнился: ${String(e)}` };
   }
@@ -1066,9 +1167,9 @@ export async function executeTool(
 ): Promise<ExecResult> {
   let args: any = safeJsonParseObject(normalizeToolArguments(argsRaw));
 
-  if (tool === 'web_search') return execWebSearch(args);
-  if (tool === 'fetch_page') return execFetchPage(args);
-  if (tool === 'http_request') return execHttpRequest(ep, args, requestPermission);
+  if (tool === 'web_search') return execWebSearch(args, signal);
+  if (tool === 'fetch_page') return execFetchPage(args, signal);
+  if (tool === 'http_request') return execHttpRequest(ep, args, requestPermission, signal);
   if (tool === 'set_service_token') return execSetServiceToken(ep, args, requestPermission);
   if (tool === 'spawn_agents') return execSpawnAgents(ep, args, requestPermission, signal);
 
@@ -1402,7 +1503,10 @@ async function callOpenAI(
       max_tokens: body.max_tokens,
     };
     if (zen) fbBody.stream = true;
-    const fr = await httpViaRust('POST', url, { ...headers, Accept: zen ? 'text/event-stream' : 'application/json' }, JSON.stringify(fbBody), 180000);
+    const fr = await raceSignal(
+      httpViaRust('POST', url, { ...headers, Accept: zen ? 'text/event-stream' : 'application/json' }, JSON.stringify(fbBody), 180000),
+      signal,
+    );
     if (!fr.ok) {
       const snippet = fr.text.trim().slice(0, 240);
       throw new Error(appendZenErrorHint(
@@ -1677,7 +1781,7 @@ async function callAnthropic(
     }
   }
   if (res === null) {
-    const fr = await httpViaRust('POST', url, headers, JSON.stringify(body), 180000);
+    const fr = await raceSignal(httpViaRust('POST', url, headers, JSON.stringify(body), 180000), signal);
     if (!fr.ok) {
       const snippet = fr.text.trim().slice(0, 240);
       throw new Error(appendZenErrorHint(
@@ -1860,6 +1964,16 @@ export function buildSystemPrompt(opts: {
     `- Для приватных репозиториев и ускорения лимитов токен обязателен; хранится только локально в настройках портала.`,
     `- Структура данных из API приходит как JSON — сведи её к сути в ответе.`,
     '',
+    `Обработка изображений: если пользователь приложил изображение или скриншот (в сообщении/вложении), а модель его поддерживает — проанализируй содержимое по существу (что на экране, ошибки кода, UI, меню и т.п.) и используй это в работе.`,
+    '',
+    `Многозадачность: если пользователь перечислил СРАЗУ НЕСКОЛЬКО разных задач («сделай X, ещё Y и Z», «и», «а также», «в дополнение», «потом») — составь чек-лист, выполни все пункты по очереди (независимые части можно распараллелить через spawn_agents), затем отчитайся ПО КАЖДОМУ пункту отдельно. Начатое в этом ответе — доведи до конца; пункты не смешивай и не теряй.`,
+    '',
+    `Моды Minecraft:`,
+    `- Установка готового мода: найди .jar (Modrinth/CurseForge/др. через web_search/fetch_page), скачай его и положи командой в папку mods активной сборки — путь найди через list_dir в зоне launcher (обычно <сборка>/mods). После этого скажи пользователю нажать «Установить/Применить» в лаунчере, чтобы сборка пересобралась (мод проиндексируется по SHA-1).`,
+    `- Создание/доработка своего мода: выясни загрузчик (fabric/forge/neoforge/quilt), версию Minecraft и маппинги; для больших модов предложи и сделай структуру src/main/java/...+src/main/resources/ с fabric.mod.json (Fabric) или META-INF/mods.toml (Forge/NeoForge); укажи все dependencies (loader/fabric-api и т.п.).`,
+    `- Сборка в .jar: скачай нужные загрузчик-и-движок jar (fabricmc.net / maven.neoforged.net / maven.fabricmc.net) в temp-папку проекта, компилируй javac -cp "<forge.jar>;<minecraft.jar>[;...]" -d build/classes $(find src -name '*.java'), скопируй ресурсы в build/classes и упакуй jar -cf mods/<modid>-<version>.jar -C build/classes . Затем положи готовый jar в mods активной сборки (как выше) — не в корень проекта.`,
+    `- Пиши аккуратный код на Java: package по шаблону ru.<ник>/<modid>, события загрузчика, null-безопасность, логирование через свою логгер-префикс. Компилируй без warnings, проверь, что modid строго нижним регистром и уникален. После установки попроси пользователя пересобрать сборку и запустить — по логам/крашам уточняй и чини.`,
+    '',
     `Как показывать изображения в чате: после generate_image ты получаешь ` + '`/op-image/<name>`' +
       ` — вставь его в ответ как markdown-картинку: ` + '`![описание](/op-image/<name>)`' +
       ` (пользователь может её скопировать или скачать).`,
@@ -1981,6 +2095,14 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
       content: outcome.text || '',
       thinking: outcome.thinking || undefined,
     });
+
+    // Модель прислала ничего (ни текста, ни вызова инструмента) — не оставляем
+    // пустое сообщение в ленте, а просто выходим из цикла.
+    if (!(outcome.text || '').trim() && !outcome.toolCalls?.length) {
+      messages = messages.filter(m => m.id !== assistantId);
+      opts.onReplace?.(messages);
+      return messages;
+    }
 
     const usage: TokenUsage = outcome.usage ?? {
       input: estimateInputTokens(systemPrompt, turns),

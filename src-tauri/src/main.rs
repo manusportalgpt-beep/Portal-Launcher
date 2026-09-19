@@ -309,6 +309,7 @@ fn main() {
             commands::opencode::op_run_command,
             commands::opencode::op_web_fetch,
             commands::opencode::op_http_request,
+            commands::opencode::op_http_get_bytes,
             commands::opencode::op_list_models,
             commands::opencode::op_set_active_build,
             commands::opencode::op_resolve_build,

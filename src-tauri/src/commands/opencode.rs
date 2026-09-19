@@ -302,13 +302,35 @@ fn parse_skill_description(raw: &str) -> String {
 // Изображения (генерация + чтение для чата)
 // ---------------------------------------------------------------------------
 
+/// Расширение и mime по magic-байтам картинки (PNG/JPEG/GIF/WebP), по умолчанию PNG.
+fn detect_image_ext(bytes: &[u8]) -> (&'static str, &'static str) {
+    if bytes.len() >= 8 && &bytes[..8] == b"\x89PNG\r\n\x1a\n" {
+        return ("png", "image/png");
+    }
+    if bytes.len() >= 3 && &bytes[..3] == b"GIF" {
+        return ("gif", "image/gif");
+    }
+    if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        return ("webp", "image/webp");
+    }
+    if bytes.len() >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF {
+        return ("jpg", "image/jpeg");
+    }
+    ("png", "image/png")
+}
+
 /// Разрешённый формат имени файла изображения в кеше.
 fn is_safe_image_file(name: &str) -> bool {
     let lower = name.to_lowercase();
-    if !lower.ends_with(".png") {
+    let ext = [".png", ".jpg", ".jpeg", ".gif", ".webp"]
+        .iter()
+        .find(|e| lower.ends_with(*e))
+        .map(|e| e.len())
+        .unwrap_or(0);
+    if ext == 0 {
         return false;
     }
-    let stem = &lower[..lower.len() - 4];
+    let stem = &lower[..lower.len() - ext];
     is_safe_id(stem)
 }
 
@@ -326,13 +348,15 @@ pub fn op_save_image(b64: String) -> Result<String, String> {
     if bytes.is_empty() {
         return Err("Изображение пустое.".into());
     }
+    let (ext, _) = detect_image_ext(&bytes);
     let name = format!(
-        "img-{}-{}.png",
+        "img-{}-{}.{}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_millis())
             .unwrap_or(0),
         uuid::Uuid::new_v4().simple(),
+        ext,
     );
     let dest = images_dir().join(&name);
     std::fs::write(&dest, bytes).map_err(|e| format!("Запись изображения: {e}"))?;
@@ -350,8 +374,9 @@ pub fn op_image_read(file: String) -> Result<String, String> {
     if bytes.is_empty() || bytes.len() > 30 * 1024 * 1024 {
         return Err("Изображение пустое или слишком большое.".into());
     }
+    let (_, mime) = detect_image_ext(&bytes);
     let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
-    Ok(format!("data:image/png;base64,{b64}"))
+    Ok(format!("data:{mime};base64,{b64}"))
 }
 
 // ---------------------------------------------------------------------------
@@ -964,7 +989,8 @@ pub struct FetchResult {
 pub async fn op_web_fetch(url: String, headers: Option<Vec<(String, String)>>) -> FetchResult {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(60))
-        .user_agent("Mozilla/5.0 (Portal-Launcher OpenPortal; like Gecko)")
+        .http1_only()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
         .build()
         .unwrap_or_else(|_| reqwest::Client::new());
     let mut req = client.get(&url);
@@ -1018,6 +1044,100 @@ pub async fn op_web_fetch(url: String, headers: Option<Vec<(String, String)>>) -
             text: String::new(),
             error: Some(format!("Сеть: {e}")),
         },
+    }
+}
+
+/// Ответ двоичного GET-запроса (base64) — для скачивания изображений через бэкенд.
+#[derive(serde::Serialize)]
+pub struct BytesResult {
+    pub ok: bool,
+    pub status: u16,
+    pub content_type: String,
+    pub b64: String,
+    pub error: Option<String>,
+}
+
+/// Скачивает бинарный ответ по URL (base64). Обходит CORS/сетевые лимиты веб-вью.
+#[tauri::command]
+pub async fn op_http_get_bytes(
+    url: String,
+    headers: Option<Vec<(String, String)>>,
+) -> Result<BytesResult, String> {
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("Некорректный URL — только http/https.".into());
+    }
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .http1_only()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
+    let mut req = client.get(&url);
+    if let Some(hs) = headers {
+        for (k, v) in hs {
+            if let (Ok(k), Ok(v)) = (
+                reqwest::header::HeaderName::from_bytes(k.as_bytes()),
+                reqwest::header::HeaderValue::from_str(&v),
+            ) {
+                req = req.header(k, v);
+            }
+        }
+    }
+    match req.send().await {
+        Ok(resp) => {
+            let status = resp.status().as_u16();
+            let content_type = resp
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("")
+                .to_string();
+            let bytes = match resp.bytes().await {
+                Ok(b) => b,
+                Err(e) => {
+                    return Ok(BytesResult {
+                        ok: false,
+                        status,
+                        content_type,
+                        b64: String::new(),
+                        error: Some(format!("Чтение тела: {e}")),
+                    })
+                }
+            };
+            if bytes.is_empty() {
+                return Ok(BytesResult {
+                    ok: false,
+                    status,
+                    content_type,
+                    b64: String::new(),
+                    error: Some("Пустой ответ.".into()),
+                });
+            }
+            if bytes.len() > 30 * 1024 * 1024 {
+                return Ok(BytesResult {
+                    ok: false,
+                    status,
+                    content_type,
+                    b64: String::new(),
+                    error: Some("Ответ больше 30 МБ.".into()),
+                });
+            }
+            let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+            Ok(BytesResult {
+                ok: status < 400,
+                status,
+                content_type,
+                b64,
+                error: None,
+            })
+        }
+        Err(e) => Ok(BytesResult {
+            ok: false,
+            status: 0,
+            content_type: String::new(),
+            b64: String::new(),
+            error: Some(format!("Сеть: {e}")),
+        }),
     }
 }
 

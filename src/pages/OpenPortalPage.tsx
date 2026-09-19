@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, MessageSquare, Trash2, Sparkles, Send, StopCircle, ChevronDown, ChevronRight,
-  Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Paperclip, Boxes, Check,
+  Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Boxes, Check, Copy, Download,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
@@ -17,13 +17,63 @@ import type { ChatMessage, SessionData, PermissionRequest, Attachment, ProjectCo
 
 const HELP_TEXT = [
   '**Команды OpenPortal:**',
-  '- `/help` — список команд',
-  '- `/models` — выбрать модели',
+  '- `/help` — список команд и инструментов',
+  '- `/models` — выбрать модели и ключи',
+  '- `/new` — новый чат',
+  '- `/clear` — очистить чат',
+  '- `/plan` — режим Plan (только план)',
+  '- `/build` — режим Build (выполняет задачи)',
   '- `/skill-creator <описание>` — агент создаст новый навык',
   '- `/skill-installer <имя/ссылка>` — агент найдёт и установит навык',
   '',
-  'Полное описание — в чате: попроси, и агент сам выполнит.',
+  '**Инструменты агента** (агент использует их сам, по ходу задачи): веб-поиск и чтение страниц, ' +
+  'HTTP-запросы к API, файлы (чтение/запись), команды (cmd/PowerShell), параллельные субагенты, генерация картинок.',
+  '',
+  'Файлы прикрепляются кнопкой «+» у поля ввода и сохраняются кнопкой «Скачать» в «Загрузки».',
 ].join('\n');
+
+/** Палитра команд «/» в стиле opencode. instant — выполняется сразу, иначе вставляется в поле для продолжения. */
+const COMMANDS: { cmd: string; desc: string; instant: boolean }[] = [
+  { cmd: '/help', desc: 'Список команд и инструментов', instant: true },
+  { cmd: '/models', desc: 'Выбрать модели и ключи', instant: true },
+  { cmd: '/new', desc: 'Новый чат', instant: true },
+  { cmd: '/clear', desc: 'Очистить сообщения', instant: true },
+  { cmd: '/plan', desc: 'Режим Plan — только план', instant: true },
+  { cmd: '/build', desc: 'Режим Build — выполнять задачи', instant: true },
+  { cmd: '/skill-creator', desc: 'Создать новый навык', instant: false },
+  { cmd: '/skill-installer', desc: 'Найти и установить навык', instant: false },
+];
+
+/** Расширение файла из имени (в верхнем регистре, для бейджа). */
+function extOf(name: string): string {
+  const i = name.lastIndexOf('.');
+  return i > 0 && i < name.length - 1 ? name.slice(i + 1).toUpperCase() : 'FILE';
+}
+
+/** Человекочитаемый размер. */
+function fmtSize(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+/** Копирование в буфер обмена (clipboard API + фолбэк для вебвью). */
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch { /* ignore */ }
+    document.body.removeChild(ta);
+  }
+}
 
 function ThinkingBlock({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
@@ -91,33 +141,111 @@ function ModeToggle({ mode, onChange }: { mode: 'build' | 'plan'; onChange: (m: 
 }
 
 function ChatBubble({ m }: { m: ChatMessage }) {
+  const cfg = useOpenCoreStore(s => s.config);
+  const [copied, setCopied] = useState(false);
+  const providers = activeProviders(cfg).filter(p => isProviderEnabled(p, cfg));
+  const activeProv = providers.find(p => p.id === cfg.activeProviderId) ?? firstConnectedProvider(cfg);
+  const meta = [m.model, activeProv?.name].filter(Boolean).join(' · ');
+  const copy = async () => {
+    await copyToClipboard(m.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1400);
+  };
+  const actions = (
+    <div className="absolute -top-2.5 right-2 z-10 flex items-center gap-0.5 rounded-full px-1 py-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+      style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', boxShadow: '0 4px 16px rgba(0,0,0,.25)' }}>
+      <button onClick={() => void copy()} title="Скопировать текст"
+        className="flex h-5 w-5 items-center justify-center rounded-full transition-colors hover:bg-[var(--color-surface)]"
+        style={{ color: copied ? 'var(--color-success)' : 'var(--color-text-secondary)' }}>
+        {copied ? <Check size={11} /> : <Copy size={11} />}
+      </button>
+      {m.role === 'assistant' && meta && (
+        <span className="hidden max-w-[220px] truncate px-1 text-[9px] font-semibold min-[480px]:inline"
+          style={{ color: 'var(--color-text-tertiary)' }}>{meta}</span>
+      )}
+    </div>
+  );
   if (m.role === 'tool') {
     return <ToolMsg name={m.toolName ?? m.content.slice(0, 40)} content={m.content} error={m.error} />;
   }
   if (m.role === 'user') {
     return (
-      <div className="flex justify-end">
+      <div className="group relative flex justify-end">
+        {actions}
         <div className="max-w-[80%] rounded-2xl rounded-br-md px-3.5 py-2.5 text-[13px] leading-6" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', cursor: 'text', userSelect: 'text' }}>
           <Markdown text={m.content} />
+          {m.attachments && m.attachments.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {m.attachments.map((a, i) => <AttachmentChip key={i} a={a} />)}
+            </div>
+          )}
         </div>
       </div>
     );
   }
   // assistant
   return (
-    <div className="flex justify-start">
+    <div className="group relative flex justify-start">
+      {actions}
       <div className="max-w-[92%] min-w-0 flex-1">
-        <div className="mb-0.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>
-          <Bot size={11} /> {m.model ? `${m.model}` : 'OpenPortal'}
-        </div>
         {m.thinking && <ThinkingBlock text={m.thinking} />}
         {m.content ? (
           <div className="rounded-2xl rounded-bl-md px-3.5 py-2.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', cursor: 'text', userSelect: 'text' }}>
             <Markdown text={m.content} />
           </div>
-        ) : null}
+        ) : (
+          m.toolCalls && m.toolCalls.length > 0 ? (
+            <div className="rounded-2xl rounded-bl-md px-3.5 py-2" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+              <span className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                Применяет инструмент{ m.toolCalls.length > 1 ? 'ы' : '' }: {m.toolCalls.map(t => t.name).join(', ')}…
+              </span>
+            </div>
+          ) : null
+        )}
         {m.error && <p className="mt-1 text-[11px]" style={{ color: 'var(--color-error)' }}>Это сообщение могло быть сгенерировано ошибочно. Проверь контекст и попробуй ещё раз.</p>}
       </div>
+    </div>
+  );
+}
+
+/** Карточка прикреплённого файла: бейдж расширения, размер, имя и «Скачать» в «Загрузки». */
+function AttachmentChip({ a, onRemove }: { a: Attachment; onRemove?: () => void }) {
+  const [state, setState] = useState<'idle' | 'saving' | 'done'>('idle');
+  const isImg = a.type.startsWith('image/') && !!a.dataUrl;
+  const save = async () => {
+    if (state === 'saving') return;
+    const b64 = a.base64 ?? (a.dataUrl ? a.dataUrl.split(',')[1] : '');
+    if (!b64) return;
+    setState('saving');
+    try {
+      await invoke('op_save_to_downloads', { fileName: a.name, b64 });
+      setState('done');
+      setTimeout(() => setState('idle'), 1800);
+    } catch (e) {
+      console.error('[OpenPortal] download failed', e);
+      setState('idle');
+    }
+  };
+  return (
+    <div className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-[11px]" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+      {isImg
+        ? <img src={a.dataUrl} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+        : <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[7px] font-black"
+            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-tertiary)' }}>{extOf(a.name)}</div>}
+      <div className="min-w-0">
+        <p className="max-w-[150px] truncate font-semibold leading-4" style={{ color: 'var(--color-text)' }}>{a.name}</p>
+        <p className="text-[9px] leading-3" style={{ color: 'var(--color-text-tertiary)' }}>{extOf(a.name)} · {a.size ? fmtSize(a.size) : '—'}</p>
+      </div>
+      <button onClick={() => void save()} title="Скачать в «Загрузки»"
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-surface)]"
+        style={{ color: state === 'done' ? 'var(--color-success)' : 'var(--color-text-secondary)' }}>
+        {state === 'saving'
+          ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          : state === 'done' ? <Check size={12} /> : <Download size={12} />}
+      </button>
+      {onRemove && (
+        <button onClick={onRemove} title="Убрать" className="shrink-0 text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]">✕</button>
+      )}
     </div>
   );
 }
@@ -280,6 +408,25 @@ export function OpenPortalPage() {
   const init = useOpenCoreStore(s => s.init);
   useEffect(() => { void init(); }, [init]);
 
+  /** Выполняет мгновенную команду «/», возвращает true, если команда обработана. */
+  const runCommandLine = useCallback((raw: string): boolean => {
+    const cmd = raw.split(/\s+/)[0].toLowerCase();
+    if (cmd === '/new') { void store.newSession(); return true; }
+    if (cmd === '/clear') { useOpenCoreStore.setState({ messages: [] }); return true; }
+    if (cmd === '/plan' || cmd === '/build') {
+      useOpenCoreStore.getState().setMode(cmd === '/plan' ? 'plan' : 'build');
+      void store.newSession();
+      return true;
+    }
+    if (cmd === '/models') { useOpenCoreStore.getState().setModelsMenuOpen(true); return true; }
+    if (cmd === '/help') {
+      const msg: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: HELP_TEXT, timestamp: Date.now() };
+      useOpenCoreStore.getState().appendMessages([msg]);
+      return true;
+    }
+    return false;
+  }, [store]);
+
   const requestPermission = useCallback(async (req: PermissionRequest): Promise<'allow' | 'deny' | 'always' | 'never'> => {
     const key = `${req.tool}:${req.root}`;
     const prior = useOpenCoreStore.getState().permissions[key];
@@ -332,19 +479,7 @@ export function OpenPortalPage() {
     if (text.startsWith('/')) {
       const cmd = text.split(/\s+/)[0].toLowerCase();
       const arg = text.slice(cmd.length).trim();
-      if (cmd === '/new') { void store.newSession(); return; }
-      if (cmd === '/clear') { useOpenCoreStore.setState({ messages: [] }); return; }
-      if (cmd === '/plan' || cmd === '/build') {
-        useOpenCoreStore.getState().setMode(cmd === '/plan' ? 'plan' : 'build');
-        void store.newSession();
-        return;
-      }
-      if (cmd === '/models') { useOpenCoreStore.getState().setModelsMenuOpen(true); return; }
-      if (cmd === '/help') {
-        const msg: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: HELP_TEXT, timestamp: Date.now() };
-        useOpenCoreStore.getState().appendMessages([msg]);
-        return;
-      }
+      if (runCommandLine(text)) return;
       if (cmd === '/skill-creator' || cmd === '/skill-installer') {
         if (!arg) {
           const msg: ChatMessage = {
@@ -476,6 +611,10 @@ export function OpenPortalPage() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); }
   };
 
+  const cmdOpen = !running && input.startsWith('/');
+  const cmdQuery = input.slice(1).toLowerCase();
+  const cmdList = cmdOpen ? COMMANDS.filter(c => c.cmd.slice(1).toLowerCase().includes(cmdQuery)) : [];
+
   const onFilePicked = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -568,16 +707,26 @@ export function OpenPortalPage() {
         </div>
 
         <div className="relative border-t p-4" style={{ borderColor: 'var(--color-border)' }}>
+          {cmdOpen && cmdList.length > 0 && (
+            <div className="absolute bottom-full left-0 right-0 z-30 mx-auto mb-2 w-full max-w-3xl overflow-hidden rounded-2xl border p-1.5 shadow-xl"
+              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 24px 60px rgba(0,0,0,.4)' }}>
+              {cmdList.map(c => (
+                <button key={c.cmd} onClick={() => {
+                  if (c.instant) { setInput(''); runCommandLine(c.cmd); }
+                  else setInput(`${c.cmd} `);
+                }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--color-surface-2)]">
+                  <span className="shrink-0 font-mono text-[11px] font-bold" style={{ color: 'var(--color-primary)' }}>{c.cmd}</span>
+                  <span className="truncate text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>{c.desc}</span>
+                  {!c.instant && <span className="ml-auto shrink-0 text-[9px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}>+ описание</span>}
+                </button>
+              ))}
+            </div>
+          )}
           {attachments.length > 0 && (
-            <div className="mb-2 flex gap-2">
+            <div className="mb-2 flex flex-wrap gap-2">
               {attachments.map((a, i) => (
-                <div key={i} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px]" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
-                  {a.type.startsWith('image/') && a.dataUrl
-                    ? <img src={a.dataUrl} alt="" className="h-5 w-5 rounded object-cover" />
-                    : <Paperclip size={12} className="text-[var(--color-text-tertiary)]" />}
-                  <span className="max-w-[120px] truncate font-semibold" style={{ color: 'var(--color-text)' }}>{a.name}</span>
-                  <button onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))} className="text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]">✕</button>
-                </div>
+                <AttachmentChip key={i} a={a} onRemove={() => setAttachments(prev => prev.filter((_, j) => j !== i))} />
               ))}
             </div>
           )}

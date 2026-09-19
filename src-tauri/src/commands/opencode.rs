@@ -438,6 +438,34 @@ fn unique_dest_path(dir: &Path, name: &str) -> PathBuf {
     p
 }
 
+/// Копирует файл из песочницы (portal|temp) в системную папку «Загрузки».
+/// `path` — путь относительно корня зоны, `name` (необязательно) — имя файла-результата.
+#[tauri::command]
+pub fn op_copy_to_downloads(root: String, path: String, name: Option<String>) -> Result<String, String> {
+    let r = root_from_name(&root)?;
+    let p = Path::new(&path);
+    let file = enforce_root(r, p, false)?;
+    let meta = std::fs::metadata(&file).map_err(|e| format!("Метаданные файла: {e}"))?;
+    if !meta.is_file() {
+        return Err("Это не файл — скачать можно только файл.".into());
+    }
+    if meta.len() > 200 * 1024 * 1024 {
+        return Err("Файл слишком большой для скачивания (лимит 200 МБ).".into());
+    }
+    let fallback = file
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "file.bin".to_string());
+    let out_name = name
+        .map(|n| sanitize_download_name(&n))
+        .unwrap_or_else(|| sanitize_download_name(&fallback));
+    let dir = downloads_dir().ok_or_else(|| "Не удалось найти папку «Загрузки».".to_string())?;
+    std::fs::create_dir_all(&dir).ok();
+    let dest = unique_dest_path(&dir, &out_name);
+    std::fs::copy(&file, &dest).map_err(|e| format!("Копирование файла: {e}"))?;
+    Ok(dest.to_string_lossy().to_string())
+}
+
 // ---------------------------------------------------------------------------
 // Сессии
 // ---------------------------------------------------------------------------

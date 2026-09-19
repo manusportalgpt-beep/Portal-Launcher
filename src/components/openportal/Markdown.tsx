@@ -77,6 +77,42 @@ function PortalImage({ name }: { name: string }) {
   );
 }
 
+/** Карточка артефакта: файл агента в песочнице, который можно скачать в «Загрузки». */
+function PortalArtifact({ path, name }: { path: string; name: string }) {
+  const [state, setState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
+  const [err, setErr] = useState('');
+  const save = async () => {
+    if (state === 'saving') return;
+    setState('saving');
+    setErr('');
+    try {
+      await invoke('op_copy_to_downloads', { root: 'portal', path, name });
+      setState('done');
+      setTimeout(() => setState('idle'), 1800);
+    } catch (e) {
+      setState('error');
+      setErr(String(e));
+    }
+  };
+  return (
+    <div className="op-fade-in my-2 flex items-center gap-2 rounded-lg px-3 py-2"
+      style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(127,127,127,0.2)' }}>
+      <div className="min-w-0 flex-1">
+        <span className="block truncate text-[12.5px] font-semibold" style={{ color: 'var(--color-text)' }}>{name}</span>
+        <span className="block truncate text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>{path}</span>
+      </div>
+      <button onClick={() => void save()} disabled={state === 'saving'}
+        className="shrink-0 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors hover:opacity-85 disabled:opacity-60"
+        style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+        {state === 'done' ? 'Готово' : state === 'saving' ? 'Копирую…' : 'Скачать'}
+      </button>
+      {state === 'error' && (
+        <span className="shrink-0 text-[11px]" style={{ color: 'var(--color-error)' }} title={err}>Ошибка</span>
+      )}
+    </div>
+  );
+}
+
 /** Минимальный markdown-рендерер без зависимостей. */
 function renderInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
@@ -314,7 +350,14 @@ export const Markdown = memo(function Markdown({ text, streaming }: { text: stri
     flushQuote();
     flushCode();
 
-    if (/^(---+|\*\*\*+|___+)$/.test(line.trim())) {
+    const artifact = /^\/op-project\s+(\S+)(?:\|(.*))?$/.exec(line.trim());
+    if (artifact) {
+      out.push(
+        <div key={key++} className="op-fade-in">
+          <PortalArtifact path={artifact[1]} name={artifact[2]?.trim() || artifact[1].split('/').pop() || artifact[1]} />
+        </div>,
+      );
+    } else if (/^(---+|\*\*\*+|___+)$/.test(line.trim())) {
       out.push(<hr key={key++} className="op-fade-in my-2 border-t" style={{ borderColor: 'rgba(127,127,127,0.25)' }} />);
     } else if (/^#{1,4}\s/.test(line)) {
       const level = line.match(/^#+/)?.[0].length ?? 1;

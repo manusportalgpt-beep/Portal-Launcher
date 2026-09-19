@@ -713,6 +713,26 @@ async fn resolve_resourcify_modrinth_file(
     let project: serde_json::Value = client
         .get(format!("https://api.modrinth.com/v2/project/{project_id}"))
         .send().await.ok()?.error_for_status().ok()?.json().await.ok()?;
+    // Реальный автор — владелец команды проекта (team id не является именем автора).
+    let mut author: Option<String> = None;
+    if let Some(team_id) = project["team"].as_str() {
+        if let Ok(members) = client
+            .get(format!("https://api.modrinth.com/v2/team/{team_id}/members"))
+            .send().await
+            .and_then(|r| r.error_for_status())
+            .and_then(|r| r.json::<serde_json::Value>())
+            .await
+        {
+            if let Some(arr) = members.as_array() {
+                author = arr
+                    .iter()
+                    .find(|m| m["permissions"]["is_owner"].as_bool().unwrap_or(false))
+                    .or_else(|| arr.first())
+                    .and_then(|m| m["user"]["username"].as_str())
+                    .map(String::from);
+            }
+        }
+    }
     let display = file_name.trim_end_matches(".disabled").trim_end_matches(".jar").trim_end_matches(".zip");
     Some(InstalledMod {
         id: project_id,
@@ -724,7 +744,7 @@ async fn resolve_resourcify_modrinth_file(
         file_name: file_name.to_string(),
         file_size,
         mod_type: mod_type.to_string(),
-        author: project["team"].as_str().map(|author| author.to_string()),
+        author,
         icon_url: project["icon_url"].as_str().map(|url| url.to_string()),
         update_available: false,
         latest_version: None,

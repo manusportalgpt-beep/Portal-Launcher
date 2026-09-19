@@ -235,7 +235,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         const project = item.source === 'curseforge'
           ? await invoke<any>('get_curseforge_mod', { projectId: Number(item.id), apiKey: curseforgeApiKey })
           : await getModrinthProjectGateway(item.id);
-        const author = item.source === 'curseforge' ? (project?.authors?.[0]?.name || project?.authors?.[0]?.username) : (project?.author || project?.team);
+        const author = item.source === 'curseforge' ? (project?.authors?.[0]?.name || project?.authors?.[0]?.username) : project?.author;
         const icon = item.source === 'curseforge' ? (project?.logo?.thumbnail_url || project?.logo?.thumbnailUrl) : project?.icon_url;
         const authorId = item.source === 'curseforge' ? project?.authors?.[0]?.id : undefined;
         const patch = { id: item.id, author: typeof author === 'string' ? author : undefined, icon: typeof icon === 'string' ? icon : undefined, authorId: typeof authorId === 'number' ? authorId : undefined };

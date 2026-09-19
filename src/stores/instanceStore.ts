@@ -77,26 +77,32 @@ export const useInstanceStore = create<InstanceState>()(
       },
       // Sync instances from Rust backend - called on app mount
       syncFromBackend: (backendInstances) => {
-        const mapped = backendInstances.map(b => ({
-          id: b.id,
-          name: b.name,
-          description: b.description || '',
-          iconPath: b.icon,
-          minecraftVersion: b.mc_version,
-          modLoader: (b.loader || 'vanilla') as Instance['modLoader'],
-          modLoaderVersion: b.loader_version || '',
-          javaPath: b.java_path || '',
-          jvmArgs: b.custom_jvm_args || '',
-          minRam: b.min_ram,
-          maxRam: b.max_ram,
-          gameDir: '',
-          createdAt: b.created_at,
-          lastPlayed: b.last_played,
-          totalPlayTime: b.play_time_minutes || 0,
-          color: b.color || COLORS[Math.floor(Math.random() * COLORS.length)],
-          group: undefined,
-          installStatus: 'idle' as const,
-        }));
+        const existing = get().instances;
+        const byId = new Map(existing.map(i => [i.id, i]));
+        const mapped = backendInstances.map(b => {
+          const prev = byId.get(b.id);
+          return {
+            id: b.id,
+            name: b.name,
+            description: b.description || '',
+            iconPath: b.icon,
+            minecraftVersion: b.mc_version,
+            modLoader: (b.loader || 'vanilla') as Instance['modLoader'],
+            modLoaderVersion: b.loader_version || '',
+            javaPath: b.java_path || '',
+            jvmArgs: b.custom_jvm_args || '',
+            minRam: b.min_ram,
+            maxRam: b.max_ram,
+            gameDir: '',
+            createdAt: b.created_at,
+            lastPlayed: b.last_played,
+            totalPlayTime: b.play_time_minutes || 0,
+            color: b.color || COLORS[Math.floor(Math.random() * COLORS.length)],
+            // Бэкенд группу не хранит — сохраняем её из локального состояния по id.
+            group: prev?.group,
+            installStatus: 'idle' as const,
+          };
+        });
         set({ instances: mapped });
       },
     }),

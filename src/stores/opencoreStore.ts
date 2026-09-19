@@ -92,6 +92,8 @@ interface OpenCoreState {
   updateSessionMessage: (sessionId: string, id: string, patch: Partial<ChatMessage>) => void;
   /** Сообщения сессии без её открытия. */
   readSessionMessages: (sessionId: string) => ChatMessage[];
+  /** Полная замена списка сообщений сессии (самопочинка после сбоя). */
+  replaceSessionMessages: (sessionId: string, msgs: ChatMessage[]) => void;
   setSessionRunning: (sessionId: string, running: boolean) => void;
   setModelsMenuOpen: (open: boolean) => void;
   addUsage: (u: TokenUsage) => void;
@@ -381,6 +383,14 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
 
       readSessionMessages(sessionId) {
         return sessionId === get().currentSessionId ? get().messages : (get().backgroundMessages[sessionId] ?? []);
+      },
+
+      replaceSessionMessages(sessionId, msgs) {
+        if (sessionId === get().currentSessionId) {
+          set({ messages: msgs });
+          return;
+        }
+        set({ backgroundMessages: { ...get().backgroundMessages, [sessionId]: msgs } });
       },
 
       setSessionRunning(sessionId, running) {

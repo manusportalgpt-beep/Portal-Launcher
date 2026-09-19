@@ -12,6 +12,86 @@ import type {
 } from '@/lib/opencore/types';
 
 // ---------------------------------------------------------------------------
+// Надёжность агента: нормализация аргументов инструментов и повторы запросов
+// ---------------------------------------------------------------------------
+
+/** Сколько раз повторять запрос к модели при ошибке. */
+export const PROVIDER_MAX_ATTEMPTS = 5;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Гарантирует, что arguments вызова инструмента — валидный JSON (строка).
+ * Обрывочный JSON (накапливается из SSE-дельт) чинится восстановлением баланса
+ * скобок; если совсем битый — возвращается '{}', чтобы история не падала с 400.
+ */
+export function normalizeToolArguments(raw: string): string {
+  const s = String(raw ?? '').trim();
+  if (!s) return '{}';
+  try {
+    JSON.parse(s);
+    return s;
+  } catch {
+    const repaired = s.replace(/,\s*([}\]])/g, '$1');
+    let openBr = 0;
+    let openOb = 0;
+    let inStr = false;
+    let esc = false;
+    for (let i = 0; i < repaired.length; i++) {
+      const ch = repaired[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === '\\') esc = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') inStr = true;
+      else if (ch === '[') openBr++;
+      else if (ch === ']') openBr = Math.max(0, openBr - 1);
+      else if (ch === '{') openOb++;
+      else if (ch === '}') openOb = Math.max(0, openOb - 1);
+    }
+    let candidate = repaired;
+    while (openBr-- > 0) candidate += ']';
+    while (openOb-- > 0) candidate += '}';
+    try {
+      JSON.parse(candidate);
+      return candidate;
+    } catch {
+      return '{}';
+    }
+  }
+}
+
+/** Безопасный разбор JSON в объект (при ошибке — {}). */
+export function safeJsonParseObject(raw: string): any {
+  try {
+    return JSON.parse(String(raw ?? '').trim() || '{}');
+  } catch {
+    return {};
+  }
+}
+
+/** Удаляет ассистентские сообщения с битым JSON в arguments вызовов инструментов. */
+function dropBrokenToolCalls(msgs: ChatMessage[]): ChatMessage[] {
+  let changed = false;
+  const next: ChatMessage[] = [];
+  for (const m of msgs) {
+    const broken =
+      m.role === 'assistant' &&
+      (m.toolCalls?.some(tc => normalizeToolArguments(tc.arguments) !== tc.arguments) ?? false);
+    if (broken) {
+      changed = true;
+      continue;
+    }
+    next.push(m);
+  }
+  return changed ? next : msgs;
+}
+
+// ---------------------------------------------------------------------------
 // Описания инструментов (единый реестр для всех форматов провайдеров)
 // ---------------------------------------------------------------------------
 
@@ -984,12 +1064,7 @@ export async function executeTool(
   ep: ResolvedEndpoint,
   signal?: AbortSignal,
 ): Promise<ExecResult> {
-  let args: any;
-  try {
-    args = JSON.parse(argsRaw || '{}');
-  } catch {
-    return { ok: false, output: 'Не удалось разобрать аргументы инструмента (JSON).' };
-  }
+  const args: any = safeJsonParseObject(normalizeToolArguments(argsRaw));
 
   if (tool === 'web_search') return execWebSearch(args);
   if (tool === 'fetch_page') return execFetchPage(args);
@@ -1203,8 +1278,21 @@ export async function callProvider(
     }
   }
 
-  if (ep.format === 'anthropic') return callAnthropic(ep, systemPrompt, turns, signal);
-  return callOpenAI(ep, systemPrompt, turns, signal, onDelta);
+  let lastError: unknown;
+  for (let attempt = 0; attempt < PROVIDER_MAX_ATTEMPTS; attempt++) {
+    if (signal?.aborted) throw new Error('Отменено пользователем.');
+    try {
+      if (ep.format === 'anthropic') return await callAnthropic(ep, systemPrompt, turns, signal);
+      return await callOpenAI(ep, systemPrompt, turns, signal, onDelta);
+    } catch (e: unknown) {
+      if (signal?.aborted) throw e;
+      lastError = e;
+      if (attempt < PROVIDER_MAX_ATTEMPTS - 1) {
+        await sleep(400 + attempt * 500 + Math.random() * 300);
+      }
+    }
+  }
+  throw lastError;
 }
 
 async function callOpenAI(
@@ -1244,7 +1332,7 @@ async function callOpenAI(
         msg.tool_calls = t.toolCalls.map(tc => ({
           id: tc.id,
           type: 'function',
-          function: { name: tc.name, arguments: tc.arguments },
+          function: { name: tc.name, arguments: normalizeToolArguments(tc.arguments) },
         }));
       }
       messages.push(msg);
@@ -1360,7 +1448,7 @@ function parseOpenAIJson(data: any): ApiOutcome {
   const toolCalls: ToolCall[] = (msg?.tool_calls ?? []).map((tc: any) => ({
     id: String(tc.id ?? ''),
     name: String(tc.function?.name ?? ''),
-    arguments: String(tc.function?.arguments ?? '{}'),
+    arguments: normalizeToolArguments(String(tc.function?.arguments ?? '{}')),
   }));
   return {
     text: text ?? '',
@@ -1390,7 +1478,7 @@ async function parseSSE(
   const finish = (): ApiOutcome => {
     const calls: ToolCall[] = [...toolCalls.entries()]
       .sort((a, b) => a[0] - b[0])
-      .map(([, v]) => ({ id: v.id, name: v.name, arguments: v.arguments || '{}' }));
+      .map(([, v]) => ({ id: v.id, name: v.name, arguments: normalizeToolArguments(v.arguments) }));
     return {
       text,
       thinking: thinking ? trimThinking(thinking) : undefined,
@@ -1492,7 +1580,7 @@ function parseSSEText(text: string, onDelta?: (d: StreamDelta) => void): ApiOutc
 
   const calls: ToolCall[] = [...toolCalls.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([, v]) => ({ id: v.id, name: v.name, arguments: v.arguments || '{}' }));
+    .map(([, v]) => ({ id: v.id, name: v.name, arguments: normalizeToolArguments(v.arguments) }));
   return {
     text: out,
     thinking: thinking ? trimThinking(thinking) : undefined,
@@ -1540,7 +1628,7 @@ async function callAnthropic(
       if (t.content) blocks.push({ type: 'text', text: t.content });
       if (t.toolCalls && t.toolCalls.length > 0) {
         for (const tc of t.toolCalls) {
-          blocks.push({ type: 'tool_use', id: tc.id, name: tc.name, input: JSON.parse(tc.arguments || '{}') });
+          blocks.push({ type: 'tool_use', id: tc.id, name: tc.name, input: safeJsonParseObject(tc.arguments) });
         }
       }
       return { role: 'assistant', content: blocks };
@@ -1691,7 +1779,7 @@ function parseAnthropicSSEText(text: string): ApiOutcome {
 
   const calls: ToolCall[] = [...toolCalls.entries()]
     .sort((a, b) => a[0] - b[0])
-    .map(([, v]) => ({ id: v.id, name: v.name, arguments: v.args || '{}' }));
+    .map(([, v]) => ({ id: v.id, name: v.name, arguments: normalizeToolArguments(v.args) }));
   return {
     text: out,
     thinking: thinking ? trimThinking(thinking) : undefined,
@@ -1811,6 +1899,8 @@ export interface RunTurnOptions {
   maxIterations?: number;
   /** Расход токенов каждого запроса к модели (реальный из ответа или оценённый). */
   onUsage?: (usage: TokenUsage) => void;
+  /** Полная замена истории (для самопочинки после сбоя модели). */
+  onReplace?: (msgs: ChatMessage[]) => void;
 }
 
 export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]> {
@@ -1850,7 +1940,36 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
       });
     } catch (e: unknown) {
       if (signal?.aborted) throw new Error('Отменено пользователем.');
-      throw e;
+      // Самопочинка: удаляются только сообщения с битым JSON в вызовах
+      // инструментов (виновник ошибки) и незавершённая заглушка ассистента;
+      // вся остальная история сохраняется.
+      const repaired = dropBrokenToolCalls(messages);
+      const cleaned = repaired === messages ? messages : repaired.filter(m => m.id !== assistantId);
+      if (cleaned !== messages) {
+        messages = cleaned;
+        opts.onReplace?.(cleaned);
+        push({
+          id: `repair-${Date.now()}-${iter}`,
+          role: 'assistant',
+          content: '⚠ Автопочинка: удалено сообщение с невалидным JSON в вызове инструмента — модель не знает его содержимое. Весь остальной контекст сохранён. Продолжаю задачу.',
+          timestamp: Date.now(),
+        });
+        continue;
+      }
+      const errMsg = e instanceof Error ? e.message : String(e);
+      const withoutStub = messages.filter(m => m.id !== assistantId);
+      if (withoutStub.length !== messages.length) {
+        messages = withoutStub;
+        opts.onReplace?.(withoutStub);
+      }
+      push({
+        id: `fail-${Date.now()}-${iter}`,
+        role: 'assistant',
+        content: `Не удалось получить ответ модели (после ${PROVIDER_MAX_ATTEMPTS} попыток): ${errMsg}\n\nСообщение, вызвавшее ошибку, не засчитано — его содержимое модели неизвестно; весь предыдущий контекст сохранён.`,
+        error: true,
+        timestamp: Date.now(),
+      });
+      return messages;
     }
 
     patch(assistantId, {

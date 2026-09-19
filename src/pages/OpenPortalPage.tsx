@@ -725,6 +725,7 @@ export function OpenPortalPage() {
         signal: abort.signal,
         onAppend: msgs => useOpenCoreStore.getState().appendSessionMessages(runSessionId, msgs),
         onUpdate: (id, patch) => useOpenCoreStore.getState().updateSessionMessage(runSessionId, id, patch),
+        onReplace: msgs => useOpenCoreStore.getState().replaceSessionMessages(runSessionId, msgs),
         onUsage: u => { if (runSessionId === useOpenCoreStore.getState().currentSessionId) useOpenCoreStore.getState().addUsage(u); },
       });
     } catch (e: unknown) {

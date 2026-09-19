@@ -17,6 +17,15 @@ export interface Attachment {
   url?: string;
 }
 
+/** Расход токенов одного запроса к модели. */
+export interface TokenUsage {
+  input: number;
+  output: number;
+  total: number;
+  /** true — значения оценены приблизительно (провайдер не вернул usage). */
+  estimated?: boolean;
+}
+
 export interface ChatMessage {
   id: string;
   role: Role;
@@ -29,6 +38,8 @@ export interface ChatMessage {
   error?: boolean;
   model?: string;
   timestamp: number;
+  /** Расход токенов, если известен. */
+  usage?: TokenUsage;
 }
 
 export interface SessionMeta {

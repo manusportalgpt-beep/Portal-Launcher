@@ -16,6 +16,7 @@ import type {
   ProjectContext,
   ChatMessage,
   SkillMeta,
+  TokenUsage,
 } from '@/lib/opencore/types';
 
 const CONFIG_VERSION = 1;
@@ -57,6 +58,8 @@ interface OpenCoreState {
   loading: boolean;
   /** Установленные навыки агента (SKILL.md). */
   skills: SkillMeta[];
+  /** Расход токенов сессии: суммарно + размер последнего контекста. */
+  usage: { input: number; output: number; context: number; limit: number; estimated: boolean };
 
   init: () => Promise<void>;
   updateConfig: (patch: Partial<OpenPortalConfig>) => void;
@@ -81,6 +84,9 @@ interface OpenCoreState {
   updateMessage: (id: string, patch: Partial<ChatMessage>) => void;
   setRunning: (running: boolean) => void;
   setModelsMenuOpen: (open: boolean) => void;
+  addUsage: (u: TokenUsage) => void;
+  setContextLimit: (limit: number) => void;
+  resetUsage: () => void;
 }
 
 async function persistConfig(cfg: OpenPortalConfig) {
@@ -111,6 +117,7 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
       modelsMenuOpen: false,
       loading: true,
       skills: [],
+      usage: { input: 0, output: 0, context: 0, limit: 0, estimated: false },
 
       async init() {
         try {
@@ -265,6 +272,7 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
         // Не плодим пустые сессии: если текущий чат ещё пуст — переиспользуем его.
         if (get().currentSessionId && get().messages.length === 0) {
           set({ messages: [] });
+          get().resetUsage();
           return;
         }
         const cfg = get().config;
@@ -284,6 +292,7 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
         await invoke('op_save_session', { sessionId: id, payload: JSON.stringify(session) });
         const meta: SessionMeta = { id, title: session.title, updated: now, message_count: 0 };
         set({ sessions: [meta, ...get().sessions], currentSessionId: id, messages: [] });
+        get().resetUsage();
       },
 
       async openSession(id) {
@@ -301,6 +310,7 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
               cwd: data.cwd ?? get().config.cwd,
             },
           });
+          get().resetUsage();
         } catch (e) {
           console.error('[OpenPortal] open session failed', e);
         }
@@ -337,6 +347,27 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
 
       setModelsMenuOpen(open) {
         set({ modelsMenuOpen: open });
+      },
+
+      addUsage(u) {
+        const cur = get().usage;
+        set({
+          usage: {
+            ...cur,
+            input: cur.input + (u.input || 0),
+            output: cur.output + (u.output || 0),
+            context: u.input || cur.context,
+            estimated: !!u.estimated,
+          },
+        });
+      },
+
+      setContextLimit(limit) {
+        set({ usage: { ...get().usage, limit } });
+      },
+
+      resetUsage() {
+        set({ usage: { input: 0, output: 0, context: 0, limit: get().usage.limit, estimated: false } });
       },
     }),
 );

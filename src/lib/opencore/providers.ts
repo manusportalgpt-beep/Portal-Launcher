@@ -20,6 +20,8 @@ export interface ModelDef {
   family?: 'openai' | 'anthropic' | 'google' | 'responses';
   /** vision: модель умеет читать изображения. */
   vision?: boolean;
+  /** Размер контекстного окна в токенах (для индикатора контекста). */
+  contextLength?: number;
 }
 
 export interface ProviderDef {

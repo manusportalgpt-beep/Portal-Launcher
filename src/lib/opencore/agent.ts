@@ -8,6 +8,7 @@ import type {
   CmdResult,
   FetchResult,
   FsEntry,
+  TokenUsage,
 } from '@/lib/opencore/types';
 
 // ---------------------------------------------------------------------------
@@ -1019,6 +1020,7 @@ export interface ApiOutcome {
   toolCalls?: ToolCall[];
   raw: unknown;
   model?: string;
+  usage?: TokenUsage;
 }
 
 export interface StreamDelta {
@@ -1026,6 +1028,44 @@ export interface StreamDelta {
   content?: string;
   /** Полный текущий текст «рассуждений» модели. */
   thinking?: string;
+}
+
+/** Приблизительная оценка токенов, если провайдер не вернул usage (~4 символа на токен). */
+export function estimateTokens(text: string): number {
+  if (!text) return 0;
+  return Math.ceil(text.length / 4);
+}
+
+/** Оценка входных токенов запроса (system + история). */
+function estimateInputTokens(systemPrompt: string, turns: ChatTurn[]): number {
+  let chars = systemPrompt.length;
+  for (const t of turns) {
+    chars += (t.content?.length ?? 0) + 8;
+    if (t.toolCalls) chars += JSON.stringify(t.toolCalls).length;
+  }
+  return Math.ceil(chars / 4);
+}
+
+function normalizeUsage(input: unknown, output: unknown, total?: unknown): TokenUsage | undefined {
+  const i = Number(input) || 0;
+  const o = Number(output) || 0;
+  const t = Number(total) || i + o;
+  if (!i && !o && !t) return undefined;
+  return { input: i, output: o, total: t };
+}
+
+/** usage из OpenAI-совместимого ответа (prompt_tokens/completion_tokens). */
+export function usageFromOpenAI(data: any): TokenUsage | undefined {
+  const u = data?.usage;
+  if (!u) return undefined;
+  return normalizeUsage(u.prompt_tokens ?? u.input_tokens, u.completion_tokens ?? u.output_tokens, u.total_tokens);
+}
+
+/** usage из Anthropic-ответа (input_tokens/output_tokens). */
+export function usageFromAnthropic(data: any): TokenUsage | undefined {
+  const u = data?.usage;
+  if (!u) return undefined;
+  return normalizeUsage(u.input_tokens, u.output_tokens, (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0));
 }
 
 export async function callProvider(
@@ -1208,6 +1248,7 @@ function parseOpenAIJson(data: any): ApiOutcome {
     toolCalls: toolCalls.length ? toolCalls : undefined,
     raw: data,
     model: data?.model,
+    usage: usageFromOpenAI(data),
   };
 }
 
@@ -1223,6 +1264,7 @@ async function parseSSE(
   let text = '';
   let thinking = '';
   let model: string | undefined;
+  let usage: TokenUsage | undefined;
   const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
 
   const finish = (): ApiOutcome => {
@@ -1235,6 +1277,7 @@ async function parseSSE(
       toolCalls: calls.length ? calls : undefined,
       raw: { stream: true },
       model,
+      usage,
     };
   };
 
@@ -1256,6 +1299,8 @@ async function parseSSE(
         continue;
       }
       model = json.model ?? model;
+      const u = usageFromOpenAI(json);
+      if (u) usage = u;
       const delta = json.choices?.[0]?.delta;
       if (!delta) continue;
       if (delta.content) {
@@ -1286,6 +1331,7 @@ function parseSSEText(text: string, onDelta?: (d: StreamDelta) => void): ApiOutc
   let out = '';
   let thinking = '';
   let model: string | undefined;
+  let usage: TokenUsage | undefined;
   const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
 
   for (const line of text.split('\n')) {
@@ -1300,6 +1346,8 @@ function parseSSEText(text: string, onDelta?: (d: StreamDelta) => void): ApiOutc
       continue;
     }
     model = json.model ?? model;
+    const u = usageFromOpenAI(json);
+    if (u) usage = u;
     const delta = json.choices?.[0]?.delta;
     if (!delta) continue;
     if (delta.content) {
@@ -1331,6 +1379,7 @@ function parseSSEText(text: string, onDelta?: (d: StreamDelta) => void): ApiOutc
     toolCalls: calls.length ? calls : undefined,
     raw: { stream: true },
     model,
+    usage,
   };
 }
 
@@ -1469,6 +1518,7 @@ function parseAnthropicJson(data: any): ApiOutcome {
     toolCalls: toolCalls.length ? toolCalls : undefined,
     raw: data,
     model: data?.model,
+    usage: usageFromAnthropic(data),
   };
 }
 
@@ -1477,6 +1527,7 @@ function parseAnthropicSSEText(text: string): ApiOutcome {
   let out = '';
   let thinking = '';
   let model: string | undefined;
+  let usage: TokenUsage | undefined;
   const toolCalls = new Map<number, { id: string; name: string; args: string }>();
 
   const handle = (payload: string) => {
@@ -1488,6 +1539,12 @@ function parseAnthropicSSEText(text: string): ApiOutcome {
     }
     if (json.type === 'message_start') {
       model = json.message?.model ?? model;
+      const iu = Number(json.message?.usage?.input_tokens) || 0;
+      const ou = Number(json.message?.usage?.output_tokens) || 0;
+      if (iu || ou) usage = { input: iu, output: ou, total: iu + ou };
+    } else if (json.type === 'message_delta') {
+      const ou = Number(json.usage?.output_tokens) || 0;
+      if (ou) usage = { input: usage?.input ?? 0, output: ou, total: (usage?.input ?? 0) + ou };
     } else if (json.type === 'content_block_start') {
       const cb = json.content_block;
       if (cb?.type === 'tool_use') {
@@ -1521,6 +1578,7 @@ function parseAnthropicSSEText(text: string): ApiOutcome {
     toolCalls: calls.length ? calls : undefined,
     raw: { stream: true },
     model,
+    usage,
   };
 }
 
@@ -1630,6 +1688,8 @@ export interface RunTurnOptions {
   onAppend?: (msgs: ChatMessage[]) => void;
   onUpdate?: (id: string, patch: Partial<ChatMessage>) => void;
   maxIterations?: number;
+  /** Расход токенов каждого запроса к модели (реальный из ответа или оценённый). */
+  onUsage?: (usage: TokenUsage) => void;
 }
 
 export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]> {
@@ -1676,6 +1736,16 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
       content: outcome.text || '',
       thinking: outcome.thinking || undefined,
     });
+
+    const usage: TokenUsage = outcome.usage ?? {
+      input: estimateInputTokens(systemPrompt, turns),
+      output: estimateTokens(outcome.text || ''),
+      total: 0,
+      estimated: true,
+    };
+    if (!usage.total) usage.total = usage.input + usage.output;
+    opts.onUsage?.(usage);
+    patch(assistantId, { usage });
 
     if (outcome.toolCalls?.length) {
       patch(assistantId, { toolCalls: outcome.toolCalls });

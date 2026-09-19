@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, MessageSquare, Trash2, Sparkles, Send, StopCircle, ChevronDown, ChevronRight,
   Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Boxes, Check, Copy, Download,
+  Gauge, Minimize2, CornerDownRight,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
@@ -10,7 +11,7 @@ import { useOpenCoreStore, activeProviders, isProviderEnabled, isModelEnabled, f
 import { useInstanceStore } from '@/stores/instanceStore';
 import { useCurrentUser } from '@/stores/authStore';
 import { toIconSrc } from '@/lib/icon-src';
-import { resolveEndpoint, runAgentTurn, buildSystemPrompt, compressHistory } from '@/lib/opencore/agent';
+import { resolveEndpoint, runAgentTurn, buildSystemPrompt, compressHistory, callProvider } from '@/lib/opencore/agent';
 import { Markdown } from '@/components/openportal/Markdown';
 import { ModelManager } from '@/components/openportal/ModelManager';
 import { PermissionModal } from '@/components/openportal/PermissionModal';
@@ -22,6 +23,8 @@ const HELP_TEXT = [
   '- `/models` — выбрать модели и ключи',
   '- `/new` — новый чат',
   '- `/clear` — очистить чат',
+  '- `/compress` — сжать историю (краткая выжимка вместо старых сообщений)',
+  '- `/context` — показать расход контекста и токенов',
   '- `/plan` — режим Plan (только план)',
   '- `/build` — режим Build (выполняет задачи)',
   '- `/skill-creator <описание>` — агент создаст новый навык',
@@ -39,6 +42,8 @@ const COMMANDS: { cmd: string; desc: string; instant: boolean }[] = [
   { cmd: '/models', desc: 'Выбрать модели и ключи', instant: true },
   { cmd: '/new', desc: 'Новый чат', instant: true },
   { cmd: '/clear', desc: 'Очистить сообщения', instant: true },
+  { cmd: '/compress', desc: 'Сжать историю в краткую выжимку', instant: true },
+  { cmd: '/context', desc: 'Расход контекста и токенов', instant: true },
   { cmd: '/plan', desc: 'Режим Plan — только план', instant: true },
   { cmd: '/build', desc: 'Режим Build — выполнять задачи', instant: true },
   { cmd: '/skill-creator', desc: 'Создать новый навык', instant: false },
@@ -120,6 +125,53 @@ function ToolMsg({ name, content, error }: { name: string; content: string; erro
   );
 }
 
+/** Человекочитаемое число токенов. */
+function fmtNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}k`;
+  return String(n);
+}
+
+/** Индикатор расхода контекстного окна: процент, детали и кнопка сжатия истории. */
+function ContextMeter({ onCompact }: { onCompact: () => void }) {
+  const usage = useOpenCoreStore(s => s.usage);
+  const [open, setOpen] = useState(false);
+  const limit = usage.limit || 128_000;
+  const pct = Math.min(100, Math.round((usage.context / limit) * 100));
+  const total = usage.input + usage.output;
+  const color = pct >= 85 ? 'var(--color-error)' : pct >= 60 ? 'var(--color-warning)' : 'var(--color-primary)';
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(o => !o)} title="Расход контекста"
+        className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-bold"
+        style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
+        <Gauge size={11} style={{ color }} />
+        <span style={{ color }}>{usage.estimated ? '~' : ''}{pct}%</span>
+      </button>
+      {open && (
+        <div className="absolute bottom-full right-0 z-40 mb-2 w-64 rounded-xl border p-3 text-[11px] shadow-xl"
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 16px 40px rgba(0,0,0,.35)' }}>
+          <p className="mb-1.5 text-xs font-black" style={{ color: 'var(--color-text)' }}>Контекст</p>
+          <div className="mb-2 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--color-surface-2)' }}>
+            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+          </div>
+          <p style={{ color: 'var(--color-text-secondary)' }}>
+            Последний запрос: <b style={{ color: 'var(--color-text)' }}>{fmtNum(usage.context)}</b> / {fmtNum(limit)} токенов ({pct}%){usage.estimated ? ' — оценка' : ''}
+          </p>
+          <p className="mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+            За сессию: {fmtNum(usage.input)} вход · {fmtNum(usage.output)} выход · <b style={{ color: 'var(--color-text)' }}>{fmtNum(total)}</b> всего
+          </p>
+          <button onClick={() => { setOpen(false); onCompact(); }}
+            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 font-bold"
+            style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+            <Minimize2 size={11} /> Сжать историю
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ModeToggle({ mode, onChange }: { mode: 'build' | 'plan'; onChange: (m: 'build' | 'plan') => void }) {
   return (
     <div className="flex shrink-0 items-center gap-0.5 rounded-lg p-0.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
@@ -141,7 +193,7 @@ function ModeToggle({ mode, onChange }: { mode: 'build' | 'plan'; onChange: (m: 
   );
 }
 
-function ChatBubble({ m }: { m: ChatMessage }) {
+function ChatBubble({ m, onContinue }: { m: ChatMessage; onContinue?: () => void }) {
   const cfg = useOpenCoreStore(s => s.config);
   const [copied, setCopied] = useState(false);
   const providers = activeProviders(cfg).filter(p => isProviderEnabled(p, cfg));
@@ -155,6 +207,13 @@ function ChatBubble({ m }: { m: ChatMessage }) {
   const actions = (
     <div className="absolute -top-2.5 right-2 z-10 flex items-center gap-0.5 rounded-full px-1 py-0.5 opacity-0 transition-opacity group-hover:opacity-100"
       style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', boxShadow: '0 4px 16px rgba(0,0,0,.25)' }}>
+      {onContinue && (
+        <button onClick={onContinue} title="Продолжить ответ с места обрыва"
+          className="flex h-5 w-5 items-center justify-center rounded-full transition-colors hover:bg-[var(--color-surface)]"
+          style={{ color: 'var(--color-text-secondary)' }}>
+          <CornerDownRight size={11} />
+        </button>
+      )}
       <button onClick={() => void copy()} title="Скопировать текст"
         className="flex h-5 w-5 items-center justify-center rounded-full transition-colors hover:bg-[var(--color-surface)]"
         style={{ color: copied ? 'var(--color-success)' : 'var(--color-text-secondary)' }}>
@@ -441,6 +500,53 @@ export function OpenPortalPage() {
     });
   }, []);
 
+  /** Сжимает старую часть истории в краткую выжимку (моделью), оставляя последние сообщения как есть. */
+  const compressChat = useCallback(async () => {
+    const st = useOpenCoreStore.getState();
+    const all = st.messages;
+    if (all.length < 8) {
+      st.appendMessages([{ id: `sys-${Date.now()}`, role: 'assistant', content: 'История и так короткая — сжимать нечего.', timestamp: Date.now() }]);
+      return;
+    }
+    const cfgNow = st.config;
+    const activePt = activeProviders(cfgNow).find(p => p.id === cfgNow.activeProviderId && isProviderEnabled(p, cfgNow) && p.models.length > 0) ?? firstConnectedProvider(cfgNow);
+    if (!activePt || activePt.models.length === 0) {
+      st.appendMessages([{ id: `sys-${Date.now()}`, role: 'assistant', content: 'Нет подключённого провайдера для сжатия.', timestamp: Date.now() }]);
+      return;
+    }
+    const modelId = cfgNow.activeModelId || activePt.models[0].id;
+    const keep = all.slice(-6);
+    const older = all.slice(0, all.length - keep.length);
+    const transcript = older
+      .map(m => `${m.role === 'user' ? 'ПОЛЬЗОВАТЕЛЬ' : m.role === 'assistant' ? 'АГЕНТ' : 'ИНСТРУМЕНТ'}: ${m.content}`)
+      .join('\n\n')
+      .slice(0, 60_000);
+    const ep = resolveEndpoint(activePt.id, modelId, cfgNow.providers);
+    ep.serviceTokens = cfgNow.serviceTokens ?? {};
+    const notice: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: 'Сжимаю историю…', timestamp: Date.now() };
+    st.appendMessages([notice]);
+    useOpenCoreStore.getState().setRunning(true);
+    try {
+      const outcome = await callProvider(
+        ep,
+        'Ты сжимаешь длинную переписку агента и пользователя в краткую, но содержательную выжимку. Сохрани цель, принятые решения, изменённые файлы и пути, важные факты и открытые задачи. Ответь ТОЛЬКО текстом выжимки, инструменты не вызывай.',
+        [{ role: 'user', content: transcript }],
+      );
+      const summary = (outcome.text || '').trim() || '(модель не вернула текст выжимки)';
+      const summaryMsg: ChatMessage = {
+        id: `summary-${Date.now()}`, role: 'assistant',
+        content: `**Сжатая история** (${older.length} сообщений свёрнуто)\n\n${summary}`,
+        timestamp: Date.now(),
+      };
+      useOpenCoreStore.setState({ messages: [summaryMsg, ...keep] });
+    } catch (e) {
+      useOpenCoreStore.getState().updateMessage(notice.id, { content: `Не удалось сжать историю: ${e instanceof Error ? e.message : String(e)}`, error: true });
+    } finally {
+      useOpenCoreStore.getState().setRunning(false);
+      void persistSession();
+    }
+  }, []);
+
   async function persistSession() {
     if (!currentSessionId) return;
     const msgs = useOpenCoreStore.getState().messages;
@@ -471,10 +577,11 @@ export function OpenPortalPage() {
     }
   }
 
-  const send = useCallback(async () => {
-    let text = input.trim();
+  const send = useCallback(async (overrideText?: string) => {
+    const isOverride = typeof overrideText === 'string';
+    let text = (overrideText ?? input).trim();
     if (!text || running) return;
-    setInput('');
+    if (!isOverride) setInput('');
 
     // Команды "/"
     let taskDirective: string | undefined;
@@ -482,6 +589,20 @@ export function OpenPortalPage() {
       const cmd = text.split(/\s+/)[0].toLowerCase();
       const arg = text.slice(cmd.length).trim();
       if (runCommandLine(text)) return;
+      if (cmd === '/compress') { await compressChat(); return; }
+      if (cmd === '/context') {
+        const u = useOpenCoreStore.getState().usage;
+        const lim = u.limit || 128_000;
+        const pct = Math.min(100, Math.round((u.context / lim) * 100));
+        const m: ChatMessage = {
+          id: `sys-${Date.now()}`, role: 'assistant', timestamp: Date.now(),
+          content: `**Контекст**: ${u.context} / ${lim} токенов (${pct}%)${u.estimated ? ' — оценка' : ''}\n` +
+            `**За сессию**: ${u.input} вход · ${u.output} выход · ${u.input + u.output} всего` +
+            (pct >= 70 ? '\n\nИстория приближается к лимиту — нажми «Сжать историю» в индикаторе контекста или отправь `/compress`.' : ''),
+        };
+        useOpenCoreStore.getState().appendMessages([m]);
+        return;
+      }
       if (cmd === '/skill-creator' || cmd === '/skill-installer') {
         if (!arg) {
           const msg: ChatMessage = {
@@ -582,6 +703,9 @@ export function OpenPortalPage() {
     abortRef.current = abort;
     useOpenCoreStore.getState().setRunning(true);
 
+    const ctxLimit = ep.model.contextLength ?? (ep.model.family === 'anthropic' ? 200_000 : 128_000);
+    useOpenCoreStore.getState().setContextLimit(ctxLimit);
+
     try {
       const currentMsgs = useOpenCoreStore.getState().messages;
       const history = compressHistory(currentMsgs, 36);
@@ -594,6 +718,7 @@ export function OpenPortalPage() {
         signal: abort.signal,
         onAppend: msgs => useOpenCoreStore.getState().appendMessages(msgs),
         onUpdate: (id, patch) => useOpenCoreStore.getState().updateMessage(id, patch),
+        onUsage: u => useOpenCoreStore.getState().addUsage(u),
       });
     } catch (e: unknown) {
       const err = e instanceof Error ? e.message : String(e);
@@ -607,7 +732,7 @@ export function OpenPortalPage() {
       useOpenCoreStore.getState().setRunning(false);
       void persistSession();
     }
-  }, [input, running, store, cfg, layout, attachments, requestPermission, user?.username]);
+  }, [input, running, store, cfg, layout, attachments, requestPermission, user?.username, compressChat]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); }
@@ -616,6 +741,7 @@ export function OpenPortalPage() {
   const cmdOpen = !running && input.startsWith('/');
   const cmdQuery = input.slice(1).toLowerCase();
   const cmdList = cmdOpen ? COMMANDS.filter(c => c.cmd.slice(1).toLowerCase().includes(cmdQuery)) : [];
+  const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant' && m.content)?.id;
 
   const onFilePicked = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -706,7 +832,12 @@ export function OpenPortalPage() {
             </div>
           ) : (
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-              {messages.map(m => <ChatBubble key={m.id} m={m} />)}
+              {messages.map(m => (
+                <ChatBubble key={m.id} m={m}
+                  onContinue={m.id === lastAssistantId && !running
+                    ? () => void send('Продолжи ровно с того места, где ты остановился. Не повторяй уже написанное и не начинай заново — просто продолжи.')
+                    : undefined} />
+              ))}
               {running && (
                 <div className="flex items-center gap-2 px-1 py-1 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
                   <div className="h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
@@ -724,7 +855,7 @@ export function OpenPortalPage() {
               style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 24px 60px rgba(0,0,0,.4)' }}>
               {cmdList.map(c => (
                 <button key={c.cmd} onClick={() => {
-                  if (c.instant) { setInput(''); runCommandLine(c.cmd); }
+                  if (c.instant) { setInput(''); if (!runCommandLine(c.cmd)) void send(c.cmd); }
                   else setInput(`${c.cmd} `);
                 }}
                   className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--color-surface-2)]">
@@ -746,6 +877,7 @@ export function OpenPortalPage() {
             <ModeToggle mode={cfg.mode} onChange={m => useOpenCoreStore.getState().setMode(m)} />
             <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>·</span>
             <CurrentModelPicker />
+            <ContextMeter onCompact={() => void compressChat()} />
             <span className="flex-1" />
           </div>
           <div className="mx-auto flex max-w-3xl items-end gap-1.5">

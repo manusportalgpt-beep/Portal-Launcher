@@ -34,6 +34,8 @@ const HELP_TEXT = [
   'HTTP-запросы к API, файлы (чтение/запись), команды (cmd/PowerShell), параллельные субагенты, генерация картинок.',
   '',
   'Файлы прикрепляются кнопкой «+» у поля ввода и сохраняются кнопкой «Скачать» в «Загрузки».',
+  '',
+  '**Фоновые задачи:** можно запустить агента в одном чате и переключиться в другой — задачи выполняются параллельно, слева у активных чатов крутится индикатор.',
 ].join('\n');
 
 /** Палитра команд «/» в стиле opencode. instant — выполняется сразу, иначе вставляется в поле для продолжения. */
@@ -453,15 +455,16 @@ export function OpenPortalPage() {
   const store = useOpenCoreStore();
   const sessions = useOpenCoreStore(s => s.sessions);
   const messages = useOpenCoreStore(s => s.messages);
-  const running = useOpenCoreStore(s => s.running);
   const currentSessionId = useOpenCoreStore(s => s.currentSessionId);
+  const runningSessions = useOpenCoreStore(s => s.runningSessions);
+  const running = !!(currentSessionId && runningSessions[currentSessionId]);
   const cfg = useOpenCoreStore(s => s.config);
   const layout = useOpenCoreStore(s => s.layout);
   const user = useCurrentUser();
 
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const abortRef = useRef<AbortController | null>(null);
+  const abortRefs = useRef<Record<string, AbortController>>({});
   const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -508,6 +511,8 @@ export function OpenPortalPage() {
       st.appendMessages([{ id: `sys-${Date.now()}`, role: 'assistant', content: 'История и так короткая — сжимать нечего.', timestamp: Date.now() }]);
       return;
     }
+    const sid = st.currentSessionId;
+    if (!sid) return;
     const cfgNow = st.config;
     const activePt = activeProviders(cfgNow).find(p => p.id === cfgNow.activeProviderId && isProviderEnabled(p, cfgNow) && p.models.length > 0) ?? firstConnectedProvider(cfgNow);
     if (!activePt || activePt.models.length === 0) {
@@ -525,7 +530,7 @@ export function OpenPortalPage() {
     ep.serviceTokens = cfgNow.serviceTokens ?? {};
     const notice: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: 'Сжимаю историю…', timestamp: Date.now() };
     st.appendMessages([notice]);
-    useOpenCoreStore.getState().setRunning(true);
+    st.setSessionRunning(sid, true);
     try {
       const outcome = await callProvider(
         ep,
@@ -542,19 +547,20 @@ export function OpenPortalPage() {
     } catch (e) {
       useOpenCoreStore.getState().updateMessage(notice.id, { content: `Не удалось сжать историю: ${e instanceof Error ? e.message : String(e)}`, error: true });
     } finally {
-      useOpenCoreStore.getState().setRunning(false);
-      void persistSession();
+      useOpenCoreStore.getState().setSessionRunning(sid, false);
+      void persistSession(sid);
     }
   }, []);
 
-  async function persistSession() {
-    if (!currentSessionId) return;
-    const msgs = useOpenCoreStore.getState().messages;
+  async function persistSession(targetId?: string) {
+    const sid = targetId ?? useOpenCoreStore.getState().currentSessionId;
+    if (!sid) return;
+    const msgs = useOpenCoreStore.getState().readSessionMessages(sid);
     const cfgNow = useOpenCoreStore.getState().config;
     const firstUser = msgs.find(m => m.role === 'user');
     const title = firstUser ? firstUser.content.replace(/\s+/g, ' ').slice(0, 60) : 'Новая сессия';
     const data: SessionData = {
-      id: currentSessionId,
+      id: sid,
       title,
       createdAt: Date.now(),
       updated: Date.now(),
@@ -565,10 +571,10 @@ export function OpenPortalPage() {
       messages: msgs,
     };
     try {
-      await invoke('op_save_session', { sessionId: currentSessionId, payload: JSON.stringify(data) });
+      await invoke('op_save_session', { sessionId: sid, payload: JSON.stringify(data) });
       // Обновить заголовок в списке
       useOpenCoreStore.setState({
-        sessions: useOpenCoreStore.getState().sessions.map(s => s.id === currentSessionId
+        sessions: useOpenCoreStore.getState().sessions.map(s => s.id === sid
           ? { ...s, title, updated: data.updated, message_count: msgs.length }
           : s),
       });
@@ -648,7 +654,6 @@ export function OpenPortalPage() {
         };
         useOpenCoreStore.getState().appendMessages([sysMsg]);
         useOpenCoreStore.getState().setModelsMenuOpen(true);
-        useOpenCoreStore.getState().setRunning(false);
         return;
       }
     }
@@ -659,11 +664,13 @@ export function OpenPortalPage() {
       await store.newSession();
       sessionId = useOpenCoreStore.getState().currentSessionId;
     }
+    const runSessionId = sessionId;
+    if (!runSessionId) return;
 
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`, role: 'user', content: text, attachments: attachments.length ? attachments : undefined, timestamp: Date.now(),
     };
-    useOpenCoreStore.getState().appendMessages([userMsg]);
+    useOpenCoreStore.getState().appendSessionMessages(runSessionId, [userMsg]);
     setAttachments([]);
 
     const mode: 'build' | 'plan' = taskDirective ? 'build' : cfg.mode;
@@ -700,14 +707,14 @@ export function OpenPortalPage() {
     });
 
     const abort = new AbortController();
-    abortRef.current = abort;
-    useOpenCoreStore.getState().setRunning(true);
+    abortRefs.current[runSessionId] = abort;
+    useOpenCoreStore.getState().setSessionRunning(runSessionId, true);
 
     const ctxLimit = ep.model.contextLength ?? (ep.model.family === 'anthropic' ? 200_000 : 128_000);
-    useOpenCoreStore.getState().setContextLimit(ctxLimit);
+    if (runSessionId === useOpenCoreStore.getState().currentSessionId) useOpenCoreStore.getState().setContextLimit(ctxLimit);
 
     try {
-      const currentMsgs = useOpenCoreStore.getState().messages;
+      const currentMsgs = useOpenCoreStore.getState().readSessionMessages(runSessionId);
       const history = compressHistory(currentMsgs, 36);
       await runAgentTurn({
         ep,
@@ -716,9 +723,9 @@ export function OpenPortalPage() {
         mode,
         requestPermission,
         signal: abort.signal,
-        onAppend: msgs => useOpenCoreStore.getState().appendMessages(msgs),
-        onUpdate: (id, patch) => useOpenCoreStore.getState().updateMessage(id, patch),
-        onUsage: u => useOpenCoreStore.getState().addUsage(u),
+        onAppend: msgs => useOpenCoreStore.getState().appendSessionMessages(runSessionId, msgs),
+        onUpdate: (id, patch) => useOpenCoreStore.getState().updateSessionMessage(runSessionId, id, patch),
+        onUsage: u => { if (runSessionId === useOpenCoreStore.getState().currentSessionId) useOpenCoreStore.getState().addUsage(u); },
       });
     } catch (e: unknown) {
       const err = e instanceof Error ? e.message : String(e);
@@ -727,10 +734,11 @@ export function OpenPortalPage() {
         content: err.startsWith('Отменено') ? 'Задача остановлена вами.' : `Ошибка: ${err}`,
         error: true, timestamp: Date.now(),
       };
-      useOpenCoreStore.getState().appendMessages([msg]);
+      useOpenCoreStore.getState().appendSessionMessages(runSessionId, [msg]);
     } finally {
-      useOpenCoreStore.getState().setRunning(false);
-      void persistSession();
+      useOpenCoreStore.getState().setSessionRunning(runSessionId, false);
+      delete abortRefs.current[runSessionId];
+      void persistSession(runSessionId);
     }
   }, [input, running, store, cfg, layout, attachments, requestPermission, user?.username, compressChat]);
 
@@ -776,7 +784,9 @@ export function OpenPortalPage() {
               style={s.id === currentSessionId
                 ? { background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }
                 : { border: '1px solid transparent' }}>
-              <MessageSquare size={13} className="shrink-0" style={{ color: s.id === currentSessionId ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }} />
+              {runningSessions[s.id]
+                ? <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-[1.5px] border-[var(--color-primary)] border-t-transparent" />
+                : <MessageSquare size={13} className="shrink-0" style={{ color: s.id === currentSessionId ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }} />}
               <span className="min-w-0 flex-1 truncate text-xs font-semibold" style={{ color: 'var(--color-text)' }}>{s.title}</span>
               <span className="hidden shrink-0 group-hover:inline-block" onClick={e => { e.stopPropagation(); void store.deleteSession(s.id); }}>
                 <Trash2 size={12} className="text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]" />
@@ -897,7 +907,7 @@ export function OpenPortalPage() {
               style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
             />
             {running ? (
-              <button onClick={() => abortRef.current?.abort()} title="Остановить"
+              <button onClick={() => { if (currentSessionId) abortRefs.current[currentSessionId]?.abort(); }} title="Остановить"
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
                 style={{ background: 'rgba(239,68,68,0.12)', color: 'var(--color-error)' }}>
                 <StopCircle size={16} />

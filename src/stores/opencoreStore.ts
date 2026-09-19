@@ -52,7 +52,6 @@ interface OpenCoreState {
   sessions: SessionMeta[];
   currentSessionId: string | null;
   messages: ChatMessage[];
-  running: boolean;
   pendingPermission: PermissionRequest | null;
   modelsMenuOpen: boolean;
   loading: boolean;
@@ -77,12 +76,23 @@ interface OpenCoreState {
   resolvePermission: (decision: 'allow' | 'deny' | 'always' | 'never' | 'once') => void;
   setPermissionsMap: (map: PermissionsMap) => void;
 
+  /** Сессии, в которых прямо сейчас работает агент (фоновые задачи не мешают открывать другие чаты). */
+  runningSessions: Record<string, boolean>;
+  /** Сообщения фоновых (не открытых сейчас) сессий. */
+  backgroundMessages: Record<string, ChatMessage[]>;
+
   newSession: () => Promise<void>;
   openSession: (id: string) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
   appendMessages: (msgs: ChatMessage[]) => void;
   updateMessage: (id: string, patch: Partial<ChatMessage>) => void;
-  setRunning: (running: boolean) => void;
+  /** Мгновенные сообщения для конкретной сессии (текущей или фоновой). */
+  appendSessionMessages: (sessionId: string, msgs: ChatMessage[]) => void;
+  /** Правка сообщения в конкретной сессии (текущей или фоновой). */
+  updateSessionMessage: (sessionId: string, id: string, patch: Partial<ChatMessage>) => void;
+  /** Сообщения сессии без её открытия. */
+  readSessionMessages: (sessionId: string) => ChatMessage[];
+  setSessionRunning: (sessionId: string, running: boolean) => void;
   setModelsMenuOpen: (open: boolean) => void;
   addUsage: (u: TokenUsage) => void;
   setContextLimit: (limit: number) => void;
@@ -112,7 +122,8 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
       sessions: [],
       currentSessionId: null,
       messages: [],
-      running: false,
+      runningSessions: {},
+      backgroundMessages: {},
       pendingPermission: null,
       modelsMenuOpen: false,
       loading: true,
@@ -276,6 +287,9 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
           return;
         }
         const cfg = get().config;
+        const prev = get().currentSessionId;
+        // Сохраняем сообщения текущей сессии как фоновые (там может идти активная задача).
+        const background = prev ? { ...get().backgroundMessages, [prev]: get().messages } : get().backgroundMessages;
         const id = crypto.randomUUID();
         const now = Date.now();
         const session: SessionData = {
@@ -291,17 +305,22 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
         };
         await invoke('op_save_session', { sessionId: id, payload: JSON.stringify(session) });
         const meta: SessionMeta = { id, title: session.title, updated: now, message_count: 0 };
-        set({ sessions: [meta, ...get().sessions], currentSessionId: id, messages: [] });
+        set({ backgroundMessages: background, sessions: [meta, ...get().sessions], currentSessionId: id, messages: [] });
         get().resetUsage();
       },
 
       async openSession(id) {
+        if (id === get().currentSessionId) return;
+        const prev = get().currentSessionId;
+        // Перед переключением сохраняем текущие сообщения как фоновые, чтобы активная задача не потерялась.
+        const background = prev ? { ...get().backgroundMessages, [prev]: get().messages } : get().backgroundMessages;
         try {
           const raw = await invoke<string>('op_load_session', { sessionId: id });
           const data = JSON.parse(raw) as SessionData;
           set({
+            backgroundMessages: background,
             currentSessionId: id,
-            messages: data.messages ?? [],
+            messages: background[id] ?? data.messages ?? [],
             config: {
               ...get().config,
               activeProviderId: data.providerId || get().config.activeProviderId,
@@ -313,6 +332,7 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
           get().resetUsage();
         } catch (e) {
           console.error('[OpenPortal] open session failed', e);
+          set({ backgroundMessages: background });
         }
       },
 
@@ -341,8 +361,33 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
         set({ messages: get().messages.map(m => (m.id === id ? { ...m, ...patch } : m)) });
       },
 
-      setRunning(running) {
-        set({ running });
+      appendSessionMessages(sessionId, msgs) {
+        if (sessionId === get().currentSessionId) {
+          set({ messages: [...get().messages, ...msgs] });
+          return;
+        }
+        const list = get().backgroundMessages[sessionId] ?? [];
+        set({ backgroundMessages: { ...get().backgroundMessages, [sessionId]: [...list, ...msgs] } });
+      },
+
+      updateSessionMessage(sessionId, id, patch) {
+        if (sessionId === get().currentSessionId) {
+          set({ messages: get().messages.map(m => (m.id === id ? { ...m, ...patch } : m)) });
+          return;
+        }
+        const list = (get().backgroundMessages[sessionId] ?? []).map(m => (m.id === id ? { ...m, ...patch } : m));
+        set({ backgroundMessages: { ...get().backgroundMessages, [sessionId]: list } });
+      },
+
+      readSessionMessages(sessionId) {
+        return sessionId === get().currentSessionId ? get().messages : (get().backgroundMessages[sessionId] ?? []);
+      },
+
+      setSessionRunning(sessionId, running) {
+        const next = { ...get().runningSessions };
+        if (running) next[sessionId] = true;
+        else delete next[sessionId];
+        set({ runningSessions: next });
       },
 
       setModelsMenuOpen(open) {

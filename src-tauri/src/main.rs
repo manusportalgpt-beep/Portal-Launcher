@@ -317,6 +317,8 @@ fn main() {
             commands::opencode::op_image_read,
             commands::opencode::op_save_to_downloads,
             commands::opencode::op_copy_to_downloads,
+            commands::opencode::op_cache_info,
+            commands::opencode::op_clear_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -708,6 +708,7 @@ pub async fn op_run_command(
     let timeout = timeout_ms.unwrap_or(DEFAULT_CMD_TIMEOUT_MS).min(600_000);
 
     let finished = tokio::task::spawn_blocking(move || {
+        let cache_env = apply_cache_env(&command_for_block);
         let parts = split_command_line(&command_for_block);
         let direct = parts.first().is_some_and(|p| {
             let p = p.to_lowercase();
@@ -718,6 +719,7 @@ pub async fn op_run_command(
             let exe = program.remove(0);
             let mut c = crate::utils::create_hidden_command(&exe);
             c.current_dir(&cwd_path_for_block);
+            c.envs(&cache_env);
             c.args(program);
             c.stdout(std::process::Stdio::piped());
             c.stderr(std::process::Stdio::piped());
@@ -725,6 +727,7 @@ pub async fn op_run_command(
         } else if cfg!(target_os = "windows") && use_powershell {
             let mut c = crate::utils::create_hidden_command("powershell");
             c.current_dir(&cwd_path_for_block);
+            c.envs(&cache_env);
             c.args(["-NoProfile", "-NonInteractive", "-Command", &command_for_block]);
             c.stdout(std::process::Stdio::piped());
             c.stderr(std::process::Stdio::piped());
@@ -732,6 +735,7 @@ pub async fn op_run_command(
         } else if cfg!(target_os = "windows") {
             let mut c = crate::utils::create_hidden_command("cmd");
             c.current_dir(&cwd_path_for_block);
+            c.envs(&cache_env);
             c.args(["/C", &command_for_block]);
             c.stdout(std::process::Stdio::piped());
             c.stderr(std::process::Stdio::piped());
@@ -739,6 +743,7 @@ pub async fn op_run_command(
         } else {
             let mut c = crate::utils::create_hidden_command("sh");
             c.current_dir(&cwd_path_for_block);
+            c.envs(&cache_env);
             c.args(["-c", &command_for_block]);
             c.stdout(std::process::Stdio::piped());
             c.stderr(std::process::Stdio::piped());
@@ -791,6 +796,111 @@ fn split_command_line(line: &str) -> Vec<String> {
         out.push(cur);
     }
     out
+}
+
+fn deps_cache_dir() -> PathBuf {
+    cache_dir().join("deps")
+}
+
+/// Подменяет кеш-каталоги пакетных менеджеров на `OpenPortal/Cache/deps/<name>`,
+/// чтобы зависимости песочницы не засоряли системный диск и чистились одной командой.
+fn apply_cache_env(command: &str) -> Vec<(String, String)> {
+    let lower = command.to_lowercase();
+    let deps = deps_cache_dir();
+    let mut env: Vec<(String, String)> = Vec::new();
+    if lower.contains("npm") {
+        let d = deps.join("npm");
+        std::fs::create_dir_all(&d).ok();
+        env.push(("npm_config_cache".into(), d.to_string_lossy().into_owned()));
+    }
+    if lower.contains("pnpm") {
+        let d = deps.join("pnpm");
+        std::fs::create_dir_all(&d).ok();
+        env.push(("PNPM_STORE_DIR".into(), d.to_string_lossy().into_owned()));
+        env.push(("npm_config_store_dir".into(), d.to_string_lossy().into_owned()));
+    }
+    if lower.contains("yarn") {
+        let d = deps.join("yarn");
+        std::fs::create_dir_all(&d).ok();
+        env.push(("YARN_CACHE_FOLDER".into(), d.to_string_lossy().into_owned()));
+    }
+    env
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CacheInfo {
+    pub root: String,
+    pub deps: Vec<CacheDirInfo>,
+    pub total_size: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CacheDirInfo {
+    pub name: String,
+    pub path: String,
+    pub size: u64,
+}
+
+/// Суммарный размер файлов в папке (рекурсивно), с бюджетом проходов.
+fn dir_size_rec(path: &Path, budget: &mut u64) -> u64 {
+    let mut total = 0u64;
+    if let Ok(rd) = std::fs::read_dir(path) {
+        for e in rd.flatten() {
+            if *budget == 0 {
+                break;
+            }
+            *budget -= 1;
+            let p = e.path();
+            if e.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                total += dir_size_rec(&p, budget);
+            } else if let Ok(m) = e.metadata() {
+                total += m.len();
+            }
+        }
+    }
+    total
+}
+
+/// Справка по кешу зависимостей песочницы (`Cache/deps/npm|pnpm|yarn|corepack`).
+#[tauri::command]
+pub fn op_cache_info() -> Result<CacheInfo, String> {
+    ensure_all();
+    let root = deps_cache_dir();
+    std::fs::create_dir_all(&root).ok();
+    let mut budget = 20_000u64;
+    let mut deps = Vec::new();
+    for name in ["npm", "pnpm", "yarn", "corepack"] {
+        let d = root.join(name);
+        let size = if d.exists() { dir_size_rec(&d, &mut budget) } else { 0 };
+        deps.push(CacheDirInfo { name: name.to_string(), path: d.to_string_lossy().to_string(), size });
+    }
+    let total_size = deps.iter().map(|d| d.size).sum();
+    Ok(CacheInfo { root: root.to_string_lossy().to_string(), deps, total_size })
+}
+
+/// Очищает кеш зависимостей песочницы. `what`: npm|pnpm|yarn|corepack|all (по умолчанию всё).
+/// Не затрагивает `Cache/images`, web-кеш и проекты.
+#[tauri::command]
+pub fn op_clear_cache(what: Option<String>) -> Result<CacheInfo, String> {
+    let root = deps_cache_dir();
+    let targets: Vec<String> = match what.as_deref() {
+        Some(w) => {
+            let w = w.to_lowercase();
+            if w == "all" {
+                vec!["npm", "pnpm", "yarn", "corepack"].into_iter().map(String::from).collect()
+            } else {
+                vec![w.to_string()]
+            }
+        }
+        None => vec!["npm", "pnpm", "yarn", "corepack"].into_iter().map(String::from).collect(),
+    };
+    for name in &targets {
+        let d = root.join(name);
+        if d.exists() {
+            std::fs::remove_dir_all(&d).ok();
+        }
+    }
+    op_cache_info()
 }
 
 /// Вручную заблокированные деструктивные/системные паттерны команд.

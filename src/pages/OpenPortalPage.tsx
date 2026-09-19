@@ -29,6 +29,7 @@ const HELP_TEXT = [
   '- `/build` — режим Build (выполняет задачи)',
   '- `/skill-creator <описание>` — агент создаст новый навык',
   '- `/skill-installer <имя/ссылка>` — агент найдёт и установит навык',
+  '- `/cache` — размер кеша зависимостей песочницы, `/cache clean` — очистить его',
   '',
   '**Инструменты агента** (агент использует их сам, по ходу задачи): веб-поиск и чтение страниц, ' +
   'HTTP-запросы к API, файлы (чтение/запись), команды (cmd/PowerShell), параллельные субагенты, генерация картинок.',
@@ -50,6 +51,7 @@ const COMMANDS: { cmd: string; desc: string; instant: boolean }[] = [
   { cmd: '/build', desc: 'Режим Build — выполнять задачи', instant: true },
   { cmd: '/skill-creator', desc: 'Создать новый навык', instant: false },
   { cmd: '/skill-installer', desc: 'Найти и установить навык', instant: false },
+  { cmd: '/cache', desc: 'Кеш зависимостей песочницы (/cache clean — очистить)', instant: true },
 ];
 
 /** Расширение файла из имени (в верхнем регистре, для бейджа). */
@@ -472,6 +474,22 @@ export function OpenPortalPage() {
   const init = useOpenCoreStore(s => s.init);
   useEffect(() => { void init(); }, [init]);
 
+  /** Открывает / очищает кеш зависимостей песочницы (Cache/deps), кнопкой показывая результат в чате. */
+  const runCacheCommand = useCallback(async (clean: boolean) => {
+    const append = (content: string) =>
+      useOpenCoreStore.getState().appendMessages([{ id: `sys-${Date.now()}`, role: 'assistant', content, timestamp: Date.now() }]);
+    try {
+      const info = clean
+        ? await invoke<{ root: string; deps: { name: string; path: string; size: number }[]; total_size: number }>('op_clear_cache')
+        : await invoke<{ root: string; deps: { name: string; path: string; size: number }[]; total_size: number }>('op_cache_info');
+      const lines = info.deps.map(d => `- \`${d.name}\` — ${fmtSize(d.size)}`).join('\n');
+      const head = clean ? '**Кеш зависимостей очищен.**' : '**Кеш зависимостей песочницы:**';
+      append(`${head}\n\n${lines}\n\n**Суммарно:** ${fmtSize(info.total_size)}\n\nПапка: \`${info.root}\`\nИзображения (Cache/images) и проекты не затрагиваются.`);
+    } catch (e) {
+      append(`Не удалось прочитать кеш: ${String(e)}`);
+    }
+  }, []);
+
   /** Выполняет мгновенную команду «/», возвращает true, если команда обработана. */
   const runCommandLine = useCallback((raw: string): boolean => {
     const cmd = raw.split(/\s+/)[0].toLowerCase();
@@ -483,6 +501,7 @@ export function OpenPortalPage() {
       return true;
     }
     if (cmd === '/models') { useOpenCoreStore.getState().setModelsMenuOpen(true); return true; }
+    if (cmd === '/cache') { void runCacheCommand(/^\/cache\s+clean\b/i.test(raw)); return true; }
     if (cmd === '/help') {
       const msg: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: HELP_TEXT, timestamp: Date.now() };
       useOpenCoreStore.getState().appendMessages([msg]);

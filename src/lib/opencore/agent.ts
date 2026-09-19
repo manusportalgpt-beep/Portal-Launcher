@@ -209,13 +209,15 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'generate_image',
     description:
-      'Генерирует изображение через активного провайдера (если он поддерживает images API). ' +
+      'Генерирует изображение по текстовому описанию. По умолчанию (auto): сначала пробует активного провайдера, ' +
+      'затем Magnific (если сохранён ключ), иначе бесплатный Pollinations. ' +
       'Результат — файл с изображением; вставь его в ответ как `![подпись](/op-image/<name>)`.',
     parameters: {
       type: 'object',
       properties: {
-        prompt: { type: 'string', description: 'Описание того, что должно быть на картинке (по-русски или по-английски)' },
+        prompt: { type: 'string', description: 'Подробное описание изображения (лучше по-английски: стиль, детали, свет, композиция)' },
         size: { type: 'string', enum: ['512x512', '1024x1024', '2048x2048'], description: 'Размер изображения (по умолчанию 1024x1024)' },
+        provider: { type: 'string', enum: ['auto', 'provider', 'magnific', 'pollinations'], description: 'Источник: auto (по умолчанию), provider (активный провайдер), magnific (по ключу), pollinations (бесплатно)' },
       },
       required: ['prompt'],
     },
@@ -543,16 +545,97 @@ async function execRunCommand(args: { root: PortalRoot; cwd: string; command: st
   }
 }
 
-/** Генерация изображения через images API активного провайдера (OpenAI-совместимо). */
-async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; size?: string }): Promise<ExecResult> {
+/** Разбирает "1024x1024" в [width, height] с безопасными границами. */
+function parseSize(size?: string): [number, number] {
+  const m = /^(\d{2,5})\s*[xх]\s*(\d{2,5})$/i.exec(String(size ?? '').trim());
+  if (!m) return [1024, 1024];
+  const w = Math.min(2048, Math.max(256, Number(m[1])));
+  const h = Math.min(2048, Math.max(256, Number(m[2])));
+  return [w, h];
+}
+
+/** Скачивает изображение по URL через веб-вью. */
+async function fetchImageBlob(url: string, headers?: Record<string, string>): Promise<Blob> {
+  const res = await fetch(url, headers ? { headers } : undefined);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.blob();
+}
+
+/** Сохраняет скачанный blob как изображение портала. */
+async function saveImageBlob(blob: Blob, source: string): Promise<ExecResult> {
+  try {
+    const b64 = await blobToBase64(blob);
+    const name = await invoke<string>('op_save_image', { b64 });
+    return { ok: true, output: `Изображение (${source}): /op-image/${name}` };
+  } catch (e) {
+    return { ok: false, output: `Не удалось сохранить картинку: ${String(e)}` };
+  }
+}
+
+/** Бесплатная генерация через Pollinations (без ключа и регистрации). */
+async function generateViaPollinations(prompt: string, size?: string): Promise<ExecResult> {
+  const [w, h] = parseSize(size);
+  const seed = Math.floor(Math.random() * 1_000_000_000);
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${w}&height=${h}&nologo=true&seed=${seed}`;
+  try {
+    const blob = await fetchImageBlob(url);
+    return await saveImageBlob(blob, 'Pollinations');
+  } catch (e) {
+    return { ok: false, output: `Pollinations недоступен: ${String(e)}. Проверь интернет и повтори.` };
+  }
+}
+
+/** Генерация через Magnific по ключу сервиса api.magnific.ai (OpenAI-совместимый ответ). */
+async function generateViaMagnific(prompt: string, size: string | undefined, token: string): Promise<ExecResult> {
+  const [w, h] = parseSize(size);
+  const url = 'https://api.magnific.ai/v1/images/generations';
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  const body = JSON.stringify({ prompt, n: 1, size: `${w}x${h}`, response_format: 'b64_json' });
+  let data: any;
+  try {
+    if (canFetchFromWebview(url)) {
+      const res = await fetch(url, { method: 'POST', headers, body });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${(await res.text().catch(() => '')).slice(0, 300)}`);
+      data = await res.json();
+    } else {
+      const fr = await httpViaRust('POST', url, headers, body, 180000);
+      if (!fr.ok) throw new Error(`HTTP ${fr.status}: ${(fr.error ?? fr.text ?? '').slice(0, 300)}`);
+      data = JSON.parse(fr.text);
+    }
+  } catch (e) {
+    return { ok: false, output: `Magnific недоступен: ${String(e)}` };
+  }
+  const b64: string | undefined = data?.data?.[0]?.b64_json ?? data?.data?.[0]?.b64;
+  if (b64) {
+    try {
+      const name = await invoke<string>('op_save_image', { b64 });
+      return { ok: true, output: `Изображение (Magnific): /op-image/${name}` };
+    } catch (e) {
+      return { ok: false, output: `Не удалось сохранить картинку: ${String(e)}` };
+    }
+  }
+  const rev = data?.data?.[0]?.url;
+  if (rev && /^https?:/i.test(rev)) {
+    try {
+      const blob = await fetchImageBlob(rev);
+      return await saveImageBlob(blob, 'Magnific');
+    } catch (e) {
+      return { ok: false, output: `Не удалось скачать изображение Magnific: ${String(e)}` };
+    }
+  }
+  return { ok: false, output: 'Magnific не вернул изображение.' };
+}
+
+/** Генерация через images API активного провайдера (OpenAI-совместимо). */
+async function generateViaProvider(ep: ResolvedEndpoint, prompt: string, size?: string): Promise<ExecResult> {
   if (!ep.baseUrl) return { ok: false, output: 'Не настроен baseUrl провайдера для генерации.' };
   if (!ep.apiKey && !isZenHost(ep.baseUrl)) return { ok: false, output: `Нет API-ключа для ${ep.provider.name}. Добавь ключ в меню моделей.` };
   const url = `${ep.baseUrl.replace(/\/+$/, '')}/images/generations`;
   const body = {
     model: ep.model.id,
-    prompt: args.prompt,
+    prompt,
     n: 1,
-    size: args.size ?? '1024x1024',
+    size: size ?? '1024x1024',
     response_format: 'b64_json',
   };
   let data: any;
@@ -592,12 +675,8 @@ async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; s
     const rev = data?.data?.[0]?.url;
     if (rev && /^https?:/i.test(rev)) {
       try {
-        const blobRes = await fetch(rev);
-        if (!blobRes.ok) return { ok: false, output: `Скачивание изображения: HTTP ${blobRes.status}` };
-        const blob = await blobRes.blob();
-        const b64 = await blobToBase64(blob);
-        const name = await invoke<string>('op_save_image', { b64 });
-        return { ok: true, output: `Изображение: /op-image/${name}` };
+        const blob = await fetchImageBlob(rev);
+        return await saveImageBlob(blob, ep.provider.name);
       } catch (e) {
         return { ok: false, output: `Не удалось скачать изображение: ${String(e)}` };
       }
@@ -610,6 +689,43 @@ async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; s
   } catch (e) {
     return { ok: false, output: `Не удалось сохранить картинку: ${String(e)}` };
   }
+}
+
+/**
+ * Генерация изображения: провайдер (если умеет) → Magnific (если есть ключ) → бесплатный Pollinations.
+ * `provider` позволяет форсировать источник: auto | provider | magnific | pollinations.
+ */
+async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; size?: string; provider?: string }): Promise<ExecResult> {
+  const prompt = String(args?.prompt ?? '').trim();
+  if (!prompt) return { ok: false, output: 'Укажи prompt — описание изображения.' };
+  const size = typeof args?.size === 'string' ? args.size : undefined;
+  const force = String(args?.provider ?? 'auto').toLowerCase();
+  const magnificToken = ep.serviceTokens?.['api.magnific.ai'] ?? bearerForUrl('https://api.magnific.ai', ep.serviceTokens);
+  const providerUsable = !!ep.baseUrl && (!!ep.apiKey || isZenHost(ep.baseUrl));
+
+  if (force === 'pollinations' || force === 'free') return generateViaPollinations(prompt, size);
+  if (force === 'magnific' || force === 'magnific.ai') {
+    if (!magnificToken) return { ok: false, output: 'Нет ключа Magnific. Сохрани токен для api.magnific.ai через set_service_token.' };
+    return generateViaMagnific(prompt, size, magnificToken);
+  }
+  if (force === 'provider') return generateViaProvider(ep, prompt, size);
+
+  // auto
+  if (providerUsable) {
+    const viaProvider = await generateViaProvider(ep, prompt, size);
+    if (viaProvider.ok) return viaProvider;
+    if (magnificToken) {
+      const viaMagnific = await generateViaMagnific(prompt, size, magnificToken);
+      if (viaMagnific.ok) return viaMagnific;
+    }
+    const viaPoll = await generateViaPollinations(prompt, size);
+    return viaPoll.ok ? viaPoll : { ok: false, output: `Провайдер: ${viaProvider.output}\nPollinations: ${viaPoll.output}` };
+  }
+  if (magnificToken) {
+    const viaMagnific = await generateViaMagnific(prompt, size, magnificToken);
+    if (viaMagnific.ok) return viaMagnific;
+  }
+  return generateViaPollinations(prompt, size);
 }
 
 // ---------------------------------------------------------------------------
@@ -1641,7 +1757,8 @@ export function buildSystemPrompt(opts: {
     `- write_text(root, path, content) — создать/перезаписать файл (спросит разрешение у пользователя).`,
     `- run_command(root, cwd, command, timeout_ms) — команда (спросит разрешение). Оболочка по умолчанию cmd, можно передать shell: 'powershell'.`,
     `- terminal(root, cwd, command) — команда в PowerShell-терминале (спросит разрешение).`,
-    `- generate_image(prompt, size?) — сгенерировать изображение (спросит разрешение).`,
+    `- generate_image(prompt, size?, provider?) — сгенерировать изображение (спросит разрешение).`,
+    `  Как готовить prompt: сам напиши развёрнутое описание по-английски (сюжет, стиль, свет, композиция, детали) — не передавай сырой короткий запрос пользователя. provider: auto (по умолчанию), pollinations (бесплатно, без ключа), magnific (по сохранённому ключу api.magnific.ai), provider (активный провайдер).`,
     '',
     `Сетевые инструменты (web_search, fetch_page, http_request) работают БЕЗ подтверждения пользователя — используй их смело и сразу, когда нужны актуальные данные, документация, страницы модов или API. Не спрашивай разрешения перед интернет-запросом, просто вызывай инструмент.`,
     '',

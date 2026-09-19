@@ -468,6 +468,15 @@ export function OpenPortalPage() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const abortRefs = useRef<Record<string, AbortController>>({});
   const endRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+
+  /** Авто-рост поля ввода: до 160px, дальше — прокрутка. */
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [input]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
@@ -828,7 +837,7 @@ export function OpenPortalPage() {
 
       {/* Main */}
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-3 border-b px-5 py-3" style={{ borderColor: 'var(--color-border)' }}>
+        <header className="ore-plain flex items-center gap-3 border-b px-5 py-3" style={{ borderColor: 'var(--color-border)' }}>
           <div className="flex items-center gap-2">
             <Bot size={15} style={{ color: 'var(--color-primary)' }} />
             <span className="text-xs font-black" style={{ color: 'var(--color-text)' }}>OpenPortal</span>
@@ -879,7 +888,7 @@ export function OpenPortalPage() {
           <div ref={endRef} />
         </div>
 
-        <div className="relative border-t p-4" style={{ borderColor: 'var(--color-border)' }}>
+        <div className="ore-plain relative border-t p-4" style={{ borderColor: 'var(--color-border)' }}>
           {cmdOpen && cmdList.length > 0 && (
             <div className="absolute bottom-full left-0 right-0 z-30 mx-auto mb-2 w-full max-w-3xl overflow-hidden rounded-2xl border p-1.5 shadow-xl"
               style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 24px 60px rgba(0,0,0,.4)' }}>
@@ -918,12 +927,13 @@ export function OpenPortalPage() {
               <Plus size={15} />
             </label>
             <textarea
+              ref={composerRef}
               value={input}
               onChange={e => { setInput(e.target.value); }}
               onKeyDown={onKeyDown}
               rows={1}
               placeholder={running ? 'Агент занят…' : 'Что сделать?  (/ — команды)'}
-              className="max-h-40 min-h-10 flex-1 resize-none rounded-2xl px-4 py-2.5 text-[13px] leading-6 outline-none"
+              className="max-h-40 min-h-10 flex-1 resize-none overflow-y-auto rounded-2xl px-4 py-2.5 text-[13px] leading-6 outline-none"
               style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
             />
             {running ? (

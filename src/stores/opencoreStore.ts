@@ -21,6 +21,9 @@ import type {
 
 const CONFIG_VERSION = 1;
 
+/** Один запуск init() за сессию (флаг, чтобы не грузить конфиг/сессии повторно). */
+let initWork: Promise<void> | null = null;
+
 /** Читает/пишет конфиг на диск (Rust). Фолбэк на localStorage. */
 async function readDiskConfig(): Promise<OpenPortalConfig> {
   try {
@@ -133,31 +136,34 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
       usage: { input: 0, output: 0, context: 0, limit: 0, estimated: false },
 
       async init() {
-        try {
-          const layout = await invoke<PortalLayout>('op_layout');
-          set({ layout });
-        } catch {
-          /* не критично */
-        }
-        const cfg = await readDiskConfig();
-        let permissions: PermissionsMap = {};
-        try {
-          const raw = await invoke<string>('op_load_permissions');
-          if (raw && raw !== '{}') permissions = JSON.parse(raw);
-        } catch { /* пусто */ }
-        let sessions: SessionMeta[] = [];
-        try {
-          sessions = await invoke<SessionMeta[]>('op_list_sessions');
-        } catch { /* пусто */ }
-        let skills: SkillMeta[] = [];
-        try {
-          skills = await invoke<SkillMeta[]>('op_list_skills');
-        } catch { /* пусто */ }
-        set({ config: cfg, permissions, sessions, skills, loading: false });
-        // Автоматически открыть самую свежую сессию.
-        if (sessions.length > 0) {
-          await get().openSession(sessions[0].id);
-        }
+        initWork ??= (async () => {
+          try {
+            const layout = await invoke<PortalLayout>('op_layout');
+            set({ layout });
+          } catch {
+            /* не критично */
+          }
+          const cfg = await readDiskConfig();
+          let permissions: PermissionsMap = {};
+          try {
+            const raw = await invoke<string>('op_load_permissions');
+            if (raw && raw !== '{}') permissions = JSON.parse(raw);
+          } catch { /* пусто */ }
+          let sessions: SessionMeta[] = [];
+          try {
+            sessions = await invoke<SessionMeta[]>('op_list_sessions');
+          } catch { /* пусто */ }
+          let skills: SkillMeta[] = [];
+          try {
+            skills = await invoke<SkillMeta[]>('op_list_skills');
+          } catch { /* пусто */ }
+          set({ config: cfg, permissions, sessions, skills, loading: false });
+          // Автоматически открыть самую свежую сессию.
+          if (sessions.length > 0) {
+            await get().openSession(sessions[0].id);
+          }
+        })().catch(() => { initWork = null; });
+        await initWork;
       },
 
       updateConfig(patch) {

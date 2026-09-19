@@ -355,6 +355,90 @@ pub fn op_image_read(file: String) -> Result<String, String> {
 }
 
 // ---------------------------------------------------------------------------
+// Скачивание файлов в системную папку «Загрузки»
+// ---------------------------------------------------------------------------
+
+/// Копирует файл (base64) в «Загрузки» текущего пользователя (Windows: %USERPROFILE%\Downloads).
+#[tauri::command]
+pub fn op_save_to_downloads(file_name: String, b64: String) -> Result<String, String> {
+    if b64.is_empty() || b64.len() > 100 * 1024 * 1024 {
+        return Err("Файл пустой или слишком большой (лимит 100 МБ).".into());
+    }
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64.trim())
+        .map_err(|e| format!("Некорректный base64: {e}"))?;
+    if bytes.is_empty() {
+        return Err("Файл пустой.".into());
+    }
+    let name = sanitize_download_name(&file_name);
+    let dir = downloads_dir().ok_or_else(|| "Не удалось найти папку «Загрузки».".to_string())?;
+    std::fs::create_dir_all(&dir).ok();
+    let dest = unique_dest_path(&dir, &name);
+    std::fs::write(&dest, &bytes).map_err(|e| format!("Сохранение файла: {e}"))?;
+    Ok(dest.to_string_lossy().to_string())
+}
+
+fn downloads_dir() -> Option<PathBuf> {
+    for env_name in ["USERPROFILE", "HOME"] {
+        if let Some(p) = std::env::var_os(env_name) {
+            let d = PathBuf::from(p).join("Downloads");
+            if d.is_dir() || d.parent().is_some() {
+                return Some(d);
+            }
+        }
+    }
+    None
+}
+
+/// Оставляет из имени только безопасное имя файла (без путей и служебных символов).
+fn sanitize_download_name(name: &str) -> String {
+    let base: String = name
+        .rsplit(|c| c == '/' || c == '\\')
+        .next()
+        .unwrap_or("file.bin")
+        .trim()
+        .chars()
+        .filter(|c| !matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' | '\0'))
+        .collect();
+    let base = base.trim().trim_matches('.').to_string();
+    if base.is_empty() {
+        return "file.bin".to_string();
+    }
+    if base.chars().count() > 120 {
+        let ext = Path::new(&base)
+            .extension()
+            .map(|e| e.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let trimmed: String = base.chars().take(110).collect();
+        return if ext.is_empty() { trimmed } else { format!("{trimmed}.{ext}") };
+    }
+    base
+}
+
+/// Если файл с таким именем уже существует — добавить « (1)», « (2)» и т.д.
+fn unique_dest_path(dir: &Path, name: &str) -> PathBuf {
+    let p = dir.join(name);
+    if !p.exists() {
+        return p;
+    }
+    let stem = Path::new(name)
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "file".to_string());
+    let ext = Path::new(name)
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy().to_string()))
+        .unwrap_or_default();
+    for i in 1..100 {
+        let cand = dir.join(format!("{stem} ({i}){ext}"));
+        if !cand.exists() {
+            return cand;
+        }
+    }
+    p
+}
+
+// ---------------------------------------------------------------------------
 // Сессии
 // ---------------------------------------------------------------------------
 

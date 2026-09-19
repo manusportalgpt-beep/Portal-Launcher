@@ -155,8 +155,8 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'write_text',
     description:
-      'Создаёт/перезаписывает текстовый файл в песочнице (выполнение запросит разрешение). ' +
-      'Писать лаунчер можно только в settings.json. Никогда не переписывай исходники лаунчера.',
+      'Создаёт/перезаписывает текстовый файл в песочнице. Запись в зоны portal (Projects и др.) и temp — БЕЗ запроса разрешения; ' +
+      'launcher — только settings.json или файлы внутри папки активной сборки (запросит разрешение). Никогда не переписывай исходники лаунчера.',
     parameters: {
       type: 'object',
       properties: {
@@ -1030,6 +1030,10 @@ export async function executeTool(
     if (tool === 'terminal') {
       args = { ...args, shell: args.shell ?? 'powershell' };
     }
+    // Запись внутри рабочей зоны портала (Projects/Skills/Config) и Temp — без запроса разрешения.
+    if (tool === 'write_text' && (root === 'portal' || root === 'temp')) {
+      return execWriteText(args);
+    }
     const label = tool === 'write_text' ? 'Запись файла' : tool === 'terminal' ? 'Команда в PowerShell' : 'Выполнение команды';
     const detail = tool === 'write_text'
       ? `Путь: ${args.path}`
@@ -1754,7 +1758,7 @@ export function buildSystemPrompt(opts: {
     `- spawn_agents(task, agents[]) — параллельные субагенты для больших задач: исследование, сравнение, сбор информации по нескольким темам разом.`,
     `- list_dir(root, path) — список каталога. root: portal | temp | launcher.`,
     `- read_text(root, path) — прочесть текстовый файл (до 512 КБ).`,
-    `- write_text(root, path, content) — создать/перезаписать файл (спросит разрешение у пользователя).`,
+    `- write_text(root, path, content) — записать файл. В зонах portal и temp — мгновенно, без модалки; в launcher запросит разрешение.`,
     `- run_command(root, cwd, command, timeout_ms) — команда (спросит разрешение). Оболочка по умолчанию cmd, можно передать shell: 'powershell'.`,
     `- terminal(root, cwd, command) — команда в PowerShell-терминале (спросит разрешение).`,
     `- generate_image(prompt, size?, provider?) — сгенерировать изображение (спросит разрешение).`,
@@ -1781,7 +1785,7 @@ export function buildSystemPrompt(opts: {
     `- Опасные команды (форматирование, удаление системных файлов, изменение реестра, выключение ПК) запрещены и будут отклонены защитой.`,
     `- Если пользователь просит что-то, что выглядит как команда из списка (например /fetch <url>), выполни её через инструменты (web_search).`,
     '',
-    `Каждое write_text / run_command / generate_image показывает пользователю модалку разрешения — дождись результата инструмента, его не будет, если пользователь отказал.`,
+    `write_text в зонах portal/temp выполняется сразу (без модалки). run_command / terminal / generate_image показывают пользователю модалку разрешения — дождись результата инструмента, его не будет, если пользователь отказал.`,
     `Создание навыков: если пользователь просит создать/установить навык — создай папку ` + '`<portal base>/Skills/<slug>/`' +
       ` и файл SKILL.md с frontmatter (name, description) и инструкциями.`,
     skills,

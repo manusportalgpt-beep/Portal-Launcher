@@ -719,7 +719,7 @@ pub async fn op_run_command(
             let exe = program.remove(0);
             let mut c = crate::utils::create_hidden_command(&exe);
             c.current_dir(&cwd_path_for_block);
-            c.envs(&cache_env);
+            c.envs(cache_env.iter().map(|(k, v)| (k, v)));
             c.args(program);
             c.stdout(std::process::Stdio::piped());
             c.stderr(std::process::Stdio::piped());
@@ -727,7 +727,7 @@ pub async fn op_run_command(
         } else if cfg!(target_os = "windows") && use_powershell {
             let mut c = crate::utils::create_hidden_command("powershell");
             c.current_dir(&cwd_path_for_block);
-            c.envs(&cache_env);
+            c.envs(cache_env.iter().map(|(k, v)| (k, v)));
             c.args(["-NoProfile", "-NonInteractive", "-Command", &command_for_block]);
             c.stdout(std::process::Stdio::piped());
             c.stderr(std::process::Stdio::piped());
@@ -735,7 +735,7 @@ pub async fn op_run_command(
         } else if cfg!(target_os = "windows") {
             let mut c = crate::utils::create_hidden_command("cmd");
             c.current_dir(&cwd_path_for_block);
-            c.envs(&cache_env);
+            c.envs(cache_env.iter().map(|(k, v)| (k, v)));
             c.args(["/C", &command_for_block]);
             c.stdout(std::process::Stdio::piped());
             c.stderr(std::process::Stdio::piped());
@@ -743,7 +743,7 @@ pub async fn op_run_command(
         } else {
             let mut c = crate::utils::create_hidden_command("sh");
             c.current_dir(&cwd_path_for_block);
-            c.envs(&cache_env);
+            c.envs(cache_env.iter().map(|(k, v)| (k, v)));
             c.args(["-c", &command_for_block]);
             c.stdout(std::process::Stdio::piped());
             c.stderr(std::process::Stdio::piped());

@@ -80,52 +80,44 @@ function PortalImage({ name }: { name: string }) {
 /** Минимальный markdown-рендерер без зависимостей. */
 function renderInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
-  const regex = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
+  const regex = /(`[^`]+`|\*\*[^*]+\*\*|__[^_]+__|\*[^*]+\*|_[^_]+_|~~[^~]+~~|!?\[[^\]]*\]\([^)]+\))/g;
   let last = 0;
-  let m: RegExpExecArray | null;
-
-  // Сначала — изображения: `![подпись](/op-image/<name>)`
-  const imgRe = /!\[[^\]]*\]\((\/op-image\/[^)]+)\)/g;
-  imgRe.lastIndex = 0;
-  let im: RegExpExecArray | null;
   let key = 0;
-  const parts: ReactNode[] = [];
-  let anchor = 0;
-  const find = () => imgRe.exec(text);
-  while ((im = find()) !== null) {
-    const name = im[1].replace(/^\/op-image\//, '').split('?')[0];
-    if (!/^[\w-]+\.png$/.test(name)) continue;
-    if (im.index > anchor) parts.push(<span key={`t${key++}`}>{text.slice(anchor, im.index)}</span>);
-    parts.push(<PortalImage key={`i${key++}`} name={name} />);
-    anchor = im.index + im[0].length;
-  }
-  if (anchor > 0) {
-    if (anchor < text.length) parts.push(<span key={`t${key++}`}>{text.slice(anchor)}</span>);
-    return parts;
-  }
-
+  let m: RegExpExecArray | null;
   while ((m = regex.exec(text)) !== null) {
     if (m.index > last) nodes.push(text.slice(last, m.index));
     const tok = m[0];
-    if (tok.startsWith('**')) {
-      nodes.push(<strong key={key++} className="font-bold">{tok.slice(2, -2)}</strong>);
-    } else if (tok.startsWith('`')) {
+    if (tok.startsWith('`')) {
       nodes.push(
         <code key={key++} className="rounded-[4px] px-1 py-0.5 text-[0.92em] font-mono"
-          style={{ background: 'rgba(127,127,127,0.18)', color: 'var(--color-text)' }}>
+          style={{ background: 'rgba(122,162,247,0.14)', color: '#7aa2f7' }}>
           {tok.slice(1, -1)}
         </code>,
       );
+    } else if (tok.startsWith('**') || tok.startsWith('__')) {
+      nodes.push(<strong key={key++} className="font-bold">{renderInline(tok.slice(2, -2))}</strong>);
+    } else if (tok.startsWith('*') || tok.startsWith('_')) {
+      nodes.push(<em key={key++}>{renderInline(tok.slice(1, -1))}</em>);
+    } else if (tok.startsWith('~~')) {
+      nodes.push(<s key={key++} className="opacity-70">{renderInline(tok.slice(2, -2))}</s>);
     } else {
-      const inner = /\[([^\]]+)\]\(([^)]+)\)/.exec(tok);
+      const inner = /^(!?)\[([^\]]*)\]\(([^)]+)\)$/.exec(tok);
       if (inner) {
-        nodes.push(
-          <a key={key++} href={inner[2]} target="_blank" rel="noreferrer"
-            className="underline underline-offset-2 hover:opacity-80"
-            style={{ color: 'var(--color-primary)' }}>
-            {inner[1]}
-          </a>,
-        );
+        const isImage = inner[1] === '!';
+        const href = inner[3];
+        if (isImage && href.startsWith('/op-image/')) {
+          const name = href.replace(/^\/op-image\//, '').split('?')[0];
+          if (/^[\w-]+\.png$/.test(name)) nodes.push(<PortalImage key={key++} name={name} />);
+          else nodes.push(tok);
+        } else {
+          nodes.push(
+            <a key={key++} href={href} target="_blank" rel="noreferrer"
+              className="underline underline-offset-2 hover:opacity-80"
+              style={{ color: 'var(--color-primary)' }}>
+              {inner[2] || href}
+            </a>,
+          );
+        }
       } else {
         nodes.push(tok);
       }
@@ -136,22 +128,151 @@ function renderInline(text: string): ReactNode[] {
   return nodes;
 }
 
-export const Markdown = memo(function Markdown({ text }: { text: string }) {
+// ---------------------------------------------------------------------------
+// Подсветка кода без внешних зависимостей
+// ---------------------------------------------------------------------------
+
+const KEYWORDS = new Set([
+  'const','let','var','function','return','if','else','for','while','do','in','of','from','import','export','default',
+  'interface','type','class','extends','new','async','await','null','undefined','true','false','switch','case','break',
+  'continue','throw','try','catch','finally','typeof','instanceof','pub','fn','mut','use','struct','enum','impl','trait',
+  'match','mod','unsafe','static','def','abstract','private','public','protected','readonly','yield','super','this','as',
+  'void','never','number','string','boolean','object','any','unknown','get','set','and','or','not','lambda',
+]);
+
+const TOKEN_RE =
+  /\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\b\d+(?:\.\d+)?\b|\b[A-Za-z_$][\w$]*\b/g;
+
+function tokenizeInline(line: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+  let m: RegExpExecArray | null;
+  TOKEN_RE.lastIndex = 0;
+  while ((m = TOKEN_RE.exec(line)) !== null) {
+    if (m.index > last) out.push(line.slice(last, m.index));
+    const tok = m[0];
+    let color: string | undefined;
+    let italic = false;
+    if (tok.startsWith('//') || tok.startsWith('/*')) { color = '#7982a9'; italic = true; }
+    else if (tok.startsWith('"') || tok.startsWith("'") || tok.startsWith('`')) color = '#9ece6a';
+    else if (/^\d/.test(tok)) color = '#ff9e64';
+    else if (KEYWORDS.has(tok)) color = '#82aaff';
+    if (color) out.push(<span key={key++} style={{ color, fontStyle: italic ? 'italic' : undefined }}>{tok}</span>);
+    else out.push(tok);
+    last = m.index + tok.length;
+  }
+  if (last < line.length) out.push(line.slice(last));
+  return out;
+}
+
+function CodeCopy({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1400);
+        } catch { /* clipboard может быть недоступен */ }
+      }}
+      className="shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors hover:opacity-80"
+      style={{ color: 'var(--color-text-secondary)', background: 'rgba(127,127,127,0.15)' }}>
+      {copied ? 'Скопировано' : 'Копировать'}
+    </button>
+  );
+}
+
+function CodeBlock({ code, lang }: { code: string; lang: string }) {
+  return (
+    <div className="my-2 overflow-hidden rounded-lg text-left"
+      style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(127,127,127,0.2)' }}>
+      <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5"
+        style={{ borderColor: 'rgba(127,127,127,0.2)' }}>
+        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
+          {lang || 'text'}
+        </span>
+        <CodeCopy text={code} />
+      </div>
+      <pre className="overflow-x-auto p-3 text-[12px] leading-5 font-mono" style={{ color: 'var(--color-text)' }}>
+        {code.split('\n').map((ln, i) => (
+          <span key={i} className="block">{tokenizeInline(ln)}</span>
+        ))}
+      </pre>
+    </div>
+  );
+}
+
+function CodeTabs({ blocks }: { blocks: { code: string; lang: string }[] }) {
+  const [active, setActive] = useState(0);
+  if (blocks.length === 1) return <CodeBlock code={blocks[0].code} lang={blocks[0].lang} />;
+  const shown = active < blocks.length ? blocks[active] : blocks[0];
+  return (
+    <div className="my-2 text-left">
+      <div className="flex flex-wrap gap-1">
+        {blocks.map((b, i) => (
+          <button
+            key={i}
+            onClick={() => setActive(i)}
+            className="rounded-t-md px-3 py-1 text-[11px] font-semibold transition-colors"
+            style={i === active
+              ? { color: 'var(--color-text)', background: 'rgba(127,127,127,0.2)', border: '1px solid rgba(127,127,127,0.2)', borderBottom: 'none' }
+              : { color: 'var(--color-text-secondary)', background: 'transparent', border: '1px solid transparent', borderBottom: 'none' }}>
+            {b.lang || `блок ${i + 1}`}
+          </button>
+        ))}
+      </div>
+      <CodeBlock code={shown.code} lang={shown.lang} />
+    </div>
+  );
+}
+
+export const Markdown = memo(function Markdown({ text, streaming }: { text: string; streaming?: boolean }) {
   const blocks = text.split(/\r?\n/);
   const out: ReactNode[] = [];
   let inCode = false;
   let codeLines: string[] = [];
+  let fenceLang = '';
+  let pendingCode: { code: string; lang: string }[] = [];
+  let prevClosedFence = false;
   let listBuf: React.ReactNode[] = [];
+  let listOrdered = false;
+  let quoteBuf: ReactNode[] = [];
   let key = 0;
 
   const flushList = () => {
     if (listBuf.length === 0) return;
+    const Tag = listOrdered ? 'ol' : 'ul';
     out.push(
-      <ul key={key++} className="my-1 list-disc space-y-0.5 pl-5">
+      <Tag key={key++} className={`op-fade-in my-1 space-y-0.5 pl-5 ${listOrdered ? 'list-decimal' : 'list-disc'}`}>
         {listBuf}
-      </ul>,
+      </Tag>,
     );
     listBuf = [];
+  };
+
+  const flushQuote = () => {
+    if (quoteBuf.length === 0) return;
+    out.push(
+      <blockquote key={key++} className="op-fade-in my-1 border-l-2 pl-3 text-[12.5px] italic"
+        style={{ borderColor: 'var(--color-primary)', color: 'var(--color-text-secondary)' }}>
+        {quoteBuf}
+      </blockquote>,
+    );
+    quoteBuf = [];
+  };
+
+  const flushCode = () => {
+    if (pendingCode.length === 0) return;
+    out.push(<div key={key++} className="op-fade-in"><CodeTabs blocks={pendingCode} /></div>);
+    pendingCode = [];
+  };
+
+  const flushAll = () => {
+    flushCode();
+    flushQuote();
+    flushList();
   };
 
   for (const raw of blocks) {
@@ -159,34 +280,48 @@ export const Markdown = memo(function Markdown({ text }: { text: string }) {
 
     if (line.startsWith('```')) {
       if (inCode) {
-        out.push(
-          <pre key={key++} className="my-2 rounded-lg p-3 text-[12px] leading-5 font-mono overflow-x-auto"
-            style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(127,127,127,0.2)' }}>
-            {codeLines.join('\n')}
-          </pre>,
-        );
+        pendingCode.push({ code: codeLines.join('\n'), lang: fenceLang });
         codeLines = [];
         inCode = false;
+        prevClosedFence = true;
       } else {
-        flushList();
+        if (!prevClosedFence) flushAll();
+        prevClosedFence = false;
+        fenceLang = line.replace(/^```/, '').trim().split(/\s+/)[0] ?? '';
         inCode = true;
       }
       continue;
     }
     if (inCode) { codeLines.push(line); continue; }
+    prevClosedFence = false;
 
-    if (/^\s*[-*]\s+/.test(line)) {
-      listBuf.push(<li key={key++}>{renderInline(line.replace(/^\s*[-*]\s+/, ''))}</li>);
+    if (/^\s*([-*+]|\d+[.)])\s+/.test(line)) {
+      flushCode();
+      flushQuote();
+      const ordered = /^\s*\d+[.)]\s+/.test(line);
+      if (listBuf.length > 0 && ordered !== listOrdered) flushList();
+      listOrdered = ordered;
+      listBuf.push(<li key={key++}>{renderInline(line.replace(/^\s*([-*+]|\d+[.)])\s+/, ''))}</li>);
       continue;
     }
     flushList();
 
-    if (/^#{1,4}\s/.test(line)) {
+    if (/^>\s?/.test(line)) {
+      flushCode();
+      quoteBuf.push(<p key={key++} className="my-0.5">{renderInline(line.replace(/^>\s?/, ''))}</p>);
+      continue;
+    }
+    flushQuote();
+    flushCode();
+
+    if (/^(---+|\*\*\*+|___+)$/.test(line.trim())) {
+      out.push(<hr key={key++} className="op-fade-in my-2 border-t" style={{ borderColor: 'rgba(127,127,127,0.25)' }} />);
+    } else if (/^#{1,4}\s/.test(line)) {
       const level = line.match(/^#+/)?.[0].length ?? 1;
       const txt = line.replace(/^#+\s+/, '');
       const Tag = level <= 2 ? 'h3' : 'h4';
       out.push(
-        <Tag key={key++} className={level <= 2 ? 'mt-2 text-sm font-bold' : 'mt-1.5 text-[13px] font-bold'}>
+        <Tag key={key++} className={`op-fade-in ${level <= 2 ? 'mt-2 text-sm font-bold' : 'mt-1.5 text-[13px] font-bold'}`}>
           {renderInline(txt)}
         </Tag>,
       );
@@ -194,18 +329,13 @@ export const Markdown = memo(function Markdown({ text }: { text: string }) {
       out.push(<div key={key++} className="h-1.5" />);
     } else {
       out.push(
-        <p key={key++} className="break-words whitespace-pre-wrap">{renderInline(line)}</p>,
+        <p key={key++} className="op-fade-in break-words whitespace-pre-wrap">{renderInline(line)}</p>,
       );
     }
   }
-  flushList();
-  if (inCode && codeLines.length) {
-    out.push(
-      <pre key={key++} className="my-2 rounded-lg p-3 text-[12px] leading-5 font-mono overflow-x-auto"
-        style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(127,127,127,0.2)' }}>
-        {codeLines.join('\n')}
-      </pre>,
-    );
-  }
+  flushAll();
+  if (inCode && codeLines.length) pendingCode.push({ code: codeLines.join('\n'), lang: fenceLang });
+  flushCode();
+  if (streaming) out.push(<span key={key++} className="op-caret" />);
   return <div className="text-[13px] leading-6">{out}</div>;
 });

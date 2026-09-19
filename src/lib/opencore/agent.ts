@@ -1951,7 +1951,7 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
         push({
           id: `repair-${Date.now()}-${iter}`,
           role: 'assistant',
-          content: '⚠ Автопочинка: удалено сообщение с невалидным JSON в вызове инструмента — модель не знает его содержимое. Весь остальной контекст сохранён. Продолжаю задачу.',
+          content: 'Автопочинка: удалено сообщение с невалидным JSON в вызове инструмента — модель не знает его содержимое. Весь остальной контекст сохранён. Продолжаю задачу.',
           timestamp: Date.now(),
         });
         continue;

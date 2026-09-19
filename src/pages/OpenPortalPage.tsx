@@ -195,7 +195,7 @@ function ModeToggle({ mode, onChange }: { mode: 'build' | 'plan'; onChange: (m: 
   );
 }
 
-function ChatBubble({ m, onContinue }: { m: ChatMessage; onContinue?: () => void }) {
+function ChatBubble({ m, onContinue, streaming }: { m: ChatMessage; onContinue?: () => void; streaming?: boolean }) {
   const cfg = useOpenCoreStore(s => s.config);
   const [copied, setCopied] = useState(false);
   const providers = activeProviders(cfg).filter(p => isProviderEnabled(p, cfg));
@@ -253,7 +253,7 @@ function ChatBubble({ m, onContinue }: { m: ChatMessage; onContinue?: () => void
         {m.thinking && <ThinkingBlock text={m.thinking} />}
         {m.content ? (
           <div className="rounded-2xl rounded-bl-md px-3.5 py-2.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', cursor: 'text', userSelect: 'text' }}>
-            <Markdown text={m.content} />
+            <Markdown text={m.content} streaming={streaming} />
           </div>
         ) : (
           m.toolCalls && m.toolCalls.length > 0 ? (
@@ -844,7 +844,7 @@ export function OpenPortalPage() {
           ) : (
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
               {messages.map(m => (
-                <ChatBubble key={m.id} m={m}
+                <ChatBubble key={m.id} m={m} streaming={running && m.id === lastAssistantId}
                   onContinue={m.id === lastAssistantId && !running
                     ? () => void send('Продолжи ровно с того места, где ты остановился. Не повторяй уже написанное и не начинай заново — просто продолжи.')
                     : undefined} />

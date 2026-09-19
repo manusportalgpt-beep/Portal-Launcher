@@ -50,8 +50,8 @@ export const OP_PROVIDERS: ProviderDef[] = [
     name: 'OpenCode Zen',
     kind: 'zen',
     baseUrl: 'https://opencode.ai/zen',
-    apiKeyHint: 'Бесплатный ключ со страницы https://opencode.ai/zen',
-    keyUrl: 'https://opencode.ai/zen',
+    apiKeyHint: 'Новый ключ (oc_sk_...) — со страницы https://opencode.ai/auth (оплата, потом free-модели бесплатно)',
+    keyUrl: 'https://opencode.ai/auth',
     docs: 'https://opencode.ai/docs/providers/#opencode-zen',
     supportsFree: true,
     models: [

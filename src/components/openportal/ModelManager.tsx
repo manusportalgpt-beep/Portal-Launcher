@@ -47,6 +47,8 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
   const setProviderBaseUrl = useOpenCoreStore(s => s.setProviderBaseUrl);
   const setProviderModels = useOpenCoreStore(s => s.setProviderModels);
   const hasApi = Boolean(cfg.providers[p.id]?.apiKey);
+  const storedKey = cfg.providers[p.id]?.apiKey ?? '';
+  const legacyZenKey = p.id === 'opencode-zen' && storedKey.startsWith('sk-');
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -121,12 +123,18 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
               <KeyInput label="API-ключ" value={cfg.providers[p.id]?.apiKey ?? ''} placeholder={p.apiKeyHint}
                 onChange={v => setProviderApiKey(p.id, v)} />
             )}
+            {legacyZenKey && (
+              <p className="text-[11px] leading-snug" style={{ color: '#f0b429' }}>
+                Ключ sk-... устарел (старый мир OpenCode): free-модели с ним не работают. Получи новый ключ
+                (oc_sk_...) на сайте opencode.ai/auth и впиши его ниже.
+              </p>
+            )}
             {p.keyUrl && (
               <button
                 onClick={() => void invoke('open_url', { url: p.keyUrl }).catch(() => window.open(p.keyUrl, '_blank'))}
                 className="flex items-center gap-1.5 text-[11px] font-semibold transition-opacity hover:opacity-70"
                 style={{ color: 'var(--color-primary)' }}>
-                <ExternalLink size={11} /> Получить ключ{p.id === 'opencode-zen' ? ' (бесплатно)' : ''}
+                <ExternalLink size={11} /> Получить ключ{p.id === 'opencode-zen' ? ' (новый oc_sk_)' : ''}
               </button>
             )}
             <label className="block">
@@ -219,7 +227,7 @@ function AvailableProviderCard({ p }: { p: ProviderDef }) {
                 onClick={() => void invoke('open_url', { url: p.keyUrl }).catch(() => window.open(p.keyUrl, '_blank'))}
                 className="flex items-center gap-1.5 text-[11px] font-semibold transition-opacity hover:opacity-70"
                 style={{ color: 'var(--color-primary)' }}>
-                <ExternalLink size={11} /> Получить ключ{p.id === 'opencode-zen' ? ' (бесплатно)' : ''}
+                <ExternalLink size={11} /> Получить ключ{p.id === 'opencode-zen' ? ' (новый oc_sk_)' : ''}
               </button>
             )}
             {!p.apiKeyHint && (

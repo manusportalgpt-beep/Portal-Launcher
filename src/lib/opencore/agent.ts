@@ -305,6 +305,18 @@ function isZenHost(url: string): boolean {
   }
 }
 
+// FreeTierError говорит, что ключ sk- устаревшего мира: free-модели отдаются
+// только клиентам opencode, а старые ключи без миграции в этот путь попросту
+// не пускают. Валидное решение — новый ключ (oc_sk_...) с https://opencode.ai/auth.
+function zenErrorHint(body: string): string {
+  if (!/FreeTier|within OpenCode|can only be used from/i.test(body || '')) return '';
+  return ' Старый ключ OpenCode Zen (sk-...) перестал работать: free-модели доступны только из клиентов opencode.';
+}
+
+function appendZenErrorHint(message: string, body: string): string {
+  return message + zenErrorHint(body);
+}
+
 // ---------------------------------------------------------------------------
 // Интернет: поиск (DuckDuckGo) и чтение страниц
 // ---------------------------------------------------------------------------
@@ -509,7 +521,7 @@ async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; s
     const fr = await httpViaRust('POST', url, headers, JSON.stringify(body), 180000);
     if (!fr.ok) {
       const snippet = fr.text.trim().slice(0, 240);
-      return { ok: false, output: `Генерация недоступна: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim() };
+      return { ok: false, output: appendZenErrorHint(`Генерация недоступна: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim(), fr.text) };
     }
     try {
       data = JSON.parse(fr.text);
@@ -1088,7 +1100,10 @@ async function callOpenAI(
     const fr = await httpViaRust('POST', url, { ...headers, Accept: 'application/json' }, JSON.stringify(fbBody), 180000);
     if (!fr.ok) {
       const snippet = fr.text.trim().slice(0, 240);
-      throw new Error(`${ep.provider.name} недоступен: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim());
+      throw new Error(appendZenErrorHint(
+        `${ep.provider.name} недоступен: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim(),
+        fr.text,
+      ));
     }
     try {
       return parseOpenAIJson(JSON.parse(fr.text));
@@ -1099,7 +1114,7 @@ async function callOpenAI(
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 500)}`);
+    throw new Error(appendZenErrorHint(`${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 500)}`, text));
   }
 
   const ct = res.headers.get('content-type') || '';
@@ -1284,7 +1299,10 @@ async function callAnthropic(
     const fr = await httpViaRust('POST', url, headers, JSON.stringify(body), 180000);
     if (!fr.ok) {
       const snippet = fr.text.trim().slice(0, 240);
-      throw new Error(`${ep.provider.name} недоступен: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim());
+      throw new Error(appendZenErrorHint(
+        `${ep.provider.name} недоступен: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim(),
+        fr.text,
+      ));
     }
     try {
       return parseAnthropicJson(JSON.parse(fr.text));
@@ -1295,7 +1313,7 @@ async function callAnthropic(
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 500)}`);
+    throw new Error(appendZenErrorHint(`${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 500)}`, text));
   }
   const data = await res.json();
 

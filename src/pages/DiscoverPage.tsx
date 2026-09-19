@@ -312,7 +312,7 @@ function FilterSidebar({
   );
 
   return (
-    <div className="ore-flat flex flex-col h-full overflow-y-auto p-4">
+    <div className="ore-plain flex flex-col h-full overflow-y-auto p-4">
       {/* ── Active / Selected filters ── */}
       {hasFilters && (
         <div className="mb-4">

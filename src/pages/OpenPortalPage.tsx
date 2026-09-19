@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
 import { useOpenCoreStore, activeProviders, isProviderEnabled, isModelEnabled, firstConnectedProvider } from '@/stores/opencoreStore';
 import { useInstanceStore } from '@/stores/instanceStore';
+import { useCurrentUser } from '@/stores/authStore';
 import { toIconSrc } from '@/lib/icon-src';
 import { resolveEndpoint, runAgentTurn, buildSystemPrompt, compressHistory } from '@/lib/opencore/agent';
 import { Markdown } from '@/components/openportal/Markdown';
@@ -99,7 +100,7 @@ function ThinkingBlock({ text }: { text: string }) {
 function ToolMsg({ name, content, error }: { name: string; content: string; error?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="mb-1.5 overflow-hidden rounded-lg border px-2.5 py-1.5" style={{ borderColor: 'var(--color-border)', background: 'rgba(127,127,127,0.08)' }}>
+    <div className="ore-plain mb-1.5 overflow-hidden rounded-lg border px-2.5 py-1.5" style={{ borderColor: 'var(--color-border)', background: 'rgba(127,127,127,0.08)' }}>
       <button onClick={() => setOpen(o => !o)} className="flex w-full items-center gap-2 text-left text-[11px] font-semibold"
         style={{ color: error ? 'var(--color-error)' : 'var(--color-text-secondary)' }}>
         <ChevronRight size={11} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
@@ -397,6 +398,7 @@ export function OpenPortalPage() {
   const currentSessionId = useOpenCoreStore(s => s.currentSessionId);
   const cfg = useOpenCoreStore(s => s.config);
   const layout = useOpenCoreStore(s => s.layout);
+  const user = useCurrentUser();
 
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -562,7 +564,7 @@ export function OpenPortalPage() {
       } catch { /* папка сборки не определилась — остаёмся на portal */ }
     }
     const extraBase = layout
-      ? `Рабочая область агента: ${workspaceLabel}${workspaceZone === 'launcher' ? ' (сборка)' : ''}\nПапка: ${workspaceDir}\nПрава: ${workspaceZone === 'launcher' ? 'чтение лаунчера везде; запись — только в папку сборки и в settings.json' : 'полный доступ внутри OpenPortal Projects'}\nВременная (Temp): ${layout.temp}\nКаталог лаунчера: ${layout.launcher}\nПортал (OpenPortal): ${layout.base}\nАктивная модель: ${modelId} (${ep.provider.name}).`
+      ? `Игрок (Minecraft-ник): ${user?.username || 'игрок'}\nРабочая область агента: ${workspaceLabel}${workspaceZone === 'launcher' ? ' (сборка)' : ''}\nПапка: ${workspaceDir}\nПрава: ${workspaceZone === 'launcher' ? 'чтение лаунчера везде; запись — только в папку сборки и в settings.json' : 'полный доступ внутри OpenPortal Projects'}\nВременная (Temp): ${layout.temp}\nКаталог лаунчера: ${layout.launcher}\nПортал (OpenPortal): ${layout.base}\nАктивная модель: ${modelId} (${ep.provider.name}).`
       : undefined;
     const extra = taskDirective && extraBase
       ? `${extraBase}\nПапка навыков агента: ${layout?.base}\\Skills`
@@ -605,7 +607,7 @@ export function OpenPortalPage() {
       useOpenCoreStore.getState().setRunning(false);
       void persistSession();
     }
-  }, [input, running, store, cfg, layout, attachments, requestPermission]);
+  }, [input, running, store, cfg, layout, attachments, requestPermission, user?.username]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); }
@@ -675,6 +677,16 @@ export function OpenPortalPage() {
             <Bot size={15} style={{ color: 'var(--color-primary)' }} />
             <span className="text-xs font-black" style={{ color: 'var(--color-text)' }}>OpenPortal</span>
           </div>
+          <span
+            className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold"
+            title={running ? 'Агент выполняет задачу' : 'Агент свободен'}
+            style={running
+              ? { background: 'color-mix(in srgb, var(--color-primary) 14%, transparent)', color: 'var(--color-primary)' }
+              : { background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>
+            {running
+              ? <><span className="h-2 w-2 animate-spin rounded-full border-[1.5px] border-current border-t-transparent" />работает</>
+              : <><span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--color-success)' }} />готов</>}
+          </span>
           <div className="flex-1" />
           <BuildPicker />
         </header>

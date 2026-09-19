@@ -594,7 +594,7 @@ function FilterSidebar({ platform, projectType, selectedCats, selectedLoaders, s
   const hasFilters = selectedCats.length>0||selectedLoaders.length>0||selectedVersions.length>0;
   const [expandedSection, setExpandedSection] = useState<string|null>('selected');
   return (
-    <div className="flex h-full flex-col gap-3 overflow-hidden p-3">
+    <div className="ore-plain flex h-full flex-col gap-3 overflow-hidden p-3">
       {/* ── Active / Selected filters ── */}
       {hasFilters && (
         <div className="shrink-0">

@@ -1824,6 +1824,31 @@ html[data-portal-style="quadral"] :is(.ore-flat button:not([class*="dbtn"]), .or
   transform: none !important;
 }
 
+/* ── 2D plain: полностью нейтрализует OreUI-оформление в поддереве ──
+   Применяется точечно (фильтры, карточки действий агента, файловый менеджер):
+   возвращает нормальные скругления и убирает бевел/тени/подъём кнопок. */
+html[data-portal-style="oreui"] .ore-plain :is(button, [role="button"], [role="tab"], input, select, textarea, a),
+html[data-portal-style="quadral"] .ore-plain :is(button, [role="button"], [role="tab"], input, select, textarea, a) {
+  border-radius: 0.5rem !important;
+  box-shadow: none !important;
+}
+html[data-portal-style="oreui"] .ore-plain :is(.rounded-lg),
+html[data-portal-style="quadral"] .ore-plain :is(.rounded-lg) { border-radius: 0.5rem !important; }
+html[data-portal-style="oreui"] .ore-plain :is(.rounded-xl),
+html[data-portal-style="quadral"] .ore-plain :is(.rounded-xl) { border-radius: 0.75rem !important; }
+html[data-portal-style="oreui"] .ore-plain :is(.rounded-2xl, .rounded-3xl),
+html[data-portal-style="quadral"] .ore-plain :is(.rounded-2xl, .rounded-3xl) { border-radius: 1rem !important; }
+html[data-portal-style="oreui"] .ore-plain :is(.rounded-full),
+html[data-portal-style="quadral"] .ore-plain :is(.rounded-full) { border-radius: 9999px !important; }
+html[data-portal-style="oreui"] .ore-plain :is(button, [role="button"], [role="tab"], a):not(:disabled):hover,
+html[data-portal-style="quadral"] .ore-plain :is(button, [role="button"], [role="tab"], a):not(:disabled):hover { filter: none !important; }
+html[data-portal-style="oreui"] .ore-plain :is(button, [role="button"], [role="tab"], a):not(:disabled):active,
+html[data-portal-style="quadral"] .ore-plain :is(button, [role="button"], [role="tab"], a):not(:disabled):active { transform: none !important; box-shadow: none !important; }
+html[data-portal-style="oreui"] .ore-plain [class*="shadow-"],
+html[data-portal-style="quadral"] .ore-plain [class*="shadow-"] { box-shadow: none !important; }
+html[data-portal-style="oreui"] .ore-plain [style*="box-shadow"],
+html[data-portal-style="quadral"] .ore-plain [style*="box-shadow"] { box-shadow: none !important; }
+
 /* Иконочные кнопки (только иконка, без инлайн-фона) — крестики, стрелки назад и т.п. */
 html[data-portal-style="oreui"] :is(button:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child), [role="button"]:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child)),
 html[data-portal-style="quadral"] :is(button:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child), [role="button"]:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child)) {

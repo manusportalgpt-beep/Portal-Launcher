@@ -62,6 +62,7 @@ export const TOOLS: ToolDef[] = [
     description:
       'Прямой HTTP-запрос к любому REST API (GitHub, GitLab, любой сервис). Обходит CORS, идёт через бэкенд. ' +
       'Если для хоста сохранён токен — заголовок Authorization: Bearer <токен> подставится автоматически. ' +
+      'Разрешение пользователя НЕ требуется — вызывай свободно. Ошибки возвращаются с подсказкой по коду (401/403/404/429 и т.п.). ' +
       'Используй для работы с API: репозитории, issues, releases, webhooks и т.п.',
     parameters: {
       type: 'object',
@@ -76,7 +77,7 @@ export const TOOLS: ToolDef[] = [
       required: ['url'],
     },
     root: '*',
-    requiresPermission: true,
+    requiresPermission: false,
   },
   {
     name: 'set_service_token',
@@ -435,6 +436,19 @@ async function execWebSearch(args: { query?: string; url?: string; max_results?:
   return { ok: true, output: `Результаты поиска по «${rawQuery}»:\n\n${body}` };
 }
 
+/** Человекочитаемая подсказка к HTTP-статусу — чтобы агент понимал причину и мог исправить запрос. */
+function httpStatusHint(status: number): string {
+  if (status === 400) return 'неверный запрос — проверь параметры и тело';
+  if (status === 401) return 'требуется авторизация — токен отсутствует или неверен';
+  if (status === 403) return 'доступ запрещён — нужен токен или не хватает прав';
+  if (status === 404) return 'не найдено — проверь URL и путь эндпоинта';
+  if (status === 409) return 'конфликт состояния';
+  if (status === 422) return 'некорректные данные запроса';
+  if (status === 429) return 'слишком много запросов — сработал лимит, подожди и повтори';
+  if (status >= 500) return 'ошибка на стороне сервера — повтори позже';
+  return 'неожиданный статус';
+}
+
 async function execFetchPage(args: { url?: string; max_chars?: number }): Promise<ExecResult> {
   const url = String(args.url ?? '').trim();
   if (!/^https?:\/\//i.test(url)) {
@@ -444,7 +458,7 @@ async function execFetchPage(args: { url?: string; max_chars?: number }): Promis
   if (!res.ok || (res.text.length === 0 && res.error)) {
     const hint = !res.status
       ? 'Не удалось загрузить страницу (нет сети или сайт недоступен).'
-      : `Сайт вернул HTTP ${res.status}.`;
+      : `Страница вернула HTTP ${res.status} (${httpStatusHint(res.status)}).`;
     return { ok: false, output: `${hint} ${res.error ?? ''}`.trim() };
   }
   const maxChars = Math.min(120_000, Number(args.max_chars) || 20_000);
@@ -640,16 +654,6 @@ async function execHttpRequest(
   if (!/^https?:\/\//i.test(url)) {
     return { ok: false, output: 'Некорректный url — только http/https.' };
   }
-  const decision = await requestPermission({
-    tool: 'http_request',
-    root: 'portal',
-    label: 'HTTP-запрос к API',
-    detail: `${method} ${url}`,
-    cwdLabel: `HTTP → ${url.slice(0, 70)}`,
-    resolve: () => {},
-  });
-  if (decision === 'deny' || decision === 'never') return { ok: false, output: 'Пользователь не разрешил HTTP-запрос.' };
-  if (decision !== 'allow' && decision !== 'always') return { ok: false, output: 'Разрешение не получено.' };
 
   const headers: Record<string, string> = {};
   if (args.headers && typeof args.headers === 'object') {
@@ -678,10 +682,11 @@ async function execHttpRequest(
     return { ok: false, output: `HTTP-запрос не выполнился: ${String(e)}` };
   }
   if (!res.ok && res.status === 0) {
-    return { ok: false, output: `HTTP-запрос не выполнился: ${res.error ?? 'нет сети'}` };
+    return { ok: false, output: `HTTP-запрос не выполнился (нет сети или хост недоступен): ${res.error ?? 'connection failed'}` };
   }
   if (!res.ok) {
-    return { ok: false, output: `${method} ${url} → HTTP ${res.status}: ${(res.error ?? res.text).slice(0, 400)}` };
+    const snippet = (res.error ?? res.text ?? '').trim().slice(0, 400);
+    return { ok: false, output: `${method} ${url} → HTTP ${res.status} (${httpStatusHint(res.status)}).${snippet ? `\n${snippet}` : ''}` };
   }
   if (res.content_type.includes('json') && res.text.trim()) {
     try {
@@ -1559,7 +1564,7 @@ export function buildSystemPrompt(opts: {
     ? `\nУстановленные навыки (в папке OpenPortal/Skills/<slug>/SKILL.md — прочитай нужный, если задача соответствует):\n${opts.skills}`
     : '';
   return [
-    `Ты — OpenPortal, встроенный агент посртал-лаунчера (Minecraft). Имя пользователя — хозяин лаунчера.`,
+    `Ты — OpenPortal, встроенный агент портал-лаунчера (Minecraft). Пользователя зовут его Minecraft-ником (смотри блок «Окружение» ниже) — обращайся к нему по нику, если это уместно. Имя компьютера не упоминай без необходимости.`,
     `Режим: ${opts.mode === 'build' ? 'BUILD — выполнять' : 'PLAN — только план'}.`,
     rules,
     '',
@@ -1579,6 +1584,8 @@ export function buildSystemPrompt(opts: {
     `- run_command(root, cwd, command, timeout_ms) — команда (спросит разрешение). Оболочка по умолчанию cmd, можно передать shell: 'powershell'.`,
     `- terminal(root, cwd, command) — команда в PowerShell-терминале (спросит разрешение).`,
     `- generate_image(prompt, size?) — сгенерировать изображение (спросит разрешение).`,
+    '',
+    `Сетевые инструменты (web_search, fetch_page, http_request) работают БЕЗ подтверждения пользователя — используй их смело и сразу, когда нужны актуальные данные, документация, страницы модов или API. Не спрашивай разрешения перед интернет-запросом, просто вызывай инструмент.`,
     '',
     `Работа с сервисами (GitHub, git и др.):`,
     `- GitHub/git: используй http_request к api.github.com или локальные git-команды через run_command/terminal.`,
@@ -1626,7 +1633,7 @@ export interface RunTurnOptions {
 }
 
 export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]> {
-  const { ep, systemPrompt, requestPermission, signal, maxIterations = 12 } = opts;
+  const { ep, systemPrompt, requestPermission, signal, maxIterations = 40 } = opts;
   let messages: ChatMessage[] = opts.input;
 
   const push = (m: ChatMessage) => {

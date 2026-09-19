@@ -71,20 +71,20 @@ function ToolMsg({ name, content, error }: { name: string; content: string; erro
 
 function ModeToggle({ mode, onChange }: { mode: 'build' | 'plan'; onChange: (m: 'build' | 'plan') => void }) {
   return (
-    <div className="flex shrink-0 rounded-xl p-0.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
-      <button onClick={() => onChange('build')}
-        className={`flex items-center gap-1.5 rounded-[9px] px-2.5 py-1.5 text-[11px] font-bold transition-colors ${mode === 'build' ? '' : 'opacity-50 hover:opacity-80'}`}
+    <div className="flex shrink-0 items-center gap-0.5 rounded-lg p-0.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+      <button onClick={() => onChange('build')} title="Build — выполняет задачи"
+        className={`flex items-center gap-1 rounded-[7px] px-2 py-1 text-[10px] font-bold transition-colors ${mode === 'build' ? '' : 'opacity-50 hover:opacity-80'}`}
         style={mode === 'build'
           ? { background: 'var(--color-primary)', color: 'var(--color-primary-text)' }
           : { color: 'var(--color-text-secondary)' }}>
-        <Hammer size={12} /> Build
+        <Hammer size={11} /> Build
       </button>
-      <button onClick={() => onChange('plan')}
-        className={`flex items-center gap-1.5 rounded-[9px] px-2.5 py-1.5 text-[11px] font-bold transition-colors ${mode === 'plan' ? '' : 'opacity-50 hover:opacity-80'}`}
+      <button onClick={() => onChange('plan')} title="Plan — только план, без изменений"
+        className={`flex items-center gap-1 rounded-[7px] px-2 py-1 text-[10px] font-bold transition-colors ${mode === 'plan' ? '' : 'opacity-50 hover:opacity-80'}`}
         style={mode === 'plan'
           ? { background: 'var(--color-primary)', color: 'var(--color-primary-text)' }
           : { color: 'var(--color-text-secondary)' }}>
-        <DraftingCompass size={12} /> Plan
+        <DraftingCompass size={11} /> Plan
       </button>
     </div>
   );
@@ -137,12 +137,12 @@ function CurrentModelPicker() {
 
   return (
     <div className="relative shrink-0">
-      <button onClick={() => setOpen(o => !o)}
-        className="flex max-w-[220px] items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold"
+      <button onClick={() => setOpen(o => !o)} title="Выбор модели"
+        className="flex max-w-[190px] items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-bold transition-colors hover:bg-[var(--color-surface-2)]"
         style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}>
-        <Sparkles size={13} style={{ color: 'var(--color-primary)' }} />
+        <Sparkles size={12} style={{ color: 'var(--color-primary)' }} />
         <span className="truncate">{currentIsAvailable ? cfg.activeModelId : activeProvider.name}</span>
-        <ChevronDown size={12} className={`transition-transform ${open ? 'rotate-180' : ''}`} style={{ color: 'var(--color-text-tertiary)' }} />
+        <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} style={{ color: 'var(--color-text-tertiary)' }} />
       </button>
       <AnimatePresence>
       {open && (
@@ -502,10 +502,7 @@ export function OpenPortalPage() {
             <Plus size={15} />
           </button>
         </div>
-        <div className="mb-2 flex flex-wrap gap-1.5 px-4">
-          <ModeToggle mode={cfg.mode} onChange={m => useOpenCoreStore.getState().setMode(m)} />
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2 pt-0">
+        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2">
           {sessions.map(s => (
             <button key={s.id} onClick={() => void store.openSession(s.id)}
               className={`group flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors ${s.id === currentSessionId ? '' : 'hover:bg-[var(--color-surface-2)]'}`}
@@ -541,7 +538,6 @@ export function OpenPortalPage() {
           </div>
           <div className="flex-1" />
           <BuildPicker />
-          <CurrentModelPicker />
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
@@ -585,12 +581,18 @@ export function OpenPortalPage() {
               ))}
             </div>
           )}
-          <div className="mx-auto flex max-w-3xl items-end gap-2">
+          <div className="mx-auto mb-1.5 flex max-w-3xl items-center gap-1.5 px-1">
+            <ModeToggle mode={cfg.mode} onChange={m => useOpenCoreStore.getState().setMode(m)} />
+            <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>·</span>
+            <CurrentModelPicker />
+            <span className="flex-1" />
+          </div>
+          <div className="mx-auto flex max-w-3xl items-end gap-1.5">
             <input type="file" id="op-file" className="hidden" onChange={onFilePicked} />
-            <label htmlFor="op-file" title="Прикрепить файл/картинку"
-              className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl transition-colors hover:bg-[var(--color-surface-2)]"
-              style={{ border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
-              <Paperclip size={16} />
+            <label htmlFor="op-file" title="Прикрепить файл или картинку"
+              className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-surface-2)]"
+              style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-tertiary)' }}>
+              <Plus size={15} />
             </label>
             <textarea
               value={input}
@@ -603,13 +605,13 @@ export function OpenPortalPage() {
             />
             {running ? (
               <button onClick={() => abortRef.current?.abort()} title="Остановить"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
                 style={{ background: 'rgba(239,68,68,0.12)', color: 'var(--color-error)' }}>
-                <StopCircle size={17} />
+                <StopCircle size={16} />
               </button>
             ) : (
               <button onClick={() => void send()} title="Отправить" disabled={!input.trim()}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-opacity disabled:opacity-40"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-opacity disabled:opacity-40"
                 style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
                 <Send size={15} />
               </button>

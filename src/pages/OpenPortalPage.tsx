@@ -118,7 +118,7 @@ function ToolMsg({ name, content, error }: { name: string; content: string; erro
   const [open, setOpen] = useState(false);
   // После генерации картинки сразу показываем превью, а не только текст-путь:
   // рендер без какого-либо запроса разрешения (tool-сообщение уже одобрено).
-  const imgMatch = name === 'generate_image' ? /\/op-image\/([A-Za-z0-9-]+\.(?:png|jpg|jpeg|webp|gif))/i.exec(content) : null;
+  const imgMatch = name === 'generate_image' ? /\/op-image\/([A-Za-z0-9-]+\.(?:png|jpg|jpeg|webp|gif|avif|heic))/i.exec(content) : null;
   return (
     <div className="ore-plain mb-1.5 overflow-hidden rounded-lg border px-2.5 py-1.5" style={{ borderColor: 'var(--color-border)', background: 'rgba(127,127,127,0.08)' }}>
       <button onClick={() => setOpen(o => !o)} className="flex w-full items-center gap-2 text-left text-[11px] font-semibold"

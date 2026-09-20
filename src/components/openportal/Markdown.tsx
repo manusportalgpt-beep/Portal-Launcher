@@ -163,7 +163,7 @@ function renderInline(text: string): ReactNode[] {
   let m: RegExpExecArray | null;
   // Токен `/op-image/<name>` в обычном тексте тоже превращаем в картинку.
   const pushText = (seg: string) => {
-    const re2 = /\/op-image\/([A-Za-z0-9-]+\.(?:png|jpg|jpeg|webp|gif))/g;
+    const re2 = /\/op-image\/([A-Za-z0-9-]+\.(?:png|jpg|jpeg|webp|gif|avif|heic))/g;
     let p = 0;
     let mm: RegExpExecArray | null;
     while ((mm = re2.exec(seg)) !== null) {

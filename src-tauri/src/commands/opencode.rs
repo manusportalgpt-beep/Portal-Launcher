@@ -318,13 +318,45 @@ fn detect_image_ext(bytes: &[u8]) -> (&'static str, &'static str) {
     if bytes.len() >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF {
         return ("jpg", "image/jpeg");
     }
+    if bytes.len() >= 12 && &bytes[4..8] == b"ftyp" {
+        let brand = &bytes[8..12];
+        if brand == b"avif" || brand == b"avis" {
+            return ("avif", "image/avif");
+        }
+        if brand == b"heic" || brand == b"heix" || brand == b"mif1" || brand == b"msf1" {
+            return ("heic", "image/heic");
+        }
+    }
+    if bytes.len() >= 2 && bytes[0] == b'B' && bytes[1] == b'M' {
+        return ("bmp", "image/bmp");
+    }
     ("png", "image/png")
+}
+
+/// «По пикселям»: декодирует картинку декодером и перекодирует её в PNG.
+/// Так в чат всегда отдаётся валидный PNG — превью не будет битым, даже если
+/// источник прислал webp/gif/jpeg/ещё что-то. Если формат декодеру неизвестен
+/// (например AVIF), возвращает исходные байты, и файл сохраняется с его
+/// настоящим mime — WebView2 (Chromium) такие картинки тоже умеет рисовать.
+fn normalize_to_png(bytes: Vec<u8>) -> (Vec<u8>, bool) {
+    let Ok(img) = image::load_from_memory(&bytes) else {
+        return (bytes, false);
+    };
+    let mut out = Vec::with_capacity(bytes.len());
+    if img
+        .write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png)
+        .is_ok()
+    {
+        (out, true)
+    } else {
+        (bytes, false)
+    }
 }
 
 /// Разрешённый формат имени файла изображения в кеше.
 fn is_safe_image_file(name: &str) -> bool {
     let lower = name.to_lowercase();
-    let ext = [".png", ".jpg", ".jpeg", ".gif", ".webp"]
+    let ext = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".heic"]
         .iter()
         .find(|e| lower.ends_with(*e))
         .map(|e| e.len())
@@ -350,7 +382,10 @@ pub fn op_save_image(b64: String) -> Result<String, String> {
     if bytes.is_empty() {
         return Err("Изображение пустое.".into());
     }
-    let (ext, _) = detect_image_ext(&bytes);
+    let (bytes, converted) = normalize_to_png(bytes);
+    // Что удалось перекодировать «по пикселям» — сохраняем как PNG, и превью
+    // в чате гарантированно отрисуется. Остальное — с настоящим расширением.
+    let (ext, _) = if converted { ("png", "") } else { detect_image_ext(&bytes) };
     let name = format!(
         "img-{}-{}.{}",
         std::time::SystemTime::now()
@@ -376,7 +411,10 @@ pub fn op_image_read(file: String) -> Result<String, String> {
     if bytes.is_empty() || bytes.len() > 30 * 1024 * 1024 {
         return Err("Изображение пустое или слишком большое.".into());
     }
-    let (_, mime) = detect_image_ext(&bytes);
+    // Лечим и старые файлы кеша: что декодер понимает — отдаём как валидный PNG,
+    // остальное — с корректным типом контента, чтобы браузер сам его открыл.
+    let (bytes, converted) = normalize_to_png(bytes);
+    let (_, mime) = if converted { ("png", "image/png") } else { detect_image_ext(&bytes) };
     let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
     Ok(format!("data:{mime};base64,{b64}"))
 }

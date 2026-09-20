@@ -1572,7 +1572,9 @@ export type ToolPolicy = 'ask';
 /** Опасная команда: запуск/скачивание установщика (.exe/.msi и т.п.). */
 function isHazardousCommand(command: string): boolean {
   const lower = String(command ?? '').toLowerCase();
-  if (/\.(exe|msi|bat|cmd|ps1|apk|jar)\b/.test(lower) && /\b(start|runas|invoke)\b|\\(|&|\|/.test(lower)) return true;
+  const riskyExt = /\.(exe|msi|bat|cmd|ps1|apk|jar)\b/.test(lower);
+  const launcherLike = /\b(start|runas|invoke)\b/.test(lower) || /[\\|&]/.test(lower);
+  if (riskyExt && launcherLike) return true;
   return /\.(exe|msi)["']?\s*$/.test(lower.trim());
 }
 

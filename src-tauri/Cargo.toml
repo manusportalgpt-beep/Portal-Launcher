@@ -21,7 +21,7 @@ tauri-utils = { version = "2", default-features = false, features = ["build-2"] 
 
 [dependencies]
 # Tauri БЕЗ compression чтобы полностью убрать brotli из графа зависимостей
-tauri = { version = "2", default-features = false, features = ["wry", "devtools", "custom-protocol"] }
+tauri = { version = "2", default-features = false, features = ["wry", "devtools", "custom-protocol", "tray-icon", "image-png"] }
 tauri-plugin-shell = { version = "2", default-features = false }
 tauri-plugin-oauth = "2"
 rfd = "0.15"

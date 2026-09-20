@@ -16,6 +16,11 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
+use tauri::Manager;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::WindowEvent;
+
 pub struct AppState {
     pub pending_auth:  Arc<RwLock<Option<String>>>,
     pub auth_results:  Arc<RwLock<HashMap<String, Result<minecraft_lib::AuthMcProfile, String>>>>,
@@ -56,6 +61,55 @@ fn main() {
         .plugin(tauri_plugin_oauth::init())
         .manage(app_state)
         .manage(discord_state)
+        .setup(|app| {
+            // Иконка в трее: лаунчер и его ИИ-агент продолжают работать, даже
+            // когда окно скрыто/свёрнуто; из трея окно можно вернуть или выйти.
+            let show_i = MenuItem::with_id(app, "show", "Открыть лаунчер", true, None::<&str>)?;
+            let quit_i = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
+            if let Some(icon) = app.default_window_icon().cloned() {
+                let _tray = TrayIconBuilder::new()
+                    .icon(icon)
+                    .menu(&menu)
+                    .show_menu_on_left_click(false)
+                    .on_menu_event(|app, event| match event.id.as_ref() {
+                        "show" => {
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
+                            }
+                        }
+                        "quit" => app.exit(0),
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
+                            let app = tray.app_handle();
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.unminimize();
+                                let _ = w.set_focus();
+                            }
+                        }
+                    })
+                    .build(app)?;
+            }
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            // «Закрыть» не выключает приложение: окно прячется в трей, агент
+            // продолжает работать. Полный выход — через пункт «Выход» в трее.
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             // Minecraft OAuth через minecraft_lib::oauth
             minecraft_lib::oauth::start_device_code_flow,

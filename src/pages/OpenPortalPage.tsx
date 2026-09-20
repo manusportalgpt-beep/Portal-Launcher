@@ -258,13 +258,7 @@ function ChatBubble({ m, onContinue, streaming }: { m: ChatMessage; onContinue?:
             <Markdown text={m.content} streaming={streaming} />
           </div>
         ) : (
-          m.toolCalls && m.toolCalls.length > 0 ? (
-            <div className="rounded-2xl rounded-bl-md px-3.5 py-2" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
-              <span className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
-                Применяет инструмент{ m.toolCalls.length > 1 ? 'ы' : '' }: {m.toolCalls.map(t => t.name).join(', ')}…
-              </span>
-            </div>
-          ) : null
+          null
         )}
         {m.error && <p className="mt-1 text-[11px]" style={{ color: 'var(--color-error)' }}>Это сообщение могло быть сгенерировано ошибочно. Проверь контекст и попробуй ещё раз.</p>}
       </div>
@@ -467,8 +461,9 @@ export function OpenPortalPage() {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const abortRefs = useRef<Record<string, AbortController>>({});
-  const endRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const stickRef = useRef(true);
 
   /** Авто-рост поля ввода: до 160px, дальше — прокрутка. */
   useEffect(() => {
@@ -478,7 +473,18 @@ export function OpenPortalPage() {
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [input]);
 
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  /** Держим ленту у последнего сообщения: пока агент работает — только если
+   *  пользователь уже внизу; в остальное время всегда опускаемся к концу. */
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (running) {
+      if (stickRef.current) el.scrollTop = el.scrollHeight;
+    } else {
+      stickRef.current = true;
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [messages, currentSessionId, running]);
 
   const init = useOpenCoreStore(s => s.init);
   useEffect(() => { void init(); }, [init]);
@@ -856,7 +862,10 @@ export function OpenPortalPage() {
           <BuildPicker />
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
+        <div ref={scrollRef} onScroll={() => {
+            const el = scrollRef.current;
+            if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+          }} className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
           {messages.length === 0 ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-2">
               <div className="mb-1 flex h-14 w-14 items-center justify-center rounded-2xl"
@@ -885,7 +894,6 @@ export function OpenPortalPage() {
               )}
             </div>
           )}
-          <div ref={endRef} />
         </div>
 
         <div className="ore-plain relative border-t p-4" style={{ borderColor: 'var(--color-border)' }}>

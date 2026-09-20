@@ -55,6 +55,8 @@ interface OpenCoreState {
   sessions: SessionMeta[];
   currentSessionId: string | null;
   messages: ChatMessage[];
+  /** Контексты по моделям внутри текущей сессии: ключ «providerId/modelId» → сообщения. */
+  modelContexts: Record<string, ChatMessage[]>;
   pendingPermission: PermissionRequest | null;
   modelsMenuOpen: boolean;
   loading: boolean;
@@ -127,6 +129,7 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
       sessions: [],
       currentSessionId: null,
       messages: [],
+      modelContexts: {},
       runningSessions: {},
       backgroundMessages: {},
       pendingPermission: null,
@@ -230,15 +233,25 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
       },
 
       setActiveModel(providerId, modelId) {
-        const cfg = get().config;
-        const prev = cfg.providers[providerId] ?? {};
+        const { config, messages, currentSessionId, modelContexts } = get();
+        const prevKey = `${config.activeProviderId}/${config.activeModelId}`;
+        const nextKey = `${providerId}/${modelId}`;
         const next = {
-          ...cfg,
+          ...config,
           activeProviderId: providerId,
           activeModelId: modelId,
-          providers: { ...cfg.providers, [providerId]: { ...prev, enabled: true } },
+          providers: { ...config.providers, [providerId]: { ...(config.providers[providerId] ?? {}), enabled: true } },
         };
-        set({ config: next });
+        if (currentSessionId && prevKey !== nextKey) {
+          const nextContexts = { ...modelContexts };
+          if (messages.length > 0) nextContexts[prevKey] = messages;
+          // Каждая модель ведёт свой контекст внутри сессии: при переключении
+          // сохраняем текущий и восстанавливаем свой у новой модели.
+          const stored = nextContexts[nextKey];
+          set({ config: next, modelContexts: nextContexts, messages: stored ?? [] });
+        } else {
+          set({ config: next });
+        }
         void persistConfig(next);
       },
 
@@ -313,7 +326,7 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
         };
         await invoke('op_save_session', { sessionId: id, payload: JSON.stringify(session) });
         const meta: SessionMeta = { id, title: session.title, updated: now, message_count: 0 };
-        set({ backgroundMessages: background, sessions: [meta, ...get().sessions], currentSessionId: id, messages: [] });
+        set({ backgroundMessages: background, modelContexts: {}, sessions: [meta, ...get().sessions], currentSessionId: id, messages: [] });
         get().resetUsage();
       },
 
@@ -327,6 +340,7 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
           const data = JSON.parse(raw) as SessionData;
           set({
             backgroundMessages: background,
+            modelContexts: {},
             currentSessionId: id,
             messages: background[id] ?? data.messages ?? [],
             config: {

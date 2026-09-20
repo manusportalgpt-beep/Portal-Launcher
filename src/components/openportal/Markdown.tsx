@@ -120,8 +120,20 @@ function renderInline(text: string): ReactNode[] {
   let last = 0;
   let key = 0;
   let m: RegExpExecArray | null;
+  // Токен `/op-image/<name>` в обычном тексте тоже превращаем в картинку.
+  const pushText = (seg: string) => {
+    const re2 = /\/op-image\/([A-Za-z0-9-]+\.(?:png|jpg|jpeg|webp|gif))/g;
+    let p = 0;
+    let mm: RegExpExecArray | null;
+    while ((mm = re2.exec(seg)) !== null) {
+      if (mm.index > p) nodes.push(seg.slice(p, mm.index));
+      nodes.push(<PortalImage key={key++} name={mm[1]} />);
+      p = mm.index + mm[0].length;
+    }
+    if (p < seg.length) nodes.push(seg.slice(p));
+  };
   while ((m = regex.exec(text)) !== null) {
-    if (m.index > last) nodes.push(text.slice(last, m.index));
+    if (m.index > last) pushText(text.slice(last, m.index));
     const tok = m[0];
     if (tok.startsWith('`')) {
       nodes.push(
@@ -143,8 +155,15 @@ function renderInline(text: string): ReactNode[] {
         const href = inner[3];
         if (isImage && href.startsWith('/op-image/')) {
           const name = href.replace(/^\/op-image\//, '').split('?')[0];
-          if (/^[\w-]+\.png$/.test(name)) nodes.push(<PortalImage key={key++} name={name} />);
+          if (/^[\w-]+\.(png|jpg|jpeg|webp|gif)$/.test(name)) nodes.push(<PortalImage key={key++} name={name} />);
           else nodes.push(tok);
+        } else if (isImage && /https?:\/\//i.test(href)) {
+          nodes.push(
+            <img key={key++} src={href} alt={inner[2] || ''} loading="lazy" referrerPolicy="no-referrer"
+              className="max-h-96 rounded-xl border object-contain"
+              style={{ borderColor: 'var(--color-border)' }}
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />,
+          );
         } else {
           nodes.push(
             <a key={key++} href={href} target="_blank" rel="noreferrer"
@@ -160,7 +179,7 @@ function renderInline(text: string): ReactNode[] {
     }
     last = m.index + tok.length;
   }
-  if (last < text.length) nodes.push(text.slice(last));
+  if (last < text.length) pushText(text.slice(last));
   return nodes;
 }
 

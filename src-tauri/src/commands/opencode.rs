@@ -12,6 +12,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use base64::Engine as _;
+use std::io::{Read, Write};
 
 const MAX_TEXT_READ: usize = 512 * 1024;
 const MAX_FETCH_BYTES: usize = 2 * 1024 * 1024;
@@ -377,6 +378,398 @@ pub fn op_image_read(file: String) -> Result<String, String> {
     let (_, mime) = detect_image_ext(&bytes);
     let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
     Ok(format!("data:{mime};base64,{b64}"))
+}
+
+// ---------------------------------------------------------------------------
+// Осмотр файлов: картинки «по пикселям» (палитра) и hexdump бинарных файлов.
+// Нужно, чтобы текстовая модель (без зрения) «видела» файлы и изображения.
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ImageColor {
+    pub hex: String,
+    pub share: f64,
+    pub brightness: u8,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ImageInspect {
+    pub width: u32,
+    pub height: u32,
+    pub alpha: bool,
+    pub colors: Vec<ImageColor>,
+    pub dominant: String,
+    pub average: String,
+}
+
+/// Анализирует изображение: размеры, палитра доминирующих цветов, яркость.
+/// Результат — текстовое описание для модели, которая не умеет смотреть картинки.
+#[tauri::command]
+pub fn op_image_inspect(root: String, path: String) -> Result<ImageInspect, String> {
+    let r = root_from_name(&root)?;
+    let file = enforce_root(r, Path::new(&path), false)?;
+    let meta = std::fs::metadata(&file).map_err(|e| format!("Метаданные файла: {e}"))?;
+    if !meta.is_file() {
+        return Err("Это не файл.".into());
+    }
+    if meta.len() > 30 * 1024 * 1024 {
+        return Err("Файл слишком большой для анализа.".into());
+    }
+
+    let decoded = image::open(&file);
+    let (width, height) = decoded.as_ref().map(|d| d.dimensions()).unwrap_or((0, 0));
+    let mut counts: std::collections::HashMap<(u8, u8, u8), u64> = std::collections::HashMap::new();
+    let mut total: u64 = 0;
+    let mut alpha = false;
+    let (mut sr, mut sg, mut sb) = (0u64, 0u64, 0u64);
+    if let Ok(dyn_img) = decoded {
+        let small = dyn_img.thumbnail(96, 96);
+        let rgba = small.to_rgba8();
+        let (w, h) = rgba.dimensions();
+        let every = ((w * h) / 4000).max(1) as usize;
+        let mut idx = 0usize;
+        for px in rgba.pixels() {
+            idx += 1;
+            if idx % every != 0 {
+                continue;
+            }
+            let (cr, cg, cb, ca) = (px[0], px[1], px[2], px[3]);
+            if ca < 255 {
+                alpha = true;
+            }
+            // Квантуем к 6 битам на канал (+1 — середина ячейки), чтобы не считать дубли.
+            let (qr, qg, qb) = (((cr >> 2) << 2) + 1, ((cg >> 2) << 2) + 1, ((cb >> 2) << 2) + 1);
+            *counts.entry((qr, qg, qb)).or_insert(0) += 1;
+            total += 1;
+            sr += cr as u64;
+            sg += cg as u64;
+            sb += cb as u64;
+        }
+    }
+
+    let mut colors: Vec<ImageColor> = counts
+        .into_iter()
+        .map(|((r, g, b), n)| {
+            let brightness = ((r as u32 * 299 + g as u32 * 587 + b as u32 * 114) / 1000) as u8;
+            ImageColor {
+                hex: format!("#{:02x}{:02x}{:02x}", r, g, b),
+                share: if total > 0 { (n as f64 / total as f64) * 100.0 } else { 0.0 },
+                brightness,
+            }
+        })
+        .collect();
+    colors.sort_by(|a, b| b.share.partial_cmp(&a.share).unwrap_or(std::cmp::Ordering::Equal));
+    colors.truncate(12);
+
+    let dominant = colors.first().map(|c| c.hex.clone()).unwrap_or_default();
+    let average = if total > 0 {
+        format!("#{:02x}{:02x}{:02x}", (sr / total) as u8, (sg / total) as u8, (sb / total) as u8)
+    } else {
+        String::new()
+    };
+
+    Ok(ImageInspect { width, height, alpha, colors, dominant, average })
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct HexLine {
+    pub offset: u32,
+    pub hex: String,
+    pub ascii: String,
+}
+
+/// Показывает бинарный файл как hexdump (по 16 байт на строку) — чтобы модель
+/// могла изучить неизвестные форматы без возможности открыть их.
+#[tauri::command]
+pub fn op_hexdump(root: String, path: String, max_bytes: Option<u64>) -> Result<Vec<HexLine>, String> {
+    let r = root_from_name(&root)?;
+    let file = enforce_root(r, Path::new(&path), false)?;
+    let meta = std::fs::metadata(&file).map_err(|e| format!("Метаданные файла: {e}"))?;
+    if !meta.is_file() {
+        return Err("Это не файл.".into());
+    }
+    let cap = max_bytes.unwrap_or(4096).clamp(256, 65_536);
+    if meta.len() > cap {
+        return Err(format!("Файл больше лимита показа ({} байт > {} байт).", meta.len(), cap));
+    }
+    let bytes = std::fs::read(&file).map_err(|e| format!("Чтение файла: {e}"))?;
+    let mut out = Vec::with_capacity(bytes.len() / 16 + 1);
+    for (i, chunk) in bytes.chunks(16).enumerate() {
+        let hex = chunk
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let ascii: String = chunk
+            .iter()
+            .map(|b| if b.is_ascii_graphic() || *b == b' ' { *b as char } else { '.' })
+            .collect();
+        out.push(HexLine { offset: (i * 16) as u32, hex, ascii });
+    }
+    Ok(out)
+}
+
+// ---------------------------------------------------------------------------
+// Архивы: встроенный «7-Zip» — просмотр и распаковка .zip/.7z/.tar(+gz,bz2)
+// и создание .zip/.7z. Распаковка всегда внутрь разрешённой зоны.
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ArchiveEntry {
+    pub name: String,
+    pub is_dir: bool,
+    pub size: u64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ArchiveKind {
+    Zip,
+    SevenZip,
+    Tar,
+    TarGz,
+    TarBz2,
+}
+
+fn archive_kind(p: &Path) -> Result<ArchiveKind, String> {
+    let name = p.file_name().map(|s| s.to_string_lossy().to_lowercase()).unwrap_or_default();
+    if name.ends_with(".zip") {
+        return Ok(ArchiveKind::Zip);
+    }
+    if name.ends_with(".7z") {
+        return Ok(ArchiveKind::SevenZip);
+    }
+    if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
+        return Ok(ArchiveKind::TarGz);
+    }
+    if name.ends_with(".tar.bz2") || name.ends_with(".tbz2") {
+        return Ok(ArchiveKind::TarBz2);
+    }
+    if name.ends_with(".tar") {
+        return Ok(ArchiveKind::Tar);
+    }
+    Err("Поддерживаются только архивы: .zip, .7z, .tar, .tar.gz, .tar.bz2. Файл должен лежать внутри разрешённой зоны.".into())
+}
+
+fn tar_reader(p: &Path, kind: ArchiveKind) -> Result<Box<dyn Read>, String> {
+    let f = std::fs::File::open(p).map_err(|e| format!("Открытие архива: {e}"))?;
+    Ok(match kind {
+        ArchiveKind::TarGz => Box::new(flate2::read::GzDecoder::new(f)),
+        ArchiveKind::TarBz2 => Box::new(bzip2::read::BzDecoder::new(f)),
+        ArchiveKind::Tar => Box::new(f),
+        _ => return Err("Не tar-архив.".into()),
+    })
+}
+
+/// Не даём распаковке выйти за пределы папки назначения (защита от zip-slip).
+fn is_safe_relative(rel: &Path) -> bool {
+    !rel.is_absolute()
+        && rel.components().all(|c| {
+            !matches!(
+                c,
+                std::path::Component::ParentDir
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
+            )
+        })
+}
+
+/// Список содержимого архива (без распаковки).
+#[tauri::command]
+pub fn op_archive_list(root: String, path: String) -> Result<Vec<ArchiveEntry>, String> {
+    let r = root_from_name(&root)?;
+    let file = enforce_root(r, Path::new(&path), false)?;
+    let meta = std::fs::metadata(&file).map_err(|e| format!("Метаданные файла: {e}"))?;
+    if !meta.is_file() {
+        return Err("Это не файл.".into());
+    }
+    if meta.len() > 1024 * 1024 * 1024 {
+        return Err("Архив слишком большой.".into());
+    }
+    let kind = archive_kind(&file)?;
+    let mut out: Vec<ArchiveEntry> = Vec::new();
+
+    match kind {
+        ArchiveKind::Zip => {
+            let f = std::fs::File::open(&file).map_err(|e| format!("Открытие архива: {e}"))?;
+            let mut archive = zip::ZipArchive::new(f).map_err(|e| format!("Не удалось открыть ZIP: {e}"))?;
+            for i in 0..archive.len() {
+                let e = archive.by_index(i).map_err(|err| err.to_string())?;
+                out.push(ArchiveEntry {
+                    name: e.name().to_string(),
+                    is_dir: e.is_dir(),
+                    size: e.size(),
+                });
+            }
+        }
+        ArchiveKind::SevenZip => {
+            let archive = sevenz_rust::Archive::open(&file)
+                .map_err(|e| format!("Не удалось открыть 7z: {e}"))?;
+            for e in &archive.files {
+                out.push(ArchiveEntry {
+                    name: e.name().to_string(),
+                    is_dir: e.is_directory(),
+                    size: e.size(),
+                });
+            }
+        }
+        ArchiveKind::Tar | ArchiveKind::TarGz | ArchiveKind::TarBz2 => {
+            let rdr = tar_reader(&file, kind)?;
+            let mut archive = tar::Archive::new(rdr);
+            for entry in archive.entries().map_err(|e| e.to_string())? {
+                let entry = entry.map_err(|e| e.to_string())?;
+                let name = entry.path().map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
+                out.push(ArchiveEntry {
+                    name,
+                    is_dir: entry.header().entry_type().is_dir(),
+                    size: entry.header().size().unwrap_or(0),
+                });
+            }
+        }
+    }
+
+    Ok(out)
+}
+
+fn extract_tar(rdr: Box<dyn Read>, dest: &Path) -> Result<(), String> {
+    let mut archive = tar::Archive::new(rdr);
+    archive.set_preserve_permissions(false);
+    for entry in archive.entries().map_err(|e| e.to_string())? {
+        let mut entry = entry.map_err(|e| e.to_string())?;
+        let rel = entry.path().map(|p| p.to_path_buf()).unwrap_or_default();
+        if !is_safe_relative(&rel) {
+            continue; // пропускаем опасные пути (.., абсолютные)
+        }
+        let target = dest.join(&rel);
+        if entry.header().entry_type().is_dir() {
+            std::fs::create_dir_all(&target).ok();
+        } else {
+            if let Some(parent) = target.parent() {
+                std::fs::create_dir_all(parent).ok();
+            }
+            entry.unpack(&target).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
+/// Распаковывает архив. `dest_path` (необязателен) — папка внутри той же зоны;
+/// по умолчанию — `OpenPortal/Cache/extracted/<имя архива>`.
+#[tauri::command]
+pub fn op_archive_extract(root: String, path: String, dest_path: Option<String>) -> Result<String, String> {
+    let r = root_from_name(&root)?;
+    let file = enforce_root(r, Path::new(&path), false)?;
+    let meta = std::fs::metadata(&file).map_err(|e| format!("Метаданные файла: {e}"))?;
+    if !meta.is_file() {
+        return Err("Это не файл.".into());
+    }
+    if meta.len() > 2 * 1024 * 1024 * 1024 {
+        return Err("Архив слишком большой для распаковки.".into());
+    }
+    let kind = archive_kind(&file)?;
+
+    let dest = match dest_path {
+        Some(dp) => enforce_root(r, Path::new(&dp), true)?,
+        None => {
+            let stem = file
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| "archive".to_string());
+            let stem: String = stem
+                .chars()
+                .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '.')
+                .collect();
+            let stem = if stem.is_empty() { "archive".to_string() } else { stem };
+            unique_dest_path(&cache_dir().join("extracted"), &stem)
+        }
+    };
+    std::fs::create_dir_all(&dest).map_err(|e| format!("Создание папки: {e}"))?;
+
+    match kind {
+        ArchiveKind::Zip => {
+            let f = std::fs::File::open(&file).map_err(|e| format!("Открытие архива: {e}"))?;
+            let mut archive = zip::ZipArchive::new(f).map_err(|e| format!("Не удалось открыть ZIP: {e}"))?;
+            archive.extract(&dest).map_err(|e| format!("Распаковка ZIP: {e}"))?;
+        }
+        ArchiveKind::SevenZip => {
+            sevenz_rust::decompress_file(&file, &dest)
+                .map_err(|e| format!("Распаковка 7z: {e}"))?;
+        }
+        ArchiveKind::Tar | ArchiveKind::TarGz | ArchiveKind::TarBz2 => {
+            let rdr = tar_reader(&file, kind)?;
+            extract_tar(rdr, &dest)?;
+        }
+    }
+
+    Ok(dest.to_string_lossy().to_string())
+}
+
+fn add_to_zip(
+    writer: &mut zip::ZipWriter<std::fs::File>,
+    base: &Path,
+    cur: &Path,
+    options: &zip::write::FileOptions<()>,
+) -> Result<(), String> {
+    if cur.is_dir() {
+        let rel = cur
+            .strip_prefix(base)
+            .ok()
+            .map(|p| p.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        if !rel.is_empty() {
+            writer.add_directory(format!("{rel}/"), *options).map_err(|e| e.to_string())?;
+        }
+        for e in std::fs::read_dir(cur).map_err(|e| e.to_string())? {
+            let e = e.map_err(|e| e.to_string())?;
+            add_to_zip(writer, base, &e.path(), options)?;
+        }
+    } else {
+        let rel = cur
+            .strip_prefix(base)
+            .ok()
+            .map(|p| p.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        writer.start_file(rel, *options).map_err(|e| e.to_string())?;
+        let bytes = std::fs::read(cur).map_err(|e| e.to_string())?;
+        writer.write_all(&bytes).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Создаёт архив из файла или папки. `name` — имя результата (.zip или .7z),
+/// сохраняется в `OpenPortal/Cache/archives/`.
+#[tauri::command]
+pub fn op_archive_create(root: String, path: String, name: String) -> Result<String, String> {
+    let r = root_from_name(&root)?;
+    let src = enforce_root(r, Path::new(&path), false)?;
+    let lower = name.to_lowercase();
+    let out_name = if lower.ends_with(".zip") || lower.ends_with(".7z") {
+        sanitize_download_name(&name)
+    } else {
+        return Err("Имя архива должно заканчиваться на .zip или .7z".into());
+    };
+    let dest = cache_dir().join("archives");
+    std::fs::create_dir_all(&dest).map_err(|e| format!("Создание папки: {e}"))?;
+    let out = unique_dest_path(&dest, &out_name);
+
+    if lower.ends_with(".zip") {
+        let file = std::fs::File::create(&out).map_err(|e| format!("Создание архива: {e}"))?;
+        let mut writer = zip::ZipWriter::new(file);
+        let options = zip::write::FileOptions::<()>::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .unix_permissions(0o644);
+        let base = if src.is_dir() {
+            src.clone()
+        } else {
+            src.parent().map(Path::to_path_buf).unwrap_or_default()
+        };
+        add_to_zip(&mut writer, &base, &src, &options)?;
+        writer.finish().map_err(|e| format!("Завершение архива: {e}"))?;
+    } else {
+        sevenz_rust::compress_to_path(&src, &out)
+            .map_err(|e| format!("Создание 7z: {e}"))?;
+    }
+
+    Ok(out.to_string_lossy().to_string())
 }
 
 // ---------------------------------------------------------------------------

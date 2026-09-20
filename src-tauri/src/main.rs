@@ -372,6 +372,11 @@ fn main() {
             commands::opencode::op_image_read,
             commands::opencode::op_save_to_downloads,
             commands::opencode::op_copy_to_downloads,
+            commands::opencode::op_image_inspect,
+            commands::opencode::op_hexdump,
+            commands::opencode::op_archive_list,
+            commands::opencode::op_archive_extract,
+            commands::opencode::op_archive_create,
             commands::opencode::op_cache_info,
             commands::opencode::op_clear_cache,
         ])

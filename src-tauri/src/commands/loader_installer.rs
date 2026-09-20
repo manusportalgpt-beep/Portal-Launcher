@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use std::path::PathBuf;
+use sha1::{Digest, Sha1};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LoaderInstallResult {
@@ -179,6 +180,168 @@ async fn download_bytes(client: &reqwest::Client, url: &str) -> Result<bytes::By
     client.get(url).send().await
         .map_err(|e| format!("GET {url}: {e}"))?.bytes().await
         .map_err(|e| format!("read: {e}"))
+}
+
+fn installer_os_classifier() -> &'static str {
+    #[cfg(target_os = "windows")] { "natives-windows" }
+    #[cfg(target_os = "macos")]   { "natives-macos" }
+    #[cfg(all(not(target_os="windows"), not(target_os="macos")))] { "natives-linux" }
+}
+
+/// Относительный путь библиотеки внутри libraries/ из Maven-координаты
+/// `group:artifact:version[:classifier]`.
+fn installer_maven_rel(name: &str) -> Option<String> {
+    let mut parts = name.split(':');
+    let group = parts.next()?.replace('.', "/");
+    let artifact = parts.next()?;
+    let version = parts.next()?;
+    let classifier = parts.next();
+    let file = match classifier {
+        Some(classifier) => format!("{artifact}-{version}-{classifier}.jar"),
+        None => format!("{artifact}-{version}.jar"),
+    };
+    Some(format!("{group}/{artifact}/{version}/{file}"))
+}
+
+/// Качает одну библиотеку, проверяя sha1 (если дан). Сначала пробует URL через
+/// выбранное в настройках зеркало (BMCLAPI для РФ/СНГ), затем официальный.
+async fn download_installer_library(
+    client: &reqwest::Client,
+    url: &str,
+    path: &PathBuf,
+    sha1: Option<&str>,
+) -> Result<(), String> {
+    if let Ok(data) = std::fs::read(path) {
+        match sha1 {
+            Some(expected) => {
+                let mut hasher = Sha1::new();
+                hasher.update(&data);
+                if format!("{:x}", hasher.finalize()) == expected {
+                    return Ok(());
+                }
+            }
+            None if !data.is_empty() => return Ok(()),
+            _ => {}
+        }
+    }
+    let mut candidates: Vec<String> = Vec::new();
+    let mirrored = crate::mc::mirrors::rewrite(url);
+    if mirrored != url {
+        candidates.push(mirrored);
+    }
+    candidates.push(url.to_string());
+    let mut last_error = "файл не получен".to_string();
+    for candidate in candidates {
+        let response = match client.get(&candidate).send().await {
+            Ok(response) if response.status().is_success() => response,
+            Ok(response) => {
+                last_error = format!("HTTP {} у {}", response.status(), candidate);
+                continue;
+            }
+            Err(error) => {
+                last_error = format!("сеть {candidate}: {error}");
+                continue;
+            }
+        };
+        let bytes = match response.bytes().await {
+            Ok(bytes) if !bytes.is_empty() => bytes,
+            Ok(_) => {
+                last_error = format!("пустой ответ от {candidate}");
+                continue;
+            }
+            Err(error) => {
+                last_error = format!("чтение {candidate}: {error}");
+                continue;
+            }
+        };
+        if let Some(expected) = sha1 {
+            let mut hasher = Sha1::new();
+            hasher.update(&bytes);
+            if format!("{:x}", hasher.finalize()) != expected {
+                last_error = format!("sha1 не совпал у {candidate}");
+                continue;
+            }
+        }
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+        let tmp = path.with_extension("jar.part");
+        let _ = std::fs::remove_file(&tmp);
+        std::fs::write(&tmp, &bytes).map_err(|e| format!("запись {tmp:?}: {e}"))?;
+        let _ = std::fs::remove_file(path);
+        std::fs::rename(&tmp, path).map_err(|e| format!("замена {path:?}: {e}"))?;
+        return Ok(());
+    }
+    Err(last_error)
+}
+
+/// Доливает ВСЕ библиотеки установленной версии Minecraft (включая native
+/// classifier'ы) в общий `libraries/`. Классический установщик Forge
+/// (1.12.2 и младше) сам качает их напрямую с libraries.minecraft.net и падает
+/// с «Unable to download jinput-platform-jar», когда тот недоступен/отдаёт
+/// ошибку — предзалитые файлы установщик находит локально и не трогает сеть.
+async fn ensure_installer_vanilla_libraries(
+    client: &reqwest::Client,
+    mc_version: &str,
+) -> Result<(), String> {
+    let vdir = crate::commands::version_manager::versions_dir().join(mc_version);
+    let data = std::fs::read_to_string(vdir.join(format!("{mc_version}.json")))
+        .map_err(|_| format!("Не найден установленный Minecraft {mc_version}. Установите его в разделе «Версии» и повторите запуск."))?;
+    let version: serde_json::Value = serde_json::from_str(&data).map_err(|e| e.to_string())?;
+    let libs_dir = crate::commands::version_manager::libraries_dir();
+    let mut failures: Vec<String> = Vec::new();
+    let libs = match version["libraries"].as_array() {
+        Some(libraries) => libraries,
+        None => return Ok(()),
+    };
+    for lib in libs {
+        if !crate::commands::version_manager::check_library_rules(lib) {
+            continue;
+        }
+        let name = lib["name"].as_str().unwrap_or("").to_string();
+        if let Some(artifact) = lib["downloads"]["artifact"].as_object() {
+            let url = artifact.get("url").and_then(|u| u.as_str()).unwrap_or("").to_string();
+            let sha1 = artifact.get("sha1").and_then(|s| s.as_str()).map(String::from);
+            let rel = artifact.get("path").and_then(|p| p.as_str())
+                .map(str::to_string)
+                .or_else(|| installer_maven_rel(&name));
+            if !url.is_empty() {
+                if let Some(rel) = rel {
+                    if let Err(error) = download_installer_library(client, &url, &libs_dir.join(&rel), sha1.as_deref()).await {
+                        failures.push(format!("{rel}: {error}"));
+                    }
+                }
+            }
+        } else if !name.is_empty() {
+            let base = lib["url"].as_str().unwrap_or("https://libraries.minecraft.net/");
+            if let Some(rel) = installer_maven_rel(&name) {
+                if let Err(error) = download_installer_library(client, &format!("{}/{}", base.trim_end_matches('/'), rel), &libs_dir.join(&rel), None).await {
+                    failures.push(format!("{rel}: {error}"));
+                }
+            }
+        }
+        if let Some(classifiers) = lib["downloads"]["classifiers"].as_object() {
+            let classifier = installer_os_classifier();
+            if let Some(natives) = classifiers.get(classifier).and_then(|value| value.as_object()) {
+                let url = natives.get("url").and_then(|u| u.as_str()).unwrap_or("").to_string();
+                let rel = natives.get("path").and_then(|p| p.as_str()).map(str::to_string)
+                    .or_else(|| installer_maven_rel(&format!("{name}:{classifier}")));
+                let sha1 = natives.get("sha1").and_then(|s| s.as_str()).map(String::from);
+                if !url.is_empty() {
+                    if let Some(rel) = rel {
+                        if let Err(error) = download_installer_library(client, &url, &libs_dir.join(&rel), sha1.as_deref()).await {
+                            failures.push(format!("{rel}: {error}"));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(failures.join("\n"))
+    }
 }
 
 /// Maven mirrors and captive/error pages can return HTTP-success HTML that was
@@ -466,6 +629,15 @@ pub async fn install_forge(mc_version: String, forge_version: String, _instance_
 
     let shared_base = mc_base_dir();
     ensure_launcher_profile_store(&shared_base)?;
+    // Предзаливаем vanilla-библиотеки с зеркалом (BMCLAPI для РФ/СНГ), чтобы
+    // установщик не пытался качать natives (jinput-platform и пр.) с
+    // libraries.minecraft.net напрямую и не падал на сете.
+    if let Err(library_error) = ensure_installer_vanilla_libraries(&client, &mc_version).await {
+        return Ok(LoaderInstallResult {
+            success: false, loader: "forge".into(), version: full_ver.clone(),
+            message: format!("Не удалось докачать библиотеки Minecraft {mc_version} для установщика Forge:\n{library_error}\nПроверьте интернет и повторите запуск."),
+        });
+    }
     let java = find_java_for_mc(&mc_version)?;
     let jar_str = jar_path.to_string_lossy().to_string();
 
@@ -594,6 +766,15 @@ pub async fn install_neoforge(mc_version: String, neoforge_version: String, _ins
     // re-running its binary patch processor. Remove it before the official
     // installer runs so the patched client JAR is generated again.
     clear_incomplete_neoforge_profile(&nfv)?;
+    // Ту же предзаливку библиотек используем и перед NeoForge: часть его
+    // процессоров обращается к библиотекам vanilla, и при недоступном
+    // libraries.minecraft.net установщик молча не патчит клиент.
+    if let Err(library_error) = ensure_installer_vanilla_libraries(&client, &mc_version).await {
+        return Ok(LoaderInstallResult {
+            success: false, loader: "neoforge".into(), version: nfv,
+            message: format!("Не удалось докачать библиотеки Minecraft {mc_version} для установщика NeoForge:\n{library_error}\nПроверьте интернет и повторите запуск."),
+        });
+    }
     let java = find_java_for_mc(&mc_version)?;
     log::info!("[NeoForge] Running installer: java -jar {} --installClient {}", jar_path.display(), shared_base.display());
     let output = crate::utils::create_hidden_command(&java)

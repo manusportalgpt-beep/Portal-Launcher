@@ -216,32 +216,60 @@ fn expand_args(
     out
 }
 
+fn neoforge_version_component(version: &serde_json::Value) -> Option<String> {
+    version["id"]
+        .as_str()
+        .and_then(|id| id.strip_prefix("neoforge-"))
+        .map(str::to_string)
+        .filter(|v| !v.trim().is_empty())
+}
+
+fn neoforge_lib_base(neoforge_version: &str) -> PathBuf {
+    libraries_dir()
+        .join("net").join("neoforged").join("neoforge").join(neoforge_version)
+}
+
+/// Патченный клиент NeoForge, если установщик действительно сгенерировал
+/// файл `neoforge-<ver>-client.jar` в библиотеках.
+fn neoforge_patched_client_jar(version: &serde_json::Value) -> Option<PathBuf> {
+    let nfv = neoforge_version_component(version)?;
+    let path = neoforge_lib_base(&nfv).join(format!("neoforge-{nfv}-client.jar"));
+    path.is_file().then_some(path)
+}
+
+/// Годовая линия NeoForge (25.1/26.x): universal.jar несёт только код
+/// NeoForge и НЕ заменяет патченный Minecraft. В классической линии
+/// (1.20.1/1.21.x) игра живёт внутри universal/mc-slim артефакта.
+fn neoforge_year_line(version: &serde_json::Value) -> bool {
+    neoforge_version_component(version)
+        .and_then(|nfv| nfv.split('.').next().and_then(|part| part.parse::<u32>().ok()))
+        .map(|major| major >= 25)
+        .unwrap_or(false)
+}
+
 fn neoforge_profile_owns_client_jar(version: &serde_json::Value) -> bool {
     // NeoForge 1.21+ creates its client JAR through installer processors.
     // Check the actual filesystem: either the patched client.jar or the
     // universal artifact may be present depending on the NeoForge build.
-    let Some(neoforge_version) = version["id"]
-        .as_str()
-        .and_then(|id| id.strip_prefix("neoforge-"))
-        .filter(|v| !v.trim().is_empty())
-    else {
-        // Not a NeoForge profile — fall back to coordinate inspection.
-        return version["libraries"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(|library| library["name"].as_str())
-            .any(|name| {
-                let normalized = name.to_ascii_lowercase();
-                normalized.starts_with("net.neoforged:neoforge:") && normalized.ends_with(":client")
-            });
-    };
-
-    let lib_base = crate::commands::version_manager::libraries_dir()
-        .join("net").join("neoforged").join("neoforge").join(neoforge_version);
-    // Check for either the :client classifier or the :universal artifact.
-    lib_base.join(format!("neoforge-{neoforge_version}-client.jar")).is_file()
-        || lib_base.join(format!("neoforge-{neoforge_version}-universal.jar")).is_file()
+    match neoforge_version_component(version) {
+        Some(nfv) => {
+            let lib_base = neoforge_lib_base(&nfv);
+            lib_base.join(format!("neoforge-{nfv}-client.jar")).is_file()
+                || lib_base.join(format!("neoforge-{nfv}-universal.jar")).is_file()
+        }
+        None => {
+            // Not a NeoForge profile — fall back to coordinate inspection.
+            version["libraries"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|library| library["name"].as_str())
+                .any(|name| {
+                    let normalized = name.to_ascii_lowercase();
+                    normalized.starts_with("net.neoforged:neoforge:") && normalized.ends_with(":client")
+                })
+        }
+    }
 }
 
 fn classpath_library_key(coordinate: &str) -> Option<String> {
@@ -282,11 +310,28 @@ fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
         }
     }
     let jar = version_jar_path(mc_id);
-    // NeoForge 1.21+ generates its own client artifact (named like `_1._21._1`)
-    // during installation. Adding the vanilla client JAR too introduces a
-    // second module named `minecraft`, and Java aborts before mod discovery.
-    // Forge and Fabric/Quilt keep their established classpaths unchanged.
-    if jar.exists() && !neoforge_profile_owns_client_jar(version) {
+    let owns_client = neoforge_profile_owns_client_jar(version);
+    if let Some(patched) = neoforge_patched_client_jar(version) {
+        // Профили годовой линии (26.x) могут не перечислять `:client` в
+        // libraries — добавляем патченный клиент вручную, чтобы он точно
+        // попал на classpath (иначе «The patched Minecraft jar is missing»).
+        let patched_str = patched.to_string_lossy().to_string();
+        if !cp.iter().any(|entry| *entry == patched_str) {
+            cp.push(patched_str);
+        }
+    }
+    // Vanilla-клиент нужен, когда на classpath нет патченного файла игры:
+    //  - Forge и Fabric/Quilt — всегда, как и раньше;
+    //  - NeoForge классической линии — нет (клиент/универсал содержат игру);
+    //  - NeoForge годовой линии (25.1/26.x) без сгенерированного -client.jar —
+    //    да: universal.jar здесь несёт только NeoForge-код и не заменяет игру,
+    //    поэтому без ванильного клиента рантайм падает с той же ошибкой.
+    let need_vanilla = if owns_client {
+        neoforge_year_line(version) && neoforge_patched_client_jar(version).is_none()
+    } else {
+        true
+    };
+    if jar.exists() && need_vanilla {
         cp.push(jar.to_string_lossy().to_string());
     }
     cp
@@ -294,7 +339,7 @@ fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod classpath_tests {
-    use super::{classpath_library_key, neoforge_profile_owns_client_jar};
+    use super::{classpath_library_key, neoforge_profile_owns_client_jar, neoforge_year_line};
     use serde_json::json;
 
     #[test]
@@ -309,15 +354,13 @@ mod classpath_tests {
     }
 
     #[test]
-    fn detects_neoforge_21_profile_when_client_jar_is_generated() {
-        let profile = json!({
-            "id": "neoforge-21.1.99",
-            "libraries": [
-                { "name": "net.neoforged:neoforge:21.1.99:universal" }
-            ]
-        });
-
-        assert!(neoforge_profile_owns_client_jar(&profile));
+    fn separates_classic_and_year_line_neoforge() {
+        // Классическая линия: universal.jar несёт игру, ваниль не нужен.
+        assert!(!neoforge_year_line(&json!({ "id": "neoforge-21.1.99" })));
+        // Годовая линия (25.1/26.x): universal.jar без патченного клиента не
+        // заменяет игру — на classpath обязан попасть ванильный клиент.
+        assert!(neoforge_year_line(&json!({ "id": "neoforge-26.2.7" })));
+        assert!(neoforge_year_line(&json!({ "id": "neoforge-25.1.3" })));
     }
 
     #[test]

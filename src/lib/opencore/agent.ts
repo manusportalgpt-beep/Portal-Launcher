@@ -304,6 +304,167 @@ export const TOOLS: ToolDef[] = [
     root: 'portal',
     requiresPermission: true,
   },
+  {
+    name: 'inspect_image',
+    description:
+      'Анализирует изображение по пикселям: размеры, прозрачность, палитра доминирующих цветов, средний цвет. ' +
+      'Используй, когда нужно «увидеть» картинку (скриншот, иконку, UI, логотип) — модель без зрения получит текстовое описание.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона, где лежит файл' },
+        path: { type: 'string', description: 'Абсолютный путь к изображению' },
+      },
+      required: ['root', 'path'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'hexdump',
+    description: 'Показывает бинарный файл как hexdump (по 16 байт на строку), чтобы исследовать неизвестные форматы.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона' },
+        path: { type: 'string', description: 'Абсолютный путь к файлу' },
+        max_bytes: { type: 'number', description: 'Сколько байт показать (до 65536, по умолчанию 4096)' },
+      },
+      required: ['root', 'path'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'archive_list',
+    description: 'Просмотр содержимого архива (.zip, .7z, .tar, .tar.gz, .tar.bz2) без распаковки: имена, папки, размеры.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона' },
+        path: { type: 'string', description: 'Абсолютный путь к архиву' },
+      },
+      required: ['root', 'path'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'archive_extract',
+    description:
+      'Распаковывает архив внутри разрешённой зоны (защита от выхода за папку назначения). ' +
+      'Если dest_path не указан — архив распакуется в OpenPortal/Cache/extracted/<имя>. В зонах portal/temp выполняется сразу; в launcher спросит разрешение.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона' },
+        path: { type: 'string', description: 'Абсолютный путь к архиву' },
+        dest_path: { type: 'string', description: 'Папка назначения (абсолютный путь внутри зоны); по умолчанию Cache/extracted/<имя архива>' },
+      },
+      required: ['root', 'path'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'archive_create',
+    description:
+      'Создаёт архив из папки или файла (.zip или .7z). Сохраняется в OpenPortal/Cache/archives/<имя>. ' +
+      'В зонах portal/temp выполняется сразу; в launcher спросит разрешение. Покажи результат пользователю маркером /op-project для скачивания.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона' },
+        path: { type: 'string', description: 'Абсолютный путь к файлу или папке, которую архивировать' },
+        name: { type: 'string', description: 'Имя архива (.zip или .7z)' },
+      },
+      required: ['root', 'path', 'name'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'save_to_downloads',
+    description: 'Копирует файл из песочницы (portal/temp/launcher) в системную папку «Загрузки» пользователя. Оригинал не удаляется.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона' },
+        path: { type: 'string', description: 'Абсолютный путь к файлу' },
+        name: { type: 'string', description: 'Имя файла в «Загрузках» (по умолчанию — исходное)' },
+      },
+      required: ['root', 'path'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'launcher_list_builds',
+    description: 'Список сборок лаунчера: id, название, версия Minecraft, загрузчик и его версия, лимиты RAM, число модов, дата создания.',
+    parameters: { type: 'object', properties: {}, required: [] },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'launcher_logs',
+    description: 'Последние строки лога запуска сборки (instance_id) — для диагностики крашей, ошибок, предупреждений.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instance_id: { type: 'string', description: 'id сборки (см. launcher_list_builds)' },
+      },
+      required: ['instance_id'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'launcher_install_mod',
+    description:
+      'Устанавливает мод/ресурс-пак/шейдер в сборку лаунчера: скачивает файл по download_url и кладёт в папку сборки (mods/resourcepacks/shaderpacks). ' +
+      'Спросит разрешение у пользователя. После установки напомни пересобрать сборку в лаунчере, чтобы мод проиндексировался.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instance_id: { type: 'string', description: 'id сборки' },
+        download_url: { type: 'string', description: 'Прямая ссылка на .jar/.zip файл' },
+        file_name: { type: 'string', description: 'Имя файла в папке сборки (например mymod-1.0.jar)' },
+        mod_id: { type: 'string', description: 'ID проекта в источнике' },
+        mod_name: { type: 'string', description: 'Название мода' },
+        mod_version: { type: 'string', description: 'Версия мода' },
+        version_id: { type: 'string', description: 'ID версии в источнике' },
+        source: { type: 'string', enum: ['modrinth', 'curseforge', 'other'], description: 'Источник (по умолчанию modrinth)' },
+        mod_type: { type: 'string', enum: ['mod', 'resourcepack', 'shaderpack'], description: 'Тип контента (по умолчанию mod)' },
+        project_id: { type: 'string', description: 'Альтернативный ID проекта (если отличается)' },
+        author: { type: 'string', description: 'Автор мода' },
+        icon_url: { type: 'string', description: 'Ссылка на иконку мода' },
+      },
+      required: ['instance_id', 'download_url', 'file_name'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'launcher_create_build',
+    description: 'Создаёт новую сборку Minecraft в лаунчере (спросит разрешение).',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Название сборки' },
+        description: { type: 'string', description: 'Описание' },
+        mc_version: { type: 'string', description: 'Версия Minecraft, например 1.20.1' },
+        loader: { type: 'string', enum: ['fabric', 'forge', 'neoforge', 'quilt', 'vanilla'], description: 'Загрузчик' },
+        loader_version: { type: 'string', description: 'Версия загрузчика' },
+        min_ram: { type: 'number', description: 'Минимальная RAM в МБ (по умолчанию 4096)' },
+        max_ram: { type: 'number', description: 'Максимальная RAM в МБ (по умолчанию 8192)' },
+        color: { type: 'string', description: 'Цвет в hex, например #4f46e5' },
+        icon: { type: 'string', description: 'Иконка как data URL (base64-изображение)' },
+      },
+      required: ['name', 'mc_version', 'loader', 'loader_version'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -705,6 +866,159 @@ async function execRunCommand(args: { root: PortalRoot; cwd: string; command: st
     if (res.stdout.trim()) parts.push('--- stdout ---\n' + res.stdout.slice(0, 12000));
     if (res.stderr.trim()) parts.push('--- stderr ---\n' + res.stderr.slice(0, 6000));
     return { ok: res.exit_code === 0, output: parts.join('\n') };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execInspectImage(args: { root: PortalRoot; path: string }): Promise<ExecResult> {
+  try {
+    const insp = await invoke<{
+      width: number; height: number; alpha: boolean;
+      colors: { hex: string; share: number; brightness: number }[];
+      dominant: string; average: string;
+    }>('op_image_inspect', { root: String(args.root), path: args.path });
+    const palette = (Array.isArray(insp?.colors) ? insp.colors : [])
+      .map(c => `${c.hex} ${Math.round((c.share ?? 0) * 10) / 10}% (яркость ${c.brightness})`)
+      .slice(0, 8)
+      .join(', ');
+    return {
+      ok: true,
+      output: `Размер ${insp?.width}×${insp?.height}, альфа-канал: ${insp?.alpha ? 'есть' : 'нет'}. Доминирующий цвет: ${insp?.dominant || '—'}. Средний цвет: ${insp?.average || '—'}. Палитра: ${palette || '—'}.`,
+    };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execHexdump(args: { root: PortalRoot; path: string; max_bytes?: number }): Promise<ExecResult> {
+  try {
+    const lines = await invoke<{ offset: number; hex: string; ascii: string }[]>('op_hexdump', {
+      root: String(args.root), path: args.path, max_bytes: args.max_bytes ?? null,
+    });
+    const body = (Array.isArray(lines) ? lines : [])
+      .map(l => `${String(l?.offset ?? 0).padStart(8, '0')}  ${l?.hex ?? ''}  | ${l?.ascii ?? ''}`)
+      .join('\n');
+    return { ok: true, output: body || '(файл пуст)' };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execArchiveList(args: { root: PortalRoot; path: string }): Promise<ExecResult> {
+  try {
+    const entries = await invoke<{ name: string; is_dir: boolean; size: number }[]>('op_archive_list', {
+      root: String(args.root), path: args.path,
+    });
+    if (!Array.isArray(entries) || entries.length === 0) return { ok: true, output: '(архив пуст)' };
+    const lines = entries.map(e => `${e?.is_dir ? '[dir ]' : '[file]'} ${e?.name}${e?.is_dir ? '/' : ''}${e?.is_dir ? '' : `  (${fmtSize(e?.size ?? 0)})`}`);
+    return { ok: true, output: lines.join('\n') };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execArchiveExtract(args: { root: PortalRoot; path: string; dest_path?: string }): Promise<ExecResult> {
+  try {
+    const out = await invoke<string>('op_archive_extract', {
+      root: String(args.root), path: args.path, dest_path: args.dest_path ?? null,
+    });
+    return { ok: true, output: out };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execArchiveCreate(args: { root: PortalRoot; path: string; name: string }): Promise<ExecResult> {
+  try {
+    const out = await invoke<string>('op_archive_create', {
+      root: String(args.root), path: args.path, name: args.name,
+    });
+    return { ok: true, output: out };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execCopyToDownloads(args: { root: PortalRoot; path: string; name?: string }): Promise<ExecResult> {
+  try {
+    const res = await invoke<string>('op_copy_to_downloads', {
+      root: String(args.root), path: args.path, name: args.name ?? null,
+    });
+    return { ok: true, output: res };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execLauncherListBuilds(): Promise<ExecResult> {
+  try {
+    const list = await invoke<any[]>('get_instances');
+    if (!Array.isArray(list) || list.length === 0) return { ok: true, output: '(сборок нет)' };
+    const lines = list.map(b => {
+      const mods = Array.isArray(b?.mods) ? b.mods.length : 0;
+      return `- ${b?.id}\n  Название: ${b?.name ?? ''}\n  Minecraft: ${b?.mc_version ?? ''} / ${b?.loader ?? ''} ${b?.loader_version ?? ''}\n  RAM: ${b?.min_ram ?? '?'}–${b?.max_ram ?? '?'} МБ · моды: ${mods} · создана: ${String(b?.created_at ?? '').slice(0, 16)}`;
+    });
+    return { ok: true, output: `Сборки лаунчера (${list.length}):\n${lines.join('\n')}` };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execLauncherLogs(args: { instance_id: string }): Promise<ExecResult> {
+  try {
+    const lines = await invoke<string[]>('get_game_logs', { instance_id: args.instance_id });
+    const all = Array.isArray(lines) ? lines : [];
+    const tail = all.slice(-250).join('\n');
+    return { ok: true, output: `Лог сборки ${args.instance_id} (${all.length} строк, показаны последние 250):\n${tail || '(лог пуст)'}` };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execLauncherInstallMod(args: Record<string, unknown>): Promise<ExecResult> {
+  try {
+    const instanceId = String(args.instance_id ?? '');
+    const downloadUrl = String(args.download_url ?? '');
+    const fileName = String(args.file_name ?? '');
+    if (!instanceId || !downloadUrl || !fileName) return { ok: false, output: 'Нужны instance_id, download_url, file_name.' };
+    const res = await invoke<any[]>('install_mod', {
+      instanceId,
+      downloadUrl,
+      fileName,
+      modId: String(args.mod_id ?? ''),
+      modName: String(args.mod_name ?? fileName),
+      modVersion: String(args.mod_version ?? ''),
+      versionId: String(args.version_id ?? ''),
+      source: String(args.source ?? 'modrinth'),
+      modType: args.mod_type != null ? String(args.mod_type) : null,
+      projectId: args.project_id != null ? String(args.project_id) : null,
+      author: args.author != null ? String(args.author) : null,
+      iconUrl: args.icon_url != null ? String(args.icon_url) : null,
+    });
+    const count = Array.isArray(res) ? res.length : 0;
+    return { ok: true, output: `Установлено в сборку ${instanceId}: ${count} файл(а). Напомни пользователю пересобрать сборку в лаунчере, чтобы контент проиндексировался.` };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execLauncherCreateBuild(args: Record<string, unknown>): Promise<ExecResult> {
+  try {
+    const name = String(args.name ?? '');
+    if (!name) return { ok: false, output: 'Нужно имя сборки (name).' };
+    const instance = await invoke<any>('create_instance', {
+      name,
+      description: String(args.description ?? ''),
+      mcVersion: String(args.mc_version ?? ''),
+      loader: String(args.loader ?? 'fabric'),
+      loaderVersion: String(args.loader_version ?? ''),
+      minRam: Number(args.min_ram ?? 4096),
+      maxRam: Number(args.max_ram ?? 8192),
+      color: args.color != null ? String(args.color) : null,
+      icon: args.icon != null ? String(args.icon) : null,
+    });
+    return { ok: true, output: `Создана сборка «${instance?.name ?? name}» (id ${instance?.id ?? '?'}). Версии Minecraft/загрузчика должны быть установлены в лаунчере.` };
   } catch (e) {
     return { ok: false, output: String(e) };
   }
@@ -1176,6 +1490,64 @@ export async function executeTool(
   if (tool === 'list_dir') return execListDir(args);
   if (tool === 'read_text') return execReadText(args);
 
+  if (tool === 'inspect_image') return execInspectImage(args);
+  if (tool === 'hexdump') return execHexdump(args);
+  if (tool === 'archive_list') return execArchiveList(args);
+  if (tool === 'save_to_downloads') return execCopyToDownloads(args);
+
+  if (tool === 'archive_extract' || tool === 'archive_create') {
+    const root: PortalRoot = String(args.root || 'portal') as PortalRoot;
+    if (!['portal', 'temp', 'launcher'].includes(root)) {
+      return { ok: false, output: `Неизвестная зона: ${root}` };
+    }
+    if (root === 'portal' || root === 'temp') {
+      if (tool === 'archive_create') return execArchiveCreate(args);
+      return execArchiveExtract(args);
+    }
+    const label = tool === 'archive_create' ? 'Создание архива' : 'Распаковка архива';
+    const decision = await requestPermission({
+      tool,
+      root,
+      label,
+      detail: `Путь: ${args.path}`,
+      cwdLabel: `${label} → ${args.path}`,
+      resolve: () => {},
+    });
+    if (decision === 'deny' || decision === 'never') {
+      return { ok: false, output: `Пользователь не разрешил: ${label}.` };
+    }
+    if (decision === 'allow' || decision === 'always') {
+      if (tool === 'archive_create') return execArchiveCreate(args);
+      return execArchiveExtract(args);
+    }
+    return { ok: false, output: 'Разрешение не получено.' };
+  }
+
+  if (tool === 'launcher_list_builds') return execLauncherListBuilds();
+  if (tool === 'launcher_logs') return execLauncherLogs(args);
+
+  if (tool === 'launcher_install_mod' || tool === 'launcher_create_build') {
+    const label = tool === 'launcher_install_mod' ? 'Установка мода в сборку' : 'Создание сборки';
+    const decision = await requestPermission({
+      tool,
+      root: 'launcher',
+      label,
+      detail: tool === 'launcher_install_mod'
+        ? `Мод: ${args.mod_name ?? args.file_name ?? ''} → сборка ${args.instance_id ?? ''}`
+        : `Сборка: ${args.name ?? ''}`,
+      cwdLabel: `${label} → ${args.instance_id ?? args.name ?? ''}`,
+      resolve: () => {},
+    });
+    if (decision === 'deny' || decision === 'never') {
+      return { ok: false, output: `Пользователь не разрешил: ${label}.` };
+    }
+    if (decision === 'allow' || decision === 'always') {
+      if (tool === 'launcher_install_mod') return execLauncherInstallMod(args);
+      return execLauncherCreateBuild(args);
+    }
+    return { ok: false, output: 'Разрешение не получено.' };
+  }
+
   if (tool === 'generate_image') {
     if (!args.prompt || typeof args.prompt !== 'string') return { ok: false, output: 'Нет аргумента prompt.' };
     const root: PortalRoot = 'portal';
@@ -1206,9 +1578,13 @@ export async function executeTool(
     if (tool === 'terminal') {
       args = { ...args, shell: args.shell ?? 'powershell' };
     }
-    // Запись внутри рабочей зоны портала (Projects/Skills/Config) и Temp — без запроса разрешения.
     if (tool === 'write_text' && (root === 'portal' || root === 'temp')) {
       return execWriteText(args);
+    }
+    const isNetFetch = tool !== 'write_text' && /^\s*(curl|wget)\b/i.test(String(args.command ?? '').trim());
+    if (isNetFetch || root === 'portal' || root === 'temp') {
+      if (tool === 'write_text') return execWriteText(args);
+      return execRunCommand(args);
     }
     const label = tool === 'write_text' ? 'Запись файла' : tool === 'terminal' ? 'Команда в PowerShell' : 'Выполнение команды';
     const detail = tool === 'write_text'
@@ -1916,6 +2292,32 @@ export function compressHistory(messages: ChatMessage[], max = 48): ChatMessage[
   return [...head, summary, ...tail];
 }
 
+/** Сворачивает старую часть истории в выжимку силами модели (маленький отдельный запрос). */
+async function compactHistoryWithModel(ep: ResolvedEndpoint, messages: ChatMessage[], signal?: AbortSignal): Promise<ChatMessage[]> {
+  const keep = messages.slice(-6);
+  const older = messages.slice(0, messages.length - keep.length);
+  const transcript = older
+    .map(m => `${m.role === 'user' ? 'ПОЛЬЗОВАТЕЛЬ' : m.role === 'assistant' ? 'АГЕНТ' : 'ИНСТРУМЕНТ'}: ${m.content}`)
+    .join('\n\n')
+    .slice(0, 60_000);
+  const outcome = await callProvider(
+    ep,
+    'Ты сжимаешь длинную переписку агента и пользователя в краткую, но содержательную выжимку. Сохрани цель, принятые решения, изменённые файлы и пути, важные факты и открытые задачи. Ответь ТОЛЬКО текстом выжимки, инструменты не вызывай.',
+    [{ role: 'user', content: transcript }],
+    signal,
+  );
+  const summary = (outcome.text || '').trim() || '(модель не вернула текст выжимки)';
+  return [
+    {
+      id: `summary-${Date.now()}`,
+      role: 'assistant',
+      content: `**Сжатая история** (${older.length} сообщений свёрнуто автоматически для экономии контекста)\n\n${summary}`,
+      timestamp: Date.now(),
+    },
+    ...keep,
+  ];
+}
+
 // ---------------------------------------------------------------------------
 // Системный промпт
 // ---------------------------------------------------------------------------
@@ -1938,7 +2340,7 @@ export function buildSystemPrompt(opts: {
     `Режим: ${opts.mode === 'build' ? 'BUILD — выполнять' : 'PLAN — только план'}.`,
     rules,
     '',
-    `Отвечай на русском, если пользователь не просил иначе. Пиши по делу: короткие абзацы, markdown (заголовки ## / ###, списки, \`\`\` код \`\`\`). Не приукрашивай, без эмодзи, без «вау», без лишних заверений.`,
+    `Отвечай на русском, если пользователь не просил иначе. Пиши по делу: короткие абзацы, markdown (заголовки ## / ###, списки, \`\`\` код \`\`\`). Не приукрашивай, без эмодзи, без «вау», без лишних заверений. Отвечай КРАТКО: обычно 1–3 коротких абзаца или маркированный список; подробный разбор давай только когда просили или когда он действительно нужен для задачи.`,
     '',
     `ВАЖНО: обычные вопросы и задания — просто выполнить напрямую. Инструменты (включая web_search) используй ТОЛЬКО когда реально нужно: свежие данные из интернета, работа с файлами/системой/API. Для «hello», вопросов по общим знаниям, пересказов и рефакторинга кода в чате — отвечай сам, без инструментов.`,
     '',
@@ -1951,10 +2353,20 @@ export function buildSystemPrompt(opts: {
     `- list_dir(root, path) — список каталога. root: portal | temp | launcher.`,
     `- read_text(root, path) — прочесть текстовый файл (до 512 КБ).`,
     `- write_text(root, path, content) — записать файл. В зонах portal и temp — мгновенно, без модалки; в launcher запросит разрешение.`,
-    `- run_command(root, cwd, command, timeout_ms) — команда (спросит разрешение). Оболочка по умолчанию cmd, можно передать shell: 'powershell'.`,
-    `- terminal(root, cwd, command) — команда в PowerShell-терминале (спросит разрешение).`,
+    `- run_command(root, cwd, command, timeout_ms) — команда (в portal/temp и curl/wget — без модалки; launcher спросит разрешение). Оболочка по умолчанию cmd, можно передать shell: 'powershell'.`,
+    `- terminal(root, cwd, command) — команда в PowerShell-терминале (масштаб разрешений как у run_command).`,
     `- generate_image(prompt, size?, provider?) — сгенерировать изображение (спросит разрешение).`,
     `  Как готовить prompt: сам напиши развёрнутое описание по-английски (сюжет, стиль, свет, композиция, детали) — не передавай сырой короткий запрос пользователя. provider: auto (по умолчанию), pollinations (бесплатно, без ключа), magnific (по сохранённому ключу api.magnific.ai), provider (активный провайдер).`,
+    `- inspect_image(root, path) — «увидеть» изображение: размер, палитра цветов, яркость (анализ по пикселям для модели без зрения).`,
+    `- hexdump(root, path, max_bytes?) — бинарный файл как hexdump (анализ неизвестных форматов/магии файлов).`,
+    `- archive_list(root, path) — содержимое архива .zip/.7z/.tar/.tar.gz/.tar.bz2 без распаковки.`,
+    `- archive_extract(root, path, dest_path?) — распаковать архив (portal/temp — сразу; launcher — с разрешения).`,
+    `- archive_create(root, path, name) — создать .zip/.7z из папки/файла (сохраняется в Cache/archives; покажи маркером /op-project).`,
+    `- save_to_downloads(root, path, name?) — скопировать файл из песочницы в системные «Загрузки».`,
+    `- launcher_list_builds() — список сборок лаунчера (id нужен для launcher-инструментов).`,
+    `- launcher_logs(instance_id) — последние строки лога запуска сборки (диагностика крашей, ошибок).`,
+    `- launcher_install_mod(instance_id, download_url, file_name, ...) — установить мод/ресурс-пак/шейдер в сборку (спросит разрешение).`,
+    `- launcher_create_build(name, mc_version, loader, loader_version, ...) — создать новую сборку (спросит разрешение).`,
     '',
     `Сетевые инструменты (web_search, fetch_page, http_request) работают БЕЗ подтверждения пользователя — используй их смело и сразу, когда нужны актуальные данные, документация, страницы модов или API. Не спрашивай разрешения перед интернет-запросом, просто вызывай инструмент.`,
     '',
@@ -1964,12 +2376,13 @@ export function buildSystemPrompt(opts: {
     `- Для приватных репозиториев и ускорения лимитов токен обязателен; хранится только локально в настройках портала.`,
     `- Структура данных из API приходит как JSON — сведи её к сути в ответе.`,
     '',
-    `Обработка изображений: если пользователь приложил изображение или скриншот (в сообщении/вложении), а модель его поддерживает — проанализируй содержимое по существу (что на экране, ошибки кода, UI, меню и т.п.) и используй это в работе.`,
+    `Обработка изображений: приложенные пользователем картинки в запрос как файлы не передаются — вместо этого в сообщение встраивается их описание (размер, палитра). Нужен детальный разбор — вызови inspect_image с путём к файлу. Анализируй содержимое по существу (что на экране, ошибки кода, UI, меню) и используй в работе.`,
     '',
     `Многозадачность: если пользователь перечислил СРАЗУ НЕСКОЛЬКО разных задач («сделай X, ещё Y и Z», «и», «а также», «в дополнение», «потом») — составь чек-лист, выполни все пункты по очереди (независимые части можно распараллелить через spawn_agents), затем отчитайся ПО КАЖДОМУ пункту отдельно. Начатое в этом ответе — доведи до конца; пункты не смешивай и не теряй.`,
     '',
     `Моды Minecraft:`,
-    `- Установка готового мода: найди .jar (Modrinth/CurseForge/др. через web_search/fetch_page), скачай его и положи командой в папку mods активной сборки — путь найди через list_dir в зоне launcher (обычно <сборка>/mods). После этого скажи пользователю нажать «Установить/Применить» в лаунчере, чтобы сборка пересобралась (мод проиндексируется по SHA-1).`,
+    `- Самый простой способ установить готовый мод/ресурс-пак/шейдер — launcher_install_mod: возьми instance_id из launcher_list_builds, найди прямую ссылку на файл (Modrinth/CurseForge через web_search/fetch_page) и передай download_url + file_name.`,
+    `- Установка вручную: найди .jar (Modrinth/CurseForge/др. через web_search/fetch_page), скачай его и положи командой в папку mods активной сборки — путь найди через list_dir в зоне launcher (обычно <сборка>/mods). После этого скажи пользователю нажать «Установить/Применить» в лаунчере, чтобы сборка пересобралась (мод проиндексируется по SHA-1).`,
     `- Создание/доработка своего мода: выясни загрузчик (fabric/forge/neoforge/quilt), версию Minecraft и маппинги; для больших модов предложи и сделай структуру src/main/java/...+src/main/resources/ с fabric.mod.json (Fabric) или META-INF/mods.toml (Forge/NeoForge); укажи все dependencies (loader/fabric-api и т.п.).`,
     `- Сборка в .jar: скачай нужные загрузчик-и-движок jar (fabricmc.net / maven.neoforged.net / maven.fabricmc.net) в temp-папку проекта, компилируй javac -cp "<forge.jar>;<minecraft.jar>[;...]" -d build/classes $(find src -name '*.java'), скопируй ресурсы в build/classes и упакуй jar -cf mods/<modid>-<version>.jar -C build/classes . Затем положи готовый jar в mods активной сборки (как выше) — не в корень проекта.`,
     `- Пиши аккуратный код на Java: package по шаблону ru.<ник>/<modid>, события загрузчика, null-безопасность, логирование через свою логгер-префикс. Компилируй без warnings, проверь, что modid строго нижним регистром и уникален. После установки попроси пользователя пересобрать сборку и запустить — по логам/крашам уточняй и чини.`,
@@ -1980,7 +2393,7 @@ export function buildSystemPrompt(opts: {
     '',
     `Как отдавать файлы: если результат твоей работы — файл (архив, скрипт, документ, конфиг, собранный билд), который пользователь захочет сохранить, добавь в конец ответа ОТДЕЛЬНОЙ строкой маркер артефакта: ` +
       '`/op-project <путь>|<имя для скачивания>`' +
-      `, где <путь> — путь к файлу внутри зоны portal (такой, как ты передавал в write_text; например Projects/имя-проекта/dist/билд.zip или абсолютный путь внутри зоны). Эта строка превратится в карточку с кнопкой «Скачать» — файл скопируется в системную папку «Загрузки». Имя после | — необязательно (по умолчанию имя файла). Не ставь «/op-project» внутри обычного текста и в коде.`,
+      `, где <путь> — путь к файлу внутри зоны portal (такой, как ты передавал в write_text; например Projects/имя-проекта/dist/билд.zip или абсолютный путь внутри зоны). Эта строка превратится в карточку с кнопкой «Скачать» — файл скопируется в системную папку «Загрузки». Имя после | — необязательно (по умолчанию имя файла). Не ставь «/op-project» внутри обычного текста и в коде. Для выдачи целой папки или набора файлов сначала собери archive_create (.zip/.7z), затем отдай архив маркером /op-project; либо скопируй файл save_to_downloads напрямую в «Загрузки».`,
     '',
     `Правила работы с файлами:`,
     `- Зона portal — папка OpenPortal (проекты, настройки агента); temp — системная Temp; launcher — каталог лаунчера.`,
@@ -1991,7 +2404,7 @@ export function buildSystemPrompt(opts: {
     `- Опасные команды (форматирование, удаление системных файлов, изменение реестра, выключение ПК) запрещены и будут отклонены защитой.`,
     `- Если пользователь просит что-то, что выглядит как команда из списка (например /fetch <url>), выполни её через инструменты (web_search).`,
     '',
-    `write_text в зонах portal/temp выполняется сразу (без модалки). run_command / terminal / generate_image показывают пользователю модалку разрешения — дождись результата инструмента, его не будет, если пользователь отказал.`,
+    `Разрешения: write_text, run_command, terminal в зонах portal и temp, а также команды curl/wget — выполняются сразу, без модалки. Модалку разрешения запросят: write_text/run_command/terminal в зоне launcher, generate_image, archive_extract/archive_create в launcher, launcher_install_mod, launcher_create_build, set_service_token, spawn_agents. Дождись результата инструмента — его не будет, если пользователь отказал.`,
     `Пакетные менеджеры внутри песочницы (npm, pnpm, yarn и т.п.) автоматически используют кеш OpenPortal/Cache/deps — это не влияет на проект, такой кеш чистится отдельно (команда /cache clean).`,
     `Создание навыков: если пользователь просит создать/установить навык — создай папку ` + '`<portal base>/Skills/<slug>/`' +
       ` и файл SKILL.md с frontmatter (name, description) и инструкциями.`,
@@ -2013,6 +2426,8 @@ export interface RunTurnOptions {
   mode: 'build' | 'plan';
   requestPermission: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>;
   signal?: AbortSignal;
+  /** Лимит контекста модели в токенах (по умолчанию 128000). Автокомпрессия сработает при расходе более 75%. */
+  contextLimit?: number;
   onAppend?: (msgs: ChatMessage[]) => void;
   onUpdate?: (id: string, patch: Partial<ChatMessage>) => void;
   maxIterations?: number;
@@ -2025,6 +2440,7 @@ export interface RunTurnOptions {
 export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]> {
   const { ep, systemPrompt, requestPermission, signal, maxIterations = 40 } = opts;
   let messages: ChatMessage[] = opts.input;
+  let didCompact = false;
 
   const push = (m: ChatMessage) => {
     messages = [...messages, m];
@@ -2048,6 +2464,23 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
       timestamp: Date.now(),
     });
 
+    const contextLimit = opts.contextLimit ?? 128_000;
+    if (!didCompact && messages.length > 10) {
+      try {
+        const est = estimateInputTokens(systemPrompt, toTurns(messages));
+        if (est > contextLimit * 0.75) {
+          didCompact = true;
+          let compacted: ChatMessage[];
+          try {
+            compacted = await compactHistoryWithModel(ep, messages, signal);
+          } catch {
+            compacted = compressHistory(messages, 48);
+          }
+          messages = compacted;
+          opts.onReplace?.(messages);
+        }
+      } catch { /* оценка недоступна — работаем как есть */ }
+    }
     const turns: ChatTurn[] = toTurns(messages);
     let outcome: ApiOutcome;
     try {
@@ -2150,7 +2583,7 @@ function toTurns(messages: ChatMessage[]): ChatTurn[] {
   const turns: ChatTurn[] = [];
   for (const m of messages) {
     if (m.role === 'user') {
-      turns.push({ role: 'user', content: m.content, attachments: m.attachments });
+      turns.push({ role: 'user', content: m.content });
     } else if (m.role === 'assistant') {
       turns.push({
         role: 'assistant',

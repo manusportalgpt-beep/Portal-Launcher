@@ -68,6 +68,13 @@ function fmtSize(n: number): string {
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
+/** base64 → строка UTF-8 (для встраивания содержимого текстовых вложений). */
+function b64ToUtf8(b64: string): string {
+  const bin = atob(b64);
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
 /** Копирование в буфер обмена (clipboard API + фолбэк для вебвью). */
 async function copyToClipboard(text: string) {
   try {
@@ -701,8 +708,44 @@ export function OpenPortalPage() {
     const runSessionId = sessionId;
     if (!runSessionId) return;
 
+    // Вложения зашиваем в текст: картинки анализируем по пикселям (палитра) через
+    // op_image_inspect, текстовые файлы встраиваем, остальные — упоминание. base64
+    // модели НЕ передаём (иначе провайдер zen возвращал HTTP 500 и чат ломался).
+    let finalText = text;
+    if (attachments.length > 0) {
+      const parts: string[] = [];
+      for (const a of attachments) {
+        const b64 = a.base64 ?? (a.dataUrl ? a.dataUrl.split(',')[1] ?? '' : '');
+        if (a.type?.startsWith('image/') && b64) {
+          try {
+            const imgName = await invoke<string>('op_save_image', { b64 });
+            const insp = await invoke<{
+              width: number; height: number; alpha: boolean;
+              colors: { hex: string; share: number; brightness: number }[];
+              dominant: string; average: string;
+            }>('op_image_inspect', { root: 'portal', path: `${layout?.cache ?? ''}\\images\\${imgName}` });
+            const palette = (Array.isArray(insp?.colors) ? insp.colors : [])
+              .map(c => `${c.hex} ${Math.round((c.share ?? 0) * 10) / 10}%`)
+              .slice(0, 6).join(', ');
+            parts.push(`[Вложение — изображение «${a.name}»] ${insp?.width ?? '?'}×${insp?.height ?? '?'} px, прозрачность: ${insp?.alpha ? 'есть' : 'нет'}, доминирующий цвет ${insp?.dominant || '—'}, средний цвет ${insp?.average || '—'}, палитра: ${palette || '—'}.`);
+          } catch {
+            parts.push(`[Вложение — изображение «${a.name}»] (не удалось проанализировать)`);
+          }
+        } else if (a.type?.startsWith('text/') && b64 && b64.length < 70_000) {
+          try {
+            parts.push(`[Вложение — файл «${a.name}»]\n\`\`\`\n${b64ToUtf8(b64).slice(0, 50_000)}\n\`\`\``);
+          } catch {
+            parts.push(`[Вложение — файл «${a.name}»] (${fmtSize(a.size)}, ${a.type || 'бинарный'})`);
+          }
+        } else {
+          parts.push(`[Вложение — файл «${a.name}»] (${fmtSize(a.size)}, ${a.type || 'бинарный'})`);
+        }
+      }
+      if (parts.length > 0) finalText = `${text}\n\n${parts.join('\n\n')}`;
+    }
+
     const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`, role: 'user', content: text, attachments: attachments.length ? attachments : undefined, timestamp: Date.now(),
+      id: `user-${Date.now()}`, role: 'user', content: finalText, attachments: attachments.length ? attachments : undefined, timestamp: Date.now(),
     };
     useOpenCoreStore.getState().appendSessionMessages(runSessionId, [userMsg]);
     setAttachments([]);
@@ -755,6 +798,7 @@ export function OpenPortalPage() {
         systemPrompt,
         input: history,
         mode,
+        contextLimit: ctxLimit,
         requestPermission,
         signal: abort.signal,
         onAppend: msgs => useOpenCoreStore.getState().appendSessionMessages(runSessionId, msgs),

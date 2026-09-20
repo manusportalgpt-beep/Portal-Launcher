@@ -275,6 +275,9 @@ function MinecraftSection() {
       <Row label="Сворачивать лаунчер при запуске игры" desc="Сворачивать Portal Launcher при запуске Minecraft">
         <Toggle value={s.closeLauncherOnStart} onChange={v => s.setSetting('closeLauncherOnStart',v)} />
       </Row>
+      <Row label="Работа в фоне при закрытии" desc="Кнопка «Закрыть» прячет лаунчер в трей, а агент продолжает работать. Выключите — тогда закрытие полностью завершает программу и пропадёт одна иконка трея">
+        <Toggle value={s.runInBackground} onChange={v => s.setSetting('runInBackground',v)} />
+      </Row>
       <Row label="Показывать snapshot-версии" desc="Добавлять предрелизы и snapshot-версии в выбор версии">
         <Toggle value={s.showSnapshots} onChange={v => s.setSetting('showSnapshots',v)} />
       </Row>

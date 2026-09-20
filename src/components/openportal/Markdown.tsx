@@ -15,7 +15,7 @@ function loadImage(name: string): Promise<string> {
 }
 
 /** Встраивает изображение из кеша OpenPortal (`/op-image/<name>`). Клик — просмотр на весь экран. */
-function PortalImage({ name }: { name: string }) {
+export function PortalImage({ name }: { name: string }) {
   const [src, setSrc] = useState<string | null>(null);
   const [err, setErr] = useState('');
   const [open, setOpen] = useState(false);
@@ -61,7 +61,7 @@ function PortalImage({ name }: { name: string }) {
         ? <img
             src={src}
             alt={name}
-            className="max-h-96 cursor-zoom-in rounded-xl border object-contain"
+            className="max-h-96 max-w-full cursor-zoom-in rounded-xl border object-contain"
             style={{ borderColor: 'var(--color-border)' }}
             onClick={() => setOpen(true)}
           />

@@ -26,6 +26,7 @@ interface Settings {
   modrinthProxyUrl: string;
   modrinthProxyAllowOfficialFallback: boolean;
   closeLauncherOnStart: boolean;
+  runInBackground: boolean;
   showSnapshots: boolean;
   keepLogs: boolean;
   autoInstallDeps: boolean;
@@ -64,6 +65,7 @@ const defaults: Settings = {
   modrinthProxyUrl: 'https://modrinth.black',
   modrinthProxyAllowOfficialFallback: true,
   closeLauncherOnStart: false,
+  runInBackground: true,
   showSnapshots: false,
   keepLogs: true,
   autoInstallDeps: true,

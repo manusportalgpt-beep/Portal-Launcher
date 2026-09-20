@@ -59,6 +59,16 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_oauth::init())
+        // Одновременно работает только один экземпляр: повторный запуск (ярлык,
+        // двойной клик по EXE) при свёрнутом в трей окне не плодит вторую иконку,
+        // а возвращает существующее окно на экран.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .manage(app_state)
         .manage(discord_state)
         .setup(|app| {
@@ -105,9 +115,15 @@ fn main() {
         .on_window_event(|window, event| {
             // «Закрыть» не выключает приложение: окно прячется в трей, агент
             // продолжает работать. Полный выход — через пункт «Выход» в трее.
+            // Поведение можно отключить в Настройки → Работа в фоне при закрытии:
+            // тогда закрытие окна завершает программу и вторая иконка не плодится.
             if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+                if commands::settings::get_bool_setting("run_in_background", true) {
+                    api.prevent_close();
+                    let _ = window.hide();
+                } else {
+                    window.app_handle().exit(0);
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![

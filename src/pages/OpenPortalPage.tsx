@@ -13,7 +13,7 @@ import { useCurrentUser } from '@/stores/authStore';
 import { toIconSrc } from '@/lib/icon-src';
 import { resolveEndpoint, runAgentTurn, buildSystemPrompt, compressHistory, callProvider } from '@/lib/opencore/agent';
 import { contextWindow } from '@/lib/opencore/providers';
-import { Markdown } from '@/components/openportal/Markdown';
+import { Markdown, PortalImage } from '@/components/openportal/Markdown';
 import { ModelManager } from '@/components/openportal/ModelManager';
 import { PermissionModal } from '@/components/openportal/PermissionModal';
 import type { ChatMessage, SessionData, PermissionRequest, Attachment, ProjectContext, PermissionPreset } from '@/lib/opencore/types';
@@ -116,6 +116,9 @@ function ThinkingBlock({ text }: { text: string }) {
 
 function ToolMsg({ name, content, error }: { name: string; content: string; error?: boolean }) {
   const [open, setOpen] = useState(false);
+  // После генерации картинки сразу показываем превью, а не только текст-путь:
+  // рендер без какого-либо запроса разрешения (tool-сообщение уже одобрено).
+  const imgMatch = name === 'generate_image' ? /\/op-image\/([A-Za-z0-9-]+\.(?:png|jpg|jpeg|webp|gif))/i.exec(content) : null;
   return (
     <div className="ore-plain mb-1.5 overflow-hidden rounded-lg border px-2.5 py-1.5" style={{ borderColor: 'var(--color-border)', background: 'rgba(127,127,127,0.08)' }}>
       <button onClick={() => setOpen(o => !o)} className="flex w-full items-center gap-2 text-left text-[11px] font-semibold"
@@ -124,6 +127,12 @@ function ToolMsg({ name, content, error }: { name: string; content: string; erro
         {name}
         <span className="ml-auto font-normal" style={{ color: 'var(--color-text-tertiary)' }}>{error ? 'ошибка' : 'ок'}</span>
       </button>
+      {imgMatch && !error && (
+        <div className="pt-1.5">
+          <PortalImage name={imgMatch[1]} />
+          <span className="mt-1 block text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>Изображение сгенерировано — нажми, чтобы открыть на весь экран</span>
+        </div>
+      )}
       <AnimatePresence>
       {open && (
         <motion.pre initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}

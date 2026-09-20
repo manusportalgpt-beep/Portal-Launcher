@@ -302,7 +302,7 @@ export const TOOLS: ToolDef[] = [
       required: ['prompt'],
     },
     root: 'portal',
-    requiresPermission: true,
+    requiresPermission: false,
   },
   {
     name: 'inspect_image',
@@ -1684,22 +1684,8 @@ export async function executeTool(
 
   if (tool === 'generate_image') {
     if (!args.prompt || typeof args.prompt !== 'string') return { ok: false, output: 'Нет аргумента prompt.' };
-    const root: PortalRoot = 'portal';
-    const decision = await requestPermission({
-      tool,
-      root,
-      label: 'Генерация изображения',
-      detail: `Промпт: ${args.prompt}`,
-      cwdLabel: `Генерация изображения → ${args.prompt.slice(0, 60)}`,
-      resolve: () => {},
-    });
-    if (decision === 'deny' || decision === 'never') {
-      return { ok: false, output: 'Пользователь не разрешил генерацию изображения.' };
-    }
-    if (decision === 'allow' || decision === 'always') {
-      return execGenerateImage(ep, args);
-    }
-    return { ok: false, output: 'Разрешение не получено.' };
+    // Разрешение не требуется: пользователь настроил генерацию картинок без модалки.
+    return execGenerateImage(ep, args);
   }
 
   // Безопасные инструменты с запросом разрешения:
@@ -2490,7 +2476,7 @@ export function buildSystemPrompt(opts: {
     `- write_text(root, path, content) — записать файл. В зонах portal и temp — мгновенно, без модалки; в launcher запросит разрешение.`,
     `- run_command(root, cwd, command, timeout_ms) — команда (в portal/temp и curl/wget — без модалки; launcher спросит разрешение). Оболочка по умолчанию cmd, можно передать shell: 'powershell'.`,
     `- terminal(root, cwd, command) — команда в PowerShell-терминале (масштаб разрешений как у run_command).`,
-    `- generate_image(prompt, size?, provider?) — сгенерировать изображение (спросит разрешение).`,
+    `- generate_image(prompt, size?, provider?) — сгенерировать изображение (без запроса разрешения; после генерации в чате появится превью).`,
     `  Как готовить prompt: сам напиши развёрнутое описание по-английски (сюжет, стиль, свет, композиция, детали) — не передавай сырой короткий запрос пользователя. provider: auto (по умолчанию), pollinations (бесплатно, без ключа), magnific (по сохранённому ключу api.magnific.ai), provider (активный провайдер).`,
     `- inspect_image(root, path) — «увидеть» изображение: размер, палитра цветов, яркость (анализ по пикселям для модели без зрения).`,
     `- hexdump(root, path, max_bytes?) — бинарный файл как hexdump (анализ неизвестных форматов/магии файлов).`,
@@ -2539,7 +2525,7 @@ export function buildSystemPrompt(opts: {
     `- Опасные команды (форматирование, удаление системных файлов, изменение реестра, выключение ПК) запрещены и будут отклонены защитой.`,
     `- Если пользователь просит что-то, что выглядит как команда из списка (например /fetch <url>), выполни её через инструменты (web_search).`,
     '',
-    `Разрешения: write_text, run_command, terminal в зонах portal и temp, а также команды curl/wget — выполняются сразу, без модалки. Модалку разрешения запросят: write_text/run_command/terminal в зоне launcher, generate_image, archive_extract/archive_create в launcher, launcher_install_mod, launcher_create_build, set_service_token, spawn_agents. Дождись результата инструмента — его не будет, если пользователь отказал.`,
+    `Разрешения: write_text, run_command, terminal в зонах portal и temp, а также команды curl/wget — выполняются сразу, без модалки. Модалку разрешения запросят: write_text/run_command/terminal в зоне launcher, archive_extract/archive_create в launcher, launcher_install_mod, launcher_create_build, set_service_token, spawn_agents. generate_image выполняется без разрешения. Дождись результата инструмента — его не будет, если пользователь отказал.`,
     `Пресет прав (кнопка у поля ввода): DFA — классические модалки (по умолчанию); FA — выполнять всё без вопросов, кроме установщиков (.exe/.msi) — они спросят; ASK — режим «только спросить»: читаешь и ищешь, ничего не создаёшь и не меняешь.` +
       `Пакетные менеджеры внутри песочницы (npm, pnpm, yarn и т.п.) автоматически используют кеш OpenPortal/Cache/deps — это не влияет на проект, такой кеш чистится отдельно (команда /cache clean).`,
     `Создание навыков: если пользователь просит создать/установить навык — создай папку ` + '`<portal base>/Skills/<slug>/`' +

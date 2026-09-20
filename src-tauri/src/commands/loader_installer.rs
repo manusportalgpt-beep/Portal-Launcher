@@ -284,11 +284,19 @@ async fn forge_builds_for_mc_from_maven(client: &reqwest::Client, mc_version: &s
 /// own coordinate: MC 1.21 → 21.0.x, MC 1.21.1 → 21.1.x, etc.  A naïve
 /// `trim_start_matches("1.")` turns "1.21" into "21." which also matches
 /// 21.1.x — pulling in versions for a different Minecraft release.
+/// Годовые версии (26.x) NeoForge копируют целиком первую компоненту:
+/// MC 26.2 → 26.2.x.
 fn neoforge_prefix_for_mc(mc_version: &str) -> String {
     let parts: Vec<&str> = mc_version.split('.').collect();
-    let minor = parts.get(1).unwrap_or(&"0");
-    let patch = parts.get(2).unwrap_or(&"0");
-    format!("{}.{}.", minor, patch)
+    let major: u32 = parts.first().and_then(|part| part.parse().ok()).unwrap_or(1);
+    if major >= 26 {
+        let minor = parts.get(1).unwrap_or(&"0");
+        format!("{}.{}.", major, minor)
+    } else {
+        let minor = parts.get(1).unwrap_or(&"0");
+        let patch = parts.get(2).unwrap_or(&"0");
+        format!("{}.{}.", minor, patch)
+    }
 }
 
 fn neoforge_versions_for_mc(xml: &str, mc_version: &str) -> Vec<String> {
@@ -365,8 +373,11 @@ pub async fn install_fabric(mc_version: String, loader_version: String, instance
         .timeout(std::time::Duration::from_secs(180))
         .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
 
-    let mc_minor: u32 = mc_version.split('.').nth(1).unwrap_or("0").parse().unwrap_or(0);
-    if mc_minor < 14 {
+    let parsed: Vec<u32> = mc_version.split('.').filter_map(|p| p.parse().ok()).collect();
+    let mc_major = parsed.first().copied().unwrap_or(1);
+    let mc_minor = parsed.get(1).copied().unwrap_or(0);
+    // Годовые версии (26.x) Fabric поддерживает; классические — с 1.14.
+    if mc_major < 26 && mc_minor < 14 {
         return Ok(LoaderInstallResult {
             success: false, loader: "fabric".into(), version: loader_version,
             message: "Fabric не поддерживает версии ниже 1.14. Используйте Forge.".into(),
@@ -458,13 +469,12 @@ pub async fn install_forge(mc_version: String, forge_version: String, _instance_
     let java = find_java_for_mc(&mc_version)?;
     let jar_str = jar_path.to_string_lossy().to_string();
 
-    // Pre-1.13 Forge installers don't accept a target directory; they install to ~/.minecraft.
-    let mc_minor: u32 = mc_version.split('.').nth(1).unwrap_or("0").parse().unwrap_or(0);
-    let args: Vec<String> = if mc_minor <= 12 {
-        vec!["-jar".into(), jar_str, "--installClient".into()]
-    } else {
-        vec!["-jar".into(), jar_str, "--installClient".into(), shared_base.to_string_lossy().to_string()]
-    };
+    // Pre-1.13 Forge installers wrote to ~/.minecraft when no directory was
+    // given, but our profiles live in <mc_base>/versions — the profile was then
+    // never found and every release <=1.12 failed at launch. The official
+    // installer accepts an explicit target directory on all supported targets;
+    // pass it always so the profile lands where the launcher expects it.
+    let args: Vec<String> = vec!["-jar".into(), jar_str, "--installClient".into(), shared_base.to_string_lossy().to_string()];
 
     let output = crate::utils::create_hidden_command(&java)
         .args(&args)
@@ -545,8 +555,11 @@ pub async fn install_neoforge(mc_version: String, neoforge_version: String, _ins
         .timeout(std::time::Duration::from_secs(300))
         .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
 
-    let mc_minor: u32 = mc_version.split('.').nth(1).unwrap_or("0").parse().unwrap_or(0);
-    if mc_minor < 20 {
+    let parsed: Vec<u32> = mc_version.split('.').filter_map(|p| p.parse().ok()).collect();
+    let mc_major = parsed.first().copied().unwrap_or(1);
+    let mc_minor = parsed.get(1).copied().unwrap_or(0);
+    // Годовые версии (26.x) NeoForge поддерживает целиком; классические — с 1.20.1.
+    if mc_major < 26 && mc_minor < 20 {
         return Ok(LoaderInstallResult {
             success: false, loader: "neoforge".into(), version: neoforge_version,
             message: "NeoForge требует Minecraft 1.20.1 или новее.".into(),

@@ -233,8 +233,31 @@ pub async fn create_instance(
     loader: String, loader_version: String, min_ram: u32, max_ram: u32,
     color: Option<String>, icon: Option<String>,
 ) -> Result<Instance, String> {
+    // Модель-агент иногда вставляет в name служебный «id: …» — чистим.
+    let trimmed = name.trim();
+    let clean_name = trimmed.strip_prefix("id:").map(str::trim).unwrap_or(trimmed);
+    let name = if clean_name.is_empty() { trimmed.to_string() } else { clean_name.to_string() };
+    let base_id = slugify_name(&name);
+    if base_id.is_empty() {
+        return Err("Название сборки не может быть пустым.".to_string());
+    }
     // Use human-readable folder name: "my-cool-pack-a1b2c3d4"
-    let id = slugify_name(&name);
+    // Если папка с таким id уже существует — добавляем короткий суффикс,
+    // чтобы сборка от агента не перезаписала существующую.
+    let mut id = base_id.clone();
+    let mut n = 0u32;
+    while n < 100 {
+        if !instances_dir().join(&id).exists() { break; }
+        n += 1;
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos() as u32)
+            .unwrap_or(n);
+        id = format!("{}-{:04x}", base_id, ts.rotate_left(n) % 0xffff + n);
+    }
+    if instances_dir().join(&id).exists() {
+        return Err(format!("Папка сборки «{}» уже существует — выберите другое имя.", base_id));
+    }
     let instance = Instance {
         id: id.clone(), name: name.clone(), description, mc_version: mc_version.clone(),
         loader, loader_version, min_ram, max_ram,

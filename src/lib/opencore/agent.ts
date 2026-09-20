@@ -419,9 +419,28 @@ export const TOOLS: ToolDef[] = [
     requiresPermission: false,
   },
   {
+    name: 'mod_search',
+    description:
+      'Ищет моды/ресурс-паки/шейдеры в Modrinth и возвращает проверенные метаданные: название, автор, загрузки, иконка, версии и прямую ссылку на файл (url + имя + sha1) для версии, совместимой с версией Minecraft и загрузчиком. ' +
+      'Используй ВСЕГДА перед launcher_install_mod вместо выдумывания ссылок или обхода случайных сайтов — установка мода должна опираться на результат этого инструмента.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Поисковый запрос: название мода или ключевые слова (можно по-русски). Обязательный параметр.' },
+        mc_version: { type: 'string', description: 'Версия Minecraft сборки, например 1.20.1 или 26.2. Если неизвестна — можно не указывать.' },
+        loader: { type: 'string', enum: ['fabric', 'forge', 'neoforge', 'quilt', 'vanilla'], description: 'Загрузчик сборки (необязательно).' },
+        limit: { type: 'number', description: 'Сколько результатов вернуть (по умолчанию 5, максимум 10).' },
+      },
+      required: ['query'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
     name: 'launcher_install_mod',
     description:
       'Устанавливает мод/ресурс-пак/шейдер в сборку лаунчера: скачивает файл по download_url и кладёт в папку сборки (mods/resourcepacks/shaderpacks). ' +
+      'Сначала выполни mod_search по тому же mc_version/loader и подставь сюда download_url/file_name/mod_id/mod_name/mod_version/version_id/author/icon_url из его результата. ' +
       'Спросит разрешение у пользователя. После установки напомни пересобрать сборку в лаунчере, чтобы мод проиндексировался.',
     parameters: {
       type: 'object',
@@ -976,6 +995,81 @@ async function execLauncherLogs(args: { instance_id: string }): Promise<ExecResu
   }
 }
 
+async function execModSearch(args: Record<string, unknown>): Promise<ExecResult> {
+  try {
+    const query = String(args.query ?? '').trim();
+    if (!query) return { ok: false, output: 'Нужен запрос (query).' };
+    const mcVersion = args.mc_version != null && String(args.mc_version).trim() ? String(args.mc_version).trim() : null;
+    const loader = args.loader != null && String(args.loader).trim() ? String(args.loader).trim() : null;
+    const limit = Math.min(10, Math.max(1, Number(args.limit ?? 5)));
+
+    const search = await invoke<any>('search_modrinth', {
+      query,
+      limit,
+      versions: mcVersion ? [mcVersion] : null,
+      loaders: loader ? [loader] : null,
+      sort: 'relevance',
+    });
+    const hits: any[] = Array.isArray(search?.hits) ? search.hits : [];
+    if (hits.length === 0) {
+      return { ok: true, output: `По запросу «${query}» в Modrinth ничего не найдено. Попробуй другие слова или убери фильтры mc_version/loader.` };
+    }
+
+    const rows = await Promise.all(hits.map(async (h) => {
+      let file: { filename?: string; url?: string; sha1?: string } | null = null;
+      let versionId = '';
+      let versionNumber = '';
+      try {
+        const versions = await invoke<any[]>('get_modrinth_versions', {
+          projectId: String(h.project_id ?? ''),
+          gameVersion: mcVersion,
+          loader,
+        });
+        const list: any[] = Array.isArray(versions) ? versions : [];
+        if (list.length > 0) {
+          versionId = String(list[0].id ?? '');
+          versionNumber = String(list[0].version_number ?? '');
+          const primary = Array.isArray(list[0].files) ? list[0].files.find((f: any) => f?.primary) : null;
+          const pick = primary ?? (Array.isArray(list[0].files) ? list[0].files[0] : null);
+          if (pick) {
+            file = {
+              filename: String(pick.filename ?? ''),
+              url: String(pick.url ?? ''),
+              sha1: String(pick.sha1 ?? ''),
+            };
+          }
+        }
+      } catch {
+        // версии не запросились — отдаём метаданные без файла
+      }
+      return { h, file, versionId, versionNumber };
+    }));
+
+    const lines = rows.map(({ h, file, versionId, versionNumber }) => {
+      const meta = [
+        `- ${h.title ?? ''} · ${h.author ?? ''} · id ${h.project_id ?? ''}`,
+        `  загрузок: ${h.downloads ?? 0} · лоадеры: ${Array.isArray(h.loaders) ? h.loaders.join(',') : ''} · MC: ${Array.isArray(h.game_versions) ? h.game_versions.slice(0, 8).join(', ') : ''}`,
+        `  версия: ${versionNumber || '—'}${versionId ? ` (id ${versionId})` : ''} · файл: ${file?.filename || '—'}`,
+      ];
+      if (!file?.url) {
+        meta.push('  совместимой версии под заданные mc_version/loader не найдено — уточни параметры или выбери другой результат');
+        return meta.join('\n');
+      }
+      meta.push(`  download_url: ${file.url}${file.sha1 ? ` · sha1: ${file.sha1}` : ''}`);
+      meta.push(`  для установки: launcher_install_mod(instance_id, download_url="${file.url}", file_name="${file.filename}", mod_id="${h.project_id ?? ''}", mod_name="${h.title ?? ''}", mod_version="${versionNumber}", version_id="${versionId}", source="modrinth", author="${h.author ?? ''}", icon_url="${h.icon_url ?? ''}")`);
+      return meta.join('\n');
+    });
+
+    const okCount = rows.filter((r) => r.file?.url).length;
+    return {
+      ok: true,
+      output: `Modrinth: ${rows.length} результат(ов), ${okCount} с подходящей версией под этот Minecraft/лоадер:\n${lines.join('\n\n')}`,
+    };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
 async function execLauncherInstallMod(args: Record<string, unknown>): Promise<ExecResult> {
   try {
     const instanceId = String(args.instance_id ?? '');
@@ -1472,14 +1566,50 @@ async function execSpawnAgents(
   }
 }
 
+/** Политика инструментов агента: 'ask' — только чтение/поиск, всё изменяющее отклоняется заранее. */
+export type ToolPolicy = 'ask';
+
+/** Опасная команда: запуск/скачивание установщика (.exe/.msi и т.п.). */
+function isHazardousCommand(command: string): boolean {
+  const lower = String(command ?? '').toLowerCase();
+  if (/\.(exe|msi|bat|cmd|ps1|apk|jar)\b/.test(lower) && /\b(start|runas|invoke)\b|\\(|&|\|/.test(lower)) return true;
+  return /\.(exe|msi)["']?\s*$/.test(lower.trim());
+}
+
+/** Опасный URL: прямая ссылка на установщик .exe/.msi. */
+function isHazardousUrl(url: string): boolean {
+  const first = String(url ?? '').split(/[\s"';&|<>`]/)[0];
+  return /\.(exe|msi)["']?$/i.test(first);
+}
+
 export async function executeTool(
   tool: string,
   argsRaw: string,
   requestPermission: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>,
   ep: ResolvedEndpoint,
   signal?: AbortSignal,
+  policy?: ToolPolicy,
 ): Promise<ExecResult> {
   let args: any = safeJsonParseObject(normalizeToolArguments(argsRaw));
+
+  // Режим ASK: агент только спрашивает/ищет/читает. Все изменяющие действия отклоняем сразу,
+  // до их выполнения (включая те, что обычно не спрашивают разрешение — запись и команды в portal/temp).
+  if (policy === 'ask') {
+    const deny = (what: string) => ({ ok: false, output: `Режим ASK: ${what} запрещено — агент только ищет и читает информацию.` });
+    if (tool === 'write_text') return deny('создание и изменение файлов');
+    if (tool === 'run_command' || tool === 'terminal') return deny('выполнение команд');
+    if (tool === 'archive_extract') return deny('распаковка архивов');
+    if (tool === 'archive_create') return deny('создание архивов');
+    if (tool === 'generate_image') return deny('генерация изображений');
+    if (tool === 'set_service_token') return deny('сохранение токенов');
+    if (tool === 'spawn_agents') return deny('запуск субагентов');
+    if (tool === 'launcher_install_mod') return deny('установка модов');
+    if (tool === 'launcher_create_build') return deny('создание сборок');
+    if (tool === 'http_request') {
+      const method = String(args?.method ?? 'GET').toUpperCase();
+      if (method !== 'GET' && method !== 'HEAD') return deny(`HTTP-${method} запросы`);
+    }
+  }
 
   if (tool === 'web_search') return execWebSearch(args, signal);
   if (tool === 'fetch_page') return execFetchPage(args, signal);
@@ -1525,6 +1655,7 @@ export async function executeTool(
 
   if (tool === 'launcher_list_builds') return execLauncherListBuilds();
   if (tool === 'launcher_logs') return execLauncherLogs(args);
+  if (tool === 'mod_search') return execModSearch(args);
 
   if (tool === 'launcher_install_mod' || tool === 'launcher_create_build') {
     const label = tool === 'launcher_install_mod' ? 'Установка мода в сборку' : 'Создание сборки';
@@ -1536,6 +1667,7 @@ export async function executeTool(
         ? `Мод: ${args.mod_name ?? args.file_name ?? ''} → сборка ${args.instance_id ?? ''}`
         : `Сборка: ${args.name ?? ''}`,
       cwdLabel: `${label} → ${args.instance_id ?? args.name ?? ''}`,
+      hazard: tool === 'launcher_install_mod' ? isHazardousUrl(args.download_url) : false,
       resolve: () => {},
     });
     if (decision === 'deny' || decision === 'never') {
@@ -1596,6 +1728,7 @@ export async function executeTool(
       label,
       detail,
       cwdLabel: `${label} → ${args.path ?? args.cwd ?? ''}`,
+      hazard: tool === 'write_text' ? false : isHazardousCommand(args.command),
       resolve: () => {},
     });
     if (decision === 'deny' || decision === 'never') {
@@ -2405,7 +2538,8 @@ export function buildSystemPrompt(opts: {
     `- Если пользователь просит что-то, что выглядит как команда из списка (например /fetch <url>), выполни её через инструменты (web_search).`,
     '',
     `Разрешения: write_text, run_command, terminal в зонах portal и temp, а также команды curl/wget — выполняются сразу, без модалки. Модалку разрешения запросят: write_text/run_command/terminal в зоне launcher, generate_image, archive_extract/archive_create в launcher, launcher_install_mod, launcher_create_build, set_service_token, spawn_agents. Дождись результата инструмента — его не будет, если пользователь отказал.`,
-    `Пакетные менеджеры внутри песочницы (npm, pnpm, yarn и т.п.) автоматически используют кеш OpenPortal/Cache/deps — это не влияет на проект, такой кеш чистится отдельно (команда /cache clean).`,
+    `Пресет прав (кнопка у поля ввода): DFA — классические модалки (по умолчанию); FA — выполнять всё без вопросов, кроме установщиков (.exe/.msi) — они спросят; ASK — режим «только спросить»: читаешь и ищешь, ничего не создаёшь и не меняешь.` +
+      `Пакетные менеджеры внутри песочницы (npm, pnpm, yarn и т.п.) автоматически используют кеш OpenPortal/Cache/deps — это не влияет на проект, такой кеш чистится отдельно (команда /cache clean).`,
     `Создание навыков: если пользователь просит создать/установить навык — создай папку ` + '`<portal base>/Skills/<slug>/`' +
       ` и файл SKILL.md с frontmatter (name, description) и инструкциями.`,
     skills,
@@ -2435,6 +2569,10 @@ export interface RunTurnOptions {
   onUsage?: (usage: TokenUsage) => void;
   /** Полная замена истории (для самопочинки после сбоя модели). */
   onReplace?: (msgs: ChatMessage[]) => void;
+  /** Политика инструментов: 'ask' — только чтение, все изменяющие инструменты отклонены заранее. */
+  policy?: ToolPolicy;
+  /** Очередь сообщений пользователя, отправленных во время работы агента. */
+  interrupt?: () => Promise<ChatMessage | null>;
 }
 
 export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]> {
@@ -2450,9 +2588,19 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
     messages = messages.map(m => (m.id === id ? { ...m, ...p } : m));
     opts.onUpdate?.(id, p);
   };
+  /** Подхватывает добавленное пользователем сообщение (агент продолжает работать над новой задачей). */
+  const drainInterrupt = async () => {
+    if (!opts.interrupt) return;
+    for (;;) {
+      const m = await opts.interrupt();
+      if (!m) break;
+      push(m);
+    }
+  };
 
   for (let iter = 0; iter < maxIterations; iter++) {
     if (signal?.aborted) throw new Error('Отменено пользователем.');
+    await drainInterrupt();
 
     const assistantId = `asst-${Date.now()}-${iter}`;
     // Заглушка — при стриминге тело заполняется по мере получения данных.
@@ -2558,9 +2706,10 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
           toolCallId: tc.id, toolName: tc.name, timestamp: Date.now(),
         };
         push(toolMsg);
-        const res = await executeTool(tc.name, tc.arguments, requestPermission, ep, signal);
+        const res = await executeTool(tc.name, tc.arguments, requestPermission, ep, signal, opts.policy);
         patch(toolMsg.id, { content: res.output, error: !res.ok });
         if (signal?.aborted) throw new Error('Отменено пользователем.');
+        await drainInterrupt();
       }
 
       if (iter === maxIterations - 1) {

@@ -46,6 +46,14 @@ export function modelsListUrl(p: ProviderDef, baseUrl: string): string {
   return p.kind === 'anthropic' ? `${base}/v1/models` : `${base}/models`;
 }
 
+/** Размер контекстного окна модели в токенах с дефолтами по семейству/провайдеру. */
+export function contextWindow(model: ModelDef, providerId?: string): number {
+  if (model.contextLength) return model.contextLength;
+  if (model.family === 'anthropic') return 200_000;
+  if (model.family === 'google' || providerId === 'google') return 1_000_000;
+  return 128_000;
+}
+
 export const OP_PROVIDERS: ProviderDef[] = [
   {
     id: 'opencode-zen',
@@ -57,14 +65,14 @@ export const OP_PROVIDERS: ProviderDef[] = [
     docs: 'https://opencode.ai/docs/providers/#opencode-zen',
     supportsFree: true,
     models: [
-      { id: 'big-pickle', name: 'Big Pickle', family: 'openai', free: true },
+      { id: 'big-pickle', name: 'Big Pickle', family: 'openai', free: true, contextLength: 200_000 },
       { id: 'deepseek-v4-pro', family: 'openai', reasoning: true },
       { id: 'kimi-k3', family: 'openai', reasoning: true },
       { id: 'minimax-m3', family: 'openai' },
       { id: 'glm-5.3', family: 'openai' },
       { id: 'qwen3-coder', family: 'openai', reasoning: true },
-      { id: 'claude-sonnet-5', family: 'anthropic', reasoning: true, vision: true },
-      { id: 'claude-opus-4.5', family: 'anthropic', reasoning: true, vision: true },
+      { id: 'claude-sonnet-5', family: 'anthropic', reasoning: true, vision: true, contextLength: 200_000 },
+      { id: 'claude-opus-4.5', family: 'anthropic', reasoning: true, vision: true, contextLength: 200_000 },
       { id: 'deepseek-v4-flash-free', family: 'openai', free: true },
       { id: 'muse-spark-1.3-contributor-free', family: 'openai', free: true },
       { id: 'muse-spark-1.2-contributor-free', family: 'openai', free: true },
@@ -101,14 +109,14 @@ export const OP_PROVIDERS: ProviderDef[] = [
     baseUrl: 'https://api.openai.com/v1',
     apiKeyHint: 'sk-... из platform.openai.com',
     models: [
-      { id: 'gpt-5.3', reasoning: true, vision: true },
-      { id: 'gpt-5.2', reasoning: true, vision: true },
-      { id: 'gpt-5.1', reasoning: true, vision: true },
-      { id: 'gpt-5', reasoning: true, vision: true },
-      { id: 'gpt-5-mini', reasoning: true },
-      { id: 'gpt-5-nano' },
-      { id: 'gpt-4.1', vision: true },
-      { id: 'o4-mini', reasoning: true, vision: true },
+      { id: 'gpt-5.3', reasoning: true, vision: true, contextLength: 400_000 },
+      { id: 'gpt-5.2', reasoning: true, vision: true, contextLength: 400_000 },
+      { id: 'gpt-5.1', reasoning: true, vision: true, contextLength: 400_000 },
+      { id: 'gpt-5', reasoning: true, vision: true, contextLength: 400_000 },
+      { id: 'gpt-5-mini', reasoning: true, contextLength: 200_000 },
+      { id: 'gpt-5-nano', contextLength: 200_000 },
+      { id: 'gpt-4.1', vision: true, contextLength: 1_000_000 },
+      { id: 'o4-mini', reasoning: true, vision: true, contextLength: 200_000 },
     ],
   },
   {
@@ -119,10 +127,10 @@ export const OP_PROVIDERS: ProviderDef[] = [
     apiKeyHint: 'sk-ant-... из console.anthropic.com (Claude Pro/Max или API-ключ)',
     docs: 'https://opencode.ai/docs/providers/#anthropic',
     models: [
-      { id: 'claude-opus-4-20250514', name: 'Claude Opus 4', reasoning: true, vision: true },
-      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', reasoning: true, vision: true },
-      { id: 'claude-haiku-4-20250514', name: 'Claude Haiku 4', vision: true },
-      { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', reasoning: true, vision: true },
+      { id: 'claude-opus-4-20250514', name: 'Claude Opus 4', reasoning: true, vision: true, contextLength: 200_000 },
+      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', reasoning: true, vision: true, contextLength: 200_000 },
+      { id: 'claude-haiku-4-20250514', name: 'Claude Haiku 4', vision: true, contextLength: 200_000 },
+      { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', reasoning: true, vision: true, contextLength: 200_000 },
     ],
   },
   {
@@ -134,15 +142,15 @@ export const OP_PROVIDERS: ProviderDef[] = [
     docs: 'https://opencode.ai/docs/providers/#openrouter',
     supportsFree: true,
     models: [
-      { id: 'moonshotai/kimi-k2', name: 'Kimi K2', reasoning: true, vision: true },
-      { id: 'openai/gpt-5.2', name: 'GPT-5.2', reasoning: true, vision: true },
-      { id: 'anthropic/claude-sonnet-4', name: 'Claude Sonnet 4', reasoning: true, vision: true },
-      { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3', reasoning: true },
-      { id: 'deepseek/deepseek-reasoner', name: 'DeepSeek R1', reasoning: true },
-      { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro', reasoning: true, vision: true },
-      { id: 'qwen/qwen3-235b-a22b', name: 'Qwen3 235B', vision: true },
-      { id: 'meta-llama/llama-4-maverick', name: 'Llama 4 Maverick', vision: true },
-      { id: 'openrouter/auto', name: 'OpenRouter Auto', vision: true },
+      { id: 'moonshotai/kimi-k2', name: 'Kimi K2', reasoning: true, vision: true, contextLength: 128_000 },
+      { id: 'openai/gpt-5.2', name: 'GPT-5.2', reasoning: true, vision: true, contextLength: 400_000 },
+      { id: 'anthropic/claude-sonnet-4', name: 'Claude Sonnet 4', reasoning: true, vision: true, contextLength: 200_000 },
+      { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3', reasoning: true, contextLength: 128_000 },
+      { id: 'deepseek/deepseek-reasoner', name: 'DeepSeek R1', reasoning: true, contextLength: 128_000 },
+      { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro', reasoning: true, vision: true, contextLength: 1_000_000 },
+      { id: 'qwen/qwen3-235b-a22b', name: 'Qwen3 235B', vision: true, contextLength: 256_000 },
+      { id: 'meta-llama/llama-4-maverick', name: 'Llama 4 Maverick', vision: true, contextLength: 1_000_000 },
+      { id: 'openrouter/auto', name: 'OpenRouter Auto', vision: true, contextLength: 200_000 },
     ],
   },
   {
@@ -152,10 +160,10 @@ export const OP_PROVIDERS: ProviderDef[] = [
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
     apiKeyHint: 'AIza... из Google AI Studio (aistudio.google.com/apikey)',
     models: [
-      { id: 'gemini-3.5-pro', reasoning: true, vision: true },
-      { id: 'gemini-3.5-flash', reasoning: true, vision: true },
-      { id: 'gemini-2.5-pro', reasoning: true, vision: true },
-      { id: 'gemini-2.5-flash', reasoning: true, vision: true },
+      { id: 'gemini-3.5-pro', reasoning: true, vision: true, contextLength: 1_000_000 },
+      { id: 'gemini-3.5-flash', reasoning: true, vision: true, contextLength: 1_000_000 },
+      { id: 'gemini-2.5-pro', reasoning: true, vision: true, contextLength: 1_000_000 },
+      { id: 'gemini-2.5-flash', reasoning: true, vision: true, contextLength: 1_000_000 },
     ],
   },
   {

@@ -11,6 +11,7 @@ import type {
   SessionMeta,
   PermissionsMap,
   PermissionRequest,
+  PermissionPreset,
   PortalLayout,
   PortalRoot,
   ProjectContext,
@@ -45,6 +46,7 @@ function defaultConfig(): OpenPortalConfig {
     mode: 'build',
     project: { kind: 'none' },
     temperature: 0.4,
+    permissionPreset: 'dfa',
   };
 }
 
@@ -74,6 +76,9 @@ interface OpenCoreState {
   setProviderModels: (providerId: string, models: { id: string; name?: string; free?: boolean }[]) => void;
   setActiveModel: (providerId: string, modelId: string) => void;
   setMode: (mode: 'build' | 'plan') => void;
+  setPermissionPreset: (preset: PermissionPreset) => void;
+  /** Перечитывает список навыков с диска (чтобы созданные агентом SKILL.md появились в меню /). */
+  refreshSkills: () => Promise<void>;
   setProject: (project: ProjectContext) => void;
   setCwd: (root: PortalRoot, path: string) => void;
   setServiceToken: (host: string, token: string) => void;
@@ -257,6 +262,17 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
 
       setMode(mode) {
         get().updateConfig({ mode });
+      },
+
+      setPermissionPreset(preset) {
+        get().updateConfig({ permissionPreset: preset });
+      },
+
+      async refreshSkills() {
+        try {
+          const skills = await invoke<SkillMeta[]>('op_list_skills');
+          set({ skills });
+        } catch { /* не критично */ }
       },
 
       setProject(project) {

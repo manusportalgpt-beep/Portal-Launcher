@@ -79,6 +79,10 @@ export interface ProviderState {
   remoteModels?: { id: string; name?: string; free?: boolean }[];
 }
 
+/** Пресет разрешений агента: DFA — спрашивать (как раньше), FA — полный доступ
+ *  (без модалки, кроме установщиков .exe/.msi), ASK — только запросы/чтение. */
+export type PermissionPreset = 'dfa' | 'fa' | 'ask';
+
 export interface OpenPortalConfig {
   version: number;
   providers: Record<string, ProviderState>;
@@ -92,6 +96,8 @@ export interface OpenPortalConfig {
   temperature?: number;
   /** Токены сервисов (API) для инструмента http_request: хост → токен. */
   serviceTokens?: Record<string, string>;
+  /** Пресет прав: dfa | fa | ask (по умолчанию dfa). */
+  permissionPreset?: PermissionPreset;
 }
 
 export type PermissionDecision = 'always' | 'never' | 'once';
@@ -106,6 +112,8 @@ export interface PermissionRequest {
   label: string;
   detail: string;
   cwdLabel: string;
+  /** Опасный вызов: запуск/скачивание установщика (.exe/.msi и т.п.) — блокируется даже в FA. */
+  hazard?: boolean;
   /** Вызов-разрешитель. */
   resolve: (decision: 'allow' | 'deny' | 'always' | 'never') => void;
 }

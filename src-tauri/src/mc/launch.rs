@@ -150,12 +150,38 @@ fn sep() -> &'static str {
     }
 }
 
+/// Удаляет неразрешённые токены `${...}` из строки аргумента. Профили
+/// NeoForge/Forge могут содержать плейсхолдеры, которых нет в нашем словаре
+/// (например, специфичные для загрузчика) — оставлять их в argv значит
+/// отдать Java мусор и получить загадочный падёж вместо запуска игры.
+fn drop_unresolved_placeholders(template: &str) -> String {
+    let mut out = String::with_capacity(template.len());
+    let mut chars = template.char_indices().peekable();
+    while let Some((index, ch)) = chars.next() {
+        if ch == '$' && template[index + 1..].starts_with('{') {
+            if let Some(end_offset) = template[index + 2..].find('}') {
+                let end_byte = index + 2 + end_offset;
+                while let Some(&(next_index, _)) = chars.peek() {
+                    if next_index <= end_byte {
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+                continue;
+            }
+        }
+        out.push(ch);
+    }
+    out
+}
+
 fn replace_all(template: &str, vars: &HashMap<String, String>) -> String {
     let mut out = template.to_string();
     for (k, v) in vars {
         out = out.replace(&format!("${{{k}}}"), v);
     }
-    out
+    drop_unresolved_placeholders(&out)
 }
 
 /// Разворачивает массив аргументов version.json (строки или {rules, value}).
@@ -389,17 +415,15 @@ pub async fn launch_instance(
     status("auth", "Проверяю аккаунт…");
     let (final_username, final_uuid, token, user_type) = match (username, uuid, access_token) {
         (Some(u), Some(id), Some(tok)) if !u.is_empty() && !id.is_empty() => {
+            // Аккаунт выбирается во фронтенде (authStore) и передаётся сюда
+            // как есть. Раньше при непустом токене имя/uuid подменялись данными
+            // из отдельного auth/msa хранилища, в которое фронтенд никогда не
+            // пишет, — запуск мог идти под чужим аккаунтом. Используем именно
+            // выбранную учётку (Microsoft/Ely.by/офлайн).
             if tok.is_empty() {
                 (u, id, "0".to_string(), "legacy".to_string())
             } else {
-                // Always verify/refresh the MC token through the Rust auth
-                // layer so the game receives a valid session token.
-                match msa::ensure_fresh_token(&app).await {
-                    Some(a) if !a.access_token.is_empty() => {
-                        (a.username, a.uuid, a.access_token, "msa".to_string())
-                    }
-                    _ => (u, id, tok, "msa".to_string()),
-                }
+                (u, id, tok, "msa".to_string())
             }
         }
         _ => {
@@ -820,22 +844,24 @@ pub async fn launch_instance(
         game_args.push(game_dir.to_string_lossy().to_string());
     }
 
-    // quickPlay — вход в мир/сервер прямо из лаунчера
-    let minor: u32 = instance
+    // quickPlay — вход в мир/сервер прямо из лаунчера. Признак "modern":
+    // классические 1.20+ или годовые 26.x (первая компонента >= 20).
+    let mc_major: u32 = instance
         .mc_version
         .split('.')
-        .nth(1)
+        .next()
         .and_then(|m| m.parse().ok())
-        .unwrap_or(20);
+        .unwrap_or(1);
+    let supports_quick_play = mc_major >= 20;
     if let Some(qp) = quick_play.as_ref() {
         if let Some(world) = qp.world.as_ref().filter(|w| !w.is_empty()) {
-            if minor >= 20 {
+            if supports_quick_play {
                 game_args.push("--quickPlaySingleplayer".into());
                 game_args.push(world.clone());
             }
         }
         if let Some(server) = qp.server.as_ref().filter(|s| !s.is_empty()) {
-            if minor >= 20 {
+            if supports_quick_play {
                 game_args.push("--quickPlayMultiplayer".into());
                 game_args.push(server.clone());
             } else {

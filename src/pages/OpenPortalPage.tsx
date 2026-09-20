@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, MessageSquare, Trash2, Sparkles, Send, StopCircle, ChevronDown, ChevronRight,
   Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Boxes, Check, Copy, Download,
-  Gauge, Minimize2, CornerDownRight,
+  Gauge, Minimize2, CornerDownRight, Shield, ShieldCheck, ShieldAlert,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
@@ -12,10 +12,11 @@ import { useInstanceStore } from '@/stores/instanceStore';
 import { useCurrentUser } from '@/stores/authStore';
 import { toIconSrc } from '@/lib/icon-src';
 import { resolveEndpoint, runAgentTurn, buildSystemPrompt, compressHistory, callProvider } from '@/lib/opencore/agent';
+import { contextWindow } from '@/lib/opencore/providers';
 import { Markdown } from '@/components/openportal/Markdown';
 import { ModelManager } from '@/components/openportal/ModelManager';
 import { PermissionModal } from '@/components/openportal/PermissionModal';
-import type { ChatMessage, SessionData, PermissionRequest, Attachment, ProjectContext } from '@/lib/opencore/types';
+import type { ChatMessage, SessionData, PermissionRequest, Attachment, ProjectContext, PermissionPreset } from '@/lib/opencore/types';
 
 const HELP_TEXT = [
   '**Команды OpenPortal:**',
@@ -200,6 +201,25 @@ function ModeToggle({ mode, onChange }: { mode: 'build' | 'plan'; onChange: (m: 
           : { color: 'var(--color-text-secondary)' }}>
         <DraftingCompass size={11} /> Plan
       </button>
+    </div>
+  );
+}
+
+function PresetToggle({ preset, onChange }: { preset: PermissionPreset; onChange: (p: PermissionPreset) => void }) {
+  const presets: { id: PermissionPreset; label: string; icon: React.ReactNode; title: string }[] = [
+    { id: 'dfa', label: 'DFA', icon: <ShieldAlert size={10} />, title: 'DFA — спрашивает разрешения (как раньше)' },
+    { id: 'fa', label: 'FA', icon: <ShieldCheck size={10} />, title: 'FA — делает без вопросов, кроме установщиков (.exe/.msi)' },
+    { id: 'ask', label: 'ASK', icon: <Shield size={10} />, title: 'ASK — только ищет и читает, ничего не создаёт' },
+  ];
+  return (
+    <div className="flex shrink-0 items-center gap-0.5 rounded-lg p-0.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }} title={presets.find(p => p.id === preset)?.title}>
+      {presets.map(p => (
+        <button key={p.id} title={p.title} onClick={() => onChange(p.id)}
+          className={`flex items-center gap-1 rounded-[7px] px-1.5 py-1 text-[10px] font-bold transition-colors ${preset === p.id ? '' : 'opacity-50 hover:opacity-80'}`}
+          style={preset === p.id ? { background: 'var(--color-primary)', color: 'var(--color-primary-text)' } : { color: 'var(--color-text-secondary)' }}>
+          {p.icon} {p.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -487,6 +507,7 @@ export function OpenPortalPage() {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const abortRefs = useRef<Record<string, AbortController>>({});
+  const interruptsRef = useRef<{ sessionId: string; msg: ChatMessage }[]>([]);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const stickRef = useRef(true);
@@ -552,6 +573,15 @@ export function OpenPortalPage() {
   }, [store]);
 
   const requestPermission = useCallback(async (req: PermissionRequest): Promise<'allow' | 'deny' | 'always' | 'never'> => {
+    const preset = useOpenCoreStore.getState().config.permissionPreset ?? 'dfa';
+    if (preset === 'ask') return 'deny';
+    if (preset === 'fa') {
+      if (!req.hazard) return 'always';
+      // Установщик (.exe/.msi) даже в FA уточняем у пользователя.
+      return new Promise<'allow' | 'deny' | 'always' | 'never'>(resolve => {
+        useOpenCoreStore.setState({ pendingPermission: { ...req, resolve } });
+      });
+    }
     const key = `${req.tool}:${req.root}`;
     const prior = useOpenCoreStore.getState().permissions[key];
     if (prior === 'always') return 'always';
@@ -646,8 +676,26 @@ export function OpenPortalPage() {
   const send = useCallback(async (overrideText?: string) => {
     const isOverride = typeof overrideText === 'string';
     let text = (overrideText ?? input).trim();
-    if (!text || running) return;
+    if (!text) return;
     if (!isOverride) setInput('');
+
+    const live = useOpenCoreStore.getState();
+    const liveSession = live.currentSessionId;
+    const liveRunning = !!liveSession && !!live.runningSessions[liveSession];
+    if (liveRunning) {
+      // Агент занят текущей задачей: сообщение доставляем сразу — это прерывание,
+      // агент подхватит его после текущего шага и продолжит работу над новой задачей.
+      if (liveSession) {
+        const now = Date.now();
+        const userMsg: ChatMessage = {
+          id: `user-${now}`, role: 'user', content: text, timestamp: now,
+        };
+        live.appendSessionMessages(liveSession, [userMsg]);
+        interruptsRef.current.push({ sessionId: liveSession, msg: userMsg });
+      }
+      if (!isOverride) setAttachments([]);
+      return;
+    }
 
     // Команды "/"
     let taskDirective: string | undefined;
@@ -689,9 +737,15 @@ export function OpenPortalPage() {
           text = `Команда /skill-installer: найди подходящий навык «${arg}», установи его SKILL.md в папку навыков и кратко объясни, что он делает.`;
         }
       } else {
-        const unknown: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: `Неизвестная команда **${cmd}**. Набери /help`, timestamp: Date.now() };
-        useOpenCoreStore.getState().appendMessages([unknown]);
-        return;
+        const skill = store.skills.find(s => s.name && `/${s.name.toLowerCase()}` === cmd);
+        if (skill) {
+          taskDirective = `Ты запущен навыком «${skill.name}». Обязательно сначала прочитай его инструкции (read_text root=portal, путь Skills/${skill.name}/SKILL.md) и строго следуй им: ${arg || 'выполни задачу по описанию навыка'}.`;
+          text = arg ? `Выполни задачу навыка «${skill.name}»: ${arg}` : `Выполни задачу согласно навыку «${skill.name}».`;
+        } else {
+          const unknown: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: `Неизвестная команда **${cmd}**. Набери /help`, timestamp: Date.now() };
+          useOpenCoreStore.getState().appendMessages([unknown]);
+          return;
+        }
       }
     }
 
@@ -806,12 +860,13 @@ export function OpenPortalPage() {
     abortRefs.current[runSessionId] = abort;
     useOpenCoreStore.getState().setSessionRunning(runSessionId, true);
 
-    const ctxLimit = ep.model.contextLength ?? (ep.model.family === 'anthropic' ? 200_000 : 128_000);
+    const ctxLimit = contextWindow(ep.model, providerId);
     if (runSessionId === useOpenCoreStore.getState().currentSessionId) useOpenCoreStore.getState().setContextLimit(ctxLimit);
 
     try {
       const currentMsgs = useOpenCoreStore.getState().readSessionMessages(runSessionId);
       const history = compressHistory(currentMsgs, 36);
+      const preset = cfgNow.permissionPreset ?? 'dfa';
       await runAgentTurn({
         ep,
         systemPrompt,
@@ -819,6 +874,14 @@ export function OpenPortalPage() {
         mode,
         contextLimit: ctxLimit,
         requestPermission,
+        policy: preset === 'ask' ? 'ask' : undefined,
+        interrupt: async () => {
+          const q = interruptsRef.current;
+          const i = q.findIndex(x => x.sessionId === runSessionId);
+          if (i < 0) return null;
+          const [item] = q.splice(i, 1);
+          return item.msg;
+        },
         signal: abort.signal,
         onAppend: msgs => useOpenCoreStore.getState().appendSessionMessages(runSessionId, msgs),
         onUpdate: (id, patch) => useOpenCoreStore.getState().updateSessionMessage(runSessionId, id, patch),
@@ -836,9 +899,18 @@ export function OpenPortalPage() {
     } finally {
       useOpenCoreStore.getState().setSessionRunning(runSessionId, false);
       delete abortRefs.current[runSessionId];
+      interruptsRef.current = interruptsRef.current.filter(x => x.sessionId !== runSessionId);
       void persistSession(runSessionId);
+      // Навыки и сборки могла создать сама модель — обнови списки, чтобы они появились сразу.
+      void useOpenCoreStore.getState().refreshSkills();
+      void (async () => {
+        try {
+          const insts = await invoke<any[]>('op_list_instances');
+          useInstanceStore.getState().syncFromBackend(insts);
+        } catch { /* не критично */ }
+      })();
     }
-  }, [input, running, store, cfg, layout, attachments, requestPermission, user?.username, compressChat]);
+  }, [input, running, store, cfg, layout, attachments, requestPermission, user?.username, compressChat, persistSession]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); }
@@ -846,7 +918,11 @@ export function OpenPortalPage() {
 
   const cmdOpen = !running && input.startsWith('/');
   const cmdQuery = input.slice(1).toLowerCase();
-  const cmdList = cmdOpen ? COMMANDS.filter(c => c.cmd.slice(1).toLowerCase().includes(cmdQuery)) : [];
+  const allCommands = [
+    ...COMMANDS,
+    ...store.skills.filter(s => s.name).map(s => ({ cmd: `/${s.name}`, desc: s.description || 'Навык', instant: false as const })),
+  ];
+  const cmdList = cmdOpen ? allCommands.filter(c => c.cmd.slice(1).toLowerCase().includes(cmdQuery)) : [];
   const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant' && m.content)?.id;
 
   const onFilePicked = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -988,6 +1064,7 @@ export function OpenPortalPage() {
             <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>·</span>
             <CurrentModelPicker />
             <ContextMeter onCompact={() => void compressChat()} />
+            <PresetToggle preset={cfg.permissionPreset ?? 'dfa'} onChange={p => useOpenCoreStore.getState().setPermissionPreset(p)} />
             <span className="flex-1" />
           </div>
           <div className="mx-auto flex max-w-3xl items-end gap-1.5">
@@ -1003,7 +1080,7 @@ export function OpenPortalPage() {
               onChange={e => { setInput(e.target.value); }}
               onKeyDown={onKeyDown}
               rows={1}
-              placeholder={running ? 'Агент занят…' : 'Что сделать?  (/ — команды)'}
+              placeholder={running ? 'Агент занят — отправь сообщение, он продолжит после текущего шага' : 'Что сделать?  (/ — команды)'}
               className="max-h-40 min-h-10 flex-1 resize-none overflow-y-auto rounded-2xl px-4 py-2.5 text-[13px] leading-6 outline-none"
               style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
             />

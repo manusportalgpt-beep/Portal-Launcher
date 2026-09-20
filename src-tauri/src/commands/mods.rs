@@ -306,10 +306,13 @@ fn update_instance_mod_list(instance_id: &str, m: &InstalledMod) {
                     // переустановок/обновлений набегала куча метаданных на
                     // один и тот же мод с разными версиями, из-за чего в
                     // списке контента он показывался несколько раз.
-                    // Заменяем по id (project_id) + mod_type, если уже есть.
+                    // Заменяем по id (project_id) + mod_type, если уже есть,
+                    // а при разном id — по имени файла (одна версия = один файл).
                     if let Some(existing) = arr.iter_mut().find(|e| {
-                        e["id"].as_str() == Some(m.id.as_str())
-                            && e["mod_type"].as_str() == Some(m.mod_type.as_str())
+                        let same_file = e["file_name"].as_str() == Some(m.file_name.as_str());
+                        let same_type = e["mod_type"].as_str() == Some(m.mod_type.as_str());
+                        same_file
+                            || (e["id"].as_str() == Some(m.id.as_str()) && same_type)
                     }) {
                         *existing = new_mod;
                     } else {
@@ -946,6 +949,9 @@ pub async fn get_instance_mods(instance_id: String) -> Result<Vec<InstalledMod>,
             }
         }
     }
+    // Страховка от дублей: один файл одного типа — одна карточка в списке.
+    let mut seen = std::collections::HashSet::new();
+    mods.retain(|m| seen.insert((m.file_name.clone(), m.mod_type.clone())));
     Ok(mods)
 }
 

@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use base64::Engine as _;
 use std::io::{Read, Write};
+use image::GenericImageView as _;
 
 const MAX_TEXT_READ: usize = 512 * 1024;
 const MAX_FETCH_BYTES: usize = 2 * 1024 * 1024;
@@ -417,7 +418,7 @@ pub fn op_image_inspect(root: String, path: String) -> Result<ImageInspect, Stri
     }
 
     let decoded = image::open(&file);
-    let (width, height) = decoded.as_ref().map(|d| d.dimensions()).unwrap_or((0, 0));
+    let (width, height) = decoded.as_ref().map(|d| (d.width(), d.height())).unwrap_or((0, 0));
     let mut counts: std::collections::HashMap<(u8, u8, u8), u64> = std::collections::HashMap::new();
     let mut total: u64 = 0;
     let mut alpha = false;

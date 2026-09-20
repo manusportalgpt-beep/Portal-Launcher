@@ -14,11 +14,11 @@ function loadImage(name: string): Promise<string> {
   return p;
 }
 
-/** Встраивает изображение из кеша OpenPortal (`/op-image/<name>`). */
+/** Встраивает изображение из кеша OpenPortal (`/op-image/<name>`). Клик — просмотр на весь экран. */
 function PortalImage({ name }: { name: string }) {
   const [src, setSrc] = useState<string | null>(null);
   const [err, setErr] = useState('');
-  const [menu, setMenu] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -27,6 +27,13 @@ function PortalImage({ name }: { name: string }) {
       .catch(e => { if (alive) setErr(String(e)); });
     return () => { alive = false; };
   }, [name]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
 
   const copy = async () => {
     const dataUrl = src ?? '';
@@ -37,7 +44,6 @@ function PortalImage({ name }: { name: string }) {
     } catch {
       await navigator.clipboard.writeText(dataUrl);
     }
-    setMenu(false);
   };
 
   const download = () => {
@@ -45,7 +51,6 @@ function PortalImage({ name }: { name: string }) {
     a.href = src ?? '';
     a.download = name;
     a.click();
-    setMenu(false);
   };
 
   if (err) return <span className="text-[12px] italic" style={{ color: 'var(--color-error)' }}>Не удалось загрузить картинку: {err}</span>;
@@ -56,22 +61,28 @@ function PortalImage({ name }: { name: string }) {
         ? <img
             src={src}
             alt={name}
-            className="max-h-96 rounded-xl border object-contain"
+            className="max-h-96 cursor-zoom-in rounded-xl border object-contain"
             style={{ borderColor: 'var(--color-border)' }}
-            onContextMenu={e => { e.preventDefault(); setMenu(m => !m); }}
+            onClick={() => setOpen(true)}
           />
         : <span className="inline-block h-24 w-36 rounded-xl animate-pulse" style={{ background: 'var(--color-surface-2)' }} />}
-      {menu && (
-        <>
-          <span className="fixed inset-0 z-40" onClick={() => setMenu(false)} />
-          <span
-            className="absolute left-0 top-full z-50 mt-1 flex flex-col rounded-xl border p-1"
-            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 12px 32px rgba(0,0,0,.35)' }}
-            onClick={() => setMenu(false)}>
-            <button onClick={copy} className="rounded-lg px-3 py-1.5 text-left text-[12px] font-semibold hover:bg-[var(--color-surface-2)]" style={{ color: 'var(--color-text)' }}>Копировать</button>
-            <button onClick={download} className="rounded-lg px-3 py-1.5 text-left text-[12px] font-semibold hover:bg-[var(--color-surface-2)]" style={{ color: 'var(--color-text)' }}>Скачать</button>
+      {open && src && (
+        <span
+          className="fixed inset-0 z-[70] flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.75)' }}
+          onClick={() => setOpen(false)}>
+          <span className="flex max-h-full max-w-full flex-col gap-2" onClick={e => e.stopPropagation()}>
+            <img src={src} alt={name} className="max-h-[85vh] max-w-[90vw] rounded-xl object-contain" style={{ boxShadow: '0 24px 80px rgba(0,0,0,.6)' }} />
+            <span className="flex items-center justify-center gap-1.5">
+              <button onClick={() => void copy()} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/10"
+                style={{ color: 'var(--color-text)', background: 'rgba(127,127,127,0.25)' }}>Копировать</button>
+              <button onClick={download} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/10"
+                style={{ color: 'var(--color-text)', background: 'rgba(127,127,127,0.25)' }}>Скачать</button>
+              <button onClick={() => setOpen(false)} className="rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/10"
+                style={{ color: 'var(--color-text)', background: 'rgba(127,127,127,0.25)' }}>Закрыть ✕</button>
+            </span>
           </span>
-        </>
+        </span>
       )}
     </span>
   );
@@ -110,6 +121,36 @@ function PortalArtifact({ path, name }: { path: string; name: string }) {
         <span className="shrink-0 text-[11px]" style={{ color: 'var(--color-error)' }} title={err}>Ошибка</span>
       )}
     </div>
+  );
+}
+
+/** Карточка-превью ссылки: скриншот страницы через WordPress mShots (без ключей) + домен. */
+function LinkPreview({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false);
+  const clean = url.split(/[\s<>'"`{}]|\)$/)[0].replace(/[.,;!?]+$/, '');
+  let host = '';
+  let target = clean;
+  try {
+    const u = new URL(clean);
+    host = u.host.replace(/^www\./, '');
+    target = u.href;
+  } catch {
+    return null;
+  }
+  if (!host || failed) return null;
+  const shot = `https://s.wordpress.com/mshots/v1/${encodeURIComponent(target)}?w=360&h=190`;
+  return (
+    <a href={target} target="_blank" rel="noreferrer"
+      className="mt-1.5 block w-full max-w-[300px] overflow-hidden rounded-xl border transition-transform hover:-translate-y-0.5"
+      style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+      <span className="flex h-28 w-full items-center justify-center overflow-hidden bg-black/20">
+        <img src={shot} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover"
+          onError={() => setFailed(true)} />
+      </span>
+      <span className="block px-2.5 py-1.5">
+        <span className="block truncate text-[10.5px] font-bold" style={{ color: 'var(--color-text)' }}>{host}</span>
+      </span>
+    </a>
   );
 }
 
@@ -390,14 +431,23 @@ export const Markdown = memo(function Markdown({ text, streaming }: { text: stri
     } else if (line.trim() === '') {
       out.push(<div key={key++} className="h-1.5" />);
     } else {
-      out.push(
-        <p key={key++} className="op-fade-in break-words whitespace-pre-wrap">{renderInline(line)}</p>,
-      );
+      const nodes: ReactNode[] = [<span key={key++}>{renderInline(line)}</span>];
+      const seen = new Set<string>();
+      let m2: RegExpExecArray | null;
+      const urlRe = /https?:\/\/[^\s<>()\[\]`"']+/gi;
+      urlRe.lastIndex = 0;
+      while ((m2 = urlRe.exec(line)) !== null && seen.size < 2) {
+        const url = m2[0].replace(/[.,;!?)]+$/, '');
+        if (!/\.(png|jpe?g|webp|gif)(\?.*)?$/i.test(url) && !seen.has(url)) {
+          seen.add(url);
+          nodes.push(<LinkPreview key={key++} url={url} />);
+        }
+      }
+      out.push(<p key={key++} className="op-fade-in break-words whitespace-pre-wrap">{nodes}</p>);
     }
   }
   flushAll();
   if (inCode && codeLines.length) pendingCode.push({ code: codeLines.join('\n'), lang: fenceLang });
   flushCode();
-  if (streaming) out.push(<span key={key++} className="op-caret" />);
   return <div className="text-[13px] leading-6">{out}</div>;
 });

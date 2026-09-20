@@ -19,12 +19,12 @@ export function WindowControls() {
   }, [win]);
 
   const btn =
-    'ore-flat h-6 w-8 inline-flex items-center justify-center text-[var(--color-text)]/65 transition-colors duration-150 hover:text-[var(--color-text)] hover:bg-white/10 active:scale-[0.96]';
+    'ore-flat h-[20px] w-7 inline-flex items-center justify-center text-[var(--color-text)]/65 transition-colors duration-150 hover:text-[var(--color-text)] hover:bg-white/10 active:scale-[0.96]';
 
   return (
     <div className="flex items-center select-none" data-tauri-drag-region-exclude>
       <button className={btn} title="Свернуть" onClick={() => win.minimize()}>
-        <Minus size={12} strokeWidth={2} />
+        <Minus size={10} strokeWidth={2} />
       </button>
       <button
         className={btn}
@@ -34,10 +34,10 @@ export function WindowControls() {
           setMaximized(await win.isMaximized());
         }}
       >
-        {maximized ? <Copy size={11} /> : <Square size={10} />}
+        {maximized ? <Copy size={9} /> : <Square size={9} />}
       </button>
       <button className={`${btn} hover:bg-[#e81123] hover:text-white`} title="Закрыть" onClick={() => win.close()}>
-        <X size={12} strokeWidth={2} />
+        <X size={10} strokeWidth={2} />
       </button>
     </div>
   );

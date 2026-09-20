@@ -276,7 +276,14 @@ function ChatBubble({ m, onContinue, streaming }: { m: ChatMessage; onContinue?:
 /** Карточка прикреплённого файла: бейдж расширения, размер, имя и «Скачать» в «Загрузки». */
 function AttachmentChip({ a, onRemove }: { a: Attachment; onRemove?: () => void }) {
   const [state, setState] = useState<'idle' | 'saving' | 'done'>('idle');
+  const [open, setOpen] = useState(false);
   const isImg = a.type.startsWith('image/') && !!a.dataUrl;
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
   const save = async () => {
     if (state === 'saving') return;
     const b64 = a.base64 ?? (a.dataUrl ? a.dataUrl.split(',')[1] : '');
@@ -294,7 +301,8 @@ function AttachmentChip({ a, onRemove }: { a: Attachment; onRemove?: () => void 
   return (
     <div className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-[11px]" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
       {isImg
-        ? <img src={a.dataUrl} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+        ? <img src={a.dataUrl} alt="" className="h-8 w-8 shrink-0 cursor-zoom-in rounded-lg object-cover"
+            onClick={() => setOpen(true)} />
         : <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[7px] font-black"
             style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-tertiary)' }}>{extOf(a.name)}</div>}
       <div className="min-w-0">
@@ -310,6 +318,17 @@ function AttachmentChip({ a, onRemove }: { a: Attachment; onRemove?: () => void 
       </button>
       {onRemove && (
         <button onClick={onRemove} title="Убрать" className="shrink-0 text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]">✕</button>
+      )}
+      {open && isImg && (
+        <span
+          className="fixed inset-0 z-[70] flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.75)' }}
+          onClick={() => setOpen(false)}>
+          <span onClick={e => e.stopPropagation()}>
+            <img src={a.dataUrl} alt={a.name} className="max-h-[85vh] max-w-[90vw] rounded-xl object-contain"
+              style={{ boxShadow: '0 24px 80px rgba(0,0,0,.6)' }} />
+          </span>
+        </span>
       )}
     </div>
   );

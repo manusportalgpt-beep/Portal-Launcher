@@ -232,7 +232,7 @@ const defaults = {
   },
   contentWidth: 100,
   contentInset: 0,
-  titlebarHeight: 26,
+  titlebarHeight: 24,
   adaptiveTitlebarColor: true,
 };
 
@@ -246,10 +246,12 @@ export const useUiStore = create<UiState>()(
     {
       name: 'portal-launcher-ui',
       storage: createJSONStorage(() => safeLocalStorage()),
-      version: 12,
+      version: 13,
       migrate: (persisted: any, version) => {
         // Migrate only stock Title Bar heights from earlier releases; custom heights remain the user's choice.
         if (version < 3 && [28, 30, 32].includes(persisted?.titlebarHeight)) persisted.titlebarHeight = 26;
+        // v13: тайтлбар уже стал компактнее (24 px) — старые «стандартные» высоты ужимаем.
+        if (version < 13 && [26, 28, 30, 32].includes(persisted?.titlebarHeight)) persisted.titlebarHeight = 24;
         // Stock layouts used Notch and showed only a few instance shortcuts.
         // Preserve an explicit custom mode/count, but migrate the old defaults.
         if (version < 4 && (persisted?.navMode === 'notch' || persisted?.navMode == null)) persisted.navMode = 'sidebar';

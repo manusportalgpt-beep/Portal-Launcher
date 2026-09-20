@@ -351,7 +351,7 @@ function AppearanceSection() {
       ? { titlebarHeight: 24, uiScale: 92, compact: true, cornerRadius: 10 }
       : preset === 'roomy'
         ? { titlebarHeight: 40, uiScale: 108, compact: false, cornerRadius: 18 }
-        : { titlebarHeight: 26, uiScale: 100, compact: false, cornerRadius: 12 };
+        : { titlebarHeight: 24, uiScale: 100, compact: false, cornerRadius: 12 };
     (Object.entries(values) as Array<[keyof typeof values, number | boolean]>).forEach(([key, value]) => ui.set(key as any, value as any));
   };
 

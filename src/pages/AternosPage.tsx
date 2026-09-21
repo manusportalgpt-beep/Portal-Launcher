@@ -393,7 +393,7 @@ export function AternosPage() {
           {auth.error && !auth.need2fa && (
             <div className="mb-4 px-3 py-2 rounded-lg text-xs font-medium"
               style={{ background: 'var(--color-danger-bg, rgba(239,68,68,.12))', color: 'var(--color-danger, #ef4444)', border: '1px solid var(--color-danger, #ef4444)' }}>
-              {loginResultData.error}
+              {auth.error}
             </div>
           )}
 

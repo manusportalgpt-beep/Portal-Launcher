@@ -1841,7 +1841,7 @@ export async function executeTool(
 // Сборка тела запроса для разных форматов
 // ---------------------------------------------------------------------------
 
-import { OP_PROVIDERS, type ProviderDef, type ModelDef, type ProviderKind } from '@/lib/opencore/providers';
+import { OP_PROVIDERS, browserLinksHint, type ProviderDef, type ModelDef, type ProviderKind } from '@/lib/opencore/providers';
 
 export interface ResolvedEndpoint {
   provider: ProviderDef;
@@ -1894,7 +1894,7 @@ export function resolveEndpoint(
     provider: preset ?? ({ id: providerId, name: 'Custom', kind: 'openai', baseUrl, models: [model] } as ProviderDef),
     model,
     baseUrl,
-    apiKey: st.apiKey || '',
+    apiKey: st.apiKey || preset?.defaultApiKey || '',
     format,
     useZen,
     isCustom,
@@ -1970,6 +1970,40 @@ export function usageFromAnthropic(data: any): TokenUsage | undefined {
   return normalizeUsage(u.input_tokens, u.output_tokens, (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0));
 }
 
+// ---------------------------------------------------------------------------
+// GitHub Copilot: пользовательский GitHub-токен → временный JWT для API Copilot
+// ---------------------------------------------------------------------------
+
+function isCopilot(ep: ResolvedEndpoint): boolean {
+  return ep.provider.id === 'github-copilot' || /githubcopilot\.com/i.test(ep.baseUrl);
+}
+
+const copilotJwtCache = new Map<string, { jwt: string; until: number }>();
+
+/** Обменивает GitHub-токен на JWT для api.githubcopilot.com (кэширует до истечения). */
+export async function copilotJwt(githubToken: string): Promise<string> {
+  const cached = copilotJwtCache.get(githubToken);
+  if (cached && cached.until > Date.now() + 30_000) return cached.jwt;
+  const fr = await httpViaRust(
+    'GET',
+    'https://api.github.com/copilot_internal/v2/token',
+    { Authorization: `token ${githubToken}`, Accept: 'application/json' },
+    null,
+    60_000,
+  );
+  if (!fr.ok) {
+    throw new Error(
+      `не удалось обменять GitHub-токен (HTTP ${fr.status}${fr.status === 401 ? ': токен не подходит — нужен PAT с доступом Copilot или OAuth-токен' : fr.status === 403 ? ': у токена нет доступа Copilot' : ''}). ${(fr.error ?? fr.text ?? '').slice(0, 160)}`,
+    );
+  }
+  const data: any = JSON.parse(fr.text || '{}');
+  const jwt: string = data?.token ?? '';
+  if (!jwt) throw new Error(`сервис не вернул токен. ${(data?.message ?? '').slice(0, 160)}`);
+  const until = Math.min(Date.now() + parseInt(data?.expires_in ?? '1440', 10) * 1000, Date.now() + 25 * 60_000);
+  copilotJwtCache.set(githubToken, { jwt, until });
+  return jwt;
+}
+
 export async function callProvider(
   ep: ResolvedEndpoint,
   systemPrompt: string,
@@ -1978,6 +2012,17 @@ export async function callProvider(
   onDelta?: (d: StreamDelta) => void,
 ): Promise<ApiOutcome> {
   if (!ep.baseUrl) throw new Error('Не настроен baseUrl провайдера.');
+
+  // GitHub Copilot требует временный JWT: обмениваем пользовательский GitHub-токен
+  // на https://api.github.com/copilot_internal/v2/token (кэш до истечения).
+  if (isCopilot(ep) && ep.apiKey) {
+    try {
+      ep.apiKey = await copilotJwt(ep.apiKey);
+    } catch (e) {
+      throw new Error(`GitHub Copilot: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
   if (!ep.apiKey && ep.provider.kind !== 'zen' && !ep.provider.id.includes('custom:')) {
     // Локальные провайдеры (ollama/lmstudio) ключа не требуют
     if (!['ollama', 'lmstudio'].includes(ep.provider.id)) {
@@ -1998,6 +2043,11 @@ export async function callProvider(
         await sleep(400 + attempt * 500 + Math.random() * 300);
       }
     }
+  }
+  if (lastError instanceof Error && ep.provider.id === 'deepseek' && /insufficient balance|402/i.test(lastError.message)) {
+    lastError.message =
+      'DeepSeek: публичный ключ исчерпан (402 Insufficient Balance). Введи свой ключ в «Управление моделями» или переключись на OpenCode Zen (бесплатно) в выборе модели. ' +
+      lastError.message;
   }
   throw lastError;
 }
@@ -2632,6 +2682,11 @@ export function buildSystemPrompt(opts: {
     `- Создание/доработка своего мода: выясни загрузчик (fabric/forge/neoforge/quilt), версию Minecraft и маппинги; для больших модов предложи и сделай структуру src/main/java/...+src/main/resources/ с fabric.mod.json (Fabric) или META-INF/mods.toml (Forge/NeoForge); укажи все dependencies (loader/fabric-api и т.п.).`,
     `- Сборка в .jar: скачай нужные загрузчик-и-движок jar (fabricmc.net / maven.neoforged.net / maven.fabricmc.net) в temp-папку проекта, компилируй javac -cp "<forge.jar>;<minecraft.jar>[;...]" -d build/classes $(find src -name '*.java'), скопируй ресурсы в build/classes и упакуй jar -cf mods/<modid>-<version>.jar -C build/classes . Затем положи готовый jar в mods активной сборки (как выше) — не в корень проекта.`,
     `- Пиши аккуратный код на Java: package по шаблону ru.<ник>/<modid>, события загрузчика, null-безопасность, логирование через свою логгер-префикс. Компилируй без warnings, проверь, что modid строго нижним регистром и уникален. После установки попроси пользователя пересобрать сборку и запустить — по логам/крашам (launcher_logs) уточняй и чини.`,
+    '',
+    `Браузерные ИИ (закладки-ссылки; в чате это markdown-ссылки, но их нельзя быстро открыть без перехода — не открывай их автоматически):`,
+    `- Когда задача про веб/поиск/сервисы/сайты («дай сайт», «где скачать», «как зайти», «оформить», «купить») или пользователю удобнее ответ другого ИИ — в конце ответа предложи уместную кликабельную ссылку-закладку: ` + '`[Название](https://…)`' + ` — и, если полезно, официальный сайт/документацию. Открывает их пользователь кликом, сам НЕ открывай.`,
+    `- Браузерные ИИ (предлагай их к делу):`,
+    browserLinksHint(),
     '',
     `Как показывать изображения в чате: после generate_image ты получаешь ` + '`/op-image/<name>`' +
       ` — вставь его в ответ как markdown-картинку: ` + '`![описание](/op-image/<name>)`' +

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, MessageSquare, Trash2, Sparkles, Send, StopCircle, ChevronDown, ChevronRight,
   Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Boxes, Check, Copy, Download,
-  Gauge, Minimize2, CornerDownRight, Shield, ShieldCheck, ShieldAlert,
+  Gauge, Minimize2, CornerDownRight, Shield, ShieldCheck, ShieldAlert, Globe, ExternalLink,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
@@ -12,7 +12,7 @@ import { useInstanceStore } from '@/stores/instanceStore';
 import { useCurrentUser } from '@/stores/authStore';
 import { toIconSrc } from '@/lib/icon-src';
 import { resolveEndpoint, runAgentTurn, buildSystemPrompt, compressHistory, callProvider } from '@/lib/opencore/agent';
-import { contextWindow } from '@/lib/opencore/providers';
+import { contextWindow, BROWSER_LINKS } from '@/lib/opencore/providers';
 import { Markdown, PortalImage } from '@/components/openportal/Markdown';
 import { ModelManager } from '@/components/openportal/ModelManager';
 import { PermissionModal } from '@/components/openportal/PermissionModal';
@@ -369,6 +369,7 @@ function CurrentModelPicker() {
   const setActiveModel = useOpenCoreStore(s => s.setActiveModel);
   const setModelsMenuOpen = useOpenCoreStore(s => s.setModelsMenuOpen);
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<'models' | 'web'>('models');
 
   const providers = activeProviders(cfg).filter(p => isProviderEnabled(p, cfg));
   const activeProvider = providers.find(p => p.id === cfg.activeProviderId) ?? firstConnectedProvider(cfg);
@@ -376,10 +377,11 @@ function CurrentModelPicker() {
 
   const models = activeProvider.models.filter(m => isModelEnabled(activeProvider, m.id, cfg));
   const currentIsAvailable = models.some(m => m.id === cfg.activeModelId);
+  const webLinks = [...BROWSER_LINKS, ...(cfg.browserBookmarks ?? [])];
 
   return (
     <div className="relative shrink-0">
-      <button onClick={() => setOpen(o => !o)} title="Выбор модели"
+      <button onClick={() => { setOpen(o => !o); setTab('models'); }} title="Выбор модели и браузерные ИИ"
         className="flex max-w-[190px] items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-bold transition-colors hover:bg-[var(--color-surface-2)]"
         style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}>
         <Sparkles size={12} style={{ color: 'var(--color-primary)' }} />
@@ -393,25 +395,66 @@ function CurrentModelPicker() {
           <motion.div
             initial={{ opacity: 0, y: 4, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 4, scale: 0.98 }}
             transition={{ duration: 0.12 }}
-            className="absolute bottom-full right-0 z-50 mb-2 w-56 rounded-2xl border p-1.5"
+            className="absolute bottom-full right-0 z-50 mb-2 w-64 rounded-2xl border p-1.5"
             style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 24px 60px rgba(0,0,0,.4)' }}>
-            <p className="px-2 py-1 text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>{activeProvider.name}</p>
-            <div className="max-h-40 overflow-y-auto">
-              {models.map(m => (
-                <button key={m.id} onClick={() => { setActiveModel(activeProvider.id, m.id); setOpen(false); }}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-[var(--color-surface-2)]"
-                  style={{ color: cfg.activeModelId === m.id ? 'var(--color-primary)' : 'var(--color-text)' }}>
-                  <div className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: cfg.activeModelId === m.id ? 'var(--color-primary)' : 'var(--color-border)' }} />
-                  <span className="flex-1 truncate font-semibold">{m.name ?? m.id}</span>
-                  {m.reasoning && <span className="text-[9px] font-bold uppercase" style={{ color: 'var(--color-text-tertiary)' }}>think</span>}
-                </button>
-              ))}
+            <div className="px-2 pt-1.5 flex items-center justify-between">
+              <button onClick={() => setTab('models')} className="rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wider transition-colors"
+                style={{ color: tab === 'models' ? 'var(--color-primary)' : 'var(--color-text-tertiary)', background: tab === 'models' ? 'var(--color-surface-2)' : 'transparent' }}>
+                Модели
+              </button>
+              <button onClick={() => setTab('web')} className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wider transition-colors"
+                style={{ color: tab === 'web' ? 'var(--color-primary)' : 'var(--color-text-tertiary)', background: tab === 'web' ? 'var(--color-surface-2)' : 'transparent' }}>
+                <Globe size={10} /> ИИ в браузере
+              </button>
+              <button onClick={() => setOpen(false)} title="Свернуть"
+                className="flex h-5 w-5 items-center justify-center rounded-md transition-colors hover:bg-[var(--color-surface-2)]"
+                style={{ color: 'var(--color-text-tertiary)' }}>
+                <ChevronDown size={12} className="rotate-180" />
+              </button>
             </div>
-            <button onClick={() => { setOpen(false); setModelsMenuOpen(true); }}
-              className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-1.5 text-[10px] font-bold transition-colors hover:opacity-80"
-              style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
-              <Settings2 size={11} /> Управление моделями
-            </button>
+
+            {tab === 'models' ? (
+              <>
+                <p className="px-2 py-1 pt-2 text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>{activeProvider.name}</p>
+                <div className="max-h-44 overflow-y-auto">
+                  {models.map(m => (
+                    <button key={m.id} onClick={() => setActiveModel(activeProvider.id, m.id)}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-[var(--color-surface-2)]"
+                      style={{ color: cfg.activeModelId === m.id ? 'var(--color-primary)' : 'var(--color-text)' }}>
+                      <div className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: cfg.activeModelId === m.id ? 'var(--color-primary)' : 'var(--color-border)' }} />
+                      <span className="flex-1 truncate font-semibold">{m.name ?? m.id}</span>
+                      {m.reasoning && <span className="text-[9px] font-bold uppercase" style={{ color: 'var(--color-text-tertiary)' }}>think</span>}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => { setOpen(false); setModelsMenuOpen(true); }}
+                  className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-1.5 text-[10px] font-bold transition-colors hover:opacity-80"
+                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                  <Settings2 size={11} /> Управление моделями
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="px-2 py-1 pt-2 text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--color-text-tertiary)' }}>
+                  Браузерные ИИ ({webLinks.length}) — открываются кликом
+                </p>
+                <div className="max-h-48 overflow-y-auto pb-1">
+                  {webLinks.map(b => (
+                    <button key={b.url} onClick={() => void invoke('open_url', { url: b.url }).catch(() => window.open(b.url, '_blank'))}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-[var(--color-surface-2)]">
+                      <Globe size={11} className="shrink-0" style={{ color: 'var(--color-primary)' }} />
+                      <span className="min-w-0 flex-1 truncate font-semibold" style={{ color: 'var(--color-text)' }}>{b.name}</span>
+                      <ExternalLink size={10} className="shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => { setOpen(false); setModelsMenuOpen(true); }}
+                  className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-1.5 text-[10px] font-bold transition-colors hover:opacity-80"
+                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                  <Plus size={11} /> Добавить свою закладку
+                </button>
+              </>
+            )}
           </motion.div>
         </>
       )}

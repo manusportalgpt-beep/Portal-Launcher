@@ -1,9 +1,16 @@
 import { useEffect, useReducer, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, ChevronLeft, ChevronRight, ChevronDown, KeyRound, Link2, Server, Check, ExternalLink, RefreshCw, PlugZap, WifiOff } from 'lucide-react';
+import { X, Plus, ChevronLeft, ChevronRight, ChevronDown, KeyRound, Link2, Server, Check, ExternalLink, RefreshCw, PlugZap, WifiOff, Trash2, Globe } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
-import { OP_PROVIDERS, customProviderId, modelsListUrl, type ProviderDef } from '@/lib/opencore/providers';
+import { OP_PROVIDERS, customProviderId, modelsListUrl, BROWSER_LINKS, type ProviderDef, type BrowserLink } from '@/lib/opencore/providers';
+import { copilotJwt } from '@/lib/opencore/agent';
 import { useOpenCoreStore, activeProviders, isProviderEnabled, isModelEnabled } from '@/stores/opencoreStore';
+
+/** Маска для встроенного публичного ключа: видно только начало и конец. */
+function maskKey(k: string): string {
+  if (k.length <= 10) return '••••••••••';
+  return `${k.slice(0, 3)}${'•'.repeat(Math.min(12, k.length - 8))}${k.slice(-4)}`;
+}
 
 function Toggle({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
@@ -77,6 +84,7 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
   };
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [useOwnKey, setUseOwnKey] = useState(false);
 
   const baseUrl = (cfg.providers[p.id]?.baseUrl || p.baseUrl).replace(/\/+$/, '');
 
@@ -84,9 +92,16 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
     if (!baseUrl) return;
     setLoading(true); setError(null);
     try {
+      let key = cfg.providers[p.id]?.apiKey ?? p.defaultApiKey ?? null;
+      // Copilot: GitHub-токен → временный JWT (иначе /models ответит 401).
+      if (p.id === 'github-copilot' && key) {
+        try {
+          key = await copilotJwt(key);
+        } catch { /* оставляем исходный ключ: API-ответ сам объяснит ошибку */ }
+      }
       const list = await invoke<{ id: string; name?: string | null }[]>('op_list_models', {
         url: modelsListUrl(p, baseUrl),
-        apiKey: cfg.providers[p.id]?.apiKey ?? null,
+        apiKey: key,
       });
       setProviderModels(p.id, list.map(m => ({
         id: m.id,
@@ -125,7 +140,7 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
             </div>
             <p className="truncate text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
               {loading ? 'Загрузка моделей…' : `${models.length} моделей`}
-              {p.apiKeyHint ? (hasApi ? ' · ключ задан' : ' · ключ не задан') : ''}
+              {p.apiKeyHint ? (hasApi ? ' · ключ задан' : p.defaultApiKey ? ' · публичный ключ' : ' · ключ не задан') : ''}
             </p>
           </div>
         </button>
@@ -144,10 +159,27 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
       {open && (
         <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
           <div className="mt-3 space-y-2 border-t pt-3" style={{ borderColor: 'var(--color-border)' }}>
-            {p.apiKeyHint && (
-              <KeyInput label="API-ключ" value={cfg.providers[p.id]?.apiKey ?? ''} placeholder={p.apiKeyHint}
+            {p.apiKeyHint && (storedKey || !p.defaultApiKey || useOwnKey) ? (
+              <KeyInput label="API-ключ" value={storedKey} placeholder={p.apiKeyHint}
                 onChange={v => setProviderApiKey(p.id, v)} />
-            )}
+            ) : p.defaultApiKey ? (
+              <div>
+                <span className="mb-1 block text-[11px] font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>API-ключ</span>
+                <div className="flex items-center gap-2 rounded-lg border px-3 py-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
+                  <KeyRound size={13} style={{ color: 'var(--color-text-tertiary)' }} />
+                  <code className="flex-1 font-mono text-xs" style={{ color: 'var(--color-text-secondary)' }}>{maskKey(p.defaultApiKey)}</code>
+                  <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-success)' }}>публичный</span>
+                </div>
+                <p className="mt-1.5 text-[11px] leading-4" style={{ color: 'var(--color-text-tertiary)' }}>
+                  Встроенный публичный ключ (в конфиг не сохраняется, посмотреть нельзя).
+                </p>
+                <button onClick={() => setUseOwnKey(true)}
+                  className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold transition-opacity hover:opacity-70"
+                  style={{ color: 'var(--color-primary)' }}>
+                  <KeyRound size={11} /> Ввести свой ключ
+                </button>
+              </div>
+            ) : null}
             {legacyZenKey && (
               <p className="text-[11px] leading-snug" style={{ color: '#f0b429' }}>
                 Ключ sk-... устарел (старый мир OpenCode): free-модели с ним не работают. Получи новый ключ
@@ -258,7 +290,12 @@ function AvailableProviderCard({ p }: { p: ProviderDef }) {
             {!p.apiKeyHint && (
               <p className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>Ключ не требуется — модели появятся после подключения.</p>
             )}
-            <button onClick={connect} disabled={Boolean(p.apiKeyHint) && !apiKey.trim()}
+            {p.apiKeyHint && p.defaultApiKey && !apiKey.trim() && (
+              <p className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+                Встроен публичный ключ (<code className="font-mono">{maskKey(p.defaultApiKey)}</code>) — ключ можно не вводить. Свой впиши при желании.
+              </p>
+            )}
+            <button onClick={connect} disabled={Boolean(p.apiKeyHint) && !p.defaultApiKey && !apiKey.trim()}
               className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-opacity disabled:opacity-40"
               style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
               <Check size={13} /> Подключить и загрузить модели
@@ -338,10 +375,31 @@ export function ModelManager() {
   const open = useOpenCoreStore(s => s.modelsMenuOpen);
   const setOpen = useOpenCoreStore(s => s.setModelsMenuOpen);
   const cfg = useOpenCoreStore(s => s.config);
+  const addBookmark = useOpenCoreStore(s => s.addBrowserBookmark);
+  const removeBookmark = useOpenCoreStore(s => s.removeBrowserBookmark);
   const [showCustom, setShowCustom] = useState(false);
   const [cName, setCName] = useState('');
   const [cUrl, setCUrl] = useState('');
   const [cKey, setCKey] = useState('');
+  const [bName, setBName] = useState('');
+  const [bUrl, setBUrl] = useState('');
+  const [showBookmarkForm, setShowBookmarkForm] = useState(false);
+
+  const bookmarks: BrowserLink[] = [
+    ...BROWSER_LINKS,
+    ...(cfg.browserBookmarks ?? []),
+  ];
+  const customBookmarks = cfg.browserBookmarks ?? [];
+
+  function openLink(url: string) {
+    void invoke('open_url', { url }).catch(() => window.open(url, '_blank'));
+  }
+
+  function addBookmarkClick() {
+    if (!bName.trim() || !bUrl.trim()) return;
+    addBookmark(bName, bUrl);
+    setBName(''); setBUrl(''); setShowBookmarkForm(false);
+  }
 
   useEffect(() => {
     if (!open) setShowCustom(false);
@@ -457,6 +515,62 @@ export function ModelManager() {
                 </div>
               </div>
             )}
+
+            <div className="mt-5">
+              <div className="flex items-center justify-between">
+                <SectionHeader title="Браузерные ИИ (открываются в браузере)" count={bookmarks.length} />
+                <button onClick={() => { setShowBookmarkForm(s => !s); setBName(''); setBUrl(''); }}
+                  className="mb-2 flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold transition-opacity hover:opacity-80"
+                  style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                  <Plus size={11} /> Своя закладка
+                </button>
+              </div>
+              <p className="mb-2 text-[10px] leading-4" style={{ color: 'var(--color-text-tertiary)' }}>
+                Быстрые ссылки на ИИ-сервисы в браузере (вход/кey на месте, ключей не нужно). Клик — открытие в браузере.
+              </p>
+              {showBookmarkForm && (
+                <div className="mb-3 space-y-2 rounded-2xl border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}>
+                  <input value={bName} onChange={e => setBName(e.target.value)} placeholder="Название (например «Мой ИИ»)"
+                    className="w-full rounded-lg px-3 py-2 text-xs" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
+                  <input value={bUrl} onChange={e => setBUrl(e.target.value)} placeholder="https://..."
+                    className="w-full rounded-lg px-3 py-2 text-xs font-mono" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
+                  <div className="flex gap-2">
+                    <button onClick={addBookmarkClick} disabled={!bName.trim() || !bUrl.trim()}
+                      className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-opacity disabled:opacity-40"
+                      style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+                      <Check size={12} /> Сохранить
+                    </button>
+                    <button onClick={() => setShowBookmarkForm(false)}
+                      className="rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+                      Отмена
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="grid max-h-64 grid-cols-2 gap-1.5 overflow-y-auto sm:grid-cols-3">
+                {bookmarks.map(b => {
+                  const isCustom = customBookmarks.some(c => c.url === b.url);
+                  return (
+                    <div key={b.url} className="group relative">
+                      <button onClick={() => openLink(b.url)} title={b.url}
+                        className="flex w-full min-w-0 items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition-colors hover:opacity-85"
+                        style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}>
+                        <Globe size={12} className="shrink-0" style={{ color: 'var(--color-primary)' }} />
+                        <span className="min-w-0 flex-1 truncate text-[11px] font-bold" style={{ color: 'var(--color-text)' }}>{b.name}</span>
+                        <ExternalLink size={10} className="shrink-0 opacity-0 transition-opacity group-hover:opacity-60" style={{ color: 'var(--color-text-tertiary)' }} />
+                      </button>
+                      {isCustom && (
+                        <button onClick={() => removeBookmark(b.url)} title="Удалить закладку"
+                          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full opacity-0 transition-opacity group-hover:opacity-100"
+                          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-error)' }}>
+                          <Trash2 size={9} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div className="border-t px-5 py-3.5 text-[11px] leading-5" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }}>

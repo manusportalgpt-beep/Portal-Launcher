@@ -102,6 +102,8 @@ export interface OpenPortalConfig {
   permissionPreset?: PermissionPreset;
   /** Провайдер генерации изображений: stable_horde (по умолчанию, бесплатно, без ключа), novita (по ключу) или pollinations (бесплатно, может ловить 429). */
   imageGenProvider?: 'stable_horde' | 'novita' | 'pollinations';
+  /** Пользовательские закладки «Браузерные ИИ» (добавляются к встроенному списку). */
+  browserBookmarks?: { name: string; url: string }[];
 }
 
 export type PermissionDecision = 'always' | 'never' | 'once';

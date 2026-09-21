@@ -37,6 +37,9 @@ export interface ProviderDef {
   /** По умолчанию список моделей загружается из реестра; пусто — надо у провайдера. */
   models: ModelDef[];
   supportsFree?: boolean;
+  /** Публичный ключ-по-умолчанию (встроен в приложение). Не сохраняется в конфиг,
+   *  в UI показывается замаскированным; свой ключ пользователя перекрывает его. */
+  defaultApiKey?: string;
 }
 
 /** URL листинга моделей провайдера (GET). Zen и Anthropic — /v1/models, остальные — /models. */
@@ -254,12 +257,27 @@ export const OP_PROVIDERS: ProviderDef[] = [
     models: [],
   },
   {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    kind: 'openai',
+    baseUrl: 'https://api.deepseek.com/v1',
+    defaultApiKey: 'sk-3071c287d3b8462fb32bc25fc582639e',
+    apiKeyHint: 'Встроен публичный ключ (скрыт: в конфиг не сохраняется). Он может поймать 402 — тогда введи свой ключ с platform.deepseek.com.',
+    keyUrl: 'https://platform.deepseek.com',
+    docs: 'https://api-docs.deepseek.com',
+    supportsFree: true,
+    models: [
+      { id: 'deepseek-flash', name: 'DeepSeek Flash', free: true },
+      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', reasoning: true },
+    ],
+  },
+  {
     id: 'freebuff',
     name: 'FreeBuff (бесплатно)',
     kind: 'openai',
     baseUrl: 'https://freebuff.llm.pm/v1',
-    apiKeyHint: 'Ключ не нужен — бесплатные модели FreeBuff. Если сервис запросит авторизацию, скопируй токен из приложения FreeBuff (freebuff.com).',
-    keyUrl: 'https://freebuff.com',
+    apiKeyHint: 'Сначала попробуй без ключа: модель может отвечать анонимно. Если сервис просит авторизацию: открой https://freebuff.llm.pm/v1, нажми «Generate Login URL», авторизуйся и скопируй выданный токен в это поле.',
+    keyUrl: 'https://freebuff.llm.pm/v1',
     docs: 'https://freebuff.com',
     supportsFree: true,
     models: [
@@ -307,8 +325,8 @@ export const OP_PROVIDERS: ProviderDef[] = [
     id: 'github-copilot',
     name: 'GitHub Copilot',
     kind: 'openai',
-    baseUrl: 'https://api.githubcopilot.com/chat',
-    apiKeyHint: 'GitHub token (github.com/settings/tokens) — fine-grained PAT с доступом Copilot',
+    baseUrl: 'https://api.githubcopilot.com',
+    apiKeyHint: 'GitHub-токен (github.com/settings/tokens → Generate new token, класс. PAT с scope copilot, или OAuth-токен). Приложение само обменяет его на временный Copilot JWT.',
     keyUrl: 'https://github.com/settings/tokens',
     docs: 'https://docs.github.com/en/copilot',
     models: [
@@ -449,4 +467,35 @@ export const CUSTOM_PROVIDER_PREFIX = 'custom:';
 
 export function customProviderId(name: string): string {
   return `${CUSTOM_PROVIDER_PREFIX}${name.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-')}-${Date.now().toString(36)}`;
+}
+
+/** Закладки «Браузерные ИИ»: клик — открытие в браузере (без ключей, логин на месте). */
+export interface BrowserLink { name: string; url: string }
+
+export const BROWSER_LINKS: BrowserLink[] = [
+  { name: 'ChatGPT', url: 'https://chatgpt.com' },
+  { name: 'Claude', url: 'https://claude.ai' },
+  { name: 'Gemini', url: 'https://gemini.google.com' },
+  { name: 'DeepSeek Chat', url: 'https://chat.deepseek.com' },
+  { name: 'Perplexity', url: 'https://www.perplexity.ai' },
+  { name: 'Grok', url: 'https://grok.com' },
+  { name: 'Microsoft Copilot', url: 'https://copilot.microsoft.com' },
+  { name: 'Qwen Chat', url: 'https://chat.qwen.ai' },
+  { name: 'Le Chat (Mistral)', url: 'https://chat.mistral.ai' },
+  { name: 'Meta AI (Llama)', url: 'https://www.meta.ai' },
+  { name: 'HuggingChat', url: 'https://huggingface.co/chat' },
+  { name: 'Kimi', url: 'https://kimi.com' },
+  { name: 'MiniMax Hailuo', url: 'https://www.hailuo.ai' },
+  { name: 'GLM (智谱清言)', url: 'https://chatglm.cn' },
+  { name: 'You.com', url: 'https://you.com' },
+  { name: 'Poe', url: 'https://poe.com' },
+  { name: 'Pi', url: 'https://pi.ai' },
+  { name: 'DuckDuckGo AI Chat', url: 'https://duckduckgo.com/?aiChat=1' },
+  { name: 'NVIDIA ChatRTX', url: 'https://www.nvidia.com/en-us/ai-data-science/products/chatrtx/' },
+  { name: 'OpenRouter', url: 'https://openrouter.ai' },
+];
+
+/** Строка для системного промпта агента: список браузерных ИИ (кликабельные ссылки). */
+export function browserLinksHint(): string {
+  return BROWSER_LINKS.map(b => `- [${b.name}](${b.url})`).join('\n');
 }

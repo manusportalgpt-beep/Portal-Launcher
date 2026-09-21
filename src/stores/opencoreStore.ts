@@ -40,14 +40,18 @@ async function readDiskConfig(): Promise<OpenPortalConfig> {
 function defaultConfig(): OpenPortalConfig {
   return {
     version: CONFIG_VERSION,
-    providers: { 'opencode-zen': { enabled: true } },
-    activeProviderId: 'opencode-zen',
-    activeModelId: 'big-pickle',
+    providers: {
+      'opencode-zen': { enabled: true },
+      'deepseek': { enabled: true },
+    },
+    activeProviderId: 'deepseek',
+    activeModelId: 'deepseek-flash',
     mode: 'build',
     project: { kind: 'none' },
     temperature: 0.4,
     permissionPreset: 'dfa',
     imageGenProvider: 'stable_horde',
+    browserBookmarks: [],
   };
 }
 
@@ -85,6 +89,9 @@ interface OpenCoreState {
   setProject: (project: ProjectContext) => void;
   setCwd: (root: PortalRoot, path: string) => void;
   setServiceToken: (host: string, token: string) => void;
+  /** Добавить/удалить пользовательскую закладку «Браузерные ИИ». */
+  addBrowserBookmark: (name: string, url: string) => void;
+  removeBrowserBookmark: (url: string) => void;
 
   resolvePermission: (decision: 'allow' | 'deny' | 'always' | 'never' | 'once') => void;
   setPermissionsMap: (map: PermissionsMap) => void;
@@ -299,6 +306,26 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
         const next = {
           ...cfg,
           serviceTokens: { ...(cfg.serviceTokens ?? {}), [host]: token.trim() },
+        };
+        set({ config: next });
+        void persistConfig(next);
+      },
+
+      addBrowserBookmark(name, url) {
+        const cfg = get().config;
+        const next: OpenPortalConfig = {
+          ...cfg,
+          browserBookmarks: [...(cfg.browserBookmarks ?? []), { name: name.trim(), url: url.trim() }],
+        };
+        set({ config: next });
+        void persistConfig(next);
+      },
+
+      removeBrowserBookmark(url) {
+        const cfg = get().config;
+        const next: OpenPortalConfig = {
+          ...cfg,
+          browserBookmarks: (cfg.browserBookmarks ?? []).filter(b => b.url !== url),
         };
         set({ config: next });
         void persistConfig(next);

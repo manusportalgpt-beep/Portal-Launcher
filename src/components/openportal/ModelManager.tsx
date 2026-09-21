@@ -54,7 +54,9 @@ function useAccordion(id: string) {
   const [, force] = useReducer((x: number) => x + 1, 0);
   useEffect(() => {
     accordionListeners.add(force);
-    return () => accordionListeners.delete(force);
+    return () => {
+      accordionListeners.delete(force);
+    };
   }, [force]);
   return lastExpandedProviderId === id;
 }

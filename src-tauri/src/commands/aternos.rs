@@ -1,8 +1,8 @@
 use base64::Engine as _;
-use futures::StreamExt;
+use futures::{SinkExt, StreamExt};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter as _};
 
@@ -32,13 +32,13 @@ async fn polite() {
         let last = LAST_MS.load(Ordering::Relaxed);
         let wait = 1400 - (now_ms() - last);
         if wait <= 0 {
-            let _ = LAST_MS.compare_exchange(last, now_ms(), Ordering::Relaxed, Ordering::Relaxed);
-            if _ {
-                break;
+            match LAST_MS.compare_exchange(last, now_ms(), Ordering::Relaxed, Ordering::Relaxed) {
+                Ok(_) => break,
+                Err(_) => {
+                    tokio::task::yield_now().await;
+                    continue;
+                }
             }
-            // CAS lost — another call snuck in; keep spinning until we win
-            tokio::task::yield_now().await;
-            continue;
         }
         tokio::time::sleep(Duration::from_millis(wait as u64)).await;
     }
@@ -57,10 +57,7 @@ fn sec_part() -> String {
 }
 
 fn md5_hex(input: &str) -> String {
-    use md5::{Digest, Md5};
-    let mut h = Md5::new();
-    h.update(input.as_bytes());
-    format!("{:x}", h.finalize())
+    format!("{:x}", md5::compute(input.as_bytes()))
 }
 
 fn session_path() -> std::path::PathBuf {
@@ -69,7 +66,9 @@ fn session_path() -> std::path::PathBuf {
 
 fn save_session_file(s: &AternosSession) {
     if let Ok(json) = serde_json::to_string_pretty(s) {
-        let _ = std::fs::create_dir_all(session_path().parent().unwrap_or_default());
+        if let Some(dir) = session_path().parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
         let _ = std::fs::write(session_path(), json);
     }
 }
@@ -91,7 +90,7 @@ fn client() -> reqwest::Client {
 /* Session                                                             */
 /* ------------------------------------------------------------------ */
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct AternosSession {
     pub username: String,
     pub session_cookie: String,
@@ -118,8 +117,7 @@ static SESSION: Lazy<tokio::sync::Mutex<Option<AternosSession>>> =
 static CLIENT: Lazy<reqwest::Client> = Lazy::new(client);
 
 async fn session() -> AternosSession {
-    let s = SESSION.lock().await;
-    s.clone()
+    SESSION.lock().await.clone().unwrap_or_default()
 }
 
 async fn set_session(s: AternosSession) {
@@ -140,17 +138,13 @@ async fn regen_sec() -> AternosSession {
 /* ------------------------------------------------------------------ */
 
 fn parse_cookie(resp: &reqwest::Response, key: &str) -> Option<String> {
-    let url = resp.url();
-    for c in resp.cookies() {
-        if c.name() == key {
-            return Some(c.value().to_string());
-        }
-    }
-    // fallback: parse Set-Cookie headers (covers non-url-cookies)
-    for val in resp.headers().get_all(reqwest::header::SET_COOKIE).iter() {
-        if let Ok(s) = val.to_str() {
-            if let Some(rest) = s.strip_prefix(&format!("{key}=")) {
-                return Some(rest.split(';').next().unwrap_or(rest).to_string());
+    let _ = resp.url();
+    for header in resp.headers().get_all(reqwest::header::SET_COOKIE).iter() {
+        if let Ok(s) = header.to_str() {
+            for part in s.split(';') {
+                if let Some(rest) = part.trim().strip_prefix(&format!("{key}=")) {
+                    return Some(rest.to_string());
+                }
             }
         }
     }
@@ -278,8 +272,8 @@ fn extract_token_literal(s: &str) -> Option<String> {
     let key = "AJAX_TOKEN";
     if let Some(p) = s.find(key) {
         let rest = &s[p + key.len()..];
-        for &q in [b'\"', b'\''] {
-            if let Some(p2) = rest.as_bytes().iter().position(|&b| b == q) {
+for q in [b'\"', b'\''] {
+        if let Some(p2) = rest.as_bytes().iter().position(|&b| b == q) {
                 let q2 = q;
                 let inner = &rest[p2 + 1..];
                 if let Some(p3) = inner.as_bytes().iter().position(|&b| b == q2) {
@@ -369,8 +363,8 @@ pub async fn aternos_login(
     )
     .await?;
 
-    let body = resp.text().await.unwrap_or_default();
     let session_cookie = parse_cookie(&resp, "ATERNOS_SESSION").unwrap_or_default();
+    let body = resp.text().await.unwrap_or_default();
 
     if body.contains("\"show2FA\":true") || body.contains("\"show2FA\": true") {
         return Ok(LoginResult::Needs2fa { username });
@@ -528,15 +522,7 @@ fn parse_last_status(html: &str) -> Option<serde_json::Value> {
     serde_json::from_str(slice).ok()
 }
 
-fn extract_server_id_and_block(html: &str, needle: &str, offset: usize) -> Option<(String, &str)> {
-    // find data-id in a div containing this class pattern before/after needle
-    // Simpler: scan from start for class="server-body"
-    if let Some(block) = html.find(needle) {
-        let slice = &html[block..];
-        if let Some(id) = find_between(slice, "data-id=\"", "\"", 0) {
-            return Some((id, slice));
-        }
-    }
+fn extract_server_id_and_block(_html: &str, _needle: &str, _offset: usize) -> Option<String> {
     None
 }
 
@@ -593,12 +579,11 @@ pub async fn aternos_list_servers() -> Result<Vec<AternosServerSummary>, String>
     }
     let mut s = regen_sec().await;
     let resp = get(&s, &format!("{BASE}/servers/"), None).await?;
+    let fresh_session = parse_cookie(&resp, "ATERNOS_SESSION");
     let html = resp.text().await.unwrap_or_default();
-    if !s.session_cookie.is_empty() {
-        if let Some(c) = parse_cookie(&resp, "ATERNOS_SESSION") {
-            s.session_cookie = c;
-            set_session(s.clone()).await;
-        }
+    if let Some(c) = fresh_session {
+        s.session_cookie = c;
+        set_session(s.clone()).await;
     }
     let mut list = extract_servers_from_html(&html);
     // For each, try to get quick status from the same page snippet
@@ -614,8 +599,9 @@ pub async fn aternos_list_servers() -> Result<Vec<AternosServerSummary>, String>
 pub async fn aternos_server_info(servid: String) -> Result<AternosServerInfo, String> {
     let s = regen_sec().await;
     let resp = get(&s, &format!("{BASE}/server"), Some(&servid)).await?;
+    let fresh_session = parse_cookie(&resp, "ATERNOS_SESSION");
     let html = resp.text().await.unwrap_or_default();
-    if let Some(c) = parse_cookie(&resp, "ATERNOS_SESSION") {
+    if let Some(c) = fresh_session {
         let mut ns = s.clone();
         ns.session_cookie = c;
         set_session(ns).await;
@@ -849,7 +835,7 @@ pub async fn aternos_create_server(
     } else {
         // fallback: open browser create page
         let _ = crate::commands::files::open_url(format!("{BASE}/servers/")).await;
-        Err(format!("Aternos API create failed ({status}). Opened browser — create your server there.".into()))
+        Err(format!("Aternos API create failed ({status}). Opened browser — create your server there."))
     }
 }
 
@@ -1033,8 +1019,8 @@ pub async fn aternos_console_open(app: AppHandle, servid: String) -> Result<(), 
 #[tauri::command]
 pub async fn aternos_console_command(servid: String, cmd: String) -> Result<(), String> {
     let c = CONSOLE.lock().await;
-    let ctx = c.as_ref().ok_or("Console not open")?;
-    if ctx.0 != servid {
+    let (sid, ctx) = c.as_ref().ok_or("Console not open")?;
+    if sid != &servid {
         return Err("Console open for different server".into());
     }
     ctx.cmd_tx
@@ -1092,7 +1078,7 @@ pub async fn aternos_afk_set(
             }
             let host = info.domain.as_deref().or(info.ip.as_deref()).unwrap_or("");
             let port = info.port.unwrap_or(25565) as u16;
-            let proto = protocol_for_version(info.version.as_deref()).unwrap_or(maxp);
+            let proto = protocol_for_version(info.version.as_deref().unwrap_or("")).unwrap_or(maxp);
             if host.is_empty() { tokio::time::sleep(Duration::from_secs(5)).await; continue; }
             let _ = app2.emit("aternos-afk", serde_json::json!({"servid":sid,"event":"connecting","proto":proto}));
             match afk_run_loop(host, port, &nickname, proto, &mut stop_rx).await {
@@ -1118,7 +1104,7 @@ fn varint_len(v: u64) -> usize {
 }
 
 fn write_varint(buf: &mut Vec<u8>, mut v: i32) {
-    let mut u = ((v as u32) << 1) ^ (v >> 31);
+    let mut u = ((v as u32) << 1) ^ ((v >> 31) as u32);
     loop {
         let mut b = (u & 0x7F) as u8;
         u >>= 7;
@@ -1147,7 +1133,7 @@ fn offline_uuid(name: &str) -> String {
     use sha1::{Digest, Sha1};
     let mut h = Sha1::new();
     h.update(format!("OfflinePlayer:{name}").as_bytes());
-    let r = h.finalize();
+    let mut r = h.finalize();
     // set variant bits (2 bits) to 10
     r[6] = (r[6] & 0x0F) | 0x80;
     r[8] = (r[8] & 0x3F) | 0x80;

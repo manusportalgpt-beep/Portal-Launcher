@@ -278,7 +278,7 @@ function ImageGenSection() {
   const novitaKey = cfg.serviceTokens?.['api.novita.ai'] ?? '';
   const setToken = useOpenCoreStore(s => s.setServiceToken);
 
-  const radio = (id: 'stable_horde' | 'novita', title: string, desc: string) => (
+  const radio = (id: 'stable_horde' | 'novita' | 'pollinations', title: string, desc: string) => (
     <button onClick={() => useOpenCoreStore.getState().setImageGenProvider(id)}
       className="flex min-w-0 flex-1 items-start gap-2 rounded-xl border p-2.5 text-left transition-colors"
       style={{
@@ -301,9 +301,10 @@ function ImageGenSection() {
       <SectionHeader title="Генерация Изображений" />
       <div className="rounded-2xl border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}>
         <div className="flex flex-col gap-2">
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             {radio('stable_horde', 'Stable Horde', 'Бесплатно, без ключа. Общая очередь краудсорсинг-кластера.')}
             {radio('novita', 'Novita AI', 'По ключу api.novita.ai. Быстрее, модель DreamShaper XL.')}
+            {radio('pollinations', 'Pollinations', 'Бесплатно, без ключа. Иногда ловит лимит 429 на модель.')}
           </div>
           {val === 'novita' && (
             <div className="space-y-2">

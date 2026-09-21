@@ -1415,6 +1415,9 @@ async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; s
     }
     return generateViaNovita(prompt, size, novitaToken);
   }
+  if (imageGen === 'pollinations') {
+    return generateViaPollinations(prompt, size);
+  }
   return generateViaStableHorde(prompt, size);
 }
 
@@ -1853,7 +1856,8 @@ export interface ResolvedEndpoint {
   /** Персист сохранённого токена сервиса. */
   onSetToken?: (host: string, token: string) => void;
   /** Выбранный пользователем провайдер генерации изображений (по умолчанию stable_horde — бесплатно, без ключа). */
-  imageGenProvider?: 'stable_horde' | 'novita';
+  /** Провайдер генерации изображений по умолчанию для auto. */
+  imageGenProvider?: 'stable_horde' | 'novita' | 'pollinations';
 }
 
 export function resolveEndpoint(
@@ -2594,7 +2598,7 @@ export function buildSystemPrompt(opts: {
     `- run_command(root, cwd, command, timeout_ms) — команда (в portal/temp и curl/wget — без модалки; launcher спросит разрешение). Оболочка по умолчанию cmd, можно передать shell: 'powershell'.`,
     `- terminal(root, cwd, command) — команда в PowerShell-терминале (масштаб разрешений как у run_command).`,
     `- generate_image(prompt, size?, provider?) — сгенерировать изображение (без запроса разрешения; после генерации в чате появится превью).`,
-    `  Как готовить prompt: сам напиши развёрнутое описание по-английски (сюжет, стиль, свет, композиция, детали) — не передавай сырой короткий запрос пользователя. По умолчанию (auto) работает провайдер из настроек «Генерация Изображений»: stable_horde (бесплатно, без ключа) или novita (по ключу api.novita.ai). Явный provider: stable_horde | novita | pollinations | magnific | provider (активный провайдер). Если выбранный сервис временно недоступен (например 429), сообщи об этом и предложи подключить другой провайдер изображений в настройках.`,
+    `  Как готовить prompt: сам напиши развёрнутое описание по-английски (сюжет, стиль, свет, композиция, детали) — не передавай сырой короткий запрос пользователя. По умолчанию (auto) работает провайдер из настроек «Генерация Изображений»: stable_horde (бесплатно, без ключа), novita (по ключу api.novita.ai) или pollinations (бесплатно). Явный provider: stable_horde | novita | pollinations | magnific | provider (активный провайдер). Если выбранный сервис временно недоступен или ловит 429/очередь, сообщи об этом и предложи переключить провайдера изображений в настройках.`,
     `- inspect_image(root, path) — «увидеть» изображение: размер, палитра цветов, яркость (анализ по пикселям для модели без зрения).`,
     `- hexdump(root, path, max_bytes?) — бинарный файл как hexdump (анализ неизвестных форматов/магии файлов).`,
     `- archive_list(root, path) — содержимое архива .zip/.7z/.tar/.tar.gz/.tar.bz2 без распаковки.`,

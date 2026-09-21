@@ -100,8 +100,8 @@ export interface OpenPortalConfig {
   serviceTokens?: Record<string, string>;
   /** Пресет прав: dfa | fa | ask (по умолчанию dfa). */
   permissionPreset?: PermissionPreset;
-  /** Провайдер генерации изображений: stable_horde (по умолчанию, бесплатно, без ключа) или novita (по ключу). */
-  imageGenProvider?: 'stable_horde' | 'novita';
+  /** Провайдер генерации изображений: stable_horde (по умолчанию, бесплатно, без ключа), novita (по ключу) или pollinations (бесплатно, может ловить 429). */
+  imageGenProvider?: 'stable_horde' | 'novita' | 'pollinations';
 }
 
 export type PermissionDecision = 'always' | 'never' | 'once';

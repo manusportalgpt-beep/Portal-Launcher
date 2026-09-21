@@ -79,7 +79,7 @@ interface OpenCoreState {
   setMode: (mode: 'build' | 'plan') => void;
   setPermissionPreset: (preset: PermissionPreset) => void;
   /** Провайдер генерации изображений: stable_horde (по умолчанию, без ключа) или novita (по ключу). */
-  setImageGenProvider: (provider: 'stable_horde' | 'novita') => void;
+  setImageGenProvider: (provider: 'stable_horde' | 'novita' | 'pollinations') => void;
   /** Перечитывает список навыков с диска (чтобы созданные агентом SKILL.md появились в меню /). */
   refreshSkills: () => Promise<void>;
   setProject: (project: ProjectContext) => void;

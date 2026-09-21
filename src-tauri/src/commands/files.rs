@@ -25,7 +25,7 @@ pub async fn cache_player_face(account_key: String, source_url: String) -> Resul
     Ok(target.to_string_lossy().to_string())
 }
 
-fn launcher_base_dir() -> PathBuf {
+pub(crate) fn launcher_base_dir() -> PathBuf {
     dirs_next::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("PortalLauncher")

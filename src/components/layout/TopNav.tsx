@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  House, Search, Boxes, Shirt, SlidersHorizontal, PanelsTopLeft, LogIn, Pin, ChevronLeft, ChevronRight, Bot,
+  House, Search, Boxes, Shirt, SlidersHorizontal, PanelsTopLeft, LogIn, Pin, ChevronLeft, ChevronRight, Bot, Server,
   type LucideIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -17,13 +17,14 @@ import { toIconSrc } from '@/lib/icon-src';
 import { CachedPlayerFace } from '@/components/CachedPlayerFace';
 import './portal-sidebar.css';
 
-interface NavItem { to: string; icon: LucideIcon; labelKey: 'home' | 'discover' | 'skins' | 'library' | 'settings' | 'openportal'; end?: boolean }
+interface NavItem { to: string; icon: LucideIcon; labelKey: 'home' | 'discover' | 'skins' | 'library' | 'settings' | 'openportal' | 'aternos'; end?: boolean }
 
 const NAV: NavItem[] = [
   { to: '/home', icon: House, labelKey: 'home', end: true },
   { to: '/discover', icon: Search, labelKey: 'discover' },
   { to: '/skins', icon: Shirt, labelKey: 'skins' },
   { to: '/library', icon: Boxes, labelKey: 'library' },
+  { to: '/aternos', icon: Server, labelKey: 'aternos' },
   { to: '/openportal', icon: Bot, labelKey: 'openportal' },
 ];
 

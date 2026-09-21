@@ -32,6 +32,8 @@ serde_json = "1"
 reqwest = { version = "0.12", features = ["json", "stream", "multipart"] }
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
+# Консоль Aternos — веб-сокет wss://aternos.org/hermes/
+tokio-tungstenite = { version = "0.23", features = ["connect", "native-tls"] }
 # zip БЕЗ brotli (этой фичи нет в zip 2.x) - используем deflate/zstd/bzip2/lzma/xz
 zip = { version = "2", default-features = false, features = ["deflate", "bzip2", "zstd", "lzma", "xz"] }
 flate2 = "1.0"

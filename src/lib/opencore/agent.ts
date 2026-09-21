@@ -289,15 +289,15 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'generate_image',
     description:
-      'Генерирует изображение по текстовому описанию. По умолчанию (auto): сначала пробует активного провайдера, ' +
-      'затем Magnific (если сохранён ключ), иначе бесплатный Pollinations. ' +
+      'Генерирует изображение по текстовому описанию. По умолчанию используется провайдер из настроек «Генерация Изображений» ' +
+      '(Stable Horde — бесплатно, без ключа; или Novita — по ключу). ' +
       'Результат — файл с изображением; вставь его в ответ как `![подпись](/op-image/<name>)`.',
     parameters: {
       type: 'object',
       properties: {
         prompt: { type: 'string', description: 'Подробное описание изображения (лучше по-английски: стиль, детали, свет, композиция)' },
         size: { type: 'string', enum: ['512x512', '1024x1024', '2048x2048'], description: 'Размер изображения (по умолчанию 1024x1024)' },
-        provider: { type: 'string', enum: ['auto', 'provider', 'magnific', 'pollinations'], description: 'Источник: auto (по умолчанию), provider (активный провайдер), magnific (по ключу), pollinations (бесплатно)' },
+        provider: { type: 'string', enum: ['auto', 'stable_horde', 'novita', 'provider', 'magnific', 'pollinations'], description: 'Источник: auto (выбранный в настройках провайдер), stable_horde (бесплатно, без ключа), novita (по ключу api.novita.ai), provider (активный провайдер), magnific (по ключу), pollinations (запасной бесплатный)' },
       },
       required: ['prompt'],
     },
@@ -1214,6 +1214,107 @@ async function generateViaMagnific(prompt: string, size: string | undefined, tok
   return { ok: false, output: 'Magnific не вернул изображение.' };
 }
 
+/** Бесплатная генерация через Stable Horde: анонимный ключ, регистрация не нужна. */
+async function generateViaStableHorde(prompt: string, size?: string): Promise<ExecResult> {
+  const [w, h] = parseSize(size);
+  const base = 'https://stablehorde.net/api/v2';
+  const common = { 'Content-Type': 'application/json', apikey: '0000000000' };
+  async function api(method: string, path: string, body: string | null, timeout: number): Promise<any> {
+    const fr = await httpViaRust(method, `${base}${path}`, common, body, timeout);
+    if (!fr.ok) throw new Error(`HTTP ${fr.status}: ${(fr.error ?? fr.text ?? '').slice(0, 300)}`);
+    try {
+      return JSON.parse(fr.text || '{}');
+    } catch {
+      throw new Error('Stable Horde прислал не-JSON ответ.');
+    }
+  }
+  try {
+    const started = await api('POST', '/generate/async', JSON.stringify({
+      prompt,
+      params: { width: w, height: h, steps: 30, cfg_scale: 7 },
+      nsfw: false,
+      censor_nsfw: true,
+      r2: true,
+      models: ['stable_diffusion_xl', 'stable_diffusion', 'Alchemist'],
+    }), 180000);
+    const id: unknown = started?.id ?? started?.job_id;
+    if (typeof id !== 'string' || !id) {
+      return { ok: false, output: `Stable Horde не выдал id задания: ${JSON.stringify(started).slice(0, 300)}` };
+    }
+    const deadline = Date.now() + 300000;
+    for (;;) {
+      if (Date.now() > deadline) return { ok: false, output: 'Stable Horde не успел сгенерировать за 5 минут. Попробуй ещё раз.' };
+      await sleep(3000);
+      try {
+        const check = await api('GET', `/generate/check/${encodeURIComponent(id)}`, null, 30000);
+        if (check?.done) break;
+      } catch { /* хорд мог не ответить — просто опрашиваем дальше */ }
+    }
+    const status = await api('GET', `/generate/status/${encodeURIComponent(id)}`, null, 90000);
+    const gen = status?.generations?.[0];
+    const raw = typeof gen?.img === 'string' && gen.img.length ? gen.img : '';
+    if (!raw) {
+      return { ok: false, output: `Stable Horde не вернул изображение. ${status?.message ?? JSON.stringify(status).slice(0, 300)}` };
+    }
+    const b64 = raw.replace(/^data:[^,]+,/, '');
+    try {
+      const name = await invoke<string>('op_save_image', { b64 });
+      return { ok: true, output: `Изображение (Stable Horde${gen?.model ? `, ${gen.model}` : ''}): /op-image/${name}` };
+    } catch (e) {
+      return { ok: false, output: `Не удалось сохранить картинку: ${String(e)}` };
+    }
+  } catch (e) {
+    return { ok: false, output: `Stable Horde недоступен: ${String(e)}` };
+  }
+}
+
+/** Генерация через Novita AI по ключу сервиса api.novita.ai (асинхронный API). */
+async function generateViaNovita(prompt: string, size: string | undefined, token: string): Promise<ExecResult> {
+  const [w, h] = parseSize(size);
+  const base = 'https://api.novita.ai/v3/async';
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  try {
+    const start = await httpViaRust('POST', `${base}/generate`, headers, JSON.stringify({
+      model_name: 'dreamshaper-xl',
+      prompt,
+      width: w,
+      height: h,
+      image_num: 1,
+    }), 180000);
+    if (!start.ok) {
+      const snippet = (start.error ?? start.text ?? '').slice(0, 300);
+      return { ok: false, output: `Novita ответил HTTP ${start.status}: ${snippet}` };
+    }
+    const taskId: string = (JSON.parse(start.text).task_id) ?? '';
+    if (!taskId) return { ok: false, output: 'Novita не выдал task_id.' };
+    const deadline = Date.now() + 180000;
+    for (;;) {
+      if (Date.now() > deadline) return { ok: false, output: 'Novita не успел сгенерировать за 3 минуты.' };
+      await sleep(1500);
+      const poll = await httpViaRust('GET', `${base}/task-result?task_id=${encodeURIComponent(taskId)}`, headers, null, 60000);
+      if (!poll.ok) {
+        const snippet = (poll.error ?? poll.text ?? '').slice(0, 300);
+        return { ok: false, output: `Novita: HTTP ${poll.status}: ${snippet}` };
+      }
+      const data = JSON.parse(poll.text || '{}');
+      const st: string = data?.task?.status ?? data?.status ?? '';
+      if (st.includes('SUCCEED') || st.includes('succeed')) {
+        const url: string | undefined = data?.images?.[0]?.image_url;
+        if (url && /^https?:/i.test(url)) {
+          const blob = await fetchImageBlob(url);
+          return await saveImageBlob(blob, 'Novita');
+        }
+        return { ok: false, output: 'Novita не вернул ссылку на изображение.' };
+      }
+      if (st.includes('FAIL') || st.includes('fail') || st.includes('CANCEL')) {
+        return { ok: false, output: `Novita не выполнил задачу: ${st}. ${data?.task?.error ?? ''}` };
+      }
+    }
+  } catch (e) {
+    return { ok: false, output: `Novita недоступен: ${String(e)}` };
+  }
+}
+
 /** Генерация через images API активного провайдера (OpenAI-совместимо). */
 async function generateViaProvider(ep: ResolvedEndpoint, prompt: string, size?: string): Promise<ExecResult> {
   if (!ep.baseUrl) return { ok: false, output: 'Не настроен baseUrl провайдера для генерации.' };
@@ -1280,8 +1381,10 @@ async function generateViaProvider(ep: ResolvedEndpoint, prompt: string, size?: 
 }
 
 /**
- * Генерация изображения: провайдер (если умеет) → Magnific (если есть ключ) → бесплатный Pollinations.
- * `provider` позволяет форсировать источник: auto | provider | magnific | pollinations.
+ * Генерация изображения. По умолчанию (auto) используется выбранный в настройках
+ * провайдер «Генерация Изображений»: stable_horde (бесплатно, без ключа) или
+ * novita (по ключу). `provider` позволяет форсировать источник:
+ * auto | stable_horde | novita | provider | magnific | pollinations.
  */
 async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; size?: string; provider?: string }): Promise<ExecResult> {
   const prompt = String(args?.prompt ?? '').trim();
@@ -1289,31 +1392,30 @@ async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; s
   const size = typeof args?.size === 'string' ? args.size : undefined;
   const force = String(args?.provider ?? 'auto').toLowerCase();
   const magnificToken = ep.serviceTokens?.['api.magnific.ai'] ?? bearerForUrl('https://api.magnific.ai', ep.serviceTokens);
+  const novitaToken = ep.serviceTokens?.['api.novita.ai'] ?? bearerForUrl('https://api.novita.ai', ep.serviceTokens);
   const providerUsable = !!ep.baseUrl && (!!ep.apiKey || isZenHost(ep.baseUrl));
 
   if (force === 'pollinations' || force === 'free') return generateViaPollinations(prompt, size);
+  if (force === 'stable_horde' || force === 'horde' || force === 'stablehorde') return generateViaStableHorde(prompt, size);
+  if (force === 'novita') {
+    if (!novitaToken) return { ok: false, output: 'Нет ключа Novita. Укажи его в «Управление моделями» → «Генерация Изображений».' };
+    return generateViaNovita(prompt, size, novitaToken);
+  }
   if (force === 'magnific' || force === 'magnific.ai') {
     if (!magnificToken) return { ok: false, output: 'Нет ключа Magnific. Сохрани токен для api.magnific.ai через set_service_token.' };
     return generateViaMagnific(prompt, size, magnificToken);
   }
   if (force === 'provider') return generateViaProvider(ep, prompt, size);
 
-  // auto
-  if (providerUsable) {
-    const viaProvider = await generateViaProvider(ep, prompt, size);
-    if (viaProvider.ok) return viaProvider;
-    if (magnificToken) {
-      const viaMagnific = await generateViaMagnific(prompt, size, magnificToken);
-      if (viaMagnific.ok) return viaMagnific;
+  // auto — используем выбранный в настройках провайдер генерации изображений.
+  const imageGen = ep.imageGenProvider ?? 'stable_horde';
+  if (imageGen === 'novita') {
+    if (!novitaToken) {
+      return { ok: false, output: 'Выбран провайдер изображений Novita, но ключ не задан. Впиши его в «Управление моделями» → «Генерация Изображений» или переключись на Stable Horde (бесплатно, без ключа).' };
     }
-    const viaPoll = await generateViaPollinations(prompt, size);
-    return viaPoll.ok ? viaPoll : { ok: false, output: `Провайдер: ${viaProvider.output}\nPollinations: ${viaPoll.output}` };
+    return generateViaNovita(prompt, size, novitaToken);
   }
-  if (magnificToken) {
-    const viaMagnific = await generateViaMagnific(prompt, size, magnificToken);
-    if (viaMagnific.ok) return viaMagnific;
-  }
-  return generateViaPollinations(prompt, size);
+  return generateViaStableHorde(prompt, size);
 }
 
 // ---------------------------------------------------------------------------
@@ -1750,6 +1852,8 @@ export interface ResolvedEndpoint {
   serviceTokens?: Record<string, string>;
   /** Персист сохранённого токена сервиса. */
   onSetToken?: (host: string, token: string) => void;
+  /** Выбранный пользователем провайдер генерации изображений (по умолчанию stable_horde — бесплатно, без ключа). */
+  imageGenProvider?: 'stable_horde' | 'novita';
 }
 
 export function resolveEndpoint(
@@ -1791,6 +1895,7 @@ export function resolveEndpoint(
     useZen,
     isCustom,
     serviceTokens: {},
+    imageGenProvider: 'stable_horde',
   };
 }
 
@@ -2402,28 +2507,39 @@ function trimThinking(s: string): string {
 
 export function compressHistory(messages: ChatMessage[], max = 48): ChatMessage[] {
   if (messages.length <= max) return messages;
-  const head = messages.slice(0, 6);
-  const tail = messages.slice(-Math.max(max - 8, 20));
+  // Сжатые выжимки (summary: true) не выбрасываем никогда — иначе накопленный
+  // контекст работы агента теряется при каждом новом усечении.
+  const summaries = messages.filter(m => m.summary === true);
+  const rest = messages.filter(m => !(m.summary === true));
+  if (rest.length <= max) return messages;
+  const head = rest.slice(0, 6);
+  const tail = rest.slice(-Math.max(max - 8 - summaries.length, 20));
   const summary: ChatMessage = {
     id: `__contraction-${Date.now()}`,
     role: 'assistant',
-    content: `… [${messages.length - head.length - tail.length} сообщений сжато — история сокращена OpenPortal для экономии контекста] …`,
+    content: `… [${rest.length - head.length - tail.length} сообщений сжато — история сокращена OpenPortal для экономии контекста] …`,
     timestamp: Date.now(),
   };
-  return [...head, summary, ...tail];
+  return [...summaries, ...head, summary, ...tail];
 }
 
-/** Сворачивает старую часть истории в выжимку силами модели (маленький отдельный запрос). */
+/** Сворачивает старую часть истории в подробную структурированную выжимку силами модели. */
 async function compactHistoryWithModel(ep: ResolvedEndpoint, messages: ChatMessage[], signal?: AbortSignal): Promise<ChatMessage[]> {
   const keep = messages.slice(-6);
-  const older = messages.slice(0, messages.length - keep.length);
+  const older = messages.filter(m => !(m.summary === true)).slice(0, messages.length - keep.length);
   const transcript = older
     .map(m => `${m.role === 'user' ? 'ПОЛЬЗОВАТЕЛЬ' : m.role === 'assistant' ? 'АГЕНТ' : 'ИНСТРУМЕНТ'}: ${m.content}`)
     .join('\n\n')
-    .slice(0, 60_000);
+    .slice(0, 80_000);
   const outcome = await callProvider(
     ep,
-    'Ты сжимаешь длинную переписку агента и пользователя в краткую, но содержательную выжимку. Сохрани цель, принятые решения, изменённые файлы и пути, важные факты и открытые задачи. Ответь ТОЛЬКО текстом выжимки, инструменты не вызывай.',
+    'Ты сжимаешь длинную переписку пользователя и агента в ПОДРОБНУЮ, но компактную выжимку, которая полностью заменит оригинал в памяти. Составь текст со следующими разделами (если раздела нет — пропусти):\n' +
+      '## Цель\nКоротко — что просил пользователь и что мы делали.\n' +
+      '## Что сделано\nПо пунктам — результаты, изменённые/созданные файлы с путями, установленные моды (с id/именами), выполненные команды.\n' +
+      '## Достигнутая информация\nФакты, версии, ссылки, точные значения (названия модов, их авторов, ссылки на скачивание).\n' +
+      '## Решения\nВыборы, которые нельзя забывать (почему выбран такой мод/версия/подход).\n' +
+      '## Открытые задачи\nЧто осталось незавершённым, что ждёт пользователя, что делать дальше.\n' +
+      'Пиши на языке переписки. Не теряй важные детали: имена, пути, id, версии, решения и незакрытые вопросы — выжимка должна позволить агенту продолжить работу без оригинала. Ответь ТОЛЬКО текстом выжимки, инструменты не вызывай.',
     [{ role: 'user', content: transcript }],
     signal,
   );
@@ -2434,6 +2550,7 @@ async function compactHistoryWithModel(ep: ResolvedEndpoint, messages: ChatMessa
       role: 'assistant',
       content: `**Сжатая история** (${older.length} сообщений свёрнуто автоматически для экономии контекста)\n\n${summary}`,
       timestamp: Date.now(),
+      summary: true,
     },
     ...keep,
   ];
@@ -2477,7 +2594,7 @@ export function buildSystemPrompt(opts: {
     `- run_command(root, cwd, command, timeout_ms) — команда (в portal/temp и curl/wget — без модалки; launcher спросит разрешение). Оболочка по умолчанию cmd, можно передать shell: 'powershell'.`,
     `- terminal(root, cwd, command) — команда в PowerShell-терминале (масштаб разрешений как у run_command).`,
     `- generate_image(prompt, size?, provider?) — сгенерировать изображение (без запроса разрешения; после генерации в чате появится превью).`,
-    `  Как готовить prompt: сам напиши развёрнутое описание по-английски (сюжет, стиль, свет, композиция, детали) — не передавай сырой короткий запрос пользователя. provider: auto (по умолчанию), pollinations (бесплатно, без ключа), magnific (по сохранённому ключу api.magnific.ai), provider (активный провайдер).`,
+    `  Как готовить prompt: сам напиши развёрнутое описание по-английски (сюжет, стиль, свет, композиция, детали) — не передавай сырой короткий запрос пользователя. По умолчанию (auto) работает провайдер из настроек «Генерация Изображений»: stable_horde (бесплатно, без ключа) или novita (по ключу api.novita.ai). Явный provider: stable_horde | novita | pollinations | magnific | provider (активный провайдер). Если выбранный сервис временно недоступен (например 429), сообщи об этом и предложи подключить другой провайдер изображений в настройках.`,
     `- inspect_image(root, path) — «увидеть» изображение: размер, палитра цветов, яркость (анализ по пикселям для модели без зрения).`,
     `- hexdump(root, path, max_bytes?) — бинарный файл как hexdump (анализ неизвестных форматов/магии файлов).`,
     `- archive_list(root, path) — содержимое архива .zip/.7z/.tar/.tar.gz/.tar.bz2 без распаковки.`,
@@ -2501,12 +2618,16 @@ export function buildSystemPrompt(opts: {
     '',
     `Многозадачность: если пользователь перечислил СРАЗУ НЕСКОЛЬКО разных задач («сделай X, ещё Y и Z», «и», «а также», «в дополнение», «потом») — составь чек-лист, выполни все пункты по очереди (независимые части можно распараллелить через spawn_agents), затем отчитайся ПО КАЖДОМУ пункту отдельно. Начатое в этом ответе — доведи до конца; пункты не смешивай и не теряй.`,
     '',
-    `Моды Minecraft:`,
-    `- Самый простой способ установить готовый мод/ресурс-пак/шейдер — launcher_install_mod: возьми instance_id из launcher_list_builds, найди прямую ссылку на файл (Modrinth/CurseForge через web_search/fetch_page) и передай download_url + file_name.`,
-    `- Установка вручную: найди .jar (Modrinth/CurseForge/др. через web_search/fetch_page), скачай его и положи командой в папку mods активной сборки — путь найди через list_dir в зоне launcher (обычно <сборка>/mods). После этого скажи пользователю нажать «Установить/Применить» в лаунчере, чтобы сборка пересобралась (мод проиндексируется по SHA-1).`,
+    `Моды Minecraft (взаимодействие с лаунчером):`,
+    `- Страница «Обзор»/FindProjectsPage лаунчера работает через встроенный Modrinth-шлюз (search_modrinth/get_modrinth_project/get_modrinth_versions). Когда пользователь просит «найти/установить мод как в Discover» — используй те же источники: при установке ОБЯЗАТЕЛЬНО передай в launcher_install_mod полные метаданные из mod_search: mod_id (slug проекта), mod_name, mod_version (номер версии файла), version_id, source="modrinth", author и icon_url. Так мод появится в лаунчере со своей картинкой, автором и описанием — как будто его установили из каталога.`,
+    `- Дубликатов не будет: лаунчер сам заменяет запись по id проекта + тип (мод/ресурспак/шейдер) и по имени файла; при установке другой версии старого файла не остаётся. НЕ скачивай мод «вручную» в папку mods, минуя launcher_install_mod — только если пользователь явно просит это сделать, иначе потеряются картинка/автор/инфо.`,
+    `- Правильный порядок установки мода: (1) launcher_list_builds → нужный instance_id; (2) mod_search(query, mc_version, loader) → известны точные версии под этот Minecraft/лоадер, download_url, sha1 и метаданные; (3) launcher_install_mod(instance_id, download_url, file_name, mod_id, mod_name, mod_version, version_id, source="modrinth", author, icon_url). Перед установкой мода убедись, что его версия совместима с версией Minecraft и загрузчиком сборки (Fabric-мод не встанет в Forge-сборку).`,
+    `- Новую сборку создавай только через launcher_create_build(name, mc_version, loader, loader_version, ...) — это создаст сборку в лаунчере со структурой папок; саму загрузку Minecraft/загрузчика сделает лаунчер (установи нужные версии через интерфейс, если их нет: сообщи пользователю, что нужно «установить версию» в лаунчере). Не выдумывай путь сборки от руки — всегда получай instance_id через launcher_list_builds и читай папку сборки через list_dir/read_text в зоне launcher.`,
+    `- После установки мода обнови представление: в лаунчере контент сборки читается из instance.json — пересборка/обновление списка запускается лаунчером, но если пользователь держит лаунчер открытым, попроси его открыть вкладку модов сборки, чтобы обновился список установленного.`,
+    `- Установка вручную (только по явной просьбе пользователя): скачай .jar через fetch_page/curl и положи в mods активной сборки; затем сообщи, что нужно применить сборку в лаунчере для индексации по SHA-1.` +
     `- Создание/доработка своего мода: выясни загрузчик (fabric/forge/neoforge/quilt), версию Minecraft и маппинги; для больших модов предложи и сделай структуру src/main/java/...+src/main/resources/ с fabric.mod.json (Fabric) или META-INF/mods.toml (Forge/NeoForge); укажи все dependencies (loader/fabric-api и т.п.).`,
     `- Сборка в .jar: скачай нужные загрузчик-и-движок jar (fabricmc.net / maven.neoforged.net / maven.fabricmc.net) в temp-папку проекта, компилируй javac -cp "<forge.jar>;<minecraft.jar>[;...]" -d build/classes $(find src -name '*.java'), скопируй ресурсы в build/classes и упакуй jar -cf mods/<modid>-<version>.jar -C build/classes . Затем положи готовый jar в mods активной сборки (как выше) — не в корень проекта.`,
-    `- Пиши аккуратный код на Java: package по шаблону ru.<ник>/<modid>, события загрузчика, null-безопасность, логирование через свою логгер-префикс. Компилируй без warnings, проверь, что modid строго нижним регистром и уникален. После установки попроси пользователя пересобрать сборку и запустить — по логам/крашам уточняй и чини.`,
+    `- Пиши аккуратный код на Java: package по шаблону ru.<ник>/<modid>, события загрузчика, null-безопасность, логирование через свою логгер-префикс. Компилируй без warnings, проверь, что modid строго нижним регистром и уникален. После установки попроси пользователя пересобрать сборку и запустить — по логам/крашам (launcher_logs) уточняй и чини.`,
     '',
     `Как показывать изображения в чате: после generate_image ты получаешь ` + '`/op-image/<name>`' +
       ` — вставь его в ответ как markdown-картинку: ` + '`![описание](/op-image/<name>)`' +

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, ChevronLeft, ChevronRight, ChevronDown, KeyRound, Link2, Server, Check, ExternalLink, RefreshCw, PlugZap, WifiOff } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
@@ -40,6 +40,25 @@ function SectionHeader({ title, count }: { title: string; count?: number }) {
   );
 }
 
+/** Кто из подключённых провайдеров раскрыт. Хранится на уровне модуля, поэтому
+ * переживает закрытие модалки; открыта может быть только одна панель (аккордеон). */
+let lastExpandedProviderId: string | null = null;
+const accordionListeners = new Set<() => void>();
+function setLastExpanded(id: string | null) {
+  if (lastExpandedProviderId === id) return;
+  lastExpandedProviderId = id;
+  accordionListeners.forEach(l => l());
+}
+/** Подписка ряда на текущую раскрытую панель (общая для всех подключённых). */
+function useAccordion(id: string) {
+  const [, force] = useReducer((x: number) => x + 1, 0);
+  useEffect(() => {
+    accordionListeners.add(force);
+    return () => accordionListeners.delete(force);
+  }, [force]);
+  return lastExpandedProviderId === id;
+}
+
 /** Подключённый провайдер: заголовок + переключатель + раскрывающийся список моделей из API. */
 function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () => void }) {
   const cfg = useOpenCoreStore(s => s.config);
@@ -49,7 +68,11 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
   const hasApi = Boolean(cfg.providers[p.id]?.apiKey);
   const storedKey = cfg.providers[p.id]?.apiKey ?? '';
   const legacyZenKey = p.id === 'opencode-zen' && storedKey.startsWith('sk-');
-  const [open, setOpen] = useState(false);
+  const open = useAccordion(p.id);
+  const setOpen = (v: boolean | ((o: boolean) => boolean)) => {
+    const next = typeof v === 'function' ? !open : v;
+    setLastExpanded(next ? p.id : null);
+  };
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -246,6 +269,68 @@ function AvailableProviderCard({ p }: { p: ProviderDef }) {
   );
 }
 
+/** Настройка провайдера генерации изображений: Stable Horde (бесплатно) или Novita AI (по ключу). */
+function ImageGenSection() {
+  const cfg = useOpenCoreStore(s => s.config);
+  const val = cfg.imageGenProvider ?? 'stable_horde';
+  const novitaKey = cfg.serviceTokens?.['api.novita.ai'] ?? '';
+  const setToken = useOpenCoreStore(s => s.setServiceToken);
+
+  const radio = (id: 'stable_horde' | 'novita', title: string, desc: string) => (
+    <button onClick={() => useOpenCoreStore.getState().setImageGenProvider(id)}
+      className="flex min-w-0 flex-1 items-start gap-2 rounded-xl border p-2.5 text-left transition-colors"
+      style={{
+        borderColor: val === id ? 'var(--color-primary)' : 'var(--color-border)',
+        background: val === id ? 'color-mix(in srgb, var(--color-primary) 8%, transparent)' : 'var(--color-surface)',
+      }}>
+      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border"
+        style={{ borderColor: val === id ? 'var(--color-primary)' : 'var(--color-border)' }}>
+        {val === id && <span className="h-2 w-2 rounded-full" style={{ background: 'var(--color-primary)' }} />}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-xs font-bold" style={{ color: 'var(--color-text)' }}>{title}</span>
+        <span className="block text-[10px] leading-4" style={{ color: 'var(--color-text-tertiary)' }}>{desc}</span>
+      </span>
+    </button>
+  );
+
+  return (
+    <div className="mb-4">
+      <SectionHeader title="Генерация Изображений" />
+      <div className="rounded-2xl border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {radio('stable_horde', 'Stable Horde', 'Бесплатно, без ключа. Общая очередь краудсорсинг-кластера.')}
+            {radio('novita', 'Novita AI', 'По ключу api.novita.ai. Быстрее, модель DreamShaper XL.')}
+          </div>
+          {val === 'novita' && (
+            <div className="space-y-2">
+              <KeyInput label="Ключ Novita AI (используется и чат-провайдером Novita)"
+                value={novitaKey} placeholder="nvapi-..." onChange={v => setToken('api.novita.ai', v)} />
+              <button
+                onClick={() => void invoke('open_url', { url: 'https://novita.ai' }).catch(() => window.open('https://novita.ai', '_blank'))}
+                className="flex items-center gap-1.5 text-[11px] font-semibold transition-opacity hover:opacity-70"
+                style={{ color: 'var(--color-primary)' }}>
+                <ExternalLink size={11} /> novita.ai — получить ключ
+              </button>
+              {!novitaKey && (
+                <p className="text-[11px] leading-5" style={{ color: 'var(--color-text-tertiary)' }}>
+                  Без ключа агент подскажет открыть эти настройки при попытке генерации.
+                </p>
+              )}
+            </div>
+          )}
+          {val === 'stable_horde' && (
+            <p className="text-[11px] leading-5" style={{ color: 'var(--color-text-tertiary)' }}>
+              Анонимные запросы могут стоять в очереди; можно подключить Novita AI для более быстрых результатов.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ModelManager() {
   const open = useOpenCoreStore(s => s.modelsMenuOpen);
   const setOpen = useOpenCoreStore(s => s.setModelsMenuOpen);
@@ -301,6 +386,7 @@ export function ModelManager() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <ImageGenSection />
             {connected.length > 0 && (
               <>
                 <SectionHeader title="Подключено" count={connected.length} />

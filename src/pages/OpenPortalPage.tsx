@@ -47,6 +47,7 @@ const COMMANDS: { cmd: string; desc: string; instant: boolean }[] = [
   { cmd: '/new', desc: 'Новый чат', instant: true },
   { cmd: '/clear', desc: 'Очистить сообщения', instant: true },
   { cmd: '/compress', desc: 'Сжать историю в краткую выжимку', instant: true },
+  { cmd: '/continue', desc: 'Продолжить прерванную задачу (например, после закрытия лаунчера)', instant: true },
   { cmd: '/context', desc: 'Расход контекста и токенов', instant: true },
   { cmd: '/plan', desc: 'Режим Plan — только план', instant: true },
   { cmd: '/build', desc: 'Режим Build — выполнять задачи', instant: true },
@@ -517,6 +518,14 @@ export function OpenPortalPage() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const abortRefs = useRef<Record<string, AbortController>>({});
   const interruptsRef = useRef<{ sessionId: string; msg: ChatMessage }[]>([]);
+  /** Троттлинг сохранения промежуточного прогресса агента на диск (не чаще раза в 1.5 с). */
+  const saveThrottle = useRef(0);
+  const saveProgress = useCallback((sessionId?: string) => {
+    const now = Date.now();
+    if (now - saveThrottle.current < 1500) return;
+    saveThrottle.current = now;
+    void persistSession(sessionId);
+  }, [persistSession]);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const stickRef = useRef(true);
@@ -620,11 +629,11 @@ export function OpenPortalPage() {
     }
     const modelId = cfgNow.activeModelId || activePt.models[0].id;
     const keep = all.slice(-6);
-    const older = all.slice(0, all.length - keep.length);
+    const older = all.filter(m => !m.summary).slice(0, all.length - keep.length);
     const transcript = older
       .map(m => `${m.role === 'user' ? 'ПОЛЬЗОВАТЕЛЬ' : m.role === 'assistant' ? 'АГЕНТ' : 'ИНСТРУМЕНТ'}: ${m.content}`)
       .join('\n\n')
-      .slice(0, 60_000);
+      .slice(0, 80_000);
     const ep = resolveEndpoint(activePt.id, modelId, cfgNow.providers);
     ep.serviceTokens = cfgNow.serviceTokens ?? {};
     const notice: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: 'Сжимаю историю…', timestamp: Date.now() };
@@ -633,7 +642,13 @@ export function OpenPortalPage() {
     try {
       const outcome = await callProvider(
         ep,
-        'Ты сжимаешь длинную переписку агента и пользователя в краткую, но содержательную выжимку. Сохрани цель, принятые решения, изменённые файлы и пути, важные факты и открытые задачи. Ответь ТОЛЬКО текстом выжимки, инструменты не вызывай.',
+        'Ты сжимаешь длинную переписку пользователя и агента в ПОДРОБНУЮ, но компактную выжимку, которая полностью заменит оригинал. Составь разделы:\n' +
+          '## Цель — коротко, что просил пользователь.\n' +
+          '## Что сделано — по пунктам: файлы и пути, установленные моды (с id и именами), выполненные шаги, результаты.\n' +
+          '## Информация — точные факты, версии, ссылки, значения.\n' +
+          '## Решения — выборы, которые нельзя забывать.\n' +
+          '## Открытые задачи — что осталось, что делать дальше.\n' +
+          'Пиши на языке переписки, сохрани важные детали (имена, пути, id, версии, решения). Ответь ТОЛЬКО текстом выжимки, инструменты не вызывай.',
         [{ role: 'user', content: transcript }],
       );
       const summary = (outcome.text || '').trim() || '(модель не вернула текст выжимки)';
@@ -641,6 +656,7 @@ export function OpenPortalPage() {
         id: `summary-${Date.now()}`, role: 'assistant',
         content: `**Сжатая история** (${older.length} сообщений свёрнуто)\n\n${summary}`,
         timestamp: Date.now(),
+        summary: true,
       };
       useOpenCoreStore.setState({ messages: [summaryMsg, ...keep] });
     } catch (e) {
@@ -712,6 +728,18 @@ export function OpenPortalPage() {
       const cmd = text.split(/\s+/)[0].toLowerCase();
       const arg = text.slice(cmd.length).trim();
       if (runCommandLine(text)) return;
+      if (cmd === '/continue') {
+        const sid = useOpenCoreStore.getState().currentSessionId;
+        const msgs = sid ? useOpenCoreStore.getState().readSessionMessages(sid) : [];
+        const lastUser = [...msgs].reverse().find(m => m.role === 'user' && m.id.startsWith('user-'));
+        if (!lastUser) {
+          const m: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: 'Нет прерванного запроса — история пуста.', timestamp: Date.now() };
+          useOpenCoreStore.getState().appendMessages([m]);
+          return;
+        }
+        void send(lastUser.content);
+        return;
+      }
       if (cmd === '/compress') { await compressChat(); return; }
       if (cmd === '/context') {
         const u = useOpenCoreStore.getState().usage;
@@ -836,6 +864,7 @@ export function OpenPortalPage() {
     const ep = resolveEndpoint(providerId, modelId, cfgNow.providers);
     ep.serviceTokens = useOpenCoreStore.getState().config.serviceTokens ?? {};
     ep.onSetToken = (host, token) => useOpenCoreStore.getState().setServiceToken(host, token);
+    ep.imageGenProvider = cfgNow.imageGenProvider ?? 'stable_horde';
 
     const portalRoot = layout?.projects ?? '';
     const proj = cfg.project ?? { kind: 'none' as const };
@@ -892,9 +921,20 @@ export function OpenPortalPage() {
           return item.msg;
         },
         signal: abort.signal,
-        onAppend: msgs => useOpenCoreStore.getState().appendSessionMessages(runSessionId, msgs),
-        onUpdate: (id, patch) => useOpenCoreStore.getState().updateSessionMessage(runSessionId, id, patch),
-        onReplace: msgs => useOpenCoreStore.getState().replaceSessionMessages(runSessionId, msgs),
+        // Сохраняем ход работы на диск по ходу turn'а (с троттлингом), чтобы при
+        // закрытии лаунчера частично выполненный запрос не пропадал.
+        onAppend: msgs => {
+          useOpenCoreStore.getState().appendSessionMessages(runSessionId, msgs);
+          saveProgress(runSessionId);
+        },
+        onUpdate: (id, patch) => {
+          useOpenCoreStore.getState().updateSessionMessage(runSessionId, id, patch);
+          saveProgress(runSessionId);
+        },
+        onReplace: msgs => {
+          useOpenCoreStore.getState().replaceSessionMessages(runSessionId, msgs);
+          saveProgress(runSessionId);
+        },
         onUsage: u => { if (runSessionId === useOpenCoreStore.getState().currentSessionId) useOpenCoreStore.getState().addUsage(u); },
       });
     } catch (e: unknown) {
@@ -919,7 +959,7 @@ export function OpenPortalPage() {
         } catch { /* не критично */ }
       })();
     }
-  }, [input, running, store, cfg, layout, attachments, requestPermission, user?.username, compressChat, persistSession]);
+  }, [input, running, store, cfg, layout, attachments, requestPermission, user?.username, compressChat, persistSession, saveProgress]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); }

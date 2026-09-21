@@ -40,6 +40,8 @@ export interface ChatMessage {
   timestamp: number;
   /** Расход токенов, если известен. */
   usage?: TokenUsage;
+  /** Сжатую историю помечаем, чтобы никогда не выкидывать её из контекста при дальнейшем усечении. */
+  summary?: boolean;
 }
 
 export interface SessionMeta {
@@ -98,6 +100,8 @@ export interface OpenPortalConfig {
   serviceTokens?: Record<string, string>;
   /** Пресет прав: dfa | fa | ask (по умолчанию dfa). */
   permissionPreset?: PermissionPreset;
+  /** Провайдер генерации изображений: stable_horde (по умолчанию, бесплатно, без ключа) или novita (по ключу). */
+  imageGenProvider?: 'stable_horde' | 'novita';
 }
 
 export type PermissionDecision = 'always' | 'never' | 'once';

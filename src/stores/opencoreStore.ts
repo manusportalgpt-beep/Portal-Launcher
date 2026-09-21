@@ -47,6 +47,7 @@ function defaultConfig(): OpenPortalConfig {
     project: { kind: 'none' },
     temperature: 0.4,
     permissionPreset: 'dfa',
+    imageGenProvider: 'stable_horde',
   };
 }
 
@@ -77,6 +78,8 @@ interface OpenCoreState {
   setActiveModel: (providerId: string, modelId: string) => void;
   setMode: (mode: 'build' | 'plan') => void;
   setPermissionPreset: (preset: PermissionPreset) => void;
+  /** Провайдер генерации изображений: stable_horde (по умолчанию, без ключа) или novita (по ключу). */
+  setImageGenProvider: (provider: 'stable_horde' | 'novita') => void;
   /** Перечитывает список навыков с диска (чтобы созданные агентом SKILL.md появились в меню /). */
   refreshSkills: () => Promise<void>;
   setProject: (project: ProjectContext) => void;
@@ -266,6 +269,10 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
 
       setPermissionPreset(preset) {
         get().updateConfig({ permissionPreset: preset });
+      },
+
+      setImageGenProvider(provider) {
+        get().updateConfig({ imageGenProvider: provider });
       },
 
       async refreshSkills() {

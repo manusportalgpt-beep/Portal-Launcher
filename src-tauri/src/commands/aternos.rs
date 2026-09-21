@@ -828,10 +828,10 @@ pub async fn aternos_create_server(
         form.insert("software", sw);
     }
     let resp = post_form(&s, &url, None, &form).await?;
-    let body = resp.text().await.unwrap_or_default();
     let status = resp.status();
-    if status.is_success() && (body.contains("success") || body.contains("server")) {
-        Ok(body)
+    let status_body = resp.text().await.unwrap_or_default();
+    if status.is_success() && (status_body.contains("success") || status_body.contains("server")) {
+        Ok(status_body)
     } else {
         // fallback: open browser create page
         let _ = crate::commands::files::open_url(format!("{BASE}/servers/")).await;
@@ -1103,7 +1103,7 @@ fn varint_len(v: u64) -> usize {
     c
 }
 
-fn write_varint(buf: &mut Vec<u8>, mut v: i32) {
+fn write_varint(buf: &mut Vec<u8>, v: i32) {
     let mut u = ((v as u32) << 1) ^ ((v >> 31) as u32);
     loop {
         let mut b = (u & 0x7F) as u8;

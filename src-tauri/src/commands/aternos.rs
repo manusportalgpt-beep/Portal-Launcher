@@ -7,6 +7,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter as _};
 
 use crate::commands::files::launcher_base_dir;
+use boa_engine::{Context, Source as BoaSource};
 
 const BASE: &str = "https://aternos.org";
 const AJAX: &str = "https://aternos.org/ajax";
@@ -173,6 +174,39 @@ async fn get(s: &AternosSession, url: &str, server: Option<&str>) -> Result<reqw
     Ok(resp)
 }
 
+// Простая загрузка HTML-страницы (без AJAX-заголовков), используется для /go/
+async fn get_page(s: &AternosSession, url: &str) -> Result<reqwest::Response, String> {
+    polite().await;
+    let resp = CLIENT
+        .get(url)
+        .header("Cookie", cookie_headers(s, None))
+        .header("Accept-Language", "en-US,en;q=0.9,ru;q=0.8")
+        .send()
+        .await
+        .map_err(|e| format!("Network: {e}"))?;
+    Ok(resp)
+}
+
+// Загружает /go/, достаёт AJAX_TOKEN (с ретраями против анти-бот челленджа).
+// Возвращает (токен, последний html) — html нужен для диагностики.
+async fn fetch_token(tmp: &AternosSession) -> (String, String) {
+    let mut token = String::new();
+    let mut html = String::new();
+    for attempt in 0..3 {
+        if let Ok(resp) = get_page(tmp, &format!("{BASE}/go/")).await {
+            html = resp.text().await.unwrap_or_default();
+            if let Some(t) = decode_token(&html) {
+                token = t;
+                break;
+            }
+        }
+        if attempt < 2 {
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+    }
+    (token, html)
+}
+
 async fn ajax_get(s: &AternosSession, path: &str, extra: &str, server: Option<&str>) -> Result<reqwest::Response, String> {
     let sep = if path.contains('?') { '&' } else { '?' };
     let mut url = format!("{AJAX}{path}{sep}TOKEN={}&SEC={}", s.token, s.sec_str());
@@ -189,6 +223,7 @@ async fn post_form(s: &AternosSession, url: &str, server: Option<&str>, form: &H
         .post(url)
         .header("Cookie", cookie_headers(s, server))
         .header("X-Requested-With", "XMLHttpRequest")
+        .header(reqwest::header::CONTENT_TYPE, "application/x-www-form-urlencoded; charset=UTF-8")
         .header("Accept-Language", "en-US,en;q=0.9,ru;q=0.8")
         .form(form)
         .send()
@@ -234,13 +269,110 @@ fn between_iefies(html: &str) -> Option<String> {
     None
 }
 
+// Aternos выдаёт AJAX_TOKEN не в виде готовой строки, а вычисляет его в JS-челлендже:
+// IIFE вида `(() => ... )();` внутри <head> страницы /go/ (см. python-aternos,
+// regex ARROW_FN_REGEX = r"\(\(\).*?\)\(\);", выполнение через js2py/Node).
+// Здесь мы выполняем этот код настоящим JS-движком (boa_engine) c теми же
+// заглушками window/document/atob, что и python-aternos.
+
+const JS_PRELUDE: &str = r#"
+if (typeof window === "undefined") { var window = {}; }
+if (typeof document === "undefined") { var document = {}; }
+window.Map = window.Map || function(_i) {};
+window.setTimeout = window.setTimeout || function(_f, _t) {};
+window.setInterval = window.setInterval || function(_f, _t) {};
+window.encodeURIComponent = window.encodeURIComponent || window.Map;
+window.document = window.document || document;
+document.doctype = document.doctype || {};
+document.currentScript = document.currentScript || {};
+document.getElementById = document.getElementById || function() {};
+document.prepend = document.prepend || function() {};
+document.append = document.append || function() {};
+document.appendChild = document.appendChild || function() {};
+function atob(v) {
+  if (typeof v !== "string") { return ""; }
+  var t = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  var s = v.replace(/[^A-Za-z0-9+/=]/g, "").replace(/=+$/, "");
+  var out = "", i, b = 0, n = 0;
+  for (i = 0; i < s.length; i++) {
+    var o = t.indexOf(s.charAt(i));
+    if (o < 0) { break; }
+    b = (b << 6) | o;
+    n += 6;
+    if (n >= 8) {
+      out += String.fromCharCode((b >>> (n - 8)) & 255);
+      n -= 8;
+    }
+  }
+  return out;
+}
+window.atob = atob;
+"#;
+
+const JS_TAIL: &str = r#"
+;(typeof AJAX_TOKEN !== "undefined" ? AJAX_TOKEN : ((window && window.AJAX_TOKEN) || ""))
+"#;
+
+fn head_slice<'a>(html: &'a str) -> &'a str {
+    if let Some(s) = html.find("<head>") {
+        let s = s + 6;
+        if let Some(e) = html[s..].find("</head>") {
+            return &html[s..s + e];
+        }
+    }
+    html
+}
+
+fn arrow_iifes(head: &str) -> Vec<String> {
+    // Порт `re.findall(r"\(\(\).*?\)\(\);", head)`: lazy-совпадение на одной строке.
+    let mut out = Vec::new();
+    for line in head.split('\n') {
+        let mut rest = line;
+        while let Some(start) = rest.find("(()") {
+            let after = &rest[start + 3..];
+            if let Some(end) = after.find(")();") {
+                out.push(format!("((){})();", &after[..end]));
+                rest = &after[end + 4..];
+            } else {
+                break;
+            }
+        }
+    }
+    out
+}
+
+fn run_token_js(code: &str) -> Option<String> {
+    let mut context = Context::default();
+    let src = format!("{JS_PRELUDE}\n{code}\n{JS_TAIL}");
+    let value = context.eval(BoaSource::from_bytes(src.as_bytes())).ok()?;
+    let s = value.as_string()?.to_std_string_escaped();
+    if s.is_empty() || s.len() < 4 {
+        return None;
+    }
+    Some(s)
+}
+
 fn decode_token(html: &str) -> Option<String> {
+    // 1) честное выполнение JS-челленджа из <head>
+    let mut iifes = arrow_iifes(head_slice(html));
+    // python-aternos при нескольких IIFE берёт второй (первый — другой скрипт)
+    if iifes.len() > 1 {
+        let second = iifes.remove(1);
+        iifes.insert(0, second);
+    }
+    for code in &iifes {
+        if let Some(t) = run_token_js(code) {
+            return Some(t);
+        }
+    }
+    // 2) fallback-эвристики на старые версии страницы
     if let Some(script) = between_iefies(html) {
-        // attempt 1: atob("...") => base64 decode
         if let Some(s) = atob_call(&script) {
             if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(&s) {
                 if let Ok(tok) = String::from_utf8(bytes) {
-                    return Some(tok);
+                    if tok.len() >= 4 {
+                        return Some(tok);
+                    }
                 }
             }
         }
@@ -251,6 +383,16 @@ fn decode_token(html: &str) -> Option<String> {
     }
     // attempt 3: direct "AJAX_TOKEN=..." in page
     extract_token_literal(html)
+}
+
+fn diag_snippet(html: &str) -> String {
+    let clean: String = html.chars().take(180).collect();
+    let clean = clean.replace('\n', " ").replace('\r', " ");
+    if html.chars().count() > 180 {
+        format!("{clean}…")
+    } else {
+        clean
+    }
 }
 
 fn atob_call(s: &str) -> Option<String> {
@@ -307,31 +449,26 @@ pub async fn aternos_login(
     password: String,
     code: Option<String>,
 ) -> Result<LoginResult, String> {
-    // 1) fetch /go/ and extract token
-    let resp = get(
-        &AternosSession {
-            username: "".into(),
-            session_cookie: "".into(),
-            token: "".into(),
-            sec_key: sec_part(),
-            sec_val: sec_part(),
-        },
-        &format!("{BASE}/go/"),
-        None,
-    )
-    .await?;
-
-    let html = resp.text().await.unwrap_or_default();
-    let token = match decode_token(&html) {
-        Some(t) => t,
-        None => {
-            return Ok(LoginResult::BrowserSessionRequired {
-                reason: "Aternos requires a browser-signed token (AJAX_TOKEN). Use 'Log in via browser' to paste your ATERNOS_SESSION cookie instead.".into(),
-            })
-        }
+    // 1) fetch /go/ and extract token (several attempts against the anti-bot challenge)
+    let tmp = AternosSession {
+        username: username.clone(),
+        session_cookie: "".into(),
+        token: "".into(),
+        sec_key: sec_part(),
+        sec_val: sec_part(),
     };
+    let (token, login_page) = fetch_token(&tmp).await;
 
-    // 2) create session skeleton and generate sec
+    if token.is_empty() {
+        return Ok(LoginResult::BrowserSessionRequired {
+            reason: format!(
+                "Aternos не выдал AJAX_TOKEN из-за анти-бот челленджа на странице входа (страница: '{}'). Войдите через 'Сессия из браузера' (вставьте cookie ATERNOS_SESSION) или 'Токен'.",
+                diag_snippet(&login_page)
+            ),
+        });
+    }
+
+    // 2) session skeleton with fresh sec
     let sk = sec_part();
     let sv = sec_part();
     let mut sess = AternosSession {
@@ -371,11 +508,16 @@ pub async fn aternos_login(
     }
 
     if session_cookie.is_empty() {
-        if body.contains("password") || body.contains("incorrect") || body.contains("wrong") || body.contains("error") {
+        if body.contains("password") || body.contains("incorrect") || body.contains("wrong")
+            || body.contains("\"error\"") || body.to_lowercase().contains("wrong-e-mail")
+        {
             return Ok(LoginResult::InvalidCredentials);
         }
         return Ok(LoginResult::BrowserSessionRequired {
-            reason: "Login did not return a session cookie. Use 'Log in via browser' instead.".into(),
+            reason: format!(
+                "Aternos не выдал сессию (ответ: '{}'). Проверьте пароль или войдите через 'Сессия из браузера'.",
+                diag_snippet(&body)
+            ),
         });
     }
 
@@ -389,7 +531,7 @@ pub async fn aternos_login_with_session(
     username: String,
     session_cookie: String,
 ) -> Result<(), String> {
-    // fetch token
+    // fetch token (fresh ANONYMOUS page first, then re-fetch WITH the session cookie)
     let tmp = AternosSession {
         username: "".into(),
         session_cookie: "".into(),
@@ -397,9 +539,7 @@ pub async fn aternos_login_with_session(
         sec_key: sec_part(),
         sec_val: sec_part(),
     };
-    let resp = get(&tmp, &format!("{BASE}/go/"), None).await?;
-    let html = resp.text().await.unwrap_or_default();
-    let token = decode_token(&html).unwrap_or_default();
+    let (token, _) = fetch_token(&tmp).await;
 
     let sk = sec_part();
     let sv = sec_part();
@@ -411,11 +551,10 @@ pub async fn aternos_login_with_session(
         sec_val: sv,
     };
 
-    // re-fetch with real session to extract fresh AJAX_TOKEN
-    let resp2 = get(&sess, &format!("{BASE}/go/"), None).await?;
-    let html2 = resp2.text().await.unwrap_or_default();
-    if let Some(t) = decode_token(&html2) {
-        sess.token = t;
+    // re-fetch with real session to extract fresh AJAX_TOKEN (bound to the session)
+    let (token2, _) = fetch_token(&sess).await;
+    if !token2.is_empty() {
+        sess.token = token2;
     }
 
     set_session(sess).await;

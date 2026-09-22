@@ -1005,22 +1005,15 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
             animate={{ opacity: 1, scale: 1, y: 0, borderColor: 'var(--color-primary)' }}
             exit={{ opacity: 0, scale: 0.99, y: 6 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            style={{ background: 'color-mix(in srgb, var(--color-primary) 14%, var(--color-surface) 82%)', boxShadow: '0 0 0 0 color-mix(in srgb, var(--color-primary) 0%, transparent)' }}
+            style={{ background: 'color-mix(in srgb, var(--color-primary) 14%, var(--color-surface) 82%)', boxShadow: 'none' }}
           >
-            <motion.span
-              className="absolute inset-3 rounded-[1.35rem]"
-              initial={{ opacity: 0, scale: 0.94 }}
-              animate={{ opacity: [0.2, 0.52, 0.2], scale: [0.94, 1.015, 0.94] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ boxShadow: '0 0 44px 10px color-mix(in srgb, var(--color-primary) 20%, transparent)' }}
-            />
             <div className="relative flex max-w-sm flex-col items-center text-center">
               <motion.span
                 className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl"
                 initial={{ opacity: 0, scale: 0.72, y: 10, rotate: -7 }}
                 animate={{ opacity: 1, scale: [1, 1.06, 1], y: [0, -5, 0], rotate: 0 }}
                 transition={{ opacity: { duration: 0.16 }, scale: { duration: 1.7, repeat: Infinity, ease: 'easeInOut' }, y: { duration: 1.7, repeat: Infinity, ease: 'easeInOut' }, rotate: { duration: 0.24 } }}
-                style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', boxShadow: '0 10px 28px color-mix(in srgb, var(--color-primary) 22%, transparent)' }}
+                style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', boxShadow: 'none' }}
               ><Upload className="h-7 w-7" /></motion.span>
               <motion.p initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08, duration: 0.2 }} className="text-base font-black" style={{ color: 'var(--color-text)' }}>Отпустите файлы здесь</motion.p>
               <motion.p initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.13, duration: 0.2 }} className="mt-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>Они будут добавлены в <strong style={{ color: 'var(--color-primary)' }}>{mainTab === 'files' ? (cwd || '.minecraft') : 'нужную папку сборки'}</strong></motion.p>

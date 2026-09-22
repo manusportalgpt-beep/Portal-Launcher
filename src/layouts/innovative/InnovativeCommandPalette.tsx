@@ -140,7 +140,7 @@ export function InnovativeCommandPalette({ open, onClose }: { open: boolean; onC
             style={{
               background: 'color-mix(in srgb, var(--color-surface) 68%, var(--color-bg))',
               border: '1px solid color-mix(in srgb, var(--color-border-strong) 42%, var(--color-primary))',
-              boxShadow: '0 32px 80px -20px rgba(0,0,0,0.6), 0 0 0 1px color-mix(in srgb, var(--color-primary) 8%, transparent), 0 0 52px -14px color-mix(in srgb, var(--color-primary) 45%, transparent)',
+              boxShadow: '0 24px 60px -20px rgba(0,0,0,0.5), 0 0 0 1px color-mix(in srgb, var(--color-border-strong) 45%, var(--color-primary))',
               backdropFilter: 'blur(38px) saturate(1.6)',
               WebkitBackdropFilter: 'blur(38px) saturate(1.6)',
             }}

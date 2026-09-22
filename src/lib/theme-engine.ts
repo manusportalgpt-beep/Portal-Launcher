@@ -38,7 +38,7 @@ export const themes: Record<Exclude<ThemeId,'system'>, ThemeDefinition> = {
       primary:'#4299E1', primaryHover:'#3182CE', ...accents,
     },
     radii,
-    shadows:{ sm:'0 1px 2px rgba(15,23,42,0.06)', md:'0 8px 24px rgba(15,23,42,0.08)', lg:'0 24px 48px rgba(15,23,42,0.12)', glow:'0 0 24px rgba(66,153,225,0.35)' },
+    shadows:{ sm:'0 1px 2px rgba(15,23,42,0.06)', md:'0 8px 24px rgba(15,23,42,0.08)', lg:'0 24px 48px rgba(15,23,42,0.12)', glow:'none' },
     font:"'Inter',system-ui,sans-serif",
   },
   dark: {
@@ -50,7 +50,7 @@ export const themes: Record<Exclude<ThemeId,'system'>, ThemeDefinition> = {
       primary:'#DA2A3F', primaryHover:'#EE3A50', ...accents,
     },
     radii,
-    shadows:{ sm:'0 1px 2px rgba(0,0,0,0.3)', md:'0 4px 16px rgba(0,0,0,0.4)', lg:'0 16px 40px rgba(0,0,0,0.6)', glow:'0 0 24px rgba(218,42,63,0.35)' },
+    shadows:{ sm:'0 1px 2px rgba(0,0,0,0.3)', md:'0 4px 16px rgba(0,0,0,0.4)', lg:'0 16px 40px rgba(0,0,0,0.6)', glow:'none' },
     font:"'Inter',system-ui,sans-serif",
   },
   oled: {
@@ -62,7 +62,7 @@ export const themes: Record<Exclude<ThemeId,'system'>, ThemeDefinition> = {
       primary:'#DA2A3F', primaryHover:'#EE3A50', ...accents,
     },
     radii,
-    shadows:{ sm:'0 1px 2px rgba(0,0,0,0.5)', md:'0 4px 16px rgba(0,0,0,0.6)', lg:'0 16px 40px rgba(0,0,0,0.8)', glow:'0 0 24px rgba(218,42,63,0.3)' },
+    shadows:{ sm:'0 1px 2px rgba(0,0,0,0.5)', md:'0 4px 16px rgba(0,0,0,0.6)', lg:'0 16px 40px rgba(0,0,0,0.8)', glow:'none' },
     font:"'Inter',system-ui,sans-serif",
   },
 };

@@ -908,7 +908,7 @@ function InstanceCard({ inst, onClick, onDropOnGroup }: {
       className="portal-instance-card group flex flex-col items-start gap-2 p-2.5 rounded-lg text-left relative overflow-hidden w-full cursor-grab active:cursor-grabbing transition-all duration-200"
       style={{ background:'var(--color-surface)', touchAction: 'none' }}>
       <div className="w-full aspect-[4/3] rounded-md overflow-hidden flex items-center justify-center font-black text-xl relative pointer-events-none"
-        style={{ background: `linear-gradient(135deg, ${inst.color || '#26262C'}2b, color-mix(in srgb, ${inst.color || '#26262C'} 10%, transparent) 70%)`, color: inst.color || 'var(--color-text-tertiary)' }}>
+        style={{ background: `${inst.color || '#26262C'}2b`, color: inst.color || 'var(--color-text-tertiary)' }}>
         {inst.iconPath ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" draggable={false} /> : inst.name[0]?.toUpperCase()}
         <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide"
           style={{ background:'rgba(0,0,0,0.48)', color: LOADER_COLOR[inst.modLoader] || '#fff' }}>
@@ -1212,7 +1212,7 @@ function ContentRow({ item, onToggle, onDelete, onShowInFolder, onUpdate, updati
           <button onClick={onToggle} role="switch" aria-checked={!!item.enabled}
             title={item.enabled ? 'Выключить модификацию' : 'Включить модификацию'}
             className="relative w-10 h-5 rounded-full shrink-0 transition-all"
-            style={{ background:item.enabled ? 'var(--color-primary)' : 'var(--color-surface-2)', border:`1px solid ${item.enabled ? 'var(--color-primary)' : 'var(--color-border)'}`, boxShadow:item.enabled ? '0 0 12px var(--color-primary-dim)' : 'none' }}>
+            style={{ background:item.enabled ? 'var(--color-primary)' : 'var(--color-surface-2)', border:`1px solid ${item.enabled ? 'var(--color-primary)' : 'var(--color-border)'}`, boxShadow:'none' }}>
             <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left:item.enabled ? 'calc(100% - 18px)' : '2px', boxShadow:'0 1px 3px rgba(0,0,0,0.35)' }} />
           </button>
           <button onClick={onDelete} className="w-6 h-6 rounded-lg flex items-center justify-center"

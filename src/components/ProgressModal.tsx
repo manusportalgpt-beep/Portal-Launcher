@@ -22,7 +22,7 @@ function ProgressBar({ percent, color }: { percent: number; color?: string }) {
     <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-2)' }}>
       <motion.div
         className="h-full rounded-full"
-        style={{ background: color ?? 'linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 60%, black), var(--color-primary))', originX: 0 }}
+        style={{ background: color ?? 'var(--color-primary)', originX: 0 }}
         initial={{ width: 0 }}
         animate={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
         transition={{ type: 'spring', stiffness: 80, damping: 20 }}

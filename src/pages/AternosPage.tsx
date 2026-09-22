@@ -609,7 +609,6 @@ export function AternosPage() {
             style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
             <span className="inline-block w-3 h-3 rounded-full" style={{
               background: info.online ? 'var(--color-success, #22c55e)' : info.starting ? 'var(--color-warning, #f59e0b)' : 'var(--color-text-tertiary)',
-              boxShadow: info.online ? '0 0 8px var(--color-success, #22c55e)' : 'none',
             }} />
             <span className="text-xs font-bold" style={{ color: 'var(--color-text)' }}>
               {info.online ? 'Онлайн' : info.starting ? 'Запуск…' : 'Выключен'}

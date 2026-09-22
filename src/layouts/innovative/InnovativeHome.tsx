@@ -43,15 +43,10 @@ export function InnovativeHome() {
         {/* hero */}
         <motion.div variants={fadeUp} className="relative overflow-hidden rounded-[26px] p-8"
           style={{
-            background: 'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 22%, transparent) 0%, color-mix(in srgb, var(--color-surface) 78%, transparent) 52%, color-mix(in srgb, var(--color-primary) 9%, transparent) 100%)',
-            border: '1px solid color-mix(in srgb, var(--color-border-strong) 50%, var(--color-primary))',
-            boxShadow: '0 24px 60px -24px color-mix(in srgb, var(--color-primary) 40%, transparent)',
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            boxShadow: 'none',
           }}>
-          <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full opacity-25"
-            style={{ background: 'var(--color-primary)', filter: 'blur(50px)' }} />
-          <div className="absolute -bottom-24 -left-16 h-56 w-56 rounded-full opacity-16"
-            style={{ background: 'var(--color-info)', filter: 'blur(55px)' }} />
-
           <div className="relative z-10">
             <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-bold"
               style={{ background: 'color-mix(in srgb, var(--color-primary) 18%, transparent)', color: 'var(--color-primary)', border: '1px solid color-mix(in srgb, var(--color-primary) 35%, transparent)' }}>

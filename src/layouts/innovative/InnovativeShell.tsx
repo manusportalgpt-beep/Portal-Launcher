@@ -31,14 +31,7 @@ const PAGE_TITLES: Record<string, string> = {
 
 function AuroraBackdrop() {
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute -left-32 -top-24 h-96 w-96 rounded-full opacity-25 animate-aurora"
-        style={{ background: 'var(--color-primary)', filter: 'blur(90px)', animationDuration: '11s' }} />
-      <div className="absolute -right-24 top-1/3 h-80 w-80 rounded-full opacity-16 animate-aurora"
-        style={{ background: 'var(--color-info)', filter: 'blur(90px)', animationDelay: '-4s', animationDuration: '14s' }} />
-      <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full opacity-14 animate-aurora"
-        style={{ background: 'var(--color-modrinth)', filter: 'blur(100px)', animationDelay: '-8s', animationDuration: '17s' }} />
-    </div>
+    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden" />
   );
 }
 
@@ -58,7 +51,7 @@ function SideItem({ to, icon: Icon, label, active }: { to: string; icon: any; la
         <motion.div
           layoutId="innovative-nav-indicator"
           className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-full"
-          style={{ background: 'var(--color-primary)', boxShadow: '0 0 14px color-mix(in srgb, var(--color-primary) 70%, transparent)' }}
+          style={{ background: 'var(--color-primary)' }}
           transition={{ type: 'spring', stiffness: 500, damping: 34 }}
         />
       )}
@@ -101,7 +94,7 @@ function InnovativeSidebar() {
             initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', stiffness: 320, damping: 22 }}
             className="flex h-10 w-10 items-center justify-center rounded-2xl"
-            style={{ background: 'linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 60%, #FF8A65))', boxShadow: '0 8px 24px -6px color-mix(in srgb, var(--color-primary) 60%, transparent)' }}>
+            style={{ background: 'var(--color-primary)' }}>
             <Sparkles size={17} color="#fff" />
           </motion.div>
           <div>

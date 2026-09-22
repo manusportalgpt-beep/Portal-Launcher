@@ -178,7 +178,7 @@ export function MicrosoftAuth({ onSuccess, onCancel }: {
           <motion.div key="idle" initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-8 }}
             className="flex flex-col items-center gap-4 w-full">
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-              style={{ background:'linear-gradient(135deg,#0078D4,#00BCF2)' }}>
+              style={{ background:'#0078D4' }}>
               <Shield className="w-8 h-8 text-white" />
             </div>
             <div>
@@ -213,7 +213,7 @@ export function MicrosoftAuth({ onSuccess, onCancel }: {
           <motion.div key="offline" initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-8 }}
             className="flex flex-col items-center gap-4 w-full">
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-              style={{ background:'linear-gradient(135deg,#6C5CE7,#a29bfe)' }}>
+              style={{ background:'#6C5CE7' }}>
               <UserCircle className="w-8 h-8 text-white" />
             </div>
             <div>

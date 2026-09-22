@@ -56,7 +56,7 @@ export function TopBar() {
           className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium transition-all hover:bg-white/5"
           style={{border:'1px solid var(--color-border)'}}>
           <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold"
-            style={{background:'linear-gradient(135deg,var(--color-primary),#E74C3C)',color:'white'}}>
+            style={{background:'var(--color-primary)',color:'white'}}>
             {user.username[0]}
           </div>
           <span style={{color:'var(--color-text)'}}>{user.username}</span>

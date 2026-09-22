@@ -298,17 +298,11 @@ select option { background: var(--color-surface-2); color: var(--color-text); }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideRight { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(218,42,63,0); } 50% { box-shadow: 0 0 20px 6px rgba(218,42,63,0.25); } }
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes badge-pop { 0% { transform: scale(0); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
 @keyframes send-flash { 0% { opacity: 0.5; } 100% { opacity: 0; } }
 @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
-@keyframes gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-@keyframes aurora {
-  0%, 100% { transform: translate(0,0) scale(1); opacity: 0.55; }
-  50% { transform: translate(20px,-20px) scale(1.15); opacity: 0.8; }
-}
 @keyframes install-icon-drop {
   0% { opacity: 0; transform: translate(-50%, -8px) scale(0.62) rotate(-10deg); }
   24% { opacity: 1; transform: translate(-50%, 8px) scale(1.14) rotate(4deg); }
@@ -319,11 +313,8 @@ select option { background: var(--color-surface-2); color: var(--color-text); }
 .animate-fade-up { animation: fadeUp 0.35s cubic-bezier(0.4,0,0.2,1) forwards; }
 .animate-fade-in { animation: fadeIn 0.25s ease forwards; }
 .animate-slide-right { animation: slideRight 0.25s ease forwards; }
-.animate-pulse-glow { animation: pulse-glow 2.5s ease infinite; }
 .animate-spin { animation: spin 0.7s linear infinite; }
 .animate-float { animation: float 3s ease-in-out infinite; }
-.animate-gradient { background-size: 200% 200%; animation: gradient-shift 6s ease infinite; }
-.animate-aurora { animation: aurora 8s ease-in-out infinite; }
 .install-icon-drop { animation: install-icon-drop 900ms cubic-bezier(0.18,0.7,0.25,1) forwards; }
 
 .skeleton {
@@ -582,7 +573,7 @@ html[data-portal-style="glass"] .portal-background-layer {
   filter:blur(var(--custom-bg-blur, 0px)) saturate(1.12) !important;
 }
 html[data-portal-style="glass"] .portal-background-scrim {
-  background:linear-gradient(135deg, rgba(3, 8, 18, .28), rgba(4, 8, 18, .08) 48%, rgba(8, 12, 25, .24)) !important;
+  background:rgba(4, 8, 18, .22) !important;
 }
 html[data-portal-style="glass"] :is(
   .portal-sidebar,
@@ -599,14 +590,14 @@ html[data-portal-style="glass"] :is(
   [style*="background:var(--color-surface-2)"],
   [style*="background: var(--color-surface-2)"]
 ) {
-  background:linear-gradient(135deg, rgba(255,255,255,.24), rgba(255,255,255,.13) 42%, rgba(255,255,255,.09)) !important;
+  background:rgba(255,255,255,.10) !important;
   border-color:var(--portal-glass-edge-soft) !important;
-  box-shadow:0 18px 42px var(--portal-glass-shadow), inset 0 1px 0 var(--portal-glass-edge), inset 0 -1px 0 rgba(255,255,255,.08) !important;
-  backdrop-filter:blur(var(--portal-glass-blur)) saturate(1.28) brightness(1.06) !important;
-  -webkit-backdrop-filter:blur(var(--portal-glass-blur)) saturate(1.28) brightness(1.06) !important;
+  box-shadow:0 8px 24px var(--portal-glass-shadow) !important;
+  backdrop-filter:blur(var(--portal-glass-blur)) brightness(1.04) !important;
+  -webkit-backdrop-filter:blur(var(--portal-glass-blur)) brightness(1.04) !important;
 }
 html[data-portal-style="glass"] :is(.portal-sidebar, .portal-notch, .new-ui-header, .new-ui-footer) {
-  background:linear-gradient(135deg, rgba(255,255,255,.28), rgba(255,255,255,.15) 45%, rgba(255,255,255,.10)) !important;
+  background:rgba(255,255,255,.12) !important;
   border-color:var(--portal-glass-edge) !important;
   border-radius:var(--radius-card) !important;
 }
@@ -626,7 +617,7 @@ html[data-portal-style="glass"] :is(.portal-sidebar, .portal-notch, .new-ui-head
   position:absolute;
   inset:0;
   pointer-events:none;
-  background:linear-gradient(118deg, rgba(255,255,255,.22), transparent 34%, transparent 68%, rgba(255,255,255,.08));
+  background:transparent;
   z-index:0;
 }
 html[data-portal-style="glass"] :is(.portal-sidebar, .portal-notch, .new-ui-header, .new-ui-footer, [role="dialog"], dialog) > * { position:relative; z-index:1; }
@@ -639,7 +630,7 @@ html[data-portal-style="glass"] :is(.new-ui-icon-button, .new-ui-history-button,
   -webkit-backdrop-filter:blur(calc(var(--portal-glass-blur) * .7)) saturate(1.2) !important;
 }
 html[data-portal-style="glass"] :is(button, [role="button"], [role="tab"]):is(:hover, :focus-visible) {
-  box-shadow:0 10px 24px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.46) !important;
+  box-shadow:0 3px 10px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.2) !important;
 }
 html[data-portal-style="glass"] input,
 html[data-portal-style="glass"] textarea,
@@ -652,14 +643,14 @@ html[data-portal-style="glass"] select {
   -webkit-backdrop-filter:blur(calc(var(--portal-glass-blur) * .65)) !important;
 }
 html[data-portal-style="glass"] :is(h1, h2, h3, h4, h5, h6, [data-liquid-glass-text]) {
-  text-shadow:0 1px 14px rgba(0,0,0,.34);
+  text-shadow:none;
 }
-html[data-portal-style="glass"] :is(svg, .lucide) { filter:drop-shadow(0 1px 5px rgba(0,0,0,.24)); }
+html[data-portal-style="glass"] :is(svg, .lucide) { filter:none; }
 html[data-portal-style="glass"] .portal-sidebar a[aria-current="page"] > span:first-child,
 html[data-portal-style="glass"] .portal-sidebar a:hover > span:first-child {
   background:rgba(255,255,255,.16) !important;
   border-color:var(--portal-glass-edge) !important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.32), 0 8px 18px rgba(0,0,0,.14) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.2) !important;
 }
 @media (prefers-reduced-transparency: reduce) {
   html[data-portal-style="glass"] .portal-background-layer { opacity:.28 !important; }
@@ -695,7 +686,7 @@ html[data-ui-mode="modern"] {
   --modern-border-hover: rgba(255, 255, 255, 0.14);
   --modern-transition: 180ms var(--modern-ease);
   --modern-transition-slow: 280ms var(--modern-ease);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* --- Global micro-interactions --- */
@@ -1426,7 +1417,7 @@ input, textarea, select {
   --shadow-sm: 0 2px 10px rgba(0,0,0,0.18);
   --shadow-md: 0 8px 28px rgba(0,0,0,0.24);
   --shadow-lg: 0 24px 60px rgba(0,0,0,0.36);
-  --shadow-glow: 0 0 32px color-mix(in srgb, var(--color-primary) 28%, transparent);
+  --shadow-glow: none;
 }
 
 /* Рабочая область и фоновые слои — прозрачные */
@@ -1485,15 +1476,10 @@ input, textarea, select {
   transition: border-color 200ms ease, background 200ms ease, box-shadow 240ms var(--ini-ease);
 }
 
-/* Главные hero-блоки стандартных страниц — стекло с акцентным свечением */
+/* Главные hero-блоки стандартных страниц — плоский материал с тонкой рамкой */
 .portal-innovative .clean-home-hero {
-  background: linear-gradient(135deg,
-    color-mix(in srgb, var(--color-primary) 14%, transparent) 0%,
-    color-mix(in srgb, var(--color-surface) 70%, transparent) 46%,
-    color-mix(in srgb, var(--color-primary) 7%, transparent) 100%) !important;
-  border: 1px solid color-mix(in srgb, var(--color-border-strong) 42%, var(--color-primary)) !important;
-  backdrop-filter: blur(var(--ini-blur)) saturate(1.5);
-  -webkit-backdrop-filter: blur(var(--ini-blur)) saturate(1.5);
+  background:var(--color-surface) !important;
+  border:1px solid var(--color-border) !important;
 }
 
 /* Анимация появления страниц в инновационном мире */

@@ -106,7 +106,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
     <motion.div
       className="fixed inset-0 z-50 flex flex-col items-center justify-center"
       style={{
-        background: 'radial-gradient(ellipse at 30% 40%, #1a0533 0%, #0d0f1a 40%, #080c18 100%)',
+        background: '#0d0f1a',
       }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -114,14 +114,6 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
       transition={{ duration: 0.5 }}>
 
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
-
-      {/* Ambient glow */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-[120px] opacity-20"
-          style={{ background: 'radial-gradient(circle, #6C5CE7 0%, transparent 70%)' }} />
-        <div className="absolute top-1/2 left-1/4 w-96 h-96 rounded-full blur-[80px] opacity-10"
-          style={{ background: 'radial-gradient(circle, #E74C3C 0%, transparent 70%)' }} />
-      </div>
 
       {/* Logo + title */}
       <motion.div className="relative z-10 text-center"
@@ -133,7 +125,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
         <motion.div
           className="w-24 h-24 rounded-3xl mx-auto mb-6 overflow-hidden"
           style={{
-            boxShadow: '0 8px 40px rgba(231,76,60,0.45), 0 0 0 1px rgba(255,255,255,0.08)',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08)',
           }}
           animate={{ y: [0, -6, 0] }}
           transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}>
@@ -147,11 +139,7 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
 
         <h1 className="text-6xl font-black tracking-tight select-none leading-none mb-2">
           <span style={{ color: '#FFFFFF' }}>Portal</span>
-          <span style={{
-            background: 'linear-gradient(90deg, #6C5CE7, #E74C3C)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}> Launcher</span>
+          <span style={{ color: '#DA2A3F' }}> Launcher</span>
         </h1>
 
         <motion.p
@@ -177,20 +165,10 @@ export function SplashScreen({ onComplete }: { onComplete: () => void }) {
           <motion.div
             className="absolute inset-y-0 left-0 rounded-full"
             style={{
-              background: 'linear-gradient(90deg, #6C5CE7, #E74C3C)',
+              background: '#DA2A3F',
             }}
             animate={{ width: `${progress}%` }}
             transition={{ duration: 0.3 }}
-          />
-          {/* Shimmer */}
-          <motion.div
-            className="absolute inset-y-0 left-0 rounded-full"
-            style={{
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
-              width: '40%',
-            }}
-            animate={{ x: ['-100%', '300%'] }}
-            transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
           />
         </div>
 

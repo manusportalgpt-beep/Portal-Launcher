@@ -53,14 +53,10 @@ export function InnovativeDiscover() {
         {/* hero */}
         <motion.div variants={fadeUp} className="relative overflow-hidden rounded-[26px] p-8 mb-6"
           style={{
-            background: 'linear-gradient(135deg, color-mix(in srgb, var(--color-info) 18%, transparent) 0%, color-mix(in srgb, var(--color-surface) 72%, transparent) 50%, color-mix(in srgb, var(--color-modrinth) 12%, transparent) 100%)',
-            border: '1px solid color-mix(in srgb, var(--color-border-strong) 45%, var(--color-info))',
-            boxShadow: '0 20px 50px -18px color-mix(in srgb, var(--color-info) 32%, transparent)',
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            boxShadow: 'none',
           }}>
-          <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full opacity-22 animate-aurora"
-            style={{ background: 'var(--color-modrinth)', filter: 'blur(60px)' }} />
-          <div className="absolute -bottom-24 -left-16 h-52 w-52 rounded-full opacity-16 animate-aurora"
-            style={{ background: 'var(--color-info)', filter: 'blur(60px)', animationDelay: '-3s' }} />
 
           <div className="relative z-10">
             <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-bold"

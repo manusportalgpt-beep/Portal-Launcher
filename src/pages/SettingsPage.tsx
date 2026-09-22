@@ -953,7 +953,7 @@ function AboutSection() {
 
       <AnimatePresence>
         {manusReveal && (
-          <motion.div className="mb-4 flex items-center gap-3 p-3.5" initial={{ opacity:0, y:8, scale:0.98 }} animate={{ opacity:1, y:0, scale:1 }} exit={{ opacity:0, y:8, scale:0.98 }} style={{ borderRadius:'var(--radius-card)', background:'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 18%, var(--color-surface)), var(--color-surface-2))', border:'1px solid var(--color-primary)', boxShadow:'var(--shadow-md)' }}>
+          <motion.div className="mb-4 flex items-center gap-3 p-3.5" initial={{ opacity:0, y:8, scale:0.98 }} animate={{ opacity:1, y:0, scale:1 }} exit={{ opacity:0, y:8, scale:0.98 }} style={{ borderRadius:'var(--radius-card)', background:'var(--color-surface)', border:'1px solid color-mix(in srgb, var(--color-primary) 35%, var(--color-border))', boxShadow:'var(--shadow-sm)' }}>
             <img src={manusAchievement} alt="Manus" className="h-10 w-[102px] rounded-lg object-contain" style={{ background:'#202020' }} />
             <div className="min-w-0"><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Кто ты?</p><p className="mt-0.5 text-[11px]" style={{ color:'var(--color-text-secondary)' }}>Manus — помощник, который участвовал в создании Portal Launcher вместе с Portalrolls.</p></div>
           </motion.div>

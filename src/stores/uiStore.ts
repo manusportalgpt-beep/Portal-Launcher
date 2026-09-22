@@ -202,7 +202,7 @@ const defaults = {
   borderStrength: 100,
   shadowStrength: 100,
   motionSpeed: 100,
-  accentGlow: true,
+  accentGlow: false,
   accentGlowStrength: 100,
   backgroundFit: 'cover' as BackgroundFit,
   backgroundPosition: 'center' as BackgroundPosition,

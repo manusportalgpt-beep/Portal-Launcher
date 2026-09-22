@@ -274,8 +274,8 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
   };
 
   return <div ref={workspaceRef} className="ore-plain portal-files-workspace relative grid min-h-[430px] overflow-hidden rounded-2xl" style={{ gridTemplateColumns: 'minmax(220px, 34%) minmax(0, 1fr)', border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
-    <section className="flex min-w-0 flex-col" style={{ borderRight: '1px solid var(--color-border)', background:'linear-gradient(180deg, color-mix(in srgb, var(--color-surface-2) 24%, transparent), transparent)' }}>
-      <div className="flex items-center gap-1 border-b px-2 py-2" style={{ borderColor: 'var(--color-border)', background:'linear-gradient(180deg, color-mix(in srgb, var(--color-surface-2) 72%, transparent), transparent)' }}>
+    <section className="flex min-w-0 flex-col" style={{ borderRight: '1px solid var(--color-border)', background: 'var(--color-surface-2)' }}>
+      <div className="flex items-center gap-1 border-b px-2 py-2" style={{ borderColor: 'var(--color-border)', background: 'color-mix(in srgb, var(--color-surface-active) 55%, transparent)' }}>
         <button onClick={() => void loadDir('')} className="rounded-lg p-1.5 hover:bg-white/5" title="Корень .minecraft"><Home className="h-3.5 w-3.5" /></button>
         <button onClick={up} disabled={!cwd} className="rounded-lg p-1.5 hover:bg-white/5 disabled:opacity-30" title="Вверх"><ChevronRight className="h-3.5 w-3.5 -rotate-90" /></button>
         <span className="min-w-0 flex-1 truncate px-1 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>{cwd || '.minecraft'}</span>

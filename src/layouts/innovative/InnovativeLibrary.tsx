@@ -142,7 +142,7 @@ export function InnovativeLibrary() {
                   style={{ background: 'color-mix(in srgb, var(--color-surface) 72%, transparent)', border: '1px solid var(--color-border)' }}>
                   {/* icon cover */}
                   <div className="relative h-36 overflow-hidden"
-                    style={{ background: `linear-gradient(135deg, ${inst.color || 'var(--color-primary)'}, color-mix(in srgb, ${inst.color || 'var(--color-primary)'} 44%, var(--color-bg)))` }}>
+                    style={{ background: inst.color || 'var(--color-primary)' }}>
                     {inst.iconPath ? (
                       <img src={toIconSrc(inst.iconPath)} className="absolute inset-0 h-full w-full object-cover opacity-80 transition-opacity group-hover:opacity-100" alt="" draggable={false} />
                     ) : (

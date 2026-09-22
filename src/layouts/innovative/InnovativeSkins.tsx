@@ -27,14 +27,10 @@ export function InnovativeSkins() {
         {/* hero */}
         <motion.div variants={fadeUp} className="relative overflow-hidden rounded-[26px] p-8 mb-6"
           style={{
-            background: 'linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 18%, transparent) 0%, color-mix(in srgb, var(--color-surface) 72%, transparent) 50%, color-mix(in srgb, #8B5CF6 12%, transparent) 100%)',
-            border: '1px solid color-mix(in srgb, var(--color-border-strong) 45%, #8B5CF6)',
-            boxShadow: '0 20px 50px -18px color-mix(in srgb, #8B5CF6 28%, transparent)',
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            boxShadow: 'none',
           }}>
-          <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full opacity-18 animate-aurora"
-            style={{ background: '#8B5CF6', filter: 'blur(60px)' }} />
-          <div className="absolute -bottom-24 -left-16 h-48 w-48 rounded-full opacity-14 animate-aurora"
-            style={{ background: 'var(--color-primary)', filter: 'blur(60px)', animationDelay: '-4s' }} />
 
           <div className="relative z-10 flex items-center gap-8">
             <div className="flex-1">

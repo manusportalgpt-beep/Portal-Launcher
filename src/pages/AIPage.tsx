@@ -117,7 +117,7 @@ export function AIPage() {
           style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
           <div className="flex flex-col items-center gap-3">
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #06B6D4, #8B5CF6)' }}>
+              style={{ background: '#06B6D4' }}>
               <Bot className="w-8 h-8 text-white" />
             </div>
             <h2 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>AI Assistant</h2>
@@ -161,7 +161,7 @@ export function AIPage() {
         style={{ borderBottom: '1px solid var(--color-border)' }}>
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #06B6D4, #8B5CF6)' }}>
+            style={{ background: '#06B6D4' }}>
             <Bot className="w-4 h-4 text-white" />
           </div>
           <div>
@@ -188,7 +188,7 @@ export function AIPage() {
         {messages.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center py-12">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #06B6D420, #8B5CF620)', border: '1px solid var(--color-border)' }}>
+              style={{ background: '#06B6D41A', border: '1px solid var(--color-border)' }}>
               <Sparkles className="w-7 h-7" style={{ color: '#06B6D4' }} />
             </div>
             <div>
@@ -217,7 +217,7 @@ export function AIPage() {
               className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
               <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center mt-0.5"
                 style={msg.role === 'assistant'
-                  ? { background: 'linear-gradient(135deg, #06B6D4, #8B5CF6)' }
+                  ? { background: '#06B6D4' }
                   : { background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
                 {msg.role === 'assistant'
                   ? <Bot className="w-3.5 h-3.5 text-white" />
@@ -236,7 +236,7 @@ export function AIPage() {
         {loading && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3">
             <div className="w-7 h-7 rounded-lg shrink-0 flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #06B6D4, #8B5CF6)' }}>
+              style={{ background: '#06B6D4' }}>
               <Bot className="w-3.5 h-3.5 text-white" />
             </div>
             <div className="px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1.5"

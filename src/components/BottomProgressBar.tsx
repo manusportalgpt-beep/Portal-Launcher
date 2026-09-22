@@ -354,7 +354,7 @@ export function BottomProgressBar() {
         style={{
           background: 'color-mix(in srgb, var(--color-surface) 96%, transparent)',
           border: `1px solid color-mix(in srgb, var(--color-border) 85%, ${isError ? 'var(--color-error)' : 'var(--color-primary)'})`,
-          boxShadow: '0 18px 48px rgba(0,0,0,0.45), 0 0 0 1px color-mix(in srgb, var(--color-primary) 6%, transparent)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.30), 0 0 0 1px color-mix(in srgb, var(--color-border) 55%, transparent)',
           backdropFilter: 'blur(22px)',
           WebkitBackdropFilter: 'blur(22px)',
         }}>
@@ -420,8 +420,6 @@ export function BottomProgressBar() {
             style={{ width:56, height:56, touchAction:'none' }}
           >
             <div className="absolute inset-0 rounded-full"
-              style={{ boxShadow:`0 0 24px ${pct > 0 && pct < 100 ? 'color-mix(in srgb, var(--color-primary) 22%, transparent)' : 'transparent'}`, transition:'box-shadow 0.5s ease' }} />
-            <div className="absolute inset-0 rounded-full"
               style={{
                 background: isInnovative
                   ? 'color-mix(in srgb, var(--color-surface) 55%, var(--color-bg))'
@@ -475,7 +473,7 @@ export function BottomProgressBar() {
                 background: isError
                   ? 'var(--color-error)'
                   : pct >= 100
-                    ? 'linear-gradient(90deg, var(--color-success), color-mix(in srgb, var(--color-success) 60%, var(--color-primary)))'
+                    ? 'var(--color-success)'
                     : 'var(--color-primary)',
                 transition:'width 0.4s cubic-bezier(0.22,1,0.36,1), background 0.4s ease',
               }} />

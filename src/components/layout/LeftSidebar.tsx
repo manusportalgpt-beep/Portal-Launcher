@@ -45,8 +45,7 @@ function NavBtn({ item }: { item: NavItem }) {
             animate={{ opacity: isActive ? 1 : 0, scale: isActive ? 1 : 0.85 }}
             transition={{ type: 'spring', stiffness: 500, damping: 32 }}
             style={{
-              background: `linear-gradient(135deg, ${item.accent}, ${item.accent}AA)`,
-              boxShadow: `0 6px 18px ${item.accent}55, inset 0 1px 0 rgba(255,255,255,0.15)`,
+              background: item.accent,
             }}
           />
           {!isActive && (
@@ -57,7 +56,7 @@ function NavBtn({ item }: { item: NavItem }) {
             <motion.span
               layoutId="active-rail"
               className="absolute -left-3 top-1/2 -translate-y-1/2 w-1 rounded-r-full"
-              style={{ height: 44, background: item.accent, boxShadow: `0 0 8px ${item.accent}` }}
+              style={{ height: 44, background: item.accent }}
             />
           )}
           <Icon

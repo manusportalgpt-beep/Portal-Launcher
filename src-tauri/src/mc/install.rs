@@ -790,6 +790,18 @@ pub fn collect_libraries(version: &serde_json::Value) -> Vec<LibraryTarget> {
         // на любой версии 1.19+ и любом загрузчике.
         let is_modern_native = name.contains(":natives-");
 
+        // Natives (старый формат с classifiers). Вычисляем ДО ветки
+        // name-фолбэка: платформенные библиотеки LWJGL2 (например
+        // "org.lwjgl.lwjgl:lwjgl-platform:2.9.2-nightly-20140822") не имеют ни
+        // downloads.artifact, ни url — у них только natives + classifiers.
+        // Раньше они попадали в фолбэк "только name" и получали несуществующий
+        // URL base/<artifact>-<version>.jar (HTTP 404 на libraries.minecraft.net),
+        // из-за чего версии ниже 1.13 навсегда застревали на "докачиваю файлы".
+        // Правильный источник таких библиотек — ветка classifiers ниже.
+        let native_key = lib["natives"][os_name()].as_str().map(|k| {
+            k.replace("${arch}", if os_arch() == "x86" { "32" } else { "64" })
+        });
+
         // Классический artifact
         if let Some(artifact) = lib["downloads"]["artifact"].as_object() {
             let rel = artifact
@@ -809,8 +821,9 @@ pub fn collect_libraries(version: &serde_json::Value) -> Vec<LibraryTarget> {
                     native: is_modern_native,
                 });
             }
-        } else if !name.is_empty() {
-            // Библиотека загрузчика: только name + url базы maven
+        } else if !name.is_empty() && native_key.is_none() {
+            // Библиотека загрузчика: только name + url базы maven.
+            // Старые natives-платформы (native_key есть) сюда не попадают.
             let base = lib["url"]
                 .as_str()
                 .unwrap_or("https://libraries.minecraft.net/");
@@ -825,10 +838,6 @@ pub fn collect_libraries(version: &serde_json::Value) -> Vec<LibraryTarget> {
             }
         }
 
-        // Natives (старый формат с classifiers)
-        let native_key = lib["natives"][os_name()].as_str().map(|k| {
-            k.replace("${arch}", if os_arch() == "x86" { "32" } else { "64" })
-        });
         if let Some(key) = native_key {
             if let Some(classifier) = lib["downloads"]["classifiers"][&key].as_object() {
                 let path = classifier
@@ -851,6 +860,102 @@ pub fn collect_libraries(version: &serde_json::Value) -> Vec<LibraryTarget> {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod collect_libraries_tests {
+    use super::{collect_libraries, os_name};
+    use serde_json::{json, Map, Value};
+
+    fn natives_for_os() -> Map<String, Value> {
+        let mut map = Map::new();
+        map.insert(os_name().to_string(), Value::String("natives-windows".to_string()));
+        map
+    }
+
+    fn targets(version: &Value) -> Vec<(String, bool)> {
+        collect_libraries(version)
+            .into_iter()
+            .map(|target| (target.coordinate, target.native))
+            .collect()
+    }
+
+    #[test]
+    fn legacy_natives_platform_produces_only_the_classifier_target() {
+        // 1.12.2-style org.lwjgl.lwjgl:lwjgl-platform has NO downloads.artifact
+        // and NO url — only the natives classifier. The plain-name fallback URL
+        // (<artifact>-<version>.jar) returns 404, which previously blocked every
+        // <1.13 launch with "Не удалось докачать файлов".
+        let version = json!({
+            "id": "1.12.2",
+            "libraries": [{
+                "name": "org.lwjgl.lwjgl:lwjgl-platform:2.9.2-nightly-20140822",
+                "natives": natives_for_os(),
+                "downloads": {
+                    "classifiers": {
+                        "natives-windows": {
+                            "url": "https://libraries.minecraft.net/org/lwjgl/lwjgl/lwjgl-platform/2.9.2-nightly-20140822/lwjgl-platform-2.9.2-nightly-20140822-natives-windows.jar",
+                            "path": "org/lwjgl/lwjgl/lwjgl-platform/2.9.2-nightly-20140822/lwjgl-platform-2.9.2-nightly-20140822-natives-windows.jar"
+                        }
+                    }
+                }
+            }]
+        });
+
+        assert_eq!(
+            targets(&version),
+            vec![(
+                "org.lwjgl.lwjgl:lwjgl-platform:2.9.2-nightly-20140822:natives-windows".to_string(),
+                true,
+            )]
+        );
+    }
+
+    #[test]
+    fn name_only_loader_library_still_produces_a_regular_target() {
+        let version = json!({
+            "id": "1.12.2",
+            "libraries": [{
+                "name": "org.lwjgl.lwjgl:lwjgl:2.9.2-nightly-20140822",
+                "url": "https://libraries.minecraft.net/"
+            }]
+        });
+
+        assert_eq!(
+            targets(&version),
+            vec![("org.lwjgl.lwjgl:lwjgl:2.9.2-nightly-20140822".to_string(), false)]
+        );
+    }
+
+    #[test]
+    fn artifact_library_with_natives_keeps_both_entries() {
+        // com.mojang:text2speech (1.12.2) has a real base artifact AND natives
+        // classifiers — both must stay in the library list.
+        let version = json!({
+            "id": "1.12.2",
+            "libraries": [{
+                "name": "com.mojang:text2speech:1.10.3",
+                "natives": natives_for_os(),
+                "downloads": {
+                    "artifact": {
+                        "url": "https://piston-data.mojang.com/v1/objects/a/text2speech-1.10.3.jar",
+                        "path": "com/mojang/text2speech/1.10.3/text2speech-1.10.3.jar"
+                    },
+                    "classifiers": {
+                        "natives-windows": {
+                            "url": "https://libraries.minecraft.net/com/mojang/text2speech/1.10.3/text2speech-1.10.3-natives-windows.jar",
+                            "path": "com/mojang/text2speech/1.10.3/text2speech-1.10.3-natives-windows.jar"
+                        }
+                    }
+                }
+            }]
+        });
+
+        let list = targets(&version);
+        assert_eq!(list.len(), 2);
+        assert!(list.contains(&("com.mojang:text2speech:1.10.3".to_string(), false)));
+        assert!(list.contains(&("com.mojang:text2speech:1.10.3:natives-windows".to_string(), true)));
+    }
 }
 
 /// Распаковывает natives рядом с версией.

@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Press+Start+2P&family=Space+Grotesk:wght@500;700;800&display=swap');
 
-@import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&family=Oswald:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Play:wght@400;700&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&family=Oswald:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Play:wght@400;700&family=Pixelify+Sans:wght@400;500;600;700&family=Press+Start+2P&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -1497,183 +1497,207 @@ input, textarea, select {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   ORE-UI LAYER — фирменная схема Portal Launcher.
-   Квадратно-пиксельный стиль Minecraft Bedrock: объёмные кнопки-грани,
-   пиксельные иконки, зелёные акценты. Слой включается пресетом `oreui`
-   (data-portal-style), вместе с ним работает близкая схема `quadral`.
-   Идёт ПОСЛЕ блока clean-системы, поэтому пересиливает её при равной
-   специфичности. Остальные схемы не затрагиваются.
+   ORE-UI LAYER — переработка пресета `oreui` по реальной дизайн-системе
+   OreUI (референс: Design System / Button states / Modal / Checkbox /
+   Slider / Toggle / Tooltip).
+
+   Что задаёт стиль:
+   – графитовые панели #3a3a3a на почти чёрном фоне #1e1e1e (не OLED-чёрный);
+   – жёсткий чёрный контур 2px у интерактивных элементов;
+   – «бевел»: светлая полоса 2px сверху + тёмная снизу (объём без глянца);
+   – зелёный primary #3a8527, светло-серая вторичка #c6c6c6, красный
+     destructive #a03028, тёмная панель для ghost;
+   – фокус = БЕЛАЯ рамка 2px (не свечение);
+   – нажатие = сдвиг вниз на 2px и исчезновение верхнего бевела;
+   – hover = только смена заливки, без подъёма/масштаба/тени;
+   – пиксельный шрифт Pixelify Sans (пропорциональный, близок к Mojangles).
+
+   Блок идёт ПОСЛЕ clean-системы и пересиливает её. Схема `quadral`
+   сохраняет прежний квадратно-пиксельный вид и вынесена из правил ниже.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── Углы: оставляем осмысленные скругления вместо квадратной сетки ── */
-html[data-portal-style="oreui"] :is(a, button, [role="button"], [role="tab"], input, select, textarea, .rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-\[16px\], .rounded-\[18px\], .rounded-\[20px\], .rounded-\[24px\], .rounded-\[26px\], .rounded-\[28px\], .rounded-\[32px\], .rounded-\[34px\]) {
-  border-radius: var(--radius-md) !important;
+/* ── Типографика: пиксельный шрифт OreUI (пропорциональный, как Mojangles) ──
+   Pixelify Sans — ближайший к Minecraft-шрифту гарнитурный пиксельный
+   шрифт: те же «ступеньки» на глифах, но читаемый на длинных текстах.
+   Кнопки/заголовки идут с небольшим трекингом, как в референсе. */
+html[data-portal-style="oreui"] body,
+html[data-portal-style="oreui"] button,
+html[data-portal-style="oreui"] input,
+html[data-portal-style="oreui"] select,
+html[data-portal-style="oreui"] textarea {
+  font-family: 'Pixelify Sans', 'Mojangles', 'Monocraft', 'Press Start 2P', 'Courier New', monospace;
+  letter-spacing: .01em;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+  font-smooth: never;
+  text-rendering: geometricPrecision;
 }
 
-/* hover-подъём карточек (clean-система отключала его глобально) */
-html[data-portal-style="oreui"] :is(.hover\:-translate-y-0\.5, .hover\:-translate-y-1, .hover\:scale-\[1\.03\], .hover\:scale-105):hover {
-  transform: translateY(-2px) !important;
+/* ── Углы: небольшие, как в референсе (2px кнопки, 3px карточки) ── */
+html[data-portal-style="oreui"] :is(a, button, [role="button"], [role="tab"], input, select, textarea, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-\[16px\], .rounded-\[18px\], .rounded-\[20px\], .rounded-\[24px\], .rounded-\[26px\], .rounded-\[28px\], .rounded-\[32px\], .rounded-\[34px\]) {
+  border-radius: var(--ore-radius) !important;
+}
+
+/* ── Никакого hover-подъёма: в OreUI элемент не двигается и не «отрывается» ──
+   Состояние читается только по цвету (см. компоненты ниже). */
+html[data-portal-style="oreui"] :is(.hover\:-translate-y-0\.5, .hover\:-translate-y-1, .hover\:scale-\[1\.03\], .hover\:scale-105):hover,
+html[data-portal-style="oreui"] :is(.hover\:scale-\[1\.01\]):hover {
+  transform: none !important;
 }
 html[data-portal-style="oreui"] .clean-home-instance:hover {
-  transform: translateY(-2px) !important;
-  border-color: var(--color-border-strong) !important;
-  box-shadow: var(--shadow-md) !important;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
-/* ── Тени поверхностей: возвращаем глубину (clean их отключал) ── */
-html[data-portal-style="oreui"] [class*="shadow-"] { box-shadow: var(--shadow-md) !important; }
-html[data-portal-style="oreui"] [style*="box-shadow"], html[data-portal-style="oreui"] [style*="box-shadow: "] { box-shadow: var(--shadow-sm) !important; }
-html[data-portal-style="oreui"] [style*="box-shadow: none"], html[data-portal-style="oreui"] [style*="box-shadow:none"] { box-shadow: none !important; }
+/* ── Тени: плоская схема без drop-shadow, глубина только на обводке ──
+   В референсе нет размытых теней — есть жёсткий контур 2px и внутренние
+   бевелы. Оставляем тени только там, где они рисуют контур. */
+html[data-portal-style="oreui"] [class*="shadow-"] { box-shadow: none !important; }
+html[data-portal-style="oreui"] [style*="box-shadow"] { box-shadow: none !important; }
 
-/* ── Карточка установки (OreUI) ── */
+/* ── Фокус: белая рамка 2px (фирменный OreUI), не свечение.
+   Чёрный контур элемента при этом сохраняется: меняется только внешняя
+   рамка, поэтому сфокусированная кнопка читается как «белая обводка
+   вокруг чёрной», как в референсе. */
+html[data-portal-style="oreui"] :is(button, a, [role="button"], [role="tab"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--ore-focus) !important;
+  outline-offset: 2px !important;
+}
+
+/* ── Карточка установки (OreUI) ──
+   Плоская панель + жёсткий контур. Hover — только смена заливки и контура,
+   без подъёма, масштаба и тени. */
 html[data-portal-style="oreui"] .portal-instance-card {
-  border: 1px solid var(--color-border) !important;
-  border-radius: var(--radius-card) !important;
-  box-shadow: var(--shadow-sm) !important;
-  background: linear-gradient(180deg, var(--color-surface), color-mix(in srgb, var(--color-surface) 90%, var(--color-bg))) !important;
+  border: 2px solid var(--ore-outline) !important;
+  border-radius: var(--ore-radius-card) !important;
+  box-shadow: none !important;
+  background: var(--ore-panel) !important;
+  transition: background-color 90ms linear, border-color 90ms linear !important;
 }
 html[data-portal-style="oreui"] .portal-instance-card:hover {
-  border-color: color-mix(in srgb, var(--color-primary) 26%, var(--color-border-strong)) !important;
-  box-shadow: 0 14px 34px rgba(0,0,0,.34), 0 0 0 1px color-mix(in srgb, var(--color-primary) 9%, transparent) !important;
+  background: var(--ore-panel-hi) !important;
+  border-color: var(--ore-outline) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+html[data-portal-style="oreui"] .portal-instance-card:active {
+  background: var(--ore-panel-down) !important;
+  transform: none !important;
 }
 
 /* ═══════════ Кнопки в стиле OreUI ═══════════
-   Схема кнопок по дизайн-системе OreUI (Bedrock):
-   – dbtn (secondary): тёмная #2a2b2f, тонкая светлая обводка, bevel-грань
-   – dbtn-primary / dbtn-play (Hero): зелёная (#3c8527) — «Играть», подтверждение
-   – dbtn-accent: акцентная (зелёный герой) — создание, установка
-   – dbtn-danger (Destructive): красная — удаление/опасно
-   – dbtn-ghost: полупрозрачная вторичная поверх любой подложки
-   Bevel: светлая верхняя кромка (2px) + тёмная нижняя; press — кнопка
-   «утапливается», бевел инвертируется (тёмная кромка сверху), масштаб 0.98  */
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) {
-  --ore-dark: #2a2b2f;
+   По дизайн-системе OreUI (референс: Design System, Button states):
+   – контур 2px чёрным (--ore-outline) у каждой кнопки;
+   – бевел: светлая полоса 2px сверху + тёмная 2px снизу (жёсткий «объём»);
+   – вторичная: светло-серая заливка, тёмный текст;
+   – primary/accent/play: зелёная, белый текст;
+   – destructive: красная, белый текст;
+   – ghost: тёмная панель, белый текст;
+   – focus: БЕЛАЯ рамка 2px снаружи (не свечение);
+   – pressed: сдвиг вниз на 2px, верхний бевел исчезает (инвертируется);
+   – disabled: серая заливка, серый текст, приглушённый контур. */
+
+/* Базовые кнопки лаунчера (не .dbtn) тоже получают контур и бевел —
+   это делает стиль кнопок одинаковым по всему интерфейсу. */
+html[data-portal-style="oreui"] :is(button, [role="button"]):not([class*="dbtn"]):not(:disabled) {
+  border: 2px solid var(--ore-outline) !important;
+  box-shadow: var(--ore-bevel) !important;
+  transition: background-color 90ms linear, color 90ms linear, box-shadow 60ms linear, transform 60ms linear;
+}
+html[data-portal-style="oreui"] :is(button, [role="button"]):not([class*="dbtn"]):active:not(:disabled) {
+  transform: translateY(2px) !important;
+  box-shadow: var(--ore-bevel-pressed) !important;
 }
 
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-ghost, .dbtn-danger, .dbtn-play) {
+/* ── Общая база .dbtn ── */
+html[data-portal-style="oreui"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-ghost, .dbtn-danger, .dbtn-play) {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border-radius: var(--radius-button);
+  border-radius: var(--ore-radius) !important;
   font-weight: 700;
-  letter-spacing: .01em;
+  letter-spacing: .02em;
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
   isolation: isolate;
-  border: 1px solid transparent;
-  transition: transform 140ms var(--motion-ease), box-shadow 220ms var(--motion-ease), background-color 220ms var(--motion-ease), border-color 200ms var(--motion-ease), color 160ms var(--motion-ease), filter 150ms ease;
+  border: 2px solid var(--ore-outline) !important;
+  transition: background-color 90ms linear, color 90ms linear, box-shadow 60ms linear, transform 60ms linear;
 }
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="sm"] { font-size: 11px; padding: 7px 12px; }
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="md"] { font-size: 13px; padding: 11px 18px; }
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="lg"] { font-size: 14px; padding: 14px 22px; }
+html[data-portal-style="oreui"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="sm"] { font-size: 11px; padding: 8px 13px; }
+html[data-portal-style="oreui"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="md"] { font-size: 13px; padding: 11px 18px; }
+html[data-portal-style="oreui"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="lg"] { font-size: 14px; padding: 14px 22px; }
 
-/* вторичная кнопка OreUI: тёмная + бевел */
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) .dbtn {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--ore-dark) 68%, #fff) 0%, var(--ore-dark) 48%, color-mix(in srgb, var(--ore-dark) 62%, #000) 100%);
-  border-color: rgba(255, 255, 255, 0.10);
-  color: #f2f2f3;
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.42),
-    0 2px 0 0 rgba(0, 0, 0, 0.35);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+/* вторичная кнопка: светло-серая, тёмный текст (как в референсе) */
+html[data-portal-style="oreui"] .dbtn {
+  background: var(--ore-gray) !important;
+  color: var(--ore-gray-ink) !important;
+  border-color: var(--ore-outline) !important;
+  box-shadow: var(--ore-bevel-gray) !important;
 }
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) .dbtn:not(.dbtn-primary):not(.dbtn-play):not(.dbtn-accent):not(.dbtn-danger):hover {
-  background: color-mix(in srgb, var(--ore-dark) 55%, #3a3b40);
-  border-color: rgba(255, 255, 255, 0.22);
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.36),
-    0 2px 0 0 rgba(0, 0, 0, 0.40);
+html[data-portal-style="oreui"] .dbtn:not(.dbtn-primary):not(.dbtn-play):not(.dbtn-accent):not(.dbtn-danger):hover {
+  background: var(--ore-gray-hi) !important;
+  box-shadow: var(--ore-bevel-gray) !important;
 }
 
-/* ghost: полупрозрачная вторичная, подстраивается под фон */
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) .dbtn-ghost {
-  background: rgba(42, 43, 47, 0.72);
-  border-color: rgba(255, 255, 255, 0.10);
-  color: var(--color-text);
+/* ghost: тёмная панель, белая подпись */
+html[data-portal-style="oreui"] .dbtn-ghost {
+  background: var(--ore-panel) !important;
+  color: var(--ore-text) !important;
+  border-color: var(--ore-outline) !important;
+  box-shadow: var(--ore-bevel-dark) !important;
 }
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) .dbtn-ghost:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.22);
-  color: #fff;
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.06);
-}
-
-/* Hero / Play: акцентная «Играть» (по умолчанию зелёная) с bevel-гранями */
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) .dbtn-primary,
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) .dbtn-accent,
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) .dbtn-play {
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--color-primary) 46%, #fff) 0%,
-      var(--color-primary) 46%,
-      var(--color-primary) 54%,
-      color-mix(in srgb, var(--color-primary) 62%, #000) 100%);
-  border-color: color-mix(in srgb, var(--color-primary) 45%, #000);
-  color: #fff;
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.38),
-    inset 2px 0 0 rgba(255, 255, 255, 0.14),
-    inset -1px 0 0 rgba(0, 0, 0, 0.12),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.30),
-    0 3px 0 0 color-mix(in srgb, var(--color-primary) 52%, #000),
-    0 8px 18px -6px rgba(0, 0, 0, 0.45);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.40);
-}
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) .dbtn-primary:hover,
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) .dbtn-accent:hover,
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) .dbtn-play:hover {
-  filter: brightness(1.10);
-  border-color: rgba(255, 255, 255, 0.22);
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.26),
-    0 3px 0 0 color-mix(in srgb, var(--color-primary) 50%, #000);
+html[data-portal-style="oreui"] .dbtn-ghost:hover {
+  background: var(--ore-panel-hi) !important;
+  box-shadow: var(--ore-bevel-dark) !important;
 }
 
-/* Destructive (OreUI): красная */
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) .dbtn-danger {
-  --od-base: #c0392b;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--od-base) 55%, #ffd9d0) 0%,
-      var(--od-base) 46%,
-      var(--od-base) 54%,
-      color-mix(in srgb, var(--od-base) 62%, #000) 100%);
-  border-color: color-mix(in srgb, var(--od-base) 45%, #000);
-  color: #fff;
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.34),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.30),
-    0 3px 0 0 color-mix(in srgb, var(--od-base) 55%, #000),
-    0 8px 18px -6px rgba(0, 0, 0, 0.40);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+/* primary / accent / play — зелёный герой с бевелом */
+html[data-portal-style="oreui"] .dbtn-primary,
+html[data-portal-style="oreui"] .dbtn-accent,
+html[data-portal-style="oreui"] .dbtn-play {
+  background: var(--ore-green) !important;
+  color: #fff !important;
+  border-color: var(--ore-outline) !important;
+  box-shadow: var(--ore-bevel-green) !important;
 }
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) .dbtn-danger:hover {
-  filter: brightness(1.08);
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.40),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.26),
-    0 3px 0 0 color-mix(in srgb, var(--od-base) 50%, #000);
+html[data-portal-style="oreui"] .dbtn-primary:hover,
+html[data-portal-style="oreui"] .dbtn-accent:hover,
+html[data-portal-style="oreui"] .dbtn-play:hover {
+  background: var(--ore-green-hi) !important;
+  box-shadow: var(--ore-bevel-green) !important;
 }
 
-/* Press (OreUI): «утапливание» — бевел инвертируется (тёмная кромка сверху) */
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, .dbtn-danger, .dbtn-ghost):active {
-  transform: translateY(2px) scale(0.98) !important;
-  filter: brightness(0.96) !important;
-  box-shadow:
-    inset 0 2px 0 rgba(0, 0, 0, 0.32),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.10),
-    0 1px 0 0 rgba(0, 0, 0, 0.35) !important;
+/* destructive — красная */
+html[data-portal-style="oreui"] .dbtn-danger {
+  background: var(--ore-red) !important;
+  color: #fff !important;
+  border-color: var(--ore-outline) !important;
+  box-shadow: var(--ore-bevel-red) !important;
 }
-html:is([data-portal-style="oreui"], [data-portal-style="quadral"]) :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, .dbtn-danger, .dbtn-ghost):disabled {
-  opacity: .45;
+html[data-portal-style="oreui"] .dbtn-danger:hover {
+  background: var(--ore-red-hi) !important;
+  box-shadow: var(--ore-bevel-red) !important;
+}
+
+/* pressed: утапливание — сдвиг вниз, верхний бевел исчезает */
+html[data-portal-style="oreui"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, .dbtn-danger, .dbtn-ghost):active {
+  transform: translateY(2px) !important;
+  box-shadow: var(--ore-bevel-pressed) !important;
+}
+
+/* focus-visible: белая рамка 2px (обрабатывается общим правилом) */
+
+/* disabled: серая заливка, серый текст */
+html[data-portal-style="oreui"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, .dbtn-danger, .dbtn-ghost):disabled {
+  background: var(--ore-gray-off) !important;
+  color: var(--ore-gray-off-ink) !important;
+  border-color: var(--ore-outline-off) !important;
+  box-shadow: none !important;
+  opacity: 1;
   pointer-events: none;
-  filter: grayscale(.6);
 }
 
 /* ── Заголовки секций (Ore-лейаут) ── */
@@ -1700,96 +1724,124 @@ html[data-portal-style="oreui"] .dsection::after {
   background: color-mix(in srgb, var(--color-border) 62%, transparent);
 }
 
-/* ── Пиксельные подсказки клавиш (OreUI-иконки) ── */
+/* ── Пиксельные подсказки клавиш (OreUI) ──
+   В референсе клавиши — такие же «кнопки»: серый квадрат с чёрным контуром. */
 html[data-portal-style="oreui"] .dkbd {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-width: 22px;
-  height: 22px;
+  min-width: 24px;
+  height: 24px;
   padding: 0 6px;
-  font-family: 'Press Start 2P', monospace;
-  font-size: 8px;
+  font-size: 10px;
+  font-weight: 700;
   letter-spacing: .02em;
-  color: var(--color-text-secondary);
-  background: linear-gradient(180deg, var(--color-surface-2), var(--color-surface));
-  border: 1px solid var(--color-border-strong);
-  border-bottom-width: 3px;
-  border-radius: 5px;
-  box-shadow: 0 2px 0 rgba(0,0,0,.32);
+  color: var(--ore-gray-ink);
+  background: var(--ore-gray);
+  border: 2px solid var(--ore-outline);
+  border-radius: var(--ore-radius) !important;
+  box-shadow: var(--ore-bevel-gray);
 }
-html[data-portal-style="oreui"] .dkbd-primary { color: var(--color-primary); border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border)); }
+html[data-portal-style="oreui"] .dkbd-primary {
+  color: #fff;
+  background: var(--ore-green);
+  border-color: var(--ore-outline);
+  box-shadow: var(--ore-bevel-green);
+}
 
-/* ── Поля ввода, селекты, textarea ── */
+/* ── Поля ввода, селекты, textarea ──
+   Тёмная «шахта» (--ore-well) + чёрный контур; фокус — белая рамка. */
 html[data-portal-style="oreui"] :is(input, select, textarea) {
-  background: var(--color-surface-2) !important;
-  border: 1px solid var(--color-border) !important;
-  border-radius: var(--radius-button) !important;
-  transition: border-color 180ms ease, box-shadow 220ms ease, background-color 180ms ease;
+  background: var(--ore-well) !important;
+  color: var(--ore-text) !important;
+  border: 2px solid var(--ore-outline) !important;
+  border-radius: var(--ore-radius) !important;
+  box-shadow: none !important;
+  transition: background-color 90ms linear, outline-color 90ms linear;
+}
+html[data-portal-style="oreui"] :is(input, select, textarea)::placeholder {
+  color: var(--ore-text-3);
+  opacity: 1;
 }
 html[data-portal-style="oreui"] :is(input, select, textarea):focus {
-  border-color: color-mix(in srgb, var(--color-primary) 55%, var(--color-border)) !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 16%, transparent) !important;
-  outline: none !important;
+  outline: 2px solid var(--ore-focus) !important;
+  outline-offset: 2px !important;
+  box-shadow: none !important;
+}
+html[data-portal-style="oreui"] :is(input, select, textarea):disabled {
+  background: var(--ore-gray-off) !important;
+  color: var(--ore-gray-off-ink) !important;
+  border-color: var(--ore-outline-off) !important;
 }
 
-/* ── Модалки ── */
+/* ── Модалки ──
+   Плоская панель с жёстким контуром, без размытой тени. */
 html[data-portal-style="oreui"] :is([role="dialog"], dialog) {
-  border: 1px solid var(--color-border) !important;
-  border-radius: var(--radius-modal) !important;
-  box-shadow: var(--shadow-lg) !important;
+  background: var(--ore-panel) !important;
+  color: var(--ore-text) !important;
+  border: 2px solid var(--ore-outline) !important;
+  border-radius: var(--ore-radius-card) !important;
+  box-shadow: none !important;
 }
 
-/* ── Табы / сегменты ── */
+/* ── Табы / сегменты ──
+   Панель-контейнер с чёрным контуром; активный таб — тёмная «шахта» с
+   белой подчёркивающей полосой снизу (как в референсе). */
 html[data-portal-style="oreui"] :is(.tabs, [role="tablist"], .segmented-control) {
-  border-radius: var(--radius-button) !important;
-  background: var(--color-surface) !important;
-  box-shadow: 0 0 0 1px var(--color-border), var(--shadow-sm) !important;
+  border-radius: var(--ore-radius) !important;
+  background: var(--ore-panel) !important;
+  border: 2px solid var(--ore-outline) !important;
+  box-shadow: none !important;
+}
+html[data-portal-style="oreui"] :is([role="tab"])[aria-selected="true"],
+html[data-portal-style="oreui"] :is(.tabs) > [data-state="active"] {
+  background: var(--ore-well) !important;
+  color: var(--ore-text) !important;
+  box-shadow: inset 0 -3px 0 var(--ore-focus) !important;
 }
 
-/* ── Скроллбары и выделение ── */
-html[data-portal-style="oreui"] ::-webkit-scrollbar { width: 8px; height: 8px; }
-html[data-portal-style="oreui"] ::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--color-border-strong) 55%, transparent);
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
+/* ── Скроллбары и выделение ──
+   Толстый «ручной» скроллбар с контуром, без скруглённого пилюля. */
+html[data-portal-style="oreui"] ::-webkit-scrollbar { width: 14px; height: 14px; }
+html[data-portal-style="oreui"] ::-webkit-scrollbar-track {
+  background: var(--ore-well);
+  border-left: 2px solid var(--ore-outline);
 }
-html[data-portal-style="oreui"] ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-primary) 45%, transparent); background-clip: padding-box; }
-html[data-portal-style="oreui"] ::selection { background: color-mix(in srgb, var(--color-primary) 30%, transparent); }
+html[data-portal-style="oreui"] ::-webkit-scrollbar-thumb {
+  background: var(--ore-gray);
+  border: 2px solid var(--ore-outline);
+  border-radius: 0 !important;
+}
+html[data-portal-style="oreui"] ::-webkit-scrollbar-thumb:hover { background: var(--ore-gray-hi); }
+html[data-portal-style="oreui"] ::selection { background: var(--ore-green); color: #fff; }
 
 /* ── Появление контента ── */
 html[data-portal-style="oreui"] .page-enter-active,
 html[data-portal-style="oreui"] .content-transition { transition-timing-function: var(--motion-ease); transition-duration: 260ms; }
 
-/* ═══════════ OreUI (Bedrock) / Quadral: квадратно-пиксельный режим ═══════════ */
-html[data-portal-style="oreui"],
+/* ═══════════ Quadral: квадратно-пиксельный режим ═══════════
+   OreUI из этого блока исключён: его кнопки, поля и контролы оформлены выше
+   по реальной дизайн-системе OreUI (контур 2px + бевел + сдвиг при нажатии). */
 html[data-portal-style="quadral"] {
   --ore-dark: #1e1f23;
   --ore-dark-2: #26272c;
   --ore-line: rgba(255, 255, 255, 0.10);
 }
 
-/* Все кнопки: квадратные, с гранью (работают даже с инлайн-фоном) */
-html[data-portal-style="oreui"] button,
-html[data-portal-style="oreui"] [role="button"],
+/* Все кнопки quadral: квадратные, с гранью (работают даже с инлайн-фоном) */
 html[data-portal-style="quadral"] button,
 html[data-portal-style="quadral"] [role="button"] {
   border-radius: 2px !important;
   box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), inset 0 -2px 0 rgba(0, 0, 0, 0.42) !important;
   transition: box-shadow 130ms ease, transform 80ms ease, filter 130ms ease, background-color 130ms ease !important;
 }
-html[data-portal-style="oreui"] button:not(:disabled):active,
-html[data-portal-style="oreui"] [role="button"]:not(:disabled):active,
 html[data-portal-style="quadral"] button:not(:disabled):active,
 html[data-portal-style="quadral"] [role="button"]:not(:disabled):active {
   box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.34), inset 0 -1px 0 rgba(255, 255, 255, 0.10) !important;
   transform: translateY(1px);
 }
 /* Обычные (нейтральные) кнопки при наведении — светлеют в серый */
-html[data-portal-style="oreui"] button:not(:disabled):hover,
-html[data-portal-style="oreui"] [role="button"]:not(:disabled):hover,
 html[data-portal-style="quadral"] button:not(:disabled):hover,
 html[data-portal-style="quadral"] [role="button"]:not(:disabled):hover {
   filter: brightness(1.12);
@@ -1835,10 +1887,12 @@ html[data-portal-style="quadral"] .ore-plain [class*="shadow-"] { box-shadow: no
 html[data-portal-style="oreui"] .ore-plain [style*="box-shadow"],
 html[data-portal-style="quadral"] .ore-plain [style*="box-shadow"] { box-shadow: none !important; }
 
-/* Иконочные кнопки (только иконка, без инлайн-фона) — крестики, стрелки назад и т.п. */
-html[data-portal-style="oreui"] :is(button:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child), [role="button"]:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child)),
-html[data-portal-style="quadral"] :is(button:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child), [role="button"]:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child)) {
+/* Иконочные кнопки (только иконка, без инлайн-фона) — крестики, стрелки назад и т.п.
+   В OreUI они остаются «голыми»: контур и бевел убираются, иначе каждая
+   иконка-кнопка превращается в тяжёлую плитку. */
+html[data-portal-style="oreui"] :is(button:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child), [role="button"]:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child)) {
   box-shadow: none !important;
+  border-color: transparent !important;
 }
 html[data-portal-style="oreui"] :is(button:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child), [role="button"]:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child)):not(:disabled):hover,
 html[data-portal-style="quadral"] :is(button:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child), [role="button"]:not([class*="dbtn"]):not([style*="background"]):has(> svg:only-child)):not(:disabled):hover {
@@ -1850,51 +1904,132 @@ html[data-portal-style="quadral"] :is(button:not([class*="dbtn"]):not([style*="b
   transform: none !important;
 }
 
-/* Поля и селекты — квадратные, фокус в цвет акцента */
-html[data-portal-style="oreui"] :is(input, select, textarea),
+/* Поля и селекты quadral — квадратные, фокус в цвет акцента.
+   (oreui обработан выше: тёмная «шахта», контур 2px, белая рамка фокуса.) */
 html[data-portal-style="quadral"] :is(input, select, textarea) {
   border-radius: 2px !important;
 }
-html[data-portal-style="oreui"] :is(input, select, textarea):focus,
 html[data-portal-style="quadral"] :is(input, select, textarea):focus {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 45%, transparent) !important;
 }
 
-/* Чекбоксы Bedrock: квадратные, с гранью, галочка в цвет акцента */
-html[data-portal-style="oreui"] :is(input[type="checkbox"], input[type="radio"]),
-html[data-portal-style="quadral"] :is(input[type="checkbox"], input[type="radio"]) {
-  accent-color: var(--color-primary);
+/* Чекбоксы OreUI: серый квадрат с чёрным контуром; включён — зелёный с белым
+   «крестом» (как в референсе). Фокус — белая рамка, нажатие — сдвиг. */
+html[data-portal-style="oreui"] :is(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--ore-green);
 }
-html[data-portal-style="oreui"] input[type="checkbox"],
-html[data-portal-style="quadral"] input[type="checkbox"] {
+html[data-portal-style="oreui"] input[type="checkbox"] {
   appearance: none;
+  -webkit-appearance: none;
   position: relative;
-  width: 15px;
-  height: 15px;
+  width: 20px;
+  height: 20px;
   margin: 0;
-  background: var(--ore-dark-2);
-  border: 1px solid var(--ore-line);
-  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.45);
-  border-radius: 0 !important;
+  background: var(--ore-gray) !important;
+  border: 2px solid var(--ore-outline) !important;
+  box-shadow: var(--ore-bevel-gray) !important;
+  border-radius: var(--ore-radius) !important;
   cursor: pointer;
+  transition: background-color 90ms linear, transform 60ms linear, box-shadow 60ms linear;
 }
-html[data-portal-style="oreui"] input[type="checkbox"]:checked,
-html[data-portal-style="quadral"] input[type="checkbox"]:checked {
-  background: var(--color-primary);
-  border-color: color-mix(in srgb, var(--color-primary) 55%, #000);
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.20), inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+html[data-portal-style="oreui"] input[type="checkbox"]:hover { background: var(--ore-gray-hi) !important; }
+html[data-portal-style="oreui"] input[type="checkbox"]:active {
+  transform: translateY(2px);
+  box-shadow: var(--ore-bevel-pressed) !important;
 }
-html[data-portal-style="oreui"] input[type="checkbox"]:checked::after,
-html[data-portal-style="quadral"] input[type="checkbox"]:checked::after {
+html[data-portal-style="oreui"] input[type="checkbox"]:checked {
+  background: var(--ore-green) !important;
+  box-shadow: var(--ore-bevel-green) !important;
+}
+html[data-portal-style="oreui"] input[type="checkbox"]:checked:hover { background: var(--ore-green-hi) !important; }
+html[data-portal-style="oreui"] input[type="checkbox"]:checked::after {
   content: '';
   position: absolute;
-  inset: 3px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg);
+}
+html[data-portal-style="oreui"] input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--ore-focus);
+  outline-offset: 2px;
+}
+html[data-portal-style="oreui"] input[type="checkbox"]:disabled {
+  background: var(--ore-gray-off);
+  border-color: var(--ore-outline-off);
+  box-shadow: none;
 }
 
-/* Ползунки OreUI: тонкий паз-трек + квадратная гранёная ручка (как в настройках Bedrock) */
-html[data-portal-style="oreui"] input[type="range"],
+/* ── Ползунки OreUI: сегментированный трек, квадратная ручка ──
+   В референсе трек разбит на сегменты, заполненная часть — зелёная,
+   ручка — серый квадрат с чёрным контуром. */
+html[data-portal-style="oreui"] input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 26px;
+  background: transparent;
+  border: 0;
+  outline: none;
+  cursor: pointer;
+}
+html[data-portal-style="oreui"] input[type="range"]::-webkit-slider-runnable-track {
+  height: 14px;
+  border-radius: 0;
+  background:
+    repeating-linear-gradient(90deg, var(--ore-green) 0 18px, transparent 18px 22px);
+  background-color: var(--ore-gray-off);
+  border: 2px solid var(--ore-outline) !important;
+  box-shadow: var(--ore-bevel-gray) !important;
+}
+html[data-portal-style="oreui"] input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 26px;
+  margin-top: -8px;
+  border-radius: 0;
+  background: var(--ore-gray) !important;
+  border: 2px solid var(--ore-outline) !important;
+  box-shadow: var(--ore-bevel-gray) !important;
+  cursor: pointer;
+  transition: background-color 90ms linear, transform 60ms linear, box-shadow 60ms linear;
+}
+html[data-portal-style="oreui"] input[type="range"]:hover::-webkit-slider-thumb { background: var(--ore-gray-hi) !important; }
+html[data-portal-style="oreui"] input[type="range"]:active::-webkit-slider-thumb {
+  background: var(--ore-gray-hi) !important;
+  transform: translateY(2px);
+  box-shadow: var(--ore-bevel-pressed) !important;
+}
+html[data-portal-style="oreui"] input[type="range"]::-moz-range-track {
+  height: 14px;
+  border-radius: 0;
+  background: var(--ore-gray-off);
+  border: 2px solid var(--ore-outline);
+  box-shadow: var(--ore-bevel-gray);
+}
+html[data-portal-style="oreui"] input[type="range"]::-moz-range-progress {
+  height: 14px;
+  border-radius: 0;
+  background: var(--ore-green);
+}
+html[data-portal-style="oreui"] input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 26px;
+  border-radius: 0;
+  background: var(--ore-gray);
+  border: 2px solid var(--ore-outline);
+  box-shadow: var(--ore-bevel-gray);
+  cursor: pointer;
+}
+html[data-portal-style="oreui"] input[type="range"]:focus-visible {
+  outline: 2px solid var(--ore-focus);
+  outline-offset: 2px;
+}
+
+/* Ползунки quadral: тонкий паз-трек + квадратная гранёная ручка */
 html[data-portal-style="quadral"] input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -1904,7 +2039,6 @@ html[data-portal-style="quadral"] input[type="range"] {
   outline: none;
   cursor: pointer;
 }
-html[data-portal-style="oreui"] input[type="range"]::-webkit-slider-runnable-track,
 html[data-portal-style="quadral"] input[type="range"]::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 1px;
@@ -1912,7 +2046,6 @@ html[data-portal-style="quadral"] input[type="range"]::-webkit-slider-runnable-t
   border: 1px solid var(--ore-line);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
 }
-html[data-portal-style="oreui"] input[type="range"]::-webkit-slider-thumb,
 html[data-portal-style="quadral"] input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -1928,11 +2061,9 @@ html[data-portal-style="quadral"] input[type="range"]::-webkit-slider-thumb {
     0 2px 0 rgba(0, 0, 0, 0.5);
   cursor: pointer;
 }
-html[data-portal-style="oreui"] input[type="range"]:hover::-webkit-slider-thumb,
 html[data-portal-style="quadral"] input[type="range"]:hover::-webkit-slider-thumb {
   background: linear-gradient(180deg, #f4f4f0 0%, #d4d4cf 45%, #a6a6a2 100%);
 }
-html[data-portal-style="oreui"] input[type="range"]:active::-webkit-slider-thumb,
 html[data-portal-style="quadral"] input[type="range"]:active::-webkit-slider-thumb {
   background: linear-gradient(180deg, #9c9c98 0%, #c0c0bb 100%);
   box-shadow:
@@ -1940,7 +2071,6 @@ html[data-portal-style="quadral"] input[type="range"]:active::-webkit-slider-thu
     inset 0 -1px 0 rgba(255, 255, 255, 0.35),
     0 1px 0 rgba(0, 0, 0, 0.45);
 }
-html[data-portal-style="oreui"] input[type="range"]::-moz-range-track,
 html[data-portal-style="quadral"] input[type="range"]::-moz-range-track {
   height: 6px;
   border-radius: 1px;
@@ -1948,13 +2078,11 @@ html[data-portal-style="quadral"] input[type="range"]::-moz-range-track {
   border: 1px solid var(--ore-line);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
 }
-html[data-portal-style="oreui"] input[type="range"]::-moz-range-progress,
 html[data-portal-style="quadral"] input[type="range"]::-moz-range-progress {
   height: 6px;
   border-radius: 1px 0 0 1px;
   background: color-mix(in srgb, var(--color-primary) 60%, transparent);
 }
-html[data-portal-style="oreui"] input[type="range"]::-moz-range-thumb,
 html[data-portal-style="quadral"] input[type="range"]::-moz-range-thumb {
   width: 14px;
   height: 20px;
@@ -1963,47 +2091,96 @@ html[data-portal-style="quadral"] input[type="range"]::-moz-range-thumb {
   border: 1px solid #4c4c49;
   box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.85), inset 0 -3px 0 rgba(0, 0, 0, 0.35);
 }
-html[data-portal-style="oreui"] input[type="range"]:focus-visible,
 html[data-portal-style="quadral"] input[type="range"]:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 3px;
 }
 
-/* Пиксельные иконки (Bedrock): острые углы и жирный штрих */
-html[data-portal-style="oreui"] svg.lucide,
+/* Пиксельные иконки quadral: острые углы и жирный штрих.
+   OreUI идёт обычными векторными иконками — растрировать lucide-иконки
+   через crisp-edges/pixelated ломает сглаживание. */
 html[data-portal-style="quadral"] svg.lucide {
   stroke-linecap: butt;
   stroke-linejoin: miter;
   stroke-width: 2.4;
 }
-html[data-portal-style="oreui"] svg,
 html[data-portal-style="quadral"] svg {
   image-rendering: crisp-edges;
 }
-html[data-portal-style="oreui"] img,
 html[data-portal-style="quadral"] img {
   image-rendering: pixelated;
 }
 
-/* OreUI: плотная тема без стекла — OLED → чистый чёрный, остальные темы → белый как в OreUI */
-/* OreUI: единая тёмная (почти чёрная) схема на любой теме.
-   Белый режим и пиксельные заголовки отменены: белый экран ломал окно
-   (вспышка до первого рендера), а Press Start 2P растягивал заголовки
-   и сжимал раскладку. Токены применяются всегда, без привязки к data-theme. */
+/* ═══════════════════════════════════════════════════════════════════════
+   ORE-UI: палитра и компонентные токены реальной дизайн-системы OreUI.
+   Снято с референса (Design System / Button states / Modal / Checkbox /
+   Slider / Toggle / Tooltip): графитовые панели на почти чёрном фоне,
+   жёсткий контур 2px, зелёный primary, светло-серая вторичка, красный
+   destructive, белая рамка фокуса. Никакого OLED-чёрного и глянца.
+   Токены применяются всегда, без привязки к data-theme.
+   ═══════════════════════════════════════════════════════════════════════ */
 html[data-portal-style="oreui"] {
-  --color-bg: #050505 !important;
-  --color-surface: #0a0a0a !important;
-  --color-surface-2: #121212 !important;
-  --color-surface-hover: #181818 !important;
-  --color-surface-active: #1e1e1e !important;
-  --color-border: #1d1d1d !important;
-  --color-border-strong: #2e2e2e !important;
-  --color-text: #e8e8e8 !important;
-  --color-text-secondary: #9b9ba3 !important;
-  --color-text-tertiary: #6e6e78 !important;
-  --ore-dark-2: #131317;
-  --ore-line: rgba(255, 255, 255, 0.10);
-  --ore-slider-track: #0e0e10;
+  /* Поверхности: окно почти чёрное, панели графитовые */
+  --color-bg: #1e1e1e !important;
+  --color-surface: #3a3a3a !important;
+  --color-surface-2: #454545 !important;
+  --color-surface-hover: #4a4a4a !important;
+  --color-surface-active: #333333 !important;
+  --color-border: #2a2a2a !important;
+  --color-border-strong: #101010 !important;
+  --color-text: #ffffff !important;
+  --color-text-secondary: #d4d4d4 !important;
+  --color-text-tertiary: #9a9a9a !important;
+
+  /* Панели и «шахты» */
+  --ore-panel: #3a3a3a;
+  --ore-panel-hi: #454545;
+  --ore-panel-down: #333333;
+  --ore-well: #2b2b2b;
+  --ore-row: #383838;
+  --ore-text: #ffffff;
+  --ore-text-2: #d4d4d4;
+  --ore-text-3: #9a9a9a;
+  --ore-slider-track: #b4b4b4;
+
+  /* Жёсткий контур + бевел */
+  --ore-outline: #0d0d0d;
+  --ore-outline-off: #6e6e6e;
+  --ore-focus: #ffffff;
+  --ore-radius: 2px;
+  --ore-radius-card: 3px;
+  --ore-bevel: inset 0 2px 0 rgba(255, 255, 255, 0.10), inset 0 -2px 0 rgba(0, 0, 0, 0.45);
+  --ore-bevel-dark: inset 0 2px 0 rgba(255, 255, 255, 0.10), inset 0 -2px 0 rgba(0, 0, 0, 0.45);
+  --ore-bevel-gray: inset 0 2px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 0 rgba(0, 0, 0, 0.35);
+  --ore-bevel-green: inset 0 2px 0 #6ab04c, inset 0 -2px 0 #23500f;
+  --ore-bevel-red: inset 0 2px 0 #c05a52, inset 0 -2px 0 #6b1f19;
+  --ore-bevel-pressed: inset 0 2px 0 rgba(0, 0, 0, 0.30);
+
+  /* Акценты */
+  --ore-green: #3a8527;
+  --ore-green-hi: #4c9e2f;
+  --ore-gray: #c6c6c6;
+  --ore-gray-hi: #d8d8d8;
+  --ore-gray-ink: #1a1a1a;
+  --ore-gray-off: #b4b4b4;
+  --ore-gray-off-ink: #8f8f8f;
+  --ore-red: #a03028;
+  --ore-red-hi: #c03c33;
+  --ore-blue: #2f5fd0;
+  --ore-yellow: #f5d442;
+
+  /* Скругления темы — компактные, как в референсе */
+  --radius-button: 2px;
+  --radius-card: 3px;
+  --radius-modal: 3px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 3px;
+
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+
   --portal-glass-blur: 0px;
   --portal-glass-panel: rgba(0, 0, 0, 0);
   --portal-glass-panel-strong: rgba(0, 0, 0, 0);
@@ -2012,7 +2189,7 @@ html[data-portal-style="oreui"] {
   --portal-glass-shadow: rgba(0, 0, 0, 0.65);
 }
 html[data-portal-style="oreui"] body {
-  background: #050505 !important;
+  background: #1e1e1e !important;
 }
 /* запрет стекла/размытия везде во время OreUI */
 html[data-portal-style="oreui"] *,
@@ -2023,8 +2200,31 @@ html[data-portal-style="oreui"] *::after {
 }
 /* плотные тёмные панели и модалки без стекла */
 html[data-portal-style="oreui"] :is([role="dialog"], dialog, .soft-surface, .object-frame, .new-ui-header, .new-ui-footer, .portal-glass-surface) {
-  background: #0a0a0a !important;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+  background: var(--ore-panel) !important;
+  border: 2px solid var(--ore-outline) !important;
+  box-shadow: none !important;
+}
+
+/* ── Всплывающие подсказки (tooltip) ──
+   В референсе это плотная синяя плашка с чёрным контуром и «хвостиком». */
+html[data-portal-style="oreui"] [role="tooltip"] {
+  background: var(--ore-blue) !important;
+  color: #fff !important;
+  border: 2px solid var(--ore-outline) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  font-weight: 700;
+}
+html[data-portal-style="oreui"] [role="tooltip"]::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 12px;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 8px solid var(--ore-blue);
 }
 
 /* --- Анимации сообщений OpenPortal (появление блоков + каретка стриминга) --- */

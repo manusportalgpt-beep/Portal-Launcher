@@ -304,6 +304,22 @@ fn extract_neoforge_version_from_id(profile_id: &str) -> Option<String> {
     None
 }
 
+/// Новая модель NeoForge (1.21.5+): установщик кладёт игру в отдельный
+/// артефакт `net/neoforged/minecraft-client-patched/<ver>/minecraft-client-patched-<ver>.jar`,
+/// а universal.jar несёт только код NeoForge. Если этот файл существует, то
+/// официальный profile json НЕ перечисляет universal на classpath — FML
+/// находит и патченную игру, и neoforge-мод сам по `-DlibraryDirectory` и
+/// `--fml.*` (production-путь GameLocator).
+fn neoform_patched_client_jar_exist(neoforge_version: &str) -> bool {
+    crate::commands::version_manager::libraries_dir()
+        .join("net")
+        .join("neoforged")
+        .join("minecraft-client-patched")
+        .join(neoforge_version)
+        .join(format!("minecraft-client-patched-{}.jar", neoforge_version))
+        .is_file()
+}
+
 fn include_neoforge_runtime(profile: &mut serde_json::Value) {
     let Some(version) = profile["id"]
         .as_str()
@@ -323,34 +339,45 @@ fn include_neoforge_runtime(profile: &mut serde_json::Value) {
     let neoforge_base = crate::commands::version_manager::libraries_dir()
         .join("net").join("neoforged").join("neoforge").join(&version);
 
-    // Always include the universal system-mod — it carries the NeoForge launch
-    // layer and must be on the classpath even when the profile omits it.
-    let universal = format!("net.neoforged:neoforge:{version}:universal");
-    let has_universal = libraries.iter().any(|library| {
-        library["name"]
-            .as_str()
-            .map(|name| name.trim_end_matches("@jar") == universal)
-            .unwrap_or(false)
-    });
-    if !has_universal {
-        let universal_jar = neoforge_base.join(format!("neoforge-{version}-universal.jar"));
-        let downloads = if universal_jar.is_file() {
-            Some(serde_json::json!({
-                "artifact": {
-                    "path": format!("net/neoforged/neoforge/{version}/neoforge-{version}-universal.jar"),
-                    "url": format!("https://maven.neoforged.net/releases/net/neoforged/neoforge/{version}/neoforge-{version}-universal.jar"),
-                    "size": std::fs::metadata(&universal_jar).map(|m| m.len()).unwrap_or(0),
-                }
-            }))
-        } else { None };
-        let mut entry = serde_json::json!({
-            "name": universal,
-            "url": "https://maven.neoforged.net/releases/"
+    // В новой модели (патченная игра отдельным артефактом) universal на
+    // classpath НЕ добавляем: попадание universal.jar в java.class.path
+    // заставляет FML выбрать joined-конфиг («Detected a joined NeoForge and
+    // Minecraft configuration»), где обычная production-игра на classpath
+    // не найдена — отсюда «The patched Minecraft jar is missing.» либо ошибка
+    // NeoForge dev dist-cleaner. Официальный version.json для этих версий
+    // universal вообще не перечисляет.
+    let new_model = neoform_patched_client_jar_exist(&version);
+    if !new_model {
+        // Always include the universal system-mod — it carries the NeoForge
+        // launch layer and must be on the classpath even when the profile omits
+        // it (classic lines, where the game lives inside the universal jar).
+        let universal = format!("net.neoforged:neoforge:{version}:universal");
+        let has_universal = libraries.iter().any(|library| {
+            library["name"]
+                .as_str()
+                .map(|name| name.trim_end_matches("@jar") == universal)
+                .unwrap_or(false)
         });
-        if let Some(dl) = downloads {
-            entry["downloads"] = dl;
+        if !has_universal {
+            let universal_jar = neoforge_base.join(format!("neoforge-{version}-universal.jar"));
+            let downloads = if universal_jar.is_file() {
+                Some(serde_json::json!({
+                    "artifact": {
+                        "path": format!("net/neoforged/neoforge/{version}/neoforge-{version}-universal.jar"),
+                        "url": format!("https://maven.neoforged.net/releases/net/neoforged/neoforge/{version}/neoforge-{version}-universal.jar"),
+                        "size": std::fs::metadata(&universal_jar).map(|m| m.len()).unwrap_or(0),
+                    }
+                }))
+            } else { None };
+            let mut entry = serde_json::json!({
+                "name": universal,
+                "url": "https://maven.neoforged.net/releases/"
+            });
+            if let Some(dl) = downloads {
+                entry["downloads"] = dl;
+            }
+            libraries.insert(0, entry);
         }
-        libraries.insert(0, entry);
     }
 
     // NeoForge 1.21.5+ may produce a patched client JAR (:client classifier)

@@ -237,6 +237,23 @@ fn neoforge_patched_client_jar(version: &serde_json::Value) -> Option<PathBuf> {
     path.is_file().then_some(path)
 }
 
+/// Новая модель NeoForge (1.21.5+): игра живёт в отдельном артефакте
+/// `net/neoforged/minecraft-client-patched/<ver>/minecraft-client-patched-<ver>.jar`,
+/// а universal.jar несёт только код NeoForge. Возвращает путь к патченной игре,
+/// если установщик её создал. В этой модели официальный запуск не кладёт на
+/// java.class.path ни патченную игру, ни universal.jar — FML находит оба сам
+/// по `-DlibraryDirectory` и `--fml.*` (production-путь GameLocator).
+fn neoforge_new_model_client_jar(version: &serde_json::Value) -> Option<PathBuf> {
+    let nfv = neoforge_version_component(version)?;
+    let path = libraries_dir()
+        .join("net")
+        .join("neoforged")
+        .join("minecraft-client-patched")
+        .join(&nfv)
+        .join(format!("minecraft-client-patched-{nfv}.jar"));
+    path.is_file().then_some(path)
+}
+
 /// Годовая линия NeoForge (25.1/26.x): universal.jar несёт только код
 /// NeoForge и НЕ заменяет патченный Minecraft. В классической линии
 /// (1.20.1/1.21.x) игра живёт внутри universal/mc-slim артефакта.
@@ -311,10 +328,22 @@ fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
     }
     let jar = version_jar_path(mc_id);
     let owns_client = neoforge_profile_owns_client_jar(version);
+    // NeoForge новой модели (1.21.5+): minecraft-client-patched-<ver>.jar
+    // существует, universal несёт только NeoForge-код. Официальный запуск НЕ
+    // кладёт на java.class.path ни патченную игру, ни universal.jar — FML сам
+    // локализует оба через -DlibraryDirectory и --fml.* (production-путь
+    // GameLocator). Попадание игрового/universal jar на classpath переводит
+    // FML в joined-конфиг («Detected a joined NeoForge and Minecraft
+    // configuration») и валит запуск: без патченного jar — «The patched
+    // Minecraft jar is missing», с ним — neodev dist-cleaner. Поэтому для
+    // новой модели classpath оставляем ровно тем, что перечисляет profile json.
+    if owns_client && neoforge_new_model_client_jar(version).is_some() {
+        return cp;
+    }
     if let Some(patched) = neoforge_patched_client_jar(version) {
-        // Профили годовой линии (26.x) могут не перечислять `:client` в
-        // libraries — добавляем патченный клиент вручную, чтобы он точно
-        // попал на classpath (иначе «The patched Minecraft jar is missing»).
+        // Классическая линия: profile json может не перечислять `:client` —
+        // добавляем патченный клиент вручную, чтобы он гарантированно попал
+        // на classpath (того ждёт старый FML-механизм joined-конфига).
         let patched_str = patched.to_string_lossy().to_string();
         if !cp.iter().any(|entry| *entry == patched_str) {
             cp.push(patched_str);

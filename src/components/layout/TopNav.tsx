@@ -17,18 +17,16 @@ import { toIconSrc } from '@/lib/icon-src';
 import { CachedPlayerFace } from '@/components/CachedPlayerFace';
 import './portal-sidebar.css';
 
-import { PxIcon, type PixelIconName } from '@/components/icons/PixelIcons';
-
-interface NavItem { to: string; icon: LucideIcon; labelKey: 'home' | 'discover' | 'skins' | 'library' | 'settings' | 'openportal' | 'aternos' | 'lan'; end?: boolean; px?: PixelIconName }
+interface NavItem { to: string; icon: LucideIcon; labelKey: 'home' | 'discover' | 'skins' | 'library' | 'settings' | 'openportal' | 'aternos' | 'lan'; end?: boolean }
 
 const NAV: NavItem[] = [
-  { to: '/home', icon: House, px: 'play', labelKey: 'home', end: true },
-  { to: '/discover', icon: Search, px: 'search', labelKey: 'discover' },
-  { to: '/skins', icon: Shirt, px: 'folder', labelKey: 'skins' },
-  { to: '/library', icon: Boxes, px: 'library', labelKey: 'library' },
-  { to: '/aternos', icon: Server, px: 'server', labelKey: 'aternos' },
-  { to: '/lan', icon: Radio, px: 'radio', labelKey: 'lan' },
-  { to: '/openportal', icon: Bot, px: 'bot', labelKey: 'openportal' },
+  { to: '/home', icon: House, labelKey: 'home', end: true },
+  { to: '/discover', icon: Search, labelKey: 'discover' },
+  { to: '/skins', icon: Shirt, labelKey: 'skins' },
+  { to: '/library', icon: Boxes, labelKey: 'library' },
+  { to: '/aternos', icon: Server, labelKey: 'aternos' },
+  { to: '/lan', icon: Radio, labelKey: 'lan' },
+  { to: '/openportal', icon: Bot, labelKey: 'openportal' },
 ];
 
 function orderedNav(order: string[]) {
@@ -65,18 +63,15 @@ function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem
             style={{ zIndex:-1, transitionDuration:`${navHoverMs}ms`, border:'1px solid var(--color-border-strong)', borderRadius:interactionRadius, background:'var(--color-surface-hover)', willChange:'opacity' }} />}
           <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-100 group-active:opacity-100"
             style={{ zIndex:-1, border:'1px solid var(--color-primary)', borderRadius: interactionRadius, background:'transparent', willChange:'opacity' }} />
-          {item.px
-            ? <PxIcon name={item.px} width={16} height={16} className="relative shrink-0"
-              style={{ color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)' }} />
-            : <Icon size={16} strokeWidth={2} shapeRendering="geometricPrecision" vectorEffect="non-scaling-stroke" className="relative shrink-0" style={{
-              position: 'relative',
-              color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-              filter: 'none',
-              opacity: 1,
-              transform: 'translateZ(0)',
-              backfaceVisibility: 'hidden',
-              WebkitFontSmoothing: 'antialiased',
-            }} />}
+          <Icon size={16} strokeWidth={2} shapeRendering="geometricPrecision" vectorEffect="non-scaling-stroke" className="relative shrink-0" style={{
+            position: 'relative',
+            color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+            filter: 'none',
+            opacity: 1,
+            transform: 'translateZ(0)',
+            backfaceVisibility: 'hidden',
+            WebkitFontSmoothing: 'antialiased',
+          }} />
           {(showLabel || revealLabelOnHover) && <span className={`nav-dock-label relative whitespace-nowrap text-xs font-bold ${showLabel ? 'flex-1' : 'max-w-0 overflow-hidden opacity-0 transition-[max-width,opacity] group-hover:max-w-28 group-hover:opacity-100'}`} style={{ transitionDuration: revealLabelOnHover ? `${navHoverMs}ms` : undefined, color:'var(--color-text-secondary)', transform: 'translateZ(0)', backfaceVisibility: 'hidden', WebkitFontSmoothing: 'antialiased' }}>{label}</span>}
         </>
       )}
@@ -102,7 +97,7 @@ function PortalSidebarItem({ item, scale = 100 }: { item: NavItem; scale?: numbe
       {({ isActive }) => (
         <>
           <span className="ps-nav-icon" style={{ color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
-            {item.px ? <PxIcon name={item.px} width={15} height={15} /> : <Icon size={15} strokeWidth={2} />}
+            <Icon size={15} strokeWidth={2} />
           </span>
           <span className="ps-nav-label">{label}</span>
           <ChevronRight size={13} className="ps-nav-chev" style={{ color: 'var(--color-primary)' }} />

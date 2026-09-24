@@ -175,7 +175,7 @@ export function LanPage() {
   const visible = useMemo(() => {
     const needle = filter.trim().toLowerCase();
     if (!needle) return instances;
-    return instances.filter(i => `${i.name} ${i.minecraftVersion} ${i.modLoader}`.toLowerCase().includes(needle));
+    return instances.filter(i => `${i.name} ${i.mc_version} ${i.loader}`.toLowerCase().includes(needle));
   }, [filter, instances]);
 
   const openCount = instances.filter(i => i.id).length;
@@ -231,7 +231,7 @@ export function LanPage() {
         <div className="flex flex-col gap-3 pb-6">
           {visible.map(instance => (
             <LanRow key={instance.id} instanceId={instance.id} name={instance.name}
-              version={instance.minecraftVersion} loader={instance.modLoader} />
+              version={instance.mc_version} loader={instance.loader} />
           ))}
         </div>
       )}

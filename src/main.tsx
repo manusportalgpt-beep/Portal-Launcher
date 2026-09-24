@@ -6,7 +6,12 @@ import App from './App';
 import './index.css';
 import './i18n';
 import { playClick, playNav } from './lib/soundEngine';
+import { initRangeFill } from './lib/range-fill';
 import { useSettingsStore } from './stores/settingsStore';
+
+// Заливка ползунков (зелёным только до бегунка, дальше серый) — WebKit
+// не умеет рисовать заполненную часть сам, значение прокидывается в CSS.
+initRangeFill();
 
 // Global UI sounds — fires on every button/link click when uiSounds is enabled
 document.addEventListener('click', (e) => {

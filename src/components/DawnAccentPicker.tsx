@@ -62,9 +62,15 @@ export function DawnAccentPicker() {
               title={c.label}
               className="relative h-8 w-8 shrink-0 rounded-xl transition-all duration-150"
               style={{
-                background: `linear-gradient(180deg, color-mix(in srgb, ${c.color} 76%, #fff) 0%, ${c.color} 45%, ${c.color} 55%, color-mix(in srgb, ${c.color} 52%, #000) 100%)`,
+                // Раньше здесь был градиент через color-mix(). Если движок не
+                // поддерживает color-mix, всё значение background отбрасывается
+                // и свотч остаётся пустым — поэтому здесь простой сплошной цвет,
+                // а «объём» даётся тенью.
+                background: c.color,
                 border: isActive ? '2px solid var(--color-bg)' : '2px solid transparent',
-                boxShadow: isActive ? `0 0 0 2px ${c.color}` : 'none',
+                boxShadow: isActive
+                  ? `0 0 0 2px ${c.color}, inset 0 2px 0 rgba(255,255,255,.28), inset 0 -2px 0 rgba(0,0,0,.3)`
+                  : 'inset 0 2px 0 rgba(255,255,255,.22), inset 0 -2px 0 rgba(0,0,0,.3)',
               }}
             >
               {isActive && (

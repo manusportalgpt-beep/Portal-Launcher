@@ -1794,16 +1794,18 @@ html[data-portal-style="oreui"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-pl
 html[data-portal-style="oreui"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="md"] { font-size: 13px; padding: 11px 18px; }
 html[data-portal-style="oreui"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play)[data-size="lg"] { font-size: 14px; padding: 14px 22px; }
 
-/* вторичная кнопка: светло-серая, тёмный текст (как в референсе) */
+/* вторичная кнопка: тёмно-серая панель. Раньше была светло-серая (#c6c6c6) с
+   hover до #d8d8d8 — на тёмном интерфейсе это читалось как «кнопка стала
+   слишком белой». Теперь база тёмная, а hover лишь слегка светлеет. */
 html[data-portal-style="oreui"] .dbtn {
-  background: var(--ore-gray) !important;
-  color: var(--ore-gray-ink) !important;
+  background: #2e2e2e !important;
+  color: #dedcd4 !important;
   border-color: var(--ore-outline) !important;
-  box-shadow: var(--ore-bevel-gray) !important;
+  box-shadow: var(--ore-bevel) !important;
 }
 html[data-portal-style="oreui"] .dbtn:not(.dbtn-primary):not(.dbtn-play):not(.dbtn-accent):not(.dbtn-danger):hover {
-  background: var(--ore-gray-hi) !important;
-  box-shadow: var(--ore-bevel-gray) !important;
+  background: #3d3d3d !important;
+  box-shadow: var(--ore-bevel) !important;
 }
 
 /* ghost: тёмная панель, белая подпись */
@@ -2202,11 +2204,15 @@ html[data-portal-style="oreui"] input[type="range"] {
 html[data-portal-style="oreui"] input[type="range"]::-webkit-slider-runnable-track {
   height: 14px;
   border-radius: 0;
+  /* Зелёная заливка только до текущего значения (--ore-range-pct ставит
+     lib/range-fill.ts), после — серый трек. Раньше здесь был repeating-gradient
+     на всю длину, из-за чего ползунок выглядел полностью зелёным. */
   background:
-    repeating-linear-gradient(90deg, var(--ore-green) 0 18px, transparent 18px 22px);
-  background-color: var(--ore-gray-off);
+    linear-gradient(90deg,
+      var(--ore-green) 0 var(--ore-range-pct, 50%),
+      #4a4a4a var(--ore-range-pct, 50%) 100%);
   border: 2px solid var(--ore-outline) !important;
-  box-shadow: var(--ore-bevel-gray) !important;
+  box-shadow: var(--ore-bevel) !important;
 }
 html[data-portal-style="oreui"] input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -2215,24 +2221,24 @@ html[data-portal-style="oreui"] input[type="range"]::-webkit-slider-thumb {
   height: 26px;
   margin-top: -8px;
   border-radius: 0;
-  background: var(--ore-gray) !important;
+  background: #3d3d3d !important;
   border: 2px solid var(--ore-outline) !important;
-  box-shadow: var(--ore-bevel-gray) !important;
+  box-shadow: var(--ore-bevel) !important;
   cursor: pointer;
   transition: background-color 90ms linear, transform 60ms linear, box-shadow 60ms linear;
 }
-html[data-portal-style="oreui"] input[type="range"]:hover::-webkit-slider-thumb { background: var(--ore-gray-hi) !important; }
+html[data-portal-style="oreui"] input[type="range"]:hover::-webkit-slider-thumb { background: #4d4d4d !important; }
 html[data-portal-style="oreui"] input[type="range"]:active::-webkit-slider-thumb {
-  background: var(--ore-gray-hi) !important;
+  background: #4d4d4d !important;
   transform: translateY(2px);
   box-shadow: var(--ore-bevel-pressed) !important;
 }
 html[data-portal-style="oreui"] input[type="range"]::-moz-range-track {
   height: 14px;
   border-radius: 0;
-  background: var(--ore-gray-off);
+  background: #4a4a4a;
   border: 2px solid var(--ore-outline);
-  box-shadow: var(--ore-bevel-gray);
+  box-shadow: var(--ore-bevel);
 }
 html[data-portal-style="oreui"] input[type="range"]::-moz-range-progress {
   height: 14px;
@@ -2243,9 +2249,9 @@ html[data-portal-style="oreui"] input[type="range"]::-moz-range-thumb {
   width: 20px;
   height: 26px;
   border-radius: 0;
-  background: var(--ore-gray);
+  background: #3d3d3d;
   border: 2px solid var(--ore-outline);
-  box-shadow: var(--ore-bevel-gray);
+  box-shadow: var(--ore-bevel);
   cursor: pointer;
 }
 html[data-portal-style="oreui"] input[type="range"]:focus-visible {
@@ -2378,13 +2384,18 @@ html[data-portal-style="oreui"] {
   --ore-bevel: inset 0 2px 0 rgba(255, 255, 255, 0.10), inset 0 -2px 0 rgba(0, 0, 0, 0.45);
   --ore-bevel-dark: inset 0 2px 0 rgba(255, 255, 255, 0.10), inset 0 -2px 0 rgba(0, 0, 0, 0.45);
   --ore-bevel-gray: inset 0 2px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 0 rgba(0, 0, 0, 0.35);
-  --ore-bevel-green: inset 0 2px 0 #6ab04c, inset 0 -2px 0 #23500f;
+  --ore-bevel-green: inset 0 2px 0 var(--ore-green-bevel, #6ab04c), inset 0 -2px 0 var(--ore-green-dark, #23500f);
   --ore-bevel-red: inset 0 2px 0 #c05a52, inset 0 -2px 0 #6b1f19;
   --ore-bevel-pressed: inset 0 2px 0 rgba(0, 0, 0, 0.30);
 
-  /* Акценты */
-  --ore-green: #3a8527;
-  --ore-green-hi: #4c9e2f;
+  /* Акценты. Зелёный жёстко не зашит: он следует за --color-primary,
+     который выставляет движок тем / выбор акцента. Раньше здесь стоял
+     фиксированный #3a8527, из-за чего выбранный пользователем цвет не
+     отображался нигде — пикер менял токен, а кнопки его не использовали. */
+  --ore-green: var(--color-primary, #3a8527);
+  --ore-green-hi: color-mix(in srgb, var(--color-primary, #3a8527) 84%, #ffffff);
+  --ore-green-bevel: color-mix(in srgb, var(--color-primary, #3a8527) 68%, #ffffff);
+  --ore-green-dark: color-mix(in srgb, var(--color-primary, #3a8527) 55%, #000000);
   --ore-gray: #c6c6c6;
   --ore-gray-hi: #d8d8d8;
   --ore-gray-ink: #1a1a1a;

@@ -158,13 +158,53 @@ fn list_content_files(instance_dir: &Path) -> Vec<(PathBuf, String, String, Stri
 async fn lookup_modrinth_by_hash(client: &reqwest::Client, sha1: &str) -> Option<ModrinthFileResult> {
     let resp = client.get(format!("https://api.modrinth.com/v2/version_file/{sha1}?algorithm=sha1"))
         .header("User-Agent", USER_AGENT)
-        .timeout(std::time::Duration::from_secs(8))
+        .timeout(std::time::Duration::from_secs(6))
         .send().await.ok()?;
     if !resp.status().is_success() { return None; }
     let data: serde_json::Value = resp.json().await.ok()?;
     let project_id = data.get("project_id")?.as_str()?;
     let version_id = data.get("id")?.as_str()?;
     Some(ModrinthFileResult { project_id: Some(project_id.to_string()), version_id: Some(version_id.to_string()) })
+}
+
+/// Пакетный поиск по хешам Modrinth с ограниченной параллельностью.
+///
+/// Раньше каждый файл опрашивался последовательно с таймаутом 8 секунд, поэтому
+/// при недоступном api.modrinth.com сборка из 400 файлов висела около часа и
+/// выглядела как бесконечная загрузка. Теперь запросы идут пачками по 16 и весь
+/// этап ограничен 60 секундами: недоступный Modrinth просто оставит файлы
+/// «hosted» (они уедут на сервер как есть), и share перестанет висеть.
+async fn lookup_modrinth_hashes(
+    client: &reqwest::Client,
+    hashes: Vec<String>,
+) -> HashMap<String, ModrinthFileResult> {
+    use futures::stream::StreamExt;
+
+    let mut found: HashMap<String, ModrinthFileResult> = HashMap::new();
+    if hashes.is_empty() { return found; }
+
+    let work = futures::stream::iter(hashes.into_iter().map(|sha1| {
+        let client = client.clone();
+        async move {
+            let hit = lookup_modrinth_by_hash(&client, &sha1).await;
+            (sha1, hit)
+        }
+    }))
+    .buffer_unordered(16);
+
+    let collected = tokio::time::timeout(
+        std::time::Duration::from_secs(60),
+        work.filter_map(|pair| async move { pair.1.map(|hit| (pair.0, hit)) })
+            .collect::<Vec<_>>(),
+    )
+    .await;
+
+    if let Ok(items) = collected {
+        for (sha1, hit) in items {
+            found.insert(sha1, hit);
+        }
+    }
+    found
 }
 
 /// Пакетный поиск CurseForge fingerprint через our-site proxy
@@ -231,61 +271,75 @@ pub async fn share_instance(
         .build()
         .map_err(|e| e.to_string())?;
 
-    let minecraft_dir = instance_dir.join(".minecraft");
     let mut share_files: Vec<ShareFile> = Vec::new();
     let mut hosted_bytes: u64 = 0;
 
+    // Шаг 1: читаем и хешируем файлы локально (быстро).
+    // Шаг 2: одним параллельным пакетом спрашиваем Modrinth по всем хешам.
+    // Раньше запрос на каждый файл шёл последовательно с таймаутом 8 секунд, и
+    // при недоступном api.modrinth.com сборка из 400 файлов висела около часа —
+    // это и выглядело как бесконечная загрузка без ссылки.
+    struct PendingFile {
+        full_path: std::path::PathBuf,
+        ct: String,
+        filename: String,
+        display_name: String,
+        version: String,
+        sha1: String,
+        size: u64,
+    }
+
+    let mut pending: Vec<PendingFile> = Vec::with_capacity(listed.len());
     for (i, (full_path, ct, filename, display_name, version)) in listed.iter().enumerate() {
         app.emit("share-progress", serde_json::json!({
             "phase": "hash", "current": i + 1, "total": total, "filename": filename
         })).ok();
 
         let bytes = match std::fs::read(full_path) { Ok(b) => b, Err(_) => continue };
-        let sha1 = sha1_hex(&bytes);
-        let size = bytes.len() as u64;
+        pending.push(PendingFile {
+            full_path: full_path.clone(),
+            ct: ct.clone(),
+            filename: filename.clone(),
+            display_name: display_name.clone(),
+            version: version.clone(),
+            sha1: sha1_hex(&bytes),
+            size: bytes.len() as u64,
+        });
+    }
 
-        // Ищем на Modrinth
-        let mut project_id: Option<String> = None;
-        let mut version_id: Option<String> = None;
+    app.emit("share-progress", serde_json::json!({
+        "phase": "lookup", "current": 0, "total": pending.len()
+    })).ok();
 
-        if let Some(mr) = lookup_modrinth_by_hash(&client, &sha1).await {
-            project_id = mr.project_id;
-            version_id = mr.version_id;
-        }
+    let hashes: Vec<String> = pending.iter().map(|f| f.sha1.clone()).collect();
+    let modrinth_hits = lookup_modrinth_hashes(&client, hashes).await;
 
-        // Если не нашли на Modrinth — CurseForge fingerprint (упрощённо, через_CURSEFORGE_FINGERPRINT_5.0)
-        if project_id.is_none() {
-            // CurseForge fingerprint: xxHash64 (MurmurHash2 64-bit). В Tauri нет встроенного —
-            // пропускаем для простоты. Файлы CurseForge будут загружены как hosted.
-            // Полная поддержка CurseForge fingerprint добавляется отдельным PR.
-        }
+    for file in pending {
+        let project_id: Option<String> = modrinth_hits.get(&file.sha1).and_then(|m| m.project_id.clone());
+        let version_id: Option<String> = modrinth_hits.get(&file.sha1).and_then(|m| m.version_id.clone());
 
+        // Нет на Modrinth (или поиск не успел) — файл уходит на сервер как hosted.
         let is_hosted = project_id.is_none();
         if is_hosted {
-            hosted_bytes += size;
+            hosted_bytes += file.size;
             if hosted_bytes > MAX_HOSTED_BYTES {
                 return Err(format!("Файлы для загрузки на сервер превышают лимит (>{:.0} MB)", MAX_HOSTED_BYTES as f64 / 1_048_576.0));
             }
         }
 
-        // Путь относительно .minecraft (mods/foo.jar, resourcepacks/bar.zip)
-        let relative_path = full_path.strip_prefix(&minecraft_dir)
-            .unwrap_or(full_path)
-            .to_string_lossy().to_string();
-
         share_files.push(ShareFile {
             file_id: random_file_id(),
-            content_type: ct.clone(),
-            filename: filename.clone(),
-            enabled: *ct == "mod" || true, // enabled info from filename
-            name: display_name.clone(),
-            version: version.clone(),
-            sha1,
-            size,
+            content_type: file.ct,
+            filename: file.filename,
+            enabled: true,
+            name: file.display_name,
+            version: file.version,
+            sha1: file.sha1,
+            size: file.size,
             project_id: project_id.clone(),
             version_id: version_id.clone(),
             hosted: if is_hosted { Some(true) } else { None },
-            full_path: Some(full_path.to_string_lossy().to_string()),
+            full_path: Some(file.full_path.to_string_lossy().to_string()),
         });
     }
 
@@ -361,7 +415,10 @@ pub async fn share_instance(
     let upload_resp = upload_client.post(&upload_url)
         .header("User-Agent", USER_AGENT)
         .multipart(form)
-        .timeout(std::time::Duration::from_secs(10 * 60))
+        // 4 минуты вместо 10: при недоступном сервере раньше окно «загрузки»
+        // висело десять минут, теперь пользователь получает ошибку и ссылку
+        // можно повторить, а не ждать.
+        .timeout(std::time::Duration::from_secs(4 * 60))
         .send().await
         .map_err(|e| format!("Upload failed: {e}"))?;
 

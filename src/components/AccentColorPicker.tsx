@@ -57,9 +57,14 @@ export function AccentColorPicker() {
               title={c.label}
               className="relative h-8 w-8 shrink-0 rounded-xl transition-all duration-150"
               style={{
-                background: `linear-gradient(180deg, color-mix(in srgb, ${c.color} 72%, #fff) 0%, ${c.color} 45%, color-mix(in srgb, ${c.color} 55%, #000) 100%)`,
+                // Сплошной цвет вместо градиента на color-mix(): если движок не
+                // поддерживает color-mix, значение background отбрасывается и
+                // свотч выглядит пустым.
+                background: c.color,
                 border: isActive ? '2px solid var(--color-bg)' : '2px solid transparent',
-                boxShadow: isActive ? `0 0 0 2px ${c.color}` : 'none',
+                boxShadow: isActive
+                  ? `0 0 0 2px ${c.color}, inset 0 2px 0 rgba(255,255,255,.28), inset 0 -2px 0 rgba(0,0,0,.3)`
+                  : 'inset 0 2px 0 rgba(255,255,255,.22), inset 0 -2px 0 rgba(0,0,0,.3)',
               }}
             >
               {isActive && (

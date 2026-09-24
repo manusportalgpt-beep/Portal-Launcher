@@ -16,11 +16,10 @@ const SETUP_KEY = 'portal-first-launch-complete-v1';
 const THEME_CHOICES: Array<{ id: ThemeId; label: string; preview: string }> = [
   { id: 'dark', label: 'Тёмная', preview: 'linear-gradient(135deg, #16161A, #26262C)' },
   { id: 'oled', label: 'OLED', preview: 'linear-gradient(135deg, #000000, #141414)' },
-  { id: 'light', label: 'Светлая', preview: 'linear-gradient(135deg, #FFFFFF, #F1F3F5)' },
 ];
 
 const STYLE_THEME: Record<StylePreset, ThemeId> = {
-  oreui: 'dark', standard: 'dark', glass: 'dark', quadral: 'dark', falloff: 'oled', abouts: 'light',
+  oreui: 'dark', standard: 'dark', glass: 'dark', quadral: 'dark', falloff: 'oled', abouts: 'dark',
 };
 
 const INSTALL_CONFIRMATIONS: Array<{ question: string; yesLabel: string; noLabel: string }> = [

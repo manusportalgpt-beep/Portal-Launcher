@@ -37,6 +37,7 @@ import { DialogHost } from '@/components/DialogHost';
 import { SettingsOverlay } from '@/components/SettingsOverlay';
 import { OpenPortalPage } from '@/pages/OpenPortalPage';
 import { AternosPage } from '@/pages/AternosPage';
+import { LanPage } from '@/pages/LanPage';
 import { FileToastHost } from '@/components/ai/FileToast';
 import { UpdateChecker } from '@/components/UpdateChecker';
 import { BackgroundMusicPlayer } from '@/components/BackgroundMusicPlayer';
@@ -226,6 +227,7 @@ function App() {
             <Route path="/settings/extended" element={<ExtendedSettings />} />
             <Route path="/openportal" element={<OpenPortalPage />} />
             <Route path="/aternos" element={<AternosPage />} />
+            <Route path="/lan" element={<LanPage />} />
           </Routes>
           <BottomProgressBar />
         </LayoutRouter>

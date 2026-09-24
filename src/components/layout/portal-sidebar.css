@@ -1,17 +1,17 @@
-/* ═══════════════════════════════════════════════════════════════════════
-   PORTAL SKIN — стандартная боковая панель в чёрно-красной портальной теме.
-   Полностью изолирована в .portal-skin: Notch-панель и остальной интерфейс
-   не меняются. Критичные правила используют #root + !important, чтобы
-   побеждать пресеты (glass/clean/modern/standard) независимо от порядка
-   импорта и специфичности селекторов index.css.
-   ═══════════════════════════════════════════════════════════════════════ */
+﻿/* в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+   PORTAL SKIN вЂ” СЃС‚Р°РЅРґР°СЂС‚РЅР°СЏ Р±РѕРєРѕРІР°СЏ РїР°РЅРµР»СЊ РІ С‡С‘СЂРЅРѕ-РєСЂР°СЃРЅРѕР№ РїРѕСЂС‚Р°Р»СЊРЅРѕР№ С‚РµРјРµ.
+   РџРѕР»РЅРѕСЃС‚СЊСЋ РёР·РѕР»РёСЂРѕРІР°РЅР° РІ .portal-skin: Notch-РїР°РЅРµР»СЊ Рё РѕСЃС‚Р°Р»СЊРЅРѕР№ РёРЅС‚РµСЂС„РµР№СЃ
+   РЅРµ РјРµРЅСЏСЋС‚СЃСЏ. РљСЂРёС‚РёС‡РЅС‹Рµ РїСЂР°РІРёР»Р° РёСЃРїРѕР»СЊР·СѓСЋС‚ #root + !important, С‡С‚РѕР±С‹
+   РїРѕР±РµР¶РґР°С‚СЊ РїСЂРµСЃРµС‚С‹ (glass/clean/modern/standard) РЅРµР·Р°РІРёСЃРёРјРѕ РѕС‚ РїРѕСЂСЏРґРєР°
+   РёРјРїРѕСЂС‚Р° Рё СЃРїРµС†РёС„РёС‡РЅРѕСЃС‚Рё СЃРµР»РµРєС‚РѕСЂРѕРІ index.css.
+   в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ */
 
 .portal-skin {
   --ps-accent: #4a90e2;
   --ps-font-ui: 'Space Grotesk', 'Inter', sans-serif;
   --ps-font-display: 'Oswald', 'Space Grotesk', 'Inter', sans-serif;
 
-  /* Сине-графитовая панель под стиль OreUI: не серый, не чёрный */
+  /* РЎРёРЅРµ-РіСЂР°С„РёС‚РѕРІР°СЏ РїР°РЅРµР»СЊ РїРѕРґ СЃС‚РёР»СЊ OreUI: РЅРµ СЃРµСЂС‹Р№, РЅРµ С‡С‘СЂРЅС‹Р№ */
   --color-bg: #0b1220;
   --color-surface: #131d2e;
   --color-surface-2: #1b2840;
@@ -23,9 +23,9 @@
   --color-text-secondary: #A6B4CC;
   --color-text-tertiary: #64748F;
   --color-primary: var(--ps-accent);
-  --color-primary-hover: color-mix(in srgb, var(--ps-accent) 82%, #FFFFFF);
+  --color-primary-hover: color-mix(in srgb, var(--ps-accent) 88%, #ffffff);
   --color-primary-dim: color-mix(in srgb, var(--ps-accent) 15%, transparent);
-  --color-primary-text: #FFFFFF;
+  --color-primary-text: #eae7dc;
 
   --radius-xs: 3px;
   --radius-sm: 5px;
@@ -34,23 +34,23 @@
   --radius-button: 8px;
 }
 
-/* ── Материал панели: побеждает пресеты (glass/clean/modern/standard) ── */
+/* в”Ђв”Ђ РњР°С‚РµСЂРёР°Р» РїР°РЅРµР»Рё: РїРѕР±РµР¶РґР°РµС‚ РїСЂРµСЃРµС‚С‹ (glass/clean/modern/standard) в”Ђв”Ђ */
 #root .portal-skin.portal-sidebar {
   margin: 0 !important;
   border-radius: 0 !important;
   border: 0 !important;
   border-right: 1px solid color-mix(in srgb, var(--ps-accent) 34%, var(--color-border)) !important;
   background: color-mix(in srgb, var(--color-bg) var(--ps-alpha, 96%), transparent) !important;
-  /* backdrop-filter включается только когда у пользователя включён blur
-     (класс .ps-blurred). Постоянный blur(0px)+saturate создавал пожизненный
-     композитинг-слой, из-за которого элементы под панелью мигали при hover. */
+  /* backdrop-filter РІРєР»СЋС‡Р°РµС‚СЃСЏ С‚РѕР»СЊРєРѕ РєРѕРіРґР° Сѓ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РІРєР»СЋС‡С‘РЅ blur
+     (РєР»Р°СЃСЃ .ps-blurred). РџРѕСЃС‚РѕСЏРЅРЅС‹Р№ blur(0px)+saturate СЃРѕР·РґР°РІР°Р» РїРѕР¶РёР·РЅРµРЅРЅС‹Р№
+     РєРѕРјРїРѕР·РёС‚РёРЅРі-СЃР»РѕР№, РёР·-Р·Р° РєРѕС‚РѕСЂРѕРіРѕ СЌР»РµРјРµРЅС‚С‹ РїРѕРґ РїР°РЅРµР»СЊСЋ РјРёРіР°Р»Рё РїСЂРё hover. */
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;
   padding: 10px !important;
   gap: var(--ps-gap, 4px) !important;
 }
-/* Стеклянные блики на фоне панели стандартной теме не нужны */
+/* РЎС‚РµРєР»СЏРЅРЅС‹Рµ Р±Р»РёРєРё РЅР° С„РѕРЅРµ РїР°РЅРµР»Рё СЃС‚Р°РЅРґР°СЂС‚РЅРѕР№ С‚РµРјРµ РЅРµ РЅСѓР¶РЅС‹ */
 #root .portal-skin.portal-sidebar::before { content: none !important; display: none !important; }
 #root .portal-skin.portal-sidebar::after { content: none !important; display: none !important; }
 #root .portal-skin.portal-sidebar.ps-blurred {
@@ -58,7 +58,7 @@
   -webkit-backdrop-filter: blur(var(--ps-blur, 0px)) saturate(1.2) !important;
 }
 
-/* ── Бренд ────────────────────────────────────────────────────────────── */
+/* в”Ђв”Ђ Р‘СЂРµРЅРґ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
 .portal-skin .ps-brand {
   display: flex;
   align-items: center;
@@ -98,7 +98,7 @@
   color: var(--color-text-tertiary);
 }
 
-/* ── Секционные подписи ───────────────────────────────────────────────── */
+/* в”Ђв”Ђ РЎРµРєС†РёРѕРЅРЅС‹Рµ РїРѕРґРїРёСЃРё в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
 .portal-skin .ps-label {
   display: flex;
   align-items: center;
@@ -119,7 +119,7 @@
   background: color-mix(in srgb, var(--ps-accent) 70%, transparent);
 }
 
-/* ── Навигация ────────────────────────────────────────────────────────── */
+/* в”Ђв”Ђ РќР°РІРёРіР°С†РёСЏ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
 .portal-skin .ps-nav {
   display: flex;
   flex-direction: column;
@@ -186,7 +186,7 @@
 .portal-skin .ps-nav-item:hover .ps-nav-chev,
 .portal-skin .ps-nav-item.active .ps-nav-chev { opacity: 1; transform: translateX(0); }
 
-/* ── Быстрый доступ к сборкам ─────────────────────────────────────────── */
+/* в”Ђв”Ђ Р‘С‹СЃС‚СЂС‹Р№ РґРѕСЃС‚СѓРї Рє СЃР±РѕСЂРєР°Рј в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
 .portal-skin .ps-instances {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
@@ -214,11 +214,11 @@
   font-family: var(--ps-font-display);
   font-size: 13px;
   font-weight: 700;
-  color: #fff;
+  color: #dedcd4;
 }
 .portal-skin .ps-inst:disabled { cursor: default; }
 
-/* ── Футер: аккаунт + настройки ───────────────────────────────────────── */
+/* в”Ђв”Ђ Р¤СѓС‚РµСЂ: Р°РєРєР°СѓРЅС‚ + РЅР°СЃС‚СЂРѕР№РєРё в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
 .portal-skin .ps-footer {
   display: flex;
   flex-direction: column;
@@ -257,30 +257,30 @@
   color: var(--color-text-tertiary);
 }
 
-/* Полоса прокрутки портального стиля внутри скролла панели */
+/* РџРѕР»РѕСЃР° РїСЂРѕРєСЂСѓС‚РєРё РїРѕСЂС‚Р°Р»СЊРЅРѕРіРѕ СЃС‚РёР»СЏ РІРЅСѓС‚СЂРё СЃРєСЂРѕР»Р»Р° РїР°РЅРµР»Рё */
 .portal-skin .ps-scroll { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--ps-accent) 40%, transparent) transparent; }
 
-/* Уважение к prefers-reduced-motion */
+/* РЈРІР°Р¶РµРЅРёРµ Рє prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   .portal-skin .ps-nav-item,
   .portal-skin .ps-nav-item .ps-nav-icon,
   .portal-skin .ps-nav-chev { transition: none; }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   SIDEBAR ПОД OREUI. Включается пресетом oreui: сине-графитовая панель,
-   чёрный контур 2px, бевел, нажатие «утопление», активный пункт — зелёный
-   (фирменный акцент OreUI). Базовые правила выше остаются для остальных
-   пресетов (standard/glass/modern/quadral).
-   ═══════════════════════════════════════════════════════════════════════ */
+/* в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+   SIDEBAR РџРћР” OREUI. Р’РєР»СЋС‡Р°РµС‚СЃСЏ РїСЂРµСЃРµС‚РѕРј oreui: СЃРёРЅРµ-РіСЂР°С„РёС‚РѕРІР°СЏ РїР°РЅРµР»СЊ,
+   С‡С‘СЂРЅС‹Р№ РєРѕРЅС‚СѓСЂ 2px, Р±РµРІРµР», РЅР°Р¶Р°С‚РёРµ В«СѓС‚РѕРїР»РµРЅРёРµВ», Р°РєС‚РёРІРЅС‹Р№ РїСѓРЅРєС‚ вЂ” Р·РµР»С‘РЅС‹Р№
+   (С„РёСЂРјРµРЅРЅС‹Р№ Р°РєС†РµРЅС‚ OreUI). Р‘Р°Р·РѕРІС‹Рµ РїСЂР°РІРёР»Р° РІС‹С€Рµ РѕСЃС‚Р°СЋС‚СЃСЏ РґР»СЏ РѕСЃС‚Р°Р»СЊРЅС‹С…
+   РїСЂРµСЃРµС‚РѕРІ (standard/glass/modern/quadral).
+   в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ */
 #root .portal-skin.portal-sidebar {
   border-right: 2px solid #0d0d0d !important;
   box-shadow: inset -2px 0 0 rgba(0, 0, 0, 0.5) !important;
 }
-/* Активный пункт: зелёная плашка в стиле OreUI */
+/* РђРєС‚РёРІРЅС‹Р№ РїСѓРЅРєС‚: Р·РµР»С‘РЅР°СЏ РїР»Р°С€РєР° РІ СЃС‚РёР»Рµ OreUI */
 .portal-skin .ps-nav-item.active {
   background: var(--ore-green, #3a8527) !important;
-  color: #fff !important;
+  color: #dedcd4 !important;
   border-radius: 2px !important;
   box-shadow: inset 0 2px 0 #6ab04c, inset 0 -2px 0 #23500f, 0 0 0 2px #0d0d0d !important;
 }
@@ -288,19 +288,19 @@
 .portal-skin .ps-nav-item.active .ps-nav-icon {
   background: rgba(0, 0, 0, 0.28) !important;
   border-color: rgba(0, 0, 0, 0.5) !important;
-  color: #fff !important;
+  color: #dedcd4 !important;
 }
-.portal-skin .ps-nav-item.active .ps-nav-label { color: #fff !important; }
-.portal-skin .ps-nav-item.active .ps-nav-chev { color: #fff !important; }
+.portal-skin .ps-nav-item.active .ps-nav-label { color: #dedcd4 !important; }
+.portal-skin .ps-nav-item.active .ps-nav-chev { color: #dedcd4 !important; }
 
-/* Неактивные пункты: контур и бевел как у обычных OreUI-кнопок */
+/* РќРµР°РєС‚РёРІРЅС‹Рµ РїСѓРЅРєС‚С‹: РєРѕРЅС‚СѓСЂ Рё Р±РµРІРµР» РєР°Рє Сѓ РѕР±С‹С‡РЅС‹С… OreUI-РєРЅРѕРїРѕРє */
 .portal-skin .ps-nav-item:not(.active) {
   border-radius: 2px !important;
   box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.06), inset 0 -2px 0 rgba(0, 0, 0, 0.4) !important;
 }
 .portal-skin .ps-nav-item:not(.active):hover {
   background: var(--ore-panel-hi, #454545) !important;
-  color: var(--ore-text, #fff) !important;
+  color: var(--ore-text, #dedcd4) !important;
   box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.14), inset 0 -2px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px #0d0d0d !important;
 }
 .portal-skin .ps-nav-item:not(.active):active {
@@ -308,14 +308,14 @@
   box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.3) !important;
 }
 
-/* Иконка пункта: панельная подложка с чёрным контуром */
+/* РРєРѕРЅРєР° РїСѓРЅРєС‚Р°: РїР°РЅРµР»СЊРЅР°СЏ РїРѕРґР»РѕР¶РєР° СЃ С‡С‘СЂРЅС‹Рј РєРѕРЅС‚СѓСЂРѕРј */
 .portal-skin .ps-nav-icon {
   background: var(--ore-well, #2b2b2b) !important;
   border: 1px solid #0d0d0d !important;
   border-radius: 2px !important;
 }
 
-/* Быстрый доступ к сборкам */
+/* Р‘С‹СЃС‚СЂС‹Р№ РґРѕСЃС‚СѓРї Рє СЃР±РѕСЂРєР°Рј */
 .portal-skin .ps-inst {
   background: var(--ore-panel, #3a3a3a) !important;
   border: 1px solid #0d0d0d !important;
@@ -329,7 +329,7 @@
   box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.16), inset 0 -2px 0 rgba(0, 0, 0, 0.45) !important;
 }
 
-/* Бренд и подписи */
+/* Р‘СЂРµРЅРґ Рё РїРѕРґРїРёСЃРё */
 .portal-skin .ps-logo {
   background: var(--ore-green, #3a8527) !important;
   border: 1px solid #0d0d0d !important;

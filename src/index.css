@@ -1646,24 +1646,29 @@ input, textarea, select {
    сохраняет прежний квадратно-пиксельный вид и вынесена из правил ниже.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── Типографика: пиксельная латиница + нормальная кириллица ──
-   Pixelify Sans — пиксельный шрифт в духе Mojangles, но начертания только
-   латинские. Без явного кириллического запасного элемента русский текст
-   подставлялся моноширинным системным шрифтом: разная высота строчных,
-   разный трекинг и «мыло» на кириллице при font-smoothing: none.
-   Поэтому в стеке после пиксельных имён явно стоит Segoe UI Variable —
-   он гарантированно содержит кириллицу и подхватывает только те символы,
-   которых нет в пиксельном шрифте (браузер выбирает шрифт ПОГЛИФНО). */
+/* ── Типографика: читаемый основной шрифт + пиксельный для латиницы ──
+   Раньше первым стоял Pixelify Sans, и в нём кириллица есть, но прописные
+   кириллические буквы нарисованы по латинским глифам — «ПриВет» вместо
+   «Привет». Для русского текста это неприемлемо, поэтому основной шрифт
+   интерфейса — Segoe UI Variable (полная кириллица, ровный начертание,
+   комфортен для глаз). Пиксельный остаётся только как .dkbd и
+   .ore-pixel-font для коротких латинских подписей (версии, теги). */
 html[data-portal-style="oreui"] body,
 html[data-portal-style="oreui"] button,
 html[data-portal-style="oreui"] input,
 html[data-portal-style="oreui"] select,
 html[data-portal-style="oreui"] textarea {
-  font-family: 'Pixelify Sans', 'Mojangles', 'Monocraft', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  letter-spacing: .01em;
+  font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  letter-spacing: normal;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+/* Пиксельный шрифт — только там, где текст гарантированно латинский/цифры. */
+html[data-portal-style="oreui"] .dkbd,
+html[data-portal-style="oreui"] .ore-pixel-font {
+  font-family: 'Pixelify Sans', 'Press Start 2P', 'Courier New', monospace;
+  letter-spacing: .02em;
 }
 
 /* ── Углы: небольшие, как в референсе (2px кнопки, 3px карточки) ── */
@@ -1818,7 +1823,7 @@ html[data-portal-style="oreui"] .dbtn-primary,
 html[data-portal-style="oreui"] .dbtn-accent,
 html[data-portal-style="oreui"] .dbtn-play {
   background: var(--ore-green) !important;
-  color: #fff !important;
+  color: #eae7dc !important;
   border-color: var(--ore-outline) !important;
   box-shadow: var(--ore-bevel-green) !important;
 }
@@ -1832,7 +1837,7 @@ html[data-portal-style="oreui"] .dbtn-play:hover {
 /* destructive — красная */
 html[data-portal-style="oreui"] .dbtn-danger {
   background: var(--ore-red) !important;
-  color: #fff !important;
+  color: #eee6e2 !important;
   border-color: var(--ore-outline) !important;
   box-shadow: var(--ore-bevel-red) !important;
 }
@@ -1903,7 +1908,7 @@ html[data-portal-style="oreui"] .dkbd {
   box-shadow: var(--ore-bevel-gray);
 }
 html[data-portal-style="oreui"] .dkbd-primary {
-  color: #fff;
+  color: #eae7dc;
   background: var(--ore-green);
   border-color: var(--ore-outline);
   box-shadow: var(--ore-bevel-green);
@@ -1973,7 +1978,7 @@ html[data-portal-style="oreui"] ::-webkit-scrollbar-thumb {
   border-radius: 0 !important;
 }
 html[data-portal-style="oreui"] ::-webkit-scrollbar-thumb:hover { background: var(--ore-gray-hi); }
-html[data-portal-style="oreui"] ::selection { background: var(--ore-green); color: #fff; }
+html[data-portal-style="oreui"] ::selection { background: var(--ore-green); color: #eae7dc; }
 
 /* ── Появление контента ── */
 html[data-portal-style="oreui"] .page-enter-active,
@@ -2008,28 +2013,62 @@ html[data-portal-style="quadral"] [role="button"]:not(:disabled):hover {
 
 /* Стрелки переключения скриншота: центрируются по вертикали, но не
    «утопают» при нажатии и не подпрыгивают на hover — стрелка должна только
-   переключать кадр. Закрываем и oreui-pressing, и quadral-pressing. */
-html[data-portal-style="oreui"] .shot-nav-btn,
-html[data-portal-style="quadral"] .shot-nav-btn,
-html[data-ui-mode="modern"] .shot-nav-btn,
-html .shot-nav-btn {
+   переключать кадр. Селектор намеренно перевешен (data-атрибут + :is(button)
+   + класс + :active): иначе общие правила пресетов
+   `:is(button,[role=button]):not(...):active` перебивают его по специфичности
+   и кнопка всё равно уезжает вниз. */
+html[data-portal-style="oreui"] :is(button.shot-nav-btn, [role="button"].shot-nav-btn),
+html[data-portal-style="quadral"] :is(button.shot-nav-btn, [role="button"].shot-nav-btn),
+html[data-ui-mode="modern"] :is(button.shot-nav-btn, [role="button"].shot-nav-btn),
+html :is(button.shot-nav-btn, [role="button"].shot-nav-btn) {
   transform: translateY(-50%) !important;
   transition: background-color 90ms linear, border-color 90ms linear, color 90ms linear !important;
+  animation: none !important;
 }
-html[data-portal-style="oreui"] .shot-nav-btn:hover,
-html[data-portal-style="quadral"] .shot-nav-btn:hover,
-html[data-ui-mode="modern"] .shot-nav-btn:hover,
-html .shot-nav-btn:hover {
+html[data-portal-style="oreui"] :is(button.shot-nav-btn, [role="button"].shot-nav-btn):hover,
+html[data-portal-style="quadral"] :is(button.shot-nav-btn, [role="button"].shot-nav-btn):hover,
+html[data-ui-mode="modern"] :is(button.shot-nav-btn, [role="button"].shot-nav-btn):hover,
+html :is(button.shot-nav-btn, [role="button"].shot-nav-btn):hover {
   transform: translateY(-50%) !important;
   filter: none !important;
 }
-html[data-portal-style="oreui"] .shot-nav-btn:active,
-html[data-portal-style="quadral"] .shot-nav-btn:active,
-html[data-ui-mode="modern"] .shot-nav-btn:active,
-html .shot-nav-btn:active {
+html[data-portal-style="oreui"] :is(button.shot-nav-btn, [role="button"].shot-nav-btn):active,
+html[data-portal-style="quadral"] :is(button.shot-nav-btn, [role="button"].shot-nav-btn):active,
+html[data-ui-mode="modern"] :is(button.shot-nav-btn, [role="button"].shot-nav-btn):active,
+html :is(button.shot-nav-btn, [role="button"].shot-nav-btn):active {
   transform: translateY(-50%) !important;
   filter: none !important;
   box-shadow: var(--shadow-lg) !important;
+}
+
+/* ── Переключатели (role="switch") в стиле OreUI ──
+   Инлайн-стили задают только цвет заливки и положение ручки, поэтому
+   оформление (сегменты, чёрный контур, серая ручка) задаётся здесь.
+   Включённое состояние — зелёный сегментированный трек, выключенное —
+   серый; ручка квадратная, как в референсе, и не белая. */
+html[data-portal-style="oreui"] button[role="switch"] {
+  border-radius: var(--ore-radius) !important;
+  border: 2px solid var(--ore-outline) !important;
+  box-shadow: var(--ore-bevel-gray) !important;
+  overflow: hidden !important;
+  background-image: repeating-linear-gradient(90deg,
+    rgba(0, 0, 0, 0.22) 0 2px, transparent 2px 8px) !important;
+  background-position: left center !important;
+  background-repeat: repeat-x !important;
+  transition: background-color 90ms linear, border-color 90ms linear !important;
+}
+html[data-portal-style="oreui"] button[role="switch"] > span {
+  background: var(--ore-gray) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 0 0 1px var(--ore-outline) !important;
+  transition: left 90ms linear !important;
+}
+html[data-portal-style="oreui"] button[role="switch"]:hover > span {
+  background: var(--ore-gray-hi) !important;
+}
+html[data-portal-style="oreui"] button[role="switch"]:active {
+  transform: none !important;
+  box-shadow: var(--ore-bevel-pressed) !important;
 }
 
 /* ── 2D flat: без 3D-бевела для инструментальных элементов ── */
@@ -2134,7 +2173,7 @@ html[data-portal-style="oreui"] input[type="checkbox"]:checked::after {
   top: 1px;
   width: 5px;
   height: 10px;
-  border: solid #fff;
+  border: solid #e2e0d8;
   border-width: 0 3px 3px 0;
   transform: rotate(45deg);
 }
@@ -2313,7 +2352,7 @@ html[data-portal-style="oreui"] {
   --color-surface-active: #333333 !important;
   --color-border: #2a2a2a !important;
   --color-border-strong: #101010 !important;
-  --color-text: #ffffff !important;
+  --color-text: #dedcd4 !important;
   --color-text-secondary: #d4d4d4 !important;
   --color-text-tertiary: #9a9a9a !important;
 
@@ -2323,7 +2362,7 @@ html[data-portal-style="oreui"] {
   --ore-panel-down: #333333;
   --ore-well: #2b2b2b;
   --ore-row: #383838;
-  --ore-text: #ffffff;
+  --ore-text: #dedcd4;
   --ore-text-2: #d4d4d4;
   --ore-text-3: #9a9a9a;
   --ore-slider-track: #b4b4b4;
@@ -2331,7 +2370,9 @@ html[data-portal-style="oreui"] {
   /* Жёсткий контур + бевел */
   --ore-outline: #0d0d0d;
   --ore-outline-off: #6e6e6e;
-  --ore-focus: #ffffff;
+  /* Фокус — зелёный акцент вместо белого: белый режет глаза, а зелёный
+     заметен на графитовой панели и совпадает с акцентом OreUI. */
+  --ore-focus: #6ab04c;
   --ore-radius: 2px;
   --ore-radius-card: 3px;
   --ore-bevel: inset 0 2px 0 rgba(255, 255, 255, 0.10), inset 0 -2px 0 rgba(0, 0, 0, 0.45);
@@ -2441,7 +2482,7 @@ html[data-portal-style="oreui"] :is([role="dialog"], dialog, .soft-surface, .obj
    В референсе это плотная синяя плашка с чёрным контуром и «хвостиком». */
 html[data-portal-style="oreui"] [role="tooltip"] {
   background: var(--ore-blue) !important;
-  color: #fff !important;
+  color: #e6e9f2 !important;
   border: 2px solid var(--ore-outline) !important;
   border-radius: 0 !important;
   box-shadow: none !important;

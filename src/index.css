@@ -1753,7 +1753,14 @@ html[data-portal-style="oreui"] :is(button, [role="button"]):not([class*="dbtn"]
   transition: background-color 90ms linear, color 90ms linear, transform 60ms linear;
 }
 html[data-portal-style="oreui"] :is(button, [role="button"]):not([class*="dbtn"]):not(:disabled):not([class*="bg-"]):not([style*="background"]):hover {
-  background: color-mix(in srgb, #fff 10%, transparent) !important;
+  background: var(--ore-panel-hi) !important;
+  color: var(--ore-text) !important;
+}
+/* Компоненты часто несут hover:bg-white/* — на тёмной палитре это давало
+   «пересвеченную» белую кнопку. В OreUI подсветка идёт цветом панели,
+   поэтому белый hover гасится и заменяется на панельный. */
+html[data-portal-style="oreui"] :is(button, [role="button"], a):not([class*="dbtn"]):hover:is([class*="hover:bg-white"]) {
+  background: var(--ore-panel-hi) !important;
   color: var(--ore-text) !important;
 }
 html[data-portal-style="oreui"] :is(button, [role="button"]):not([class*="dbtn"]):not([disabled]):not([class*="bg-"]):not([style*="background"]):active:not(:disabled) {
@@ -1997,6 +2004,32 @@ html[data-portal-style="quadral"] [role="button"]:not(:disabled):active {
 html[data-portal-style="quadral"] button:not(:disabled):hover,
 html[data-portal-style="quadral"] [role="button"]:not(:disabled):hover {
   filter: brightness(1.12);
+}
+
+/* Стрелки переключения скриншота: центрируются по вертикали, но не
+   «утопают» при нажатии и не подпрыгивают на hover — стрелка должна только
+   переключать кадр. Закрываем и oreui-pressing, и quadral-pressing. */
+html[data-portal-style="oreui"] .shot-nav-btn,
+html[data-portal-style="quadral"] .shot-nav-btn,
+html[data-ui-mode="modern"] .shot-nav-btn,
+html .shot-nav-btn {
+  transform: translateY(-50%) !important;
+  transition: background-color 90ms linear, border-color 90ms linear, color 90ms linear !important;
+}
+html[data-portal-style="oreui"] .shot-nav-btn:hover,
+html[data-portal-style="quadral"] .shot-nav-btn:hover,
+html[data-ui-mode="modern"] .shot-nav-btn:hover,
+html .shot-nav-btn:hover {
+  transform: translateY(-50%) !important;
+  filter: none !important;
+}
+html[data-portal-style="oreui"] .shot-nav-btn:active,
+html[data-portal-style="quadral"] .shot-nav-btn:active,
+html[data-ui-mode="modern"] .shot-nav-btn:active,
+html .shot-nav-btn:active {
+  transform: translateY(-50%) !important;
+  filter: none !important;
+  box-shadow: var(--shadow-lg) !important;
 }
 
 /* ── 2D flat: без 3D-бевела для инструментальных элементов ── */

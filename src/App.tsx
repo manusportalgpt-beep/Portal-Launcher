@@ -36,7 +36,6 @@ import { BottomProgressBar } from '@/components/BottomProgressBar';
 import { DialogHost } from '@/components/DialogHost';
 import { SettingsOverlay } from '@/components/SettingsOverlay';
 import { OpenPortalPage } from '@/pages/OpenPortalPage';
-import { AternosPage } from '@/pages/AternosPage';
 import { FileToastHost } from '@/components/ai/FileToast';
 import { UpdateChecker } from '@/components/UpdateChecker';
 import { BackgroundMusicPlayer } from '@/components/BackgroundMusicPlayer';
@@ -225,7 +224,6 @@ function App() {
             <Route path="/settings/:section" element={layoutMode === 'innovative' ? <InnovativeSettings /> : <SettingsPage />} />
             <Route path="/settings/extended" element={<ExtendedSettings />} />
             <Route path="/openportal" element={<OpenPortalPage />} />
-            <Route path="/aternos" element={<AternosPage />} />
           </Routes>
           <BottomProgressBar />
         </LayoutRouter>

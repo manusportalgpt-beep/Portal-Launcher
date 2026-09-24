@@ -935,6 +935,10 @@ export function OpenPortalPage() {
       mode,
       extra: taskDirective ? `${extra ?? ''}\n\n${taskDirective}`.trim() : extra,
       skills,
+      // Без модели/окна контекста промпт был одинаков для всех моделей —
+      // агент не знал свой бюджет и одинаково пытался удерживать историю.
+      model: ep.model.id,
+      contextLimit: contextWindow(ep.model, ep.provider.id),
     });
 
     const abort = new AbortController();

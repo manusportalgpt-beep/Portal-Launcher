@@ -7,20 +7,21 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 .portal-skin {
-  --ps-accent: #DA2A3F;
+  --ps-accent: #4a90e2;
   --ps-font-ui: 'Space Grotesk', 'Inter', sans-serif;
   --ps-font-display: 'Oswald', 'Space Grotesk', 'Inter', sans-serif;
 
-  --color-bg: #07070B;
-  --color-surface: #0E0E14;
-  --color-surface-2: #16161F;
-  --color-surface-hover: #1C1C27;
-  --color-surface-active: #242430;
-  --color-border: #272730;
-  --color-border-strong: #41414F;
-  --color-text: #F3F1F7;
-  --color-text-secondary: #A9A5B8;
-  --color-text-tertiary: #5F5B6D;
+  /* Сине-графитовая панель под стиль OreUI: не серый, не чёрный */
+  --color-bg: #0b1220;
+  --color-surface: #131d2e;
+  --color-surface-2: #1b2840;
+  --color-surface-hover: #223252;
+  --color-surface-active: #2b3d63;
+  --color-border: #26344f;
+  --color-border-strong: #3a4d73;
+  --color-text: #EEF3FB;
+  --color-text-secondary: #A6B4CC;
+  --color-text-tertiary: #64748F;
   --color-primary: var(--ps-accent);
   --color-primary-hover: color-mix(in srgb, var(--ps-accent) 82%, #FFFFFF);
   --color-primary-dim: color-mix(in srgb, var(--ps-accent) 15%, transparent);
@@ -265,3 +266,73 @@
   .portal-skin .ps-nav-item .ps-nav-icon,
   .portal-skin .ps-nav-chev { transition: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SIDEBAR ПОД OREUI. Включается пресетом oreui: сине-графитовая панель,
+   чёрный контур 2px, бевел, нажатие «утопление», активный пункт — зелёный
+   (фирменный акцент OreUI). Базовые правила выше остаются для остальных
+   пресетов (standard/glass/modern/quadral).
+   ═══════════════════════════════════════════════════════════════════════ */
+#root .portal-skin.portal-sidebar {
+  border-right: 2px solid #0d0d0d !important;
+  box-shadow: inset -2px 0 0 rgba(0, 0, 0, 0.5) !important;
+}
+/* Активный пункт: зелёная плашка в стиле OreUI */
+.portal-skin .ps-nav-item.active {
+  background: var(--ore-green, #3a8527) !important;
+  color: #fff !important;
+  border-radius: 2px !important;
+  box-shadow: inset 0 2px 0 #6ab04c, inset 0 -2px 0 #23500f, 0 0 0 2px #0d0d0d !important;
+}
+.portal-skin .ps-nav-item.active::before { display: none !important; }
+.portal-skin .ps-nav-item.active .ps-nav-icon {
+  background: rgba(0, 0, 0, 0.28) !important;
+  border-color: rgba(0, 0, 0, 0.5) !important;
+  color: #fff !important;
+}
+.portal-skin .ps-nav-item.active .ps-nav-label { color: #fff !important; }
+.portal-skin .ps-nav-item.active .ps-nav-chev { color: #fff !important; }
+
+/* Неактивные пункты: контур и бевел как у обычных OreUI-кнопок */
+.portal-skin .ps-nav-item:not(.active) {
+  border-radius: 2px !important;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.06), inset 0 -2px 0 rgba(0, 0, 0, 0.4) !important;
+}
+.portal-skin .ps-nav-item:not(.active):hover {
+  background: var(--ore-panel-hi, #454545) !important;
+  color: var(--ore-text, #fff) !important;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.14), inset 0 -2px 0 rgba(0, 0, 0, 0.45), 0 0 0 2px #0d0d0d !important;
+}
+.portal-skin .ps-nav-item:not(.active):active {
+  transform: translateY(2px);
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Иконка пункта: панельная подложка с чёрным контуром */
+.portal-skin .ps-nav-icon {
+  background: var(--ore-well, #2b2b2b) !important;
+  border: 1px solid #0d0d0d !important;
+  border-radius: 2px !important;
+}
+
+/* Быстрый доступ к сборкам */
+.portal-skin .ps-inst {
+  background: var(--ore-panel, #3a3a3a) !important;
+  border: 1px solid #0d0d0d !important;
+  border-radius: 2px !important;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.06), inset 0 -2px 0 rgba(0, 0, 0, 0.4) !important;
+}
+.portal-skin .ps-inst:hover {
+  transform: none;
+  border-color: #0d0d0d;
+  background: var(--ore-panel-hi, #454545) !important;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.16), inset 0 -2px 0 rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Бренд и подписи */
+.portal-skin .ps-logo {
+  background: var(--ore-green, #3a8527) !important;
+  border: 1px solid #0d0d0d !important;
+  border-radius: 2px !important;
+}
+.portal-skin .ps-label::before { background: var(--ore-green, #3a8527) !important; }

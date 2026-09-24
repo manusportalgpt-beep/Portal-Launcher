@@ -2210,6 +2210,53 @@ html[data-portal-style="oreui"] {
   --portal-glass-edge-soft: rgba(255, 255, 255, 0.02);
   --portal-glass-shadow: rgba(0, 0, 0, 0.65);
 }
+/* ── Светлая схема OreUI ──
+   Те же правила дизайн-системы, но инвертированная база: светло-серая панель
+   на почти белом фоне. Контуры остаются чёрными 2px, бевел и зелёный
+   primary — без них стиль перестаёт быть узнаваемым. */
+html[data-portal-style="oreui"][data-theme="light"] {
+  --color-bg: #e9e9e9 !important;
+  --color-surface: #c6c6c6 !important;
+  --color-surface-2: #d4d4d4 !important;
+  --color-surface-hover: #bdbdbd !important;
+  --color-surface-active: #dcdcdc !important;
+  --color-border: #8a8a8a !important;
+  --color-border-strong: #0d0d0d !important;
+  --color-text: #1a1a1a !important;
+  --color-text-secondary: #3f3f3f !important;
+  --color-text-tertiary: #6b6b6b !important;
+
+  --ore-panel: #c6c6c6;
+  --ore-panel-hi: #b4b4b4;
+  --ore-panel-down: #d4d4d4;
+  --ore-well: #9c9c9c;
+  --ore-row: #c0c0c0;
+  --ore-text: #1a1a1a;
+  --ore-text-2: #3f3f3f;
+  --ore-text-3: #6b6b6b;
+  --ore-slider-track: #9c9c9c;
+
+  /* Чёрный контур сохраняется — он и есть подпись стиля. */
+  --ore-outline: #0d0d0d;
+  --ore-outline-off: #a8a8a8;
+  --ore-focus: #0d0d0d;
+  --ore-gray: #b4b4b4;
+  --ore-gray-hi: #c6c6c6;
+  --ore-gray-ink: #1a1a1a;
+  --ore-gray-off: #c6c6c6;
+  --ore-gray-off-ink: #8f8f8f;
+
+  --portal-glass-edge: rgba(0, 0, 0, 0.05);
+  --portal-glass-edge-soft: rgba(0, 0, 0, 0.02);
+}
+html[data-portal-style="oreui"][data-theme="light"] body {
+  background: #e9e9e9 !important;
+}
+/* В светлой схеме бевел на светлой панели почти не читается — усиливаем. */
+html[data-portal-style="oreui"][data-theme="light"] :is(.dbtn):not(.dbtn-primary):not(.dbtn-accent):not(.dbtn-play):not(.dbtn-danger):not(.dbtn-ghost) {
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.9), inset 0 -2px 0 rgba(0, 0, 0, 0.28) !important;
+}
+
 html[data-portal-style="oreui"] body {
   background: #1e1e1e !important;
 }
@@ -2247,6 +2294,102 @@ html[data-portal-style="oreui"] [role="tooltip"]::after {
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
   border-top: 8px solid var(--ore-blue);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ORE-UI: пиксельный пейзаж.
+   Фон не однотонный: в верхней трети — пиксельные облака из прямоугольных
+   ступенек (как в референсе), внизу — слоистые полосы ландшафта с
+   «зубцами» деревьев. Всё на CSS, без картинок. Слои помечены
+   `aria-hidden`, чтобы не мешать читалкам.
+   ═══════════════════════════════════════════════════════════════════════ */
+html[data-portal-style="oreui"] body::before,
+html[data-portal-style="oreui"] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Пиксельные облака: два ряда ступенчатых прямоугольников, дрейф вбок.
+   Каждый «зубец» — жёсткий блок без сглаживания, поэтому графики
+   читаются как пиксель-арт, а не как размытая текстура. */
+html[data-portal-style="oreui"] body::before {
+  top: 0;
+  height: 34vh;
+  background-image:
+    repeating-linear-gradient(90deg,
+      transparent 0 96px,
+      rgba(255, 255, 255, 0.05) 96px 160px,
+      transparent 160px 208px,
+      rgba(255, 255, 255, 0.05) 208px 272px,
+      transparent 272px 320px),
+    repeating-linear-gradient(0deg,
+      transparent 0 26px,
+      rgba(255, 255, 255, 0.04) 26px 38px,
+      transparent 38px 64px);
+  background-size: 320px 64px, 100% 64px;
+  opacity: 0.9;
+  animation: ore-drift 64s linear infinite;
+}
+
+/* Ландшафт внизу: тёмная полоса земли с «зубцами» и редкими пикселями
+   (трава/звёзды). Чем ниже слой, тем он темнее — даёт глубину. */
+html[data-portal-style="oreui"] body::after {
+  top: auto;
+  height: 22vh;
+  background-image:
+    /* зубчатый гребень */
+    repeating-linear-gradient(135deg,
+      transparent 0 12px,
+      var(--ore-hill-back, #1a2a1a) 12px 24px),
+    repeating-linear-gradient(135deg,
+      transparent 0 8px,
+      var(--ore-hill-front, #162116) 8px 16px),
+    linear-gradient(180deg,
+      transparent 0 34%,
+      var(--ore-hill-back, #1a2a1a) 34% 62%,
+      var(--ore-hill-front, #162116) 62% 100%);
+  background-size: 64px 64px, 48px 48px, 100% 100%;
+  background-position: left top, left top, left top;
+  opacity: 0.5;
+}
+
+/* Светлая схема: ландшафт остаётся, но в холодных светлых тонах. */
+html[data-portal-style="oreui"][data-theme="light"] body::before {
+  background-image:
+    repeating-linear-gradient(90deg,
+      transparent 0 96px,
+      rgba(0, 0, 0, 0.04) 96px 160px,
+      transparent 160px 208px,
+      rgba(0, 0, 0, 0.04) 208px 272px,
+      transparent 272px 320px),
+    repeating-linear-gradient(0deg,
+      transparent 0 26px,
+      rgba(0, 0, 0, 0.03) 26px 38px,
+      transparent 38px 64px);
+  animation: none;
+}
+html[data-portal-style="oreui"][data-theme="light"] body::after {
+  --ore-hill-back: #9fb89a;
+  --ore-hill-front: #8aa485;
+  opacity: 0.6;
+}
+
+@keyframes ore-drift {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 320px 0, 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-portal-style="oreui"] body::before { animation: none; }
+}
+
+/* Контент лежит выше фоновых слоёв. */
+html[data-portal-style="oreui"] #root {
+  position: relative;
+  z-index: 1;
 }
 
 /* --- Анимации сообщений OpenPortal (появление блоков + каретка стриминга) --- */

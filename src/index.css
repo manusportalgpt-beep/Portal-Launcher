@@ -1632,7 +1632,7 @@ input, textarea, select {
    Slider / Toggle / Tooltip).
 
    Что задаёт стиль:
-   – графитовые панели #3a3a3a на почти чёрном фоне #1e1e1e (не OLED-чёрный);
+   – тёмно-графитовые панели #171717 на почти чёрном фоне #0e0e0e; схема одна, тёмная;
    – жёсткий чёрный контур 2px у интерактивных элементов;
    – «бевел»: светлая полоса 2px сверху + тёмная снизу (объём без глянца);
    – зелёный primary #3a8527, светло-серая вторичка #c6c6c6, красный
@@ -2344,28 +2344,28 @@ html[data-portal-style="quadral"] img {
    Токены применяются всегда, без привязки к data-theme.
    ═══════════════════════════════════════════════════════════════════════ */
 html[data-portal-style="oreui"] {
-  /* Поверхности: окно почти чёрное, панели графитовые */
-  --color-bg: #1e1e1e !important;
-  --color-surface: #3a3a3a !important;
-  --color-surface-2: #454545 !important;
-  --color-surface-hover: #4a4a4a !important;
-  --color-surface-active: #333333 !important;
-  --color-border: #2a2a2a !important;
-  --color-border-strong: #101010 !important;
-  --color-text: #dedcd4 !important;
-  --color-text-secondary: #d4d4d4 !important;
-  --color-text-tertiary: #9a9a9a !important;
+  /* Поверхности: окно почти чёрное, панели тёмно-графитовые */
+  --color-bg: #0e0e0e !important;
+  --color-surface: #171717 !important;
+  --color-surface-2: #1c1c1c !important;
+  --color-surface-hover: #232323 !important;
+  --color-surface-active: #131313 !important;
+  --color-border: #262626 !important;
+  --color-border-strong: #0d0d0d !important;
+  --color-text: #e4e4e4 !important;
+  --color-text-secondary: #a8a8a8 !important;
+  --color-text-tertiary: #6e6e6e !important;
 
   /* Панели и «шахты» */
-  --ore-panel: #3a3a3a;
-  --ore-panel-hi: #454545;
-  --ore-panel-down: #333333;
-  --ore-well: #2b2b2b;
-  --ore-row: #383838;
-  --ore-text: #dedcd4;
-  --ore-text-2: #d4d4d4;
-  --ore-text-3: #9a9a9a;
-  --ore-slider-track: #b4b4b4;
+  --ore-panel: #171717;
+  --ore-panel-hi: #212121;
+  --ore-panel-down: #131313;
+  --ore-well: #0b0b0b;
+  --ore-row: #1a1a1a;
+  --ore-text: #e4e4e4;
+  --ore-text-2: #a8a8a8;
+  --ore-text-3: #6e6e6e;
+  --ore-slider-track: #8a8a8a;
 
   /* Жёсткий контур + бевел */
   --ore-outline: #0d0d0d;
@@ -2414,55 +2414,19 @@ html[data-portal-style="oreui"] {
   --portal-glass-edge-soft: rgba(255, 255, 255, 0.02);
   --portal-glass-shadow: rgba(0, 0, 0, 0.65);
 }
-/* ── Светлая схема OreUI ──
-   Те же правила дизайн-системы, но инвертированная база: светло-серая панель
-   на почти белом фоне. Контуры остаются чёрными 2px, бевел и зелёный
-   primary — без них стиль перестаёт быть узнаваемым. */
-html[data-portal-style="oreui"][data-theme="light"] {
-  --color-bg: #e9e9e9 !important;
-  --color-surface: #c6c6c6 !important;
-  --color-surface-2: #d4d4d4 !important;
-  --color-surface-hover: #bdbdbd !important;
-  --color-surface-active: #dcdcdc !important;
-  --color-border: #8a8a8a !important;
-  --color-border-strong: #0d0d0d !important;
-  --color-text: #1a1a1a !important;
-  --color-text-secondary: #3f3f3f !important;
-  --color-text-tertiary: #6b6b6b !important;
-
-  --ore-panel: #c6c6c6;
-  --ore-panel-hi: #b4b4b4;
-  --ore-panel-down: #d4d4d4;
-  --ore-well: #9c9c9c;
-  --ore-row: #c0c0c0;
-  --ore-text: #1a1a1a;
-  --ore-text-2: #3f3f3f;
-  --ore-text-3: #6b6b6b;
-  --ore-slider-track: #9c9c9c;
-
-  /* Чёрный контур сохраняется — он и есть подпись стиля. */
-  --ore-outline: #0d0d0d;
-  --ore-outline-off: #a8a8a8;
-  --ore-focus: #0d0d0d;
-  --ore-gray: #b4b4b4;
-  --ore-gray-hi: #c6c6c6;
-  --ore-gray-ink: #1a1a1a;
-  --ore-gray-off: #c6c6c6;
-  --ore-gray-off-ink: #8f8f8f;
-
-  --portal-glass-edge: rgba(0, 0, 0, 0.05);
-  --portal-glass-edge-soft: rgba(0, 0, 0, 0.02);
-}
+/* ── OreUI существует только в тёмном варианте ──
+   Раньше здесь была светлая схема (светло-серая панель на почти белом фоне).
+   По требованию схема одна — тёмная: даже если где-то осталось
+   data-theme="light", применяется та же тёмная палитра. Блок не переопределяет
+   токены, а лишь гарантирует тёмный фон страницы, потому что базовые токены
+   ниже уже имеют !important и не зависят от data-theme. */
 html[data-portal-style="oreui"][data-theme="light"] body {
-  background: #e9e9e9 !important;
-}
-/* В светлой схеме бевел на светлой панели почти не читается — усиливаем. */
-html[data-portal-style="oreui"][data-theme="light"] :is(.dbtn):not(.dbtn-primary):not(.dbtn-accent):not(.dbtn-play):not(.dbtn-danger):not(.dbtn-ghost) {
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.9), inset 0 -2px 0 rgba(0, 0, 0, 0.28) !important;
+  background: #0e0e0e !important;
+  color: var(--color-text) !important;
 }
 
 html[data-portal-style="oreui"] body {
-  background: #1e1e1e !important;
+  background: #0e0e0e !important;
 }
 /* запрет стекла/размытия везде во время OreUI */
 html[data-portal-style="oreui"] *,
@@ -2560,26 +2524,8 @@ html[data-portal-style="oreui"] body::after {
   opacity: 0.5;
 }
 
-/* Светлая схема: ландшафт остаётся, но в холодных светлых тонах. */
-html[data-portal-style="oreui"][data-theme="light"] body::before {
-  background-image:
-    repeating-linear-gradient(90deg,
-      transparent 0 96px,
-      rgba(0, 0, 0, 0.04) 96px 160px,
-      transparent 160px 208px,
-      rgba(0, 0, 0, 0.04) 208px 272px,
-      transparent 272px 320px),
-    repeating-linear-gradient(0deg,
-      transparent 0 26px,
-      rgba(0, 0, 0, 0.03) 26px 38px,
-      transparent 38px 64px);
-  animation: none;
-}
-html[data-portal-style="oreui"][data-theme="light"] body::after {
-  --ore-hill-back: #9fb89a;
-  --ore-hill-front: #8aa485;
-  opacity: 0.6;
-}
+/* Ландшафт и облака — только тёмные. Светлых переопределений больше нет:
+   схема единственная, тёмная. */
 
 @keyframes ore-drift {
   from { background-position: 0 0, 0 0; }

@@ -51,7 +51,6 @@ const SECTIONS: SectionDef[] = [
 const THEMES: { id: ThemeId; name: string; preview: string; accent: string }[] = [
   { id:'dark',         name:'Dark',        preview:'linear-gradient(135deg,#16161A,#26262C)',          accent:'#DA2A3F' },
   { id:'oled',         name:'OLED',        preview:'linear-gradient(135deg,#000000,#141414)',          accent:'#DA2A3F' },
-  { id:'light',        name:'Light',       preview:'linear-gradient(135deg,#FFFFFF,#F1F3F5)',          accent:'#4299E1' },
 ];
 
 const FONT_OPTIONS = [

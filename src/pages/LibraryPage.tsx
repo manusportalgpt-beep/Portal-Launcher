@@ -123,6 +123,7 @@ function useAvailableVersions(showSnapshots: boolean) {
 
 // ── Game Logs Modal ────────────────────────────────────────────────────────────
 interface LogLine { line: string; level: string; ts: number; }
+interface SavedLogSession { id: string; startedAt: string; size: number; lines: number; }
 const clearedLogSessionKey = (instanceId: string) => `portal-cleared-game-log-session:${instanceId}`;
 
 const LOG_COLORS: Record<string, string> = {
@@ -141,6 +142,46 @@ function GameLogsModal({ instanceId, onClose, inline }: { instanceId: string; on
   const [autoScroll, setAutoScroll] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [tab, setTab] = useState<'live' | 'history'>('live');
+  const [sessions, setSessions] = useState<SavedLogSession[]>([]);
+  const [historyText, setHistoryText] = useState<string | null>(null);
+  const [historyId, setHistoryId] = useState<string | null>(null);
+
+  const loadSessions = useCallback(() => {
+    invoke<SavedLogSession[]>('list_log_sessions', { instanceId })
+      .then(setSessions)
+      .catch(() => setSessions([]));
+  }, [instanceId]);
+
+  // История обновляется при открытии вкладки и после сохранения новой сессии.
+  useEffect(() => {
+    if (tab !== 'history') return;
+    setHistoryText(null);
+    setHistoryId(null);
+    loadSessions();
+  }, [tab, loadSessions]);
+
+  useEffect(() => {
+    const un = listen('log-session-saved', (e: any) => {
+      if (e?.payload?.instance_id === instanceId) loadSessions();
+    });
+    return () => { un.then(fn => fn()); };
+  }, [instanceId, loadSessions]);
+
+  const openSession = (id: string) => {
+    invoke<string>('read_log_session', { instanceId, sessionId: id })
+      .then(text => { setHistoryText(text); setHistoryId(id); })
+      .catch(() => {});
+  };
+
+  const removeSession = (id: string) => {
+    invoke('delete_log_session', { instanceId, sessionId: id })
+      .then(() => {
+        if (historyId === id) { setHistoryText(null); setHistoryId(null); }
+        loadSessions();
+      })
+      .catch(() => {});
+  };
 
   // Load the one current session, then listen to both its reset boundary and
   // live stdout/stderr. A second game start must never append to the old view.
@@ -223,12 +264,83 @@ function GameLogsModal({ instanceId, onClose, inline }: { instanceId: string; on
     ? logs.filter(l => l.line.toLowerCase().includes(filter.toLowerCase()))
     : logs;
 
+  const historyBody = (
+    <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
+      {sessions.length === 0 ? (
+        <p className="px-1 py-6 text-center text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+          Сохранённых запусков пока нет. Лог каждой сессии автоматически
+          сохраняется при закрытии игры.
+        </p>
+      ) : historyText === null ? (
+        <ul className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
+          {sessions.map(session => (
+            <li key={session.id} className="flex items-center gap-2 rounded-lg px-2.5 py-2"
+              style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+              <button type="button" onClick={() => openSession(session.id)} className="min-w-0 flex-1 text-left">
+                <p className="truncate text-xs font-bold" style={{ color: 'var(--color-text)' }}>{session.startedAt}</p>
+                <p className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                  {session.lines} строк · {(session.size / 1024).toFixed(1)} КБ
+                </p>
+              </button>
+              <button type="button" onClick={() => removeSession(session.id)} title="Удалить лог"
+                className="shrink-0 rounded p-1" style={{ color: 'var(--color-error)' }}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <>
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={() => { setHistoryText(null); setHistoryId(null); }}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold"
+              style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+              <ArrowLeft className="h-3 w-3" />К списку
+            </button>
+            <span className="min-w-0 flex-1 truncate text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>{historyId}</span>
+            <button type="button" onClick={() => historyText && navigator.clipboard.writeText(historyText)}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold"
+              style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+              <ClipboardCopy className="h-3 w-3" />Копировать
+            </button>
+          </div>
+          <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words rounded-lg p-2.5 font-mono text-[10px] leading-4"
+            style={{ background: 'var(--color-bg)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+            {historyText}
+          </pre>
+        </>
+      )}
+    </div>
+  );
+
+  const tabsBar = (
+    <div className="flex shrink-0 gap-1 px-3 pt-2">
+      {([['live', 'Текущий'], ['history', 'История']] as const).map(([key, label]) => (
+        <button key={key} type="button" onClick={() => setTab(key)}
+          className="rounded-t-md px-3 py-1.5 text-[11px] font-bold"
+          style={{
+            background: tab === key ? 'var(--color-surface-2)' : 'transparent',
+            color: tab === key ? 'var(--color-text)' : 'var(--color-text-tertiary)',
+            border: '1px solid var(--color-border)',
+            borderBottom: tab === key ? 'none' : undefined,
+          }}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
   return inline ? (
     <div className="flex flex-col h-full">
-      <LogsToolbar logs={logs} filter={filter} setFilter={setFilter} autoScroll={autoScroll}
-        setAutoScroll={setAutoScroll} copied={copied} copyAll={copyAll} clearLogs={clearLogs} />
-      <LogsBody filtered={filtered} logs={logs} filter={filter} containerRef={containerRef}
-        bottomRef={bottomRef} setAutoScroll={setAutoScroll} />
+      {tabsBar}
+      {tab === 'live' ? (
+        <>
+          <LogsToolbar logs={logs} filter={filter} setFilter={setFilter} autoScroll={autoScroll}
+            setAutoScroll={setAutoScroll} copied={copied} copyAll={copyAll} clearLogs={clearLogs} />
+          <LogsBody filtered={filtered} logs={logs} filter={filter} containerRef={containerRef}
+            bottomRef={bottomRef} setAutoScroll={setAutoScroll} />
+        </>
+      ) : historyBody}
     </div>
   ) : (
     <motion.div className="fixed inset-0 z-50 flex flex-col"
@@ -238,10 +350,15 @@ function GameLogsModal({ instanceId, onClose, inline }: { instanceId: string; on
         style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-lg)' }}
         initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 400, damping: 32 }}>
-        <LogsToolbar logs={logs} filter={filter} setFilter={setFilter} autoScroll={autoScroll}
-          setAutoScroll={setAutoScroll} copied={copied} copyAll={copyAll} clearLogs={clearLogs} onClose={onClose} />
-        <LogsBody filtered={filtered} logs={logs} filter={filter} containerRef={containerRef}
-          bottomRef={bottomRef} setAutoScroll={setAutoScroll} />
+        {tabsBar}
+        {tab === 'live' ? (
+          <>
+            <LogsToolbar logs={logs} filter={filter} setFilter={setFilter} autoScroll={autoScroll}
+              setAutoScroll={setAutoScroll} copied={copied} copyAll={copyAll} clearLogs={clearLogs} onClose={onClose} />
+            <LogsBody filtered={filtered} logs={logs} filter={filter} containerRef={containerRef}
+              bottomRef={bottomRef} setAutoScroll={setAutoScroll} />
+          </>
+        ) : historyBody}
       </motion.div>
     </motion.div>
   );

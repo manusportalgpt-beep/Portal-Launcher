@@ -1516,21 +1516,24 @@ input, textarea, select {
    сохраняет прежний квадратно-пиксельный вид и вынесена из правил ниже.
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── Типографика: пиксельный шрифт OreUI (пропорциональный, как Mojangles) ──
-   Pixelify Sans — ближайший к Minecraft-шрифту гарнитурный пиксельный
-   шрифт: те же «ступеньки» на глифах, но читаемый на длинных текстах.
-   Кнопки/заголовки идут с небольшим трекингом, как в референсе. */
+/* ── Типографика: пиксельная латиница + нормальная кириллица ──
+   Pixelify Sans — пиксельный шрифт в духе Mojangles, но начертания только
+   латинские. Без явного кириллического запасного элемента русский текст
+   подставлялся моноширинным системным шрифтом: разная высота строчных,
+   разный трекинг и «мыло» на кириллице при font-smoothing: none.
+   Поэтому в стеке после пиксельных имён явно стоит Segoe UI Variable —
+   он гарантированно содержит кириллицу и подхватывает только те символы,
+   которых нет в пиксельном шрифте (браузер выбирает шрифт ПОГЛИФНО). */
 html[data-portal-style="oreui"] body,
 html[data-portal-style="oreui"] button,
 html[data-portal-style="oreui"] input,
 html[data-portal-style="oreui"] select,
 html[data-portal-style="oreui"] textarea {
-  font-family: 'Pixelify Sans', 'Mojangles', 'Monocraft', 'Press Start 2P', 'Courier New', monospace;
+  font-family: 'Pixelify Sans', 'Mojangles', 'Monocraft', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
   letter-spacing: .01em;
-  -webkit-font-smoothing: none;
+  -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-smooth: never;
-  text-rendering: geometricPrecision;
+  text-rendering: optimizeLegibility;
 }
 
 /* ── Углы: небольшие, как в референсе (2px кнопки, 3px карточки) ── */
@@ -1597,16 +1600,35 @@ html[data-portal-style="oreui"] .portal-instance-card:active {
    – pressed: сдвиг вниз на 2px, верхний бевел исчезает (инвертируется);
    – disabled: серая заливка, серый текст, приглушённый контур. */
 
-/* Базовые кнопки лаунчера (не .dbtn) тоже получают контур и бевел —
-   это делает стиль кнопок одинаковым по всему интерфейсу. */
-html[data-portal-style="oreui"] :is(button, [role="button"]):not([class*="dbtn"]):not(:disabled) {
+/* Базовые кнопки лаунчера (не .dbtn) тоже получают контур и бевел — но
+   ТОЛЬКО если у кнопки есть собственная поверхность (bg-класс или inline-фон).
+   Иначе получалась «дыра»: чёрная рамка 2px вокруг пустого прозрачного
+   прямоугольника (кнопки-ссылки вроде «Найти проект»). Такие остаются
+   плоским текстом, как в референсе, но с откликом по нажатию. */
+html[data-portal-style="oreui"] :is(button, [role="button"]):not([class*="dbtn"]):not(:disabled):is([class*="bg-"], [style*="background"]) {
   border: 2px solid var(--ore-outline) !important;
   box-shadow: var(--ore-bevel) !important;
   transition: background-color 90ms linear, color 90ms linear, box-shadow 60ms linear, transform 60ms linear;
 }
-html[data-portal-style="oreui"] :is(button, [role="button"]):not([class*="dbtn"]):active:not(:disabled) {
+html[data-portal-style="oreui"] :is(button, [role="button"]):not([class*="dbtn"]):not(:disabled):is([class*="bg-"], [style*="background"]):active:not(:disabled) {
   transform: translateY(2px) !important;
   box-shadow: var(--ore-bevel-pressed) !important;
+}
+
+/* Голые кнопки-ссылки: без рамки, но нажатие «утапливает» элемент,
+   hover слегка высветляет подложку — как текстовые кнопки в референсе. */
+html[data-portal-style="oreui"] :is(button, [role="button"]):not([class*="dbtn"]):not(:disabled):not([class*="bg-"]):not([style*="background"]) {
+  border: 2px solid transparent;
+  box-shadow: none;
+  transition: background-color 90ms linear, color 90ms linear, transform 60ms linear;
+}
+html[data-portal-style="oreui"] :is(button, [role="button"]):not([class*="dbtn"]):not(:disabled):not([class*="bg-"]):not([style*="background"]):hover {
+  background: color-mix(in srgb, #fff 10%, transparent) !important;
+  color: var(--ore-text) !important;
+}
+html[data-portal-style="oreui"] :is(button, [role="button"]):not([class*="dbtn"]):not([disabled]):not([class*="bg-"]):not([style*="background"]):active:not(:disabled) {
+  transform: translateY(2px) !important;
+  box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.35) !important;
 }
 
 /* ── Общая база .dbtn ── */

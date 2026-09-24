@@ -195,6 +195,9 @@ fn main() {
             mc::launch::cancel_launch,
             mc::launch::get_game_logs,
             mc::launch::get_running_instances,
+            mc::launch::list_log_sessions,
+            mc::launch::read_log_session,
+            mc::launch::delete_log_session,
             // Установка версий/загрузчиков и зеркала CDN
             mc::install::install_minecraft,
             mc::install::verify_installation,

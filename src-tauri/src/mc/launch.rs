@@ -1136,6 +1136,22 @@ pub async fn launch_instance(
             serde_json::json!({ "instance_id": &id3, "code": code }),
         )
         .ok();
+
+        // Архивируем завершившуюся сессию: `latest.log` следующего запуска
+        // будет перезаписан, а без копии прошлый лог становится недоступен.
+        // Берём полный текст из файла сессии, а не обрезанный буфер LOGS.
+        let archived = std::fs::read_to_string(game_dir3.join("logs").join("latest.log"))
+            .ok()
+            .filter(|text| !text.trim().is_empty())
+            .unwrap_or_else(|| logs.join("\n"));
+        if let Ok(session) = save_log_session(&id3, &archived) {
+            app3.emit(
+                "log-session-saved",
+                serde_json::json!({ "instance_id": &id3, "session": session }),
+            )
+            .ok();
+        }
+
         app3.emit(
             "launch-status",
             serde_json::json!({
@@ -1278,4 +1294,137 @@ pub fn get_game_logs(instance_id: String) -> Vec<String> {
     std::fs::read_to_string(path)
         .map(|content| content.lines().map(ToString::to_string).collect())
         .unwrap_or_default()
+}
+
+/// История запусков сборки. Minecraft перезаписывает `latest.log` при каждом
+/// старте, поэтому без собственного архива прошлые сессии недоступны: после
+/// перезапуска окно логов показывало только текущую. Храним копии сессий в
+/// `portal-logs` рядом с `logs` инстанса и даём UI их перечислять/читать.
+fn portal_logs_dir(instance_id: &str) -> PathBuf {
+    instance_game_dir(instance_id).join("portal-logs")
+}
+
+/// Одна сохранённая сессия запуска.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedLogSession {
+    /// Имя файла сессии (без пути) — используется как идентификатор.
+    pub id: String,
+    /// Человекочитаемая метка времени запуска.
+    pub started_at: String,
+    /// Размер файла в байтах.
+    pub size: u64,
+    /// Количество строк в файле.
+    pub lines: usize,
+}
+
+/// Снимок логов с уникальным именем по времени. Коллизии (две сессии в одну
+/// секунду) разрешаем суффиксом-счётчиком, чтобы архив не перетирал записи.
+pub fn save_log_session(instance_id: &str, content: &str) -> Result<SavedLogSession, String> {
+    if content.trim().is_empty() {
+        return Err("Лог пустой — сохранять нечего".to_string());
+    }
+    let dir = portal_logs_dir(instance_id);
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Не удалось создать папку логов: {e}"))?;
+
+    let started = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or_default();
+    let mut path = dir.join(format!("session-{started}.log"));
+    let mut counter = 1u32;
+    while path.exists() {
+        path = dir.join(format!("session-{started}-{counter}.log"));
+        counter += 1;
+    }
+    std::fs::write(&path, content).map_err(|e| format!("Не удалось сохранить лог: {e}"))?;
+
+    Ok(SavedLogSession {
+        id: path.file_name().and_then(|v| v.to_str()).unwrap_or_default().to_string(),
+        started_at: format_session_time(started),
+        size: content.len() as u64,
+        lines: content.lines().count(),
+    })
+}
+
+/// Список сохранённых сессий, новые сверху.
+#[tauri::command]
+pub fn list_log_sessions(instance_id: String) -> Vec<SavedLogSession> {
+    let dir = portal_logs_dir(&instance_id);
+    let Ok(entries) = std::fs::read_dir(&dir) else { return Vec::new() };
+    let mut out: Vec<SavedLogSession> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            if !path.is_file() {
+                return None;
+            }
+            let name = path.file_name()?.to_str()?.to_string();
+            if !name.starts_with("session-") || !name.ends_with(".log") {
+                return None;
+            }
+            let started = name
+                .strip_prefix("session-")
+                .and_then(|rest| rest.split('-').next())
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or_default();
+            let lines = std::fs::read_to_string(&path)
+                .map(|text| text.lines().count())
+                .unwrap_or(0);
+            Some(SavedLogSession {
+                id: name,
+                started_at: format_session_time(started),
+                size: entry.metadata().map(|m| m.len()).unwrap_or(0),
+                lines,
+            })
+        })
+        .collect();
+    out.sort_by(|a, b| b.id.cmp(&a.id));
+    out
+}
+
+/// Текст сохранённой сессии.
+#[tauri::command]
+pub fn read_log_session(instance_id: String, session_id: String) -> Result<String, String> {
+    let path = resolve_log_session_path(&instance_id, &session_id)?;
+    std::fs::read_to_string(&path).map_err(|e| format!("Не удалось прочитать лог: {e}"))
+}
+
+/// Удалить сохранённую сессию.
+#[tauri::command]
+pub fn delete_log_session(instance_id: String, session_id: String) -> Result<(), String> {
+    let path = resolve_log_session_path(&instance_id, &session_id)?;
+    std::fs::remove_file(&path).map_err(|e| format!("Не удалось удалить лог: {e}"))
+}
+
+/// Защита от выхода за пределы папки логов: `session_id` приходит из UI, но
+/// это пользовательский ввод, поэтому имя проверяется и путь собирается заново.
+fn resolve_log_session_path(instance_id: &str, session_id: &str) -> Result<PathBuf, String> {
+    let dir = portal_logs_dir(instance_id);
+    let base = dir.file_name().and_then(|v| v.to_str()).unwrap_or("portal-logs");
+    let stem = session_id
+        .strip_suffix(".log")
+        .ok_or_else(|| "Некорректное имя сессии".to_string())?;
+    if stem.is_empty()
+        || !stem.starts_with("session-")
+        || !stem.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        || stem.contains("..")
+    {
+        return Err("Некорректное имя сессии".to_string());
+    }
+    let path = dir.join(format!("{stem}.log"));
+    let resolved_parent = path.parent().and_then(|p| p.file_name()).and_then(|v| v.to_str());
+    if resolved_parent != Some(base) {
+        return Err("Некорректный путь сессии".to_string());
+    }
+    if !path.is_file() {
+        return Err("Файл сессии не найден".to_string());
+    }
+    Ok(path)
+}
+
+fn format_session_time(unix_seconds: u64) -> String {
+    chrono::DateTime::from_timestamp(unix_seconds as i64, 0)
+        .map(|value| value.format("%d.%m.%Y %H:%M:%S").to_string())
+        .unwrap_or_else(|| "неизвестно".to_string())
 }

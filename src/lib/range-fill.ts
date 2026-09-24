@@ -29,7 +29,8 @@ export function syncRangeFill(input: HTMLInputElement) {
 }
 
 export function initRangeFill() {
-  const sync = (target: EventTarget | null) => {
+  const sync = (event: Event) => {
+    const target = event.target;
     if (target instanceof HTMLInputElement && target.matches(RANGE_SELECTOR)) syncRangeFill(target);
   };
 

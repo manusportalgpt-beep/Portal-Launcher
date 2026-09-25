@@ -155,6 +155,12 @@ export interface OpenPortalConfig {
    * (reasoning_effort / reasoning.effort / thinking.budget_tokens).
    */
   effort?: 'minimal' | 'low' | 'medium' | 'high';
+  /**
+   * Размер контекста вручную для конкретных моделей: ключ `providerId/modelId`.
+   * Нужен там, где провайдер не сообщает лимит (например, OpenCode Zen) —
+   * иначе все такие модели считались бы по дефолту 128K.
+   */
+  modelContexts?: Record<string, number>;
   /** Токены сервисов (API) для инструмента http_request: хост → токен. */
   serviceTokens?: Record<string, string>;
   /** Пресет прав: dfa | fa | ask (по умолчанию dfa). */

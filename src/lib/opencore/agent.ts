@@ -2565,6 +2565,7 @@ export function resolveEndpoint(
   providerId: string,
   modelId: string,
   providersState: Record<string, { apiKey?: string; baseUrl?: string; remoteModels?: ModelDef[] }>,
+  modelContexts?: Record<string, number>,
 ): ResolvedEndpoint {
   const preset = OP_PROVIDERS.find(p => p.id === providerId);
   const st = providersState?.[providerId] ?? {};
@@ -2582,9 +2583,12 @@ export function resolveEndpoint(
     // Размер контекста из API приоритетнее: у провайдера он актуальный
     // (например 1_048_576 у Space Bunny Free), а в реестре может стоять
     // устаревший дефолт.
-    model = fromPreset
+    const base = fromPreset
       ? { ...fromPreset, contextLength: fromRemote?.contextLength ?? fromPreset.contextLength }
       : fromRemote ?? { id: modelId };
+    // Ручное переопределение пользователя важнее обоих источников.
+    const override = modelContexts?.[`${providerId}/${modelId}`];
+    model = override ? { ...base, contextLength: override } : base;
   } else {
     // кастомный провайдер
     baseUrl = st.baseUrl || '';

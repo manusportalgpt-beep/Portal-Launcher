@@ -2,7 +2,7 @@ import { useEffect, useReducer, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, ChevronLeft, ChevronRight, ChevronDown, KeyRound, Link2, Server, Check, ExternalLink, RefreshCw, PlugZap, WifiOff, Trash2, Globe } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
-import { OP_PROVIDERS, customProviderId, modelsListUrl, BROWSER_LINKS, type ProviderDef, type BrowserLink } from '@/lib/opencore/providers';
+import { OP_PROVIDERS, customProviderId, modelsListUrl, BROWSER_LINKS, contextWindow, type ProviderDef, type BrowserLink } from '@/lib/opencore/providers';
 import { copilotJwt } from '@/lib/opencore/agent';
 import { useOpenCoreStore, activeProviders, isProviderEnabled, isModelEnabled } from '@/stores/opencoreStore';
 
@@ -222,6 +222,10 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
               <div className="max-h-56 overflow-y-auto rounded-xl border p-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
                 {models.map(m => {
                   const on = isModelEnabled(p, m.id, cfg);
+                  // Размер контекста: берём эффективное значение с учётом
+                  // таблицы известных и ручного переопределения.
+                  const override = (cfg.modelContexts ?? {})[`${p.id}/${m.id}`];
+                  const effective = override ?? contextWindow(m, p.id);
                   return (
                     <div key={m.id} className="flex items-center gap-2 py-1.5 px-1">
                       <Toggle value={on} onChange={v => useOpenCoreStore.getState().toggleModel(p.id, m.id, v)} />
@@ -230,6 +234,12 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
                         {m.free ? <span className="ml-1 text-[10px] font-bold" style={{ color: 'var(--color-success)' }}>Бесплатно</span> : null}
                         {m.reasoning ? <span className="ml-1 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>think</span> : null}
                       </span>
+                      <ContextSizePicker
+                        providerId={p.id}
+                        modelId={m.id}
+                        value={effective}
+                        custom={Boolean(override)}
+                      />
                     </div>
                   );
                 })}
@@ -239,6 +249,59 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
         </motion.div>
       )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+/**
+ * Выбор размера контекста для модели.
+ *
+ * Нужен там, где провайдер не сообщает лимит (OpenCode Zen отдаёт только id),
+ * иначе все модели считались бы по дефолту 128K. Значение сохраняется и
+ * используется метром контекста и сжатием истории.
+ */
+function ContextSizePicker({ providerId, modelId, value, custom }: {
+  providerId: string; modelId: string; value: number; custom: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const options: number[] = [32_000, 64_000, 128_000, 200_000, 400_000, 1_000_000, 1_048_576, 2_000_000];
+  const label = value >= 1_000_000
+    ? `${Math.round(value / 1_000_000)}M`
+    : `${Math.round(value / 1000)}K`;
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={() => setOpen(o => !o)}
+        title={`Контекст: ${value.toLocaleString('ru-RU')} токенов${custom ? ' (задано вручную)' : ''}. Нажми, чтобы изменить — нужно, если провайдер не сообщает реальный размер.`}
+        className="rounded px-1.5 py-1 text-[10px] font-bold"
+        style={{
+          background: custom ? 'var(--color-primary)' : 'var(--color-surface-2)',
+          color: custom ? 'var(--color-primary-text)' : 'var(--color-text-secondary)',
+          border: '1px solid var(--color-border)',
+        }}
+      >{label}</button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border p-1" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>
+            {options.map(v => (
+              <button key={v} onClick={() => { useOpenCoreStore.getState().setModelContext(providerId, modelId, v); setOpen(false); }}
+                className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-[11px] font-semibold transition-colors hover:bg-[var(--color-surface-2)]"
+                style={{ color: v === value ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
+                <span>{v >= 1_000_000 ? `${(v / 1_000_000).toFixed(v % 1_000_000 ? 2 : 0)}M` : `${v / 1000}K`}</span>
+                {v === value && <Check size={11} />}
+              </button>
+            ))}
+            {custom && (
+              <button onClick={() => { useOpenCoreStore.getState().setModelContext(providerId, modelId, 0); setOpen(false); }}
+                className="mt-1 w-full rounded border-t px-2 py-1.5 text-left text-[10px]"
+                style={{ color: 'var(--color-text-tertiary)', borderColor: 'var(--color-border)' }}>
+                Вернуть значение провайдера
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -49,9 +49,27 @@ export function modelsListUrl(p: ProviderDef, baseUrl: string): string {
   return p.kind === 'anthropic' ? `${base}/v1/models` : `${base}/models`;
 }
 
+/**
+ * Известные размеры контекста для моделей, чей провайдер их не сообщает.
+ *
+ * OpenCode Zen возвращает в /v1/models только id/object/created/owned_by —
+ * поля context_length там нет, поэтому без такой таблицы все модели Zen
+ * показывались с дефолтом 128K, хотя у части из них миллион токенов.
+ *
+ * Здесь только те значения, которые известны точно. Для остальных моделей
+ * размер можно задать вручную в панели моделей — он сохраняется и
+ * используется дальше.
+ */
+const KNOWN_MODEL_CONTEXTS: Record<string, number> = {
+  'space-bunny-free': 1_048_576,
+};
+
 /** Размер контекстного окна модели в токенах с дефолтами по семейству/провайдеру. */
 export function contextWindow(model: ModelDef, providerId?: string): number {
   if (model.contextLength) return model.contextLength;
+  // Точное значение из локальной таблицы (для zen и других, кто молчит).
+  const known = KNOWN_MODEL_CONTEXTS[model.id];
+  if (known) return known;
   if (model.family === 'anthropic') return 200_000;
   if (model.family === 'google' || providerId === 'google') return 1_000_000;
   return 128_000;

@@ -120,6 +120,8 @@ interface OpenCoreState {
   setModelsMenuOpen: (open: boolean) => void;
   addUsage: (u: TokenUsage) => void;
   setContextLimit: (limit: number) => void;
+  /** Задать размер контекста вручную для модели. 0 — убрать переопределение. */
+  setModelContext: (providerId: string, modelId: string, tokens: number) => void;
   resetUsage: () => void;
 }
 
@@ -494,9 +496,23 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
         });
       },
 
-      setContextLimit(limit) {
-        set({ usage: { ...get().usage, limit } });
-      },
+    setContextLimit(limit) {
+      set({ usage: { ...get().usage, limit } });
+    },
+
+    setModelContext(providerId, modelId, tokens) {
+      const cfg = get().config;
+      const key = `${providerId}/${modelId}`;
+      const next = { ...(cfg.modelContexts ?? {}) };
+      if (!tokens || tokens <= 0) delete next[key];
+      else next[key] = tokens;
+      const updated = { ...cfg, modelContexts: next };
+      set({ config: updated });
+      void persistConfig(updated);
+      // Сразу подхватываем новое значение, чтобы метр не показывал старое.
+      if (tokens > 0) set({ usage: { ...get().usage, limit: tokens } });
+    },
+
 
       resetUsage() {
         set({ usage: { input: 0, output: 0, context: 0, limit: get().usage.limit, estimated: false } });
@@ -508,21 +524,30 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
 export function activeProviders(config: OpenPortalConfig): ProviderDef[] {
   const list: ProviderDef[] = OP_PROVIDERS.map(p => {
     const st = config.providers[p.id];
-    if (!st?.remoteModels || st.remoteModels.length === 0) return p;
+    const overrides = config.modelContexts ?? {};
+    // Ручное значение пользователя приоритетнее всего: провайдер может молчать
+    // о размере контекста, и без этого модель показывалась бы как 128K.
+    const withOverride = (m: any) => {
+      const key = `${p.id}/${m.id}`;
+      return overrides[key] ? { ...m, contextLength: overrides[key] } : m;
+    };
+    if (!st?.remoteModels || st.remoteModels.length === 0) {
+      return { ...p, models: p.models.map(withOverride) };
+    }
     const registry = new Map(p.models.map(m => [m.id, m]));
     const merged = st.remoteModels.map(m => {
       const cur = registry.get(m.id);
-      if (!cur) return m;
-      // Размер контекста из реестра — запасной вариант. Если провайдер
-      // сообщил свой (например 1_048_576 у Space Bunny Free), берём его:
-      // иначе все удалённые модели считались бы по дефолту 128K.
-      return {
+      if (!cur) return withOverride(m);
+      // Размер контекста из API приоритетнее реестра: у провайдера он актуальный
+      // (например 1_048_576 у Space Bunny Free), а в реестре может стоять
+      // устаревший дефолт.
+      return withOverride({
         ...m,
         ...cur,
         contextLength: m.contextLength ?? cur.contextLength,
         free: m.free || cur.free,
         name: cur.name ?? m.name,
-      };
+      });
     });
     return { ...p, models: merged };
   });

@@ -124,36 +124,6 @@ function PortalArtifact({ path, name }: { path: string; name: string }) {
   );
 }
 
-/** Карточка-превью ссылки: скриншот страницы через WordPress mShots (без ключей) + домен. */
-function LinkPreview({ url }: { url: string }) {
-  const [failed, setFailed] = useState(false);
-  const clean = url.split(/[\s<>'"`{}]|\)$/)[0].replace(/[.,;!?]+$/, '');
-  let host = '';
-  let target = clean;
-  try {
-    const u = new URL(clean);
-    host = u.host.replace(/^www\./, '');
-    target = u.href;
-  } catch {
-    return null;
-  }
-  if (!host || failed) return null;
-  const shot = `https://s.wordpress.com/mshots/v1/${encodeURIComponent(target)}?w=360&h=190`;
-  return (
-    <a href={target} target="_blank" rel="noreferrer"
-      className="mt-1.5 block w-full max-w-[300px] overflow-hidden rounded-xl border transition-transform hover:-translate-y-0.5"
-      style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
-      <span className="flex h-28 w-full items-center justify-center overflow-hidden bg-black/20">
-        <img src={shot} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover"
-          onError={() => setFailed(true)} />
-      </span>
-      <span className="block px-2.5 py-1.5">
-        <span className="block truncate text-[10.5px] font-bold" style={{ color: 'var(--color-text)' }}>{host}</span>
-      </span>
-    </a>
-  );
-}
-
 /** Минимальный markdown-рендерер без зависимостей. */
 function renderInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = [];
@@ -431,19 +401,9 @@ export const Markdown = memo(function Markdown({ text, streaming }: { text: stri
     } else if (line.trim() === '') {
       out.push(<div key={key++} className="h-1.5" />);
     } else {
-      const nodes: ReactNode[] = [<span key={key++}>{renderInline(line)}</span>];
-      const seen = new Set<string>();
-      let m2: RegExpExecArray | null;
-      const urlRe = /https?:\/\/[^\s<>()\[\]`"']+/gi;
-      urlRe.lastIndex = 0;
-      while ((m2 = urlRe.exec(line)) !== null && seen.size < 2) {
-        const url = m2[0].replace(/[.,;!?)]+$/, '');
-        if (!/\.(png|jpe?g|webp|gif)(\?.*)?$/i.test(url) && !seen.has(url)) {
-          seen.add(url);
-          nodes.push(<LinkPreview key={key++} url={url} />);
-        }
-      }
-      out.push(<p key={key++} className="op-fade-in break-words whitespace-pre-wrap">{nodes}</p>);
+      // Превью ссылок убраны: они засоряли чат карточками. Ссылка остаётся
+      // обычной кликабельной ссылкой в тексте.
+      out.push(<p key={key++} className="op-fade-in break-words whitespace-pre-wrap"><span>{renderInline(line)}</span></p>);
     }
   }
   flushAll();

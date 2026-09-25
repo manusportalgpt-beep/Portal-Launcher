@@ -127,32 +127,16 @@ fn canonical(p: &Path) -> Option<PathBuf> {
 }
 
 /// Проверяет, что `path` находится внутри корня `root`.
-/// Для записи в Launcher разрешён только settings.json на верхнем уровне,
-/// либо любая папка ативной сборки (instance), выбранной в OpenPortal.
+/// Зоны доступа агента.
+///
+/// Для Launcher теперь действует постоянное разрешение на всю папку
+/// PortalLauncher (в Roaming), а не только settings.json и папка активной
+/// сборки: агент должен сам создавать проекты, класть в сборки шейдеры,
+/// ресурс-паки и моды без постоянных вопросов. За пределы этой папки запись
+/// по-прежнему запрещена.
 fn enforce_root(root: Root, path: &Path, write: bool) -> Result<PathBuf, String> {
     let base = root_path(root);
     let base = canonical(&base).unwrap_or(base);
-    if matches!(root, Root::Launcher) && write {
-        // Launcher: всегда можно трогать только settings.json…
-        let settings = launcher_settings_path();
-        let settings = canonical(&settings).unwrap_or(settings);
-        if path == settings {
-            return Ok(settings);
-        }
-        // …и полные права внутри папки активной сборки (изменения подтверждаются
-        // пермишн-модалкой — запись в любой момент может быть отклонена).
-        if let Some(dir) = active_build_dir() {
-            if let Some(p) = canonical(path) {
-                if p.starts_with(&dir) {
-                    return Ok(p);
-                }
-            }
-        }
-        return Err(
-            "Запись разрешена только в settings.json лаунчера или внутри выбранной сборки."
-                .into(),
-        );
-    }
     let ok = if write {
         // Для записи файл может ещё не существовать — канонизируем родителя.
         let parent = path.parent().unwrap_or(&base);
@@ -196,11 +180,6 @@ fn active_build_id() -> Option<String> {
     let raw = std::fs::read_to_string(&p).ok()?;
     let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
     v.get("instance_id").and_then(|x| x.as_str()).map(|s| s.to_string())
-}
-
-fn active_build_dir() -> Option<PathBuf> {
-    let id = active_build_id()?;
-    valid_instance_dir(&id)
 }
 
 /// Задаёт активную сборку для OpenPortal (`None` — «без сборки»).

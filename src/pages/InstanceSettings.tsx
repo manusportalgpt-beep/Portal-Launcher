@@ -227,6 +227,22 @@ export function InstanceSettings() {
     return () => { active = false; };
   }, [form.minecraftVersion, form.modLoader]);
 
+  // Версия лоадера должна соответствовать выбранной версии Minecraft и лоадеру.
+  // Раньше при смене версии игры список перезагружался, но в форме оставалась
+  // старая версия лоадера — сборка сохранялась с несовместимой парой, и моды
+  // переставали загружаться и обновляться.
+  useEffect(() => {
+    if (loaderVersionsLoading) return;
+    if (!['fabric', 'forge', 'neoforge'].includes(form.modLoader)) return;
+    if (loaderVersions.length === 0) return;
+    const exists = loaderVersions.some(item => item.value === form.modLoaderVersion);
+    if (exists) return;
+    const next = recommendedLoaderVersion?.value ?? loaderVersions[0]?.value ?? '';
+    if (next && next !== form.modLoaderVersion) {
+      setForm(current => ({ ...current, modLoaderVersion: next }));
+    }
+  }, [loaderVersions, loaderVersionsLoading, form.modLoader, form.modLoaderVersion, recommendedLoaderVersion?.value]);
+
   const pickCover = (file?: File | null) => {
     if (!file || !file.type.startsWith('image/')) return;
     if (file.size > 8 * 1024 * 1024) return;

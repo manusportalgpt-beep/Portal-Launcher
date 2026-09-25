@@ -64,12 +64,20 @@ const KNOWN_MODEL_CONTEXTS: Record<string, number> = {
   'space-bunny-free': 1_048_576,
 };
 
+/** Линейка моделей space-bunny: подтверждённый контекст 1M у -free варианта. */
+const KNOWN_PREFIX_CONTEXTS: [RegExp, number][] = [
+  [/^space-bunny/i, 1_048_576],
+];
+
 /** Размер контекстного окна модели в токенах с дефолтами по семейству/провайдеру. */
 export function contextWindow(model: ModelDef, providerId?: string): number {
   if (model.contextLength) return model.contextLength;
   // Точное значение из локальной таблицы (для zen и других, кто молчит).
   const known = KNOWN_MODEL_CONTEXTS[model.id];
   if (known) return known;
+  for (const [pattern, value] of KNOWN_PREFIX_CONTEXTS) {
+    if (pattern.test(model.id)) return value;
+  }
   if (model.family === 'anthropic') return 200_000;
   if (model.family === 'google' || providerId === 'google') return 1_000_000;
   return 128_000;

@@ -149,27 +149,39 @@ async function fetchWithToolFallback(
   if (res.status !== 400) return res;
 
   const firstBody = await res.text().catch(() => '');
+  // Ступень 1: минимальный набор инструментов.
   const reduced = reducedToolSet(requestTools);
-  if (reduced.length === 0 || reduced.length >= requestTools.length) {
-    throw new Error(appendZenErrorHint(`${providerName} вернул HTTP 400: ${firstBody.slice(0, 600)}`, firstBody));
+  if (reduced.length > 0 && reduced.length < requestTools.length) {
+    try {
+      const retry = await fetch(url, {
+        method: 'POST', signal, headers,
+        body: JSON.stringify({ ...body, tools: reduced }),
+      });
+      if (retry.status !== 400) return retry;
+    } catch (e) {
+      if ((e as DOMException)?.name === 'AbortError') throw e;
+    }
   }
-
+  // Ступень 2: вообще без инструментов и необязательных параметров.
+  // Если и это не прошло — дело не в tools, и дальше уменьшать нечего:
+  // сообщение пользователя лучше отправить как обычный чат, чем потерять.
   try {
-    const retry = await fetch(url, {
-      method: 'POST', signal, headers,
-      body: JSON.stringify({ ...body, tools: reduced }),
-    });
-    if (retry.status !== 400) return retry;
-    const retryBody = await retry.text().catch(() => '');
+    const plainBody: Record<string, unknown> = { model: body.model, messages: body.messages };
+    if (body.stream) plainBody.stream = true;
+    if (body.system !== undefined) plainBody.system = body.system;
+    if (body.max_tokens !== undefined) plainBody.max_tokens = body.max_tokens;
+    const plain = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(plainBody) });
+    if (plain.status !== 400) return plain;
+    const plainBodyText = await plain.text().catch(() => '');
     throw new Error(appendZenErrorHint(
-      `${providerName} вернул HTTP 400 и не принял урезанный набор инструментов. Первый ответ: ${firstBody.slice(0, 400)} | Повтор: ${retryBody.slice(0, 400)}`,
-      `${firstBody} ${retryBody}`,
+      `${providerName} вернул HTTP 400 даже без инструментов. Первый ответ: ${firstBody.slice(0, 300)} | Без инструментов: ${plainBodyText.slice(0, 300)}`,
+      `${firstBody} ${plainBodyText}`,
     ));
   } catch (e) {
     if (e instanceof Error && /HTTP 400/.test(e.message)) throw e;
     if ((e as DOMException)?.name === 'AbortError') throw e;
     throw new Error(appendZenErrorHint(
-      `${providerName} вернул HTTP 400: ${firstBody.slice(0, 400)}. Повтор с урезанным набором инструментов не удался: ${String(e)}`,
+      `${providerName} вернул HTTP 400: ${firstBody.slice(0, 400)}. Повторы не помогли: ${String(e)}`,
       firstBody,
     ));
   }
@@ -2504,32 +2516,31 @@ export async function executeTool(
     // Правка файла идёт тем же путём, что и запись: для portal/temp без
     // запроса разрешения, для launcher — через модалку подтверждения.
     const isFileWrite = tool === 'write_text' || tool === 'edit_file';
-    if (isFileWrite && (root === 'portal' || root === 'temp')) {
+    if (isFileWrite) {
+      // Постоянное разрешение: агент работает в папке OpenPortal и в папке
+      // PortalLauncher (Roaming) без вопросов — иначе он не может создавать
+      // проекты и класть содержимое в сборки.
       return tool === 'edit_file' ? execEditFile(args) : execWriteText(args);
     }
-    const isNetFetch = !isFileWrite && /^\s*(curl|wget)\b/i.test(String(args.command ?? '').trim());
+    const isNetFetch = /^\s*(curl|wget)\b/i.test(String(args.command ?? '').trim());
     if (isNetFetch || root === 'portal' || root === 'temp') {
-      if (isFileWrite) return tool === 'edit_file' ? execEditFile(args) : execWriteText(args);
       return execRunCommand(args);
     }
-    const label = tool === 'edit_file' ? 'Правка файла' : tool === 'write_text' ? 'Запись файла' : tool === 'terminal' ? 'Команда в PowerShell' : 'Выполнение команды';
-    const detail = isFileWrite
-      ? `Путь: ${args.path}${tool === 'edit_file' ? `\nЗаменяемый фрагмент:\n${String(args.find ?? '').slice(0, 800)}` : ''}`
-      : `Команда: ${args.command}\nПапка: ${args.cwd}`;
+    const label = tool === 'terminal' ? 'Команда в PowerShell' : 'Выполнение команды';
+    const detail = `Команда: ${args.command}\nПапка: ${args.cwd}`;
     const decision = await requestPermission({
       tool,
       root,
       label,
       detail,
-      cwdLabel: `${label} → ${args.path ?? args.cwd ?? ''}`,
-      hazard: isFileWrite ? false : isHazardousCommand(args.command),
+      cwdLabel: `${label} → ${args.cwd ?? ''}`,
+      hazard: isHazardousCommand(args.command),
       resolve: () => {},
     });
     if (decision === 'deny' || decision === 'never') {
       return { ok: false, output: `Пользователь не разрешил: ${label}.` };
     }
     if (decision === 'allow' || decision === 'always') {
-      if (isFileWrite) return tool === 'edit_file' ? execEditFile(args) : execWriteText(args);
       return execRunCommand(args);
     }
     return { ok: false, output: 'Разрешение не получено.' };
@@ -3546,6 +3557,15 @@ export function buildSystemPrompt(opts: {
     `- Для генерации текстур: PIL (Pillow). Пример подхода — скрипт рисует пиксель-арт 16x16 в RGBA и сохраняет в assets/<namespace>/textures/block/<name>.png. Затем собери resourcepack zip с pack.mcmeta.`,
     `- Pillow может отсутствовать в системе. Перед использованием проверь: run_command('python -c "import PIL; print(PIL.__version__)"'). Если модуля нет — либо предложи pip install, либо сделай без него (чистый Python + zlib/структура PNG вручную — последнее только если пользователь просит).`,
     `- Для изменения существующих текстур: сначала распакуй resourcepack через archive_extract, посмотри pack.mcmeta, потом правь/генерируй и запакуй обратно. Не меняй файлы вслепую.`,
+    `ОШИБКИ, КОТОРЫЕ ТЫ ДЕЛАЕШЬ ЧАСТО (и как их избежать):`,
+    `- Пишешь шейдер, но «изменения не идут в игру». Причины: (1) забыл uniform, объявленный в .fsh, или обратился к слоту, которого нет; (2) перепутал буферы — в gbuffers слот 0 это terrain, а не albedo; (3) забыл #version 120 в начале файла; (4) собрал zip неправильно — в архиве должны лежать папки shaders/ и textures/ ВНУТРИ zip, а не сама папка; (5) положил .zip в resourcepacks вместо shaderpacks; (6) игра запущена со старым шейдером.`,
+    `- Перед тем как сказать «шейдер готов»: archive_list своего zip и убедись, что .vsh/.fsh лежат в shaders/. Скажи пользователю, куда положил архив, какой шейдер включить в Настройки → Видео → Шейдеры, и что нужен Iris/OptiFine.`,
+    `- Мод «не грузится»: проверь namespace в путях (assets/<ns>/ и data/<ns>/), имя entrypoint-метода в fabric.mod.json против @Mod в аннотации, версию загрузчика в mods.toml, и что файл реально попал в mods/ сборки, а не в корень проекта.`,
+    `- Моды не обновляются после смены версии Minecraft: почти всегда виновата несовместимая версия лоадера (например Fabric 0.15 не под 1.21). Проверь через get_fabric_versions / get_neoforge_versions / get_forge_versions для ТЕКУЩЕЙ версии игры и поставь ту, что реально существует. Никогда не оставляй старую версию лоадера.`,
+    `- Ресурс-пак «не применяется»: pack.mcmeta обязан быть в корне zip с pack_format, совпадающим с версией игры (например pack_format 15 для 1.20.1). Папка assets/<namespace> должна совпадать с pack.mcmeta. В 1.20.5+ pack_format другой (например 32) — уточни, а не ставь наугад.`,
+    `- Изменение не доходит до игры почти всегда означает одно из трёх: файл записан не туда (проверь путь), игра запущена со старой копией (попроси пересобрать сборку и перезапустить), или архив пересобран неправильно. Всегда проверяй archive_list после упаковки.`,
+    `- Сборка (модпак): manifest.json обязателен, внутри files/minecraft и mods/ с реальными файлами. Не выдавай список модов за сборку.`,
+    `- Не повторяй уже сделанное и не заявляй успех без проверки: archive_list, javap, запуск скрипта. Лучше честно «не смог проверить» — чем «готово».`,
     `ПРОВЕРКА РЕЗУЛЬТАТА (обязательно перед отчётом):`,
     `- Создал шейдер — распакуй свой zip обратно (archive_list) и убедись, что .vsh/.fsh на месте и в правильных папках. Создал ресурс-пак — проверь наличие pack.mcmeta. Создал мод — проверь, что jar не пустой и в нём есть fabric.mod.json или META-INF/mods.toml (archive_list).`,
     `- Скрипт на Python запусти и убедись в отсутствии ошибок. Проверяй себя до того, как говорить «готово».`,

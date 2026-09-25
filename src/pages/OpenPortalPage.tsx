@@ -1274,28 +1274,32 @@ export function OpenPortalPage() {
       for (const a of attachments) {
         const b64 = a.base64 ?? (a.dataUrl ? a.dataUrl.split(',')[1] ?? '' : '');
         if (a.type?.startsWith('image/') && b64) {
+          // Раньше сюда попадало описание картинки (размеры, прозрачность, палитра),
+          // поэтому модель видела бесполезный текст вместо самого изображения.
+          // Теперь передаём АБСОЛЮТНЫЙ путь: файл уже лежит в песочнице, и агент
+          // может рассмотреть его сам через inspect_image.
           try {
             const imgName = await invoke<string>('op_save_image', { b64 });
-            const insp = await invoke<{
-              width: number; height: number; alpha: boolean;
-              colors: { hex: string; share: number; brightness: number }[];
-              dominant: string; average: string;
-            }>('op_image_inspect', { root: 'portal', path: `${layout?.cache ?? ''}\\images\\${imgName}` });
-            const palette = (Array.isArray(insp?.colors) ? insp.colors : [])
-              .map(c => `${c.hex} ${Math.round((c.share ?? 0) * 10) / 10}%`)
-              .slice(0, 6).join(', ');
-            parts.push(`[Вложение — изображение «${a.name}»] ${insp?.width ?? '?'}×${insp?.height ?? '?'} px, прозрачность: ${insp?.alpha ? 'есть' : 'нет'}, доминирующий цвет ${insp?.dominant || '—'}, средний цвет ${insp?.average || '—'}, палитра: ${palette || '—'}.`);
+            const absPath = `${layout?.cache ?? ''}\\images\\${imgName}`;
+            parts.push(`[Изображение: ${a.name}]\nПуть в песочнице: ${absPath}\nРассмотреть: inspect_image(root='portal', path='${absPath}'). Опиши, что на изображении, и используй его в задаче.`);
           } catch {
-            parts.push(`[Вложение — изображение «${a.name}»] (не удалось проанализировать)`);
+            parts.push(`[Изображение: ${a.name}] (не удалось сохранить в песочницу, ${fmtSize(a.size)})`);
           }
         } else if (a.type?.startsWith('text/') && b64 && b64.length < 70_000) {
           try {
-            parts.push(`[Вложение — файл «${a.name}»]\n\`\`\`\n${b64ToUtf8(b64).slice(0, 50_000)}\n\`\`\``);
+            parts.push(`[Файл: ${a.name}]\n\`\`\`\n${b64ToUtf8(b64).slice(0, 50_000)}\n\`\`\``);
           } catch {
-            parts.push(`[Вложение — файл «${a.name}»] (${fmtSize(a.size)}, ${a.type || 'бинарный'})`);
+            parts.push(`[Файл: ${a.name}] (${fmtSize(a.size)}, ${a.type || 'бинарный'})`);
           }
         } else {
-          parts.push(`[Вложение — файл «${a.name}»] (${fmtSize(a.size)}, ${a.type || 'бинарный'})`);
+          // Бинарные файлы кладём в песочницу и отдаём путь, иначе агент о них
+          // вообще ничего не знает.
+          const saved = b64 && b64.length < 30_000_000
+            ? await invoke<string>('op_write_bytes', { root: 'portal', path: a.name, b64 }).catch(() => '')
+            : '';
+          parts.push(saved
+            ? `[Файл: ${a.name}]\nПуть в песочнице: ${saved}\nЧто делать: hexdump или archive_list, а для текста — read_text.`
+            : `[Файл: ${a.name}] (${fmtSize(a.size)}, ${a.type || 'бинарный'}) — передать содержимое не удалось.`);
         }
       }
       if (parts.length > 0) finalText = `${text}\n\n${parts.join('\n\n')}`;

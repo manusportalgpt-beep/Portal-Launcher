@@ -172,8 +172,22 @@ fn find_java_for_mc(mc_version: &str) -> Result<String, String> {
     verified_java(major, &format!("установки загрузчика для Minecraft {mc_version}"))
 }
 
+/// Quilt поддерживает Minecraft начиная с 1.14. Раньше здесь стояло `>= 26`,
+/// из-за чего установка лоадера работала только для несуществующих на тот
+/// момент версий, а для всех обычных (1.14–1.21) выбор версии лоадера и
+/// профиля не работал.
 fn is_modern_quilt_target(mc_version: &str) -> bool {
-    mc_version.split('.').next().and_then(|part| part.parse::<u32>().ok()).unwrap_or(0) >= 26
+    let major = mc_version
+        .split('.')
+        .next()
+        .and_then(|part| part.parse::<u32>().ok())
+        .unwrap_or(0);
+    let minor = mc_version
+        .split('.')
+        .nth(1)
+        .and_then(|part| part.parse::<u32>().ok())
+        .unwrap_or(0);
+    (major, minor) >= (1, 14)
 }
 
 async fn download_bytes(client: &reqwest::Client, url: &str) -> Result<bytes::Bytes, String> {
@@ -812,6 +826,31 @@ pub async fn install_neoforge(mc_version: String, neoforge_version: String, _ins
                  else if output.status.success() { format!("NeoForge installer завершился, но не создал профиль. stdout: {}, stderr: {}", &stdout_text[..stdout_text.len().min(500)], &stderr_text[..stderr_text.len().min(500)]) }
                  else { format!("Не удалось установить NeoForge: {}", installer_failure_with_network_hint(&output)) },
     })
+}
+
+/// Get available Quilt loader versions for a given MC version.
+///
+/// Команды не было вообще, поэтому в списке версий лоадера для Quilt всегда
+/// было пусто и выбрать версию было невозможно. Формат тот же, что уже
+/// разбирается в install_quilt: массив объектов с полями loader.version и
+/// loader.stable.
+#[tauri::command]
+pub async fn get_quilt_versions(mc_version: String) -> Result<Vec<serde_json::Value>, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .user_agent("PortalLauncher/1.3")
+        .build()
+        .map_err(|e| e.to_string())?;
+    let url = format!("https://meta.quiltmc.org/v3/versions/loader/{mc_version}");
+    let data: serde_json::Value = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("Quilt metadata: {e}"))?
+        .json()
+        .await
+        .map_err(|e| format!("Quilt metadata JSON: {e}"))?;
+    Ok(data.as_array().cloned().unwrap_or_default())
 }
 
 /// Get available Fabric loader versions for a given MC version.

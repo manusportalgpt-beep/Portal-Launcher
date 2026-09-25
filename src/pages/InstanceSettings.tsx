@@ -202,14 +202,14 @@ export function InstanceSettings() {
   useEffect(() => {
     let active = true;
     const loadLoaderVersions = async () => {
-      if (!['fabric', 'forge', 'neoforge'].includes(form.modLoader)) {
+      if (!['fabric', 'forge', 'neoforge', 'quilt'].includes(form.modLoader)) {
         setLoaderVersions([]);
         return;
       }
       setLoaderVersionsLoading(true);
       try {
-        const raw = await invoke<any>(form.modLoader === 'fabric' ? 'get_fabric_versions' : form.modLoader === 'neoforge' ? 'get_neoforge_versions' : 'get_forge_versions', { mcVersion: form.minecraftVersion });
-        const values: LoaderVersionOption[] = form.modLoader === 'fabric'
+        const raw = await invoke<any>(form.modLoader === 'fabric' ? 'get_fabric_versions' : form.modLoader === 'neoforge' ? 'get_neoforge_versions' : form.modLoader === 'quilt' ? 'get_quilt_versions' : 'get_forge_versions', { mcVersion: form.minecraftVersion });
+        const values: LoaderVersionOption[] = form.modLoader === 'fabric' || form.modLoader === 'quilt'
           ? (Array.isArray(raw) ? raw.map((entry: any) => {
               const value = entry?.loader?.version ?? entry?.version;
               const unstable = /(?:alpha|beta|rc|pre|snapshot)/i.test(String(value ?? ''));
@@ -233,7 +233,7 @@ export function InstanceSettings() {
   // переставали загружаться и обновляться.
   useEffect(() => {
     if (loaderVersionsLoading) return;
-    if (!['fabric', 'forge', 'neoforge'].includes(form.modLoader)) return;
+    if (!['fabric', 'forge', 'neoforge', 'quilt'].includes(form.modLoader)) return;
     if (loaderVersions.length === 0) return;
     const exists = loaderVersions.some(item => item.value === form.modLoaderVersion);
     if (exists) return;

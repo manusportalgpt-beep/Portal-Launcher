@@ -271,6 +271,7 @@ fn main() {
             commands::loader_installer::install_quilt,
             commands::loader_installer::install_neoforge,
             commands::loader_installer::get_fabric_versions,
+    commands::loader_installer::get_quilt_versions,
             commands::loader_installer::get_forge_versions,
             commands::loader_installer::get_neoforge_versions,
             // Mods

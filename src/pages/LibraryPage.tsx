@@ -553,17 +553,17 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
     let alive = true;
     const loadVersions = async () => {
       const loader = form.loader;
-      if (!form.mcVersion || !['fabric', 'forge', 'neoforge'].includes(loader)) {
+      if (!form.mcVersion || !['fabric', 'forge', 'neoforge', 'quilt'].includes(loader)) {
         setLoaderVersions([]);
         return;
       }
       setLoaderVersionsLoading(true);
       try {
         const raw = await invoke<any>(
-          loader === 'fabric' ? 'get_fabric_versions' : loader === 'neoforge' ? 'get_neoforge_versions' : 'get_forge_versions',
-          { mcVersion: form.mcVersion },
-        );
-        const values: LoaderVersionOption[] = loader === 'fabric'
+        loader === 'fabric' ? 'get_fabric_versions' : loader === 'neoforge' ? 'get_neoforge_versions' : loader === 'quilt' ? 'get_quilt_versions' : 'get_forge_versions',
+        { mcVersion: form.mcVersion },
+      );
+      const values: LoaderVersionOption[] = loader === 'fabric' || loader === 'quilt'
           ? (Array.isArray(raw) ? raw.map((v: any) => {
               const value = v?.loader?.version ?? v?.version;
               const stable = !!v?.loader?.stable;

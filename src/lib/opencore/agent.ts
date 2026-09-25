@@ -1659,12 +1659,18 @@ async function execModSearch(args: Record<string, unknown>): Promise<ExecResult>
     const withModrinth = rawSource !== 'curseforge';
     const limit = Math.min(10, Math.max(1, Number(args.limit ?? 5)));
 
+    // Фильтр по загрузчику применим ТОЛЬКО к модам и модпакам. Ресурс-паки и
+    // шейдеры зависят от версии игры, а не от Fabric/Forge — фильтр по лоадеру
+    // убирал их из выдачи целиком.
+    const loaderApplies = projectType === 'mod' || projectType === 'modpack';
+    const loaderFilter = loaderApplies ? loader : null;
+
     const search = withModrinth
       ? await invoke<any>('search_modrinth', {
           query,
           limit,
           versions: mcVersion ? [mcVersion] : null,
-          loaders: loader ? [loader] : null,
+          loaders: loaderFilter ? [loaderFilter] : null,
           sort: 'relevance',
           projectType,
         })
@@ -1679,11 +1685,11 @@ async function execModSearch(args: Record<string, unknown>): Promise<ExecResult>
       let versionId = '';
       let versionNumber = '';
       try {
-        const versions = await invoke<any[]>('get_modrinth_versions', {
-          projectId: String(h.project_id ?? ''),
-          gameVersion: mcVersion,
-          loader,
-        });
+      const versions = await invoke<any[]>('get_modrinth_versions', {
+        projectId: String(h.project_id ?? ''),
+        gameVersion: mcVersion,
+        loader: loaderFilter,
+      });
         const list: any[] = Array.isArray(versions) ? versions : [];
         if (list.length > 0) {
           versionId = String(list[0].id ?? '');
@@ -3458,7 +3464,8 @@ export function buildSystemPrompt(opts: {
     `Моды Minecraft (взаимодействие с лаунчером):`,
     `- mod_search ищет не только моды. Параметр project_type: "mod" (по умолчанию), "resourcepack" (наборы текстур, темы, HD-паки), "shaderpack" (шейдеры: Complementary, SEUS, BSL, Iris), "modpack" (готовые сборки). ВСЕГДЯ ставь project_type явно, когда речь о текстурах или шейдерах, иначе поиск вернёт только моды и пользователь получит не то.`,
     `- Определяй тип по запросу пользователя: «текстуры/набор текстур/HD/тема/иконки» → resourcepack; «шейдеры/свет/Complementary/SEUS/BSL» → shaderpack; «мод/моды/плагин» → mod; «готовая сборка/модпак» → modpack. В Modrinth шейдеры лежат в разделе shader, ресурс-паки — resourcepack.`,
-    `- У шейдеров и ресурс-паков mc_version/loader обычно не нужны: они встают в любую сборку той же версии игры. Не передавай им loader, если он не задан сборкой. При установке обязательно подставляй mod_type в launcher_install_mod, иначе файл уйдёт не в ту папку.`,
+    `- У шейдеров и ресурс-паков loader не передавай вообще — они зависят только от версии игры, и фильтр по Fabric/Forge просто ничего не находит. Фильтр по лоадеру нужен только для модов и модпаков.`,
+    `- Перед поиском бери версию Minecraft и лоадер ИЗ СБОРКИ, выбранной пользователем (она указана в блоке «Рабочая область агента»), и подставляй их в mod_search. Если пользователь выбрал сборку, а ты ищешь без mc_version/loader — он получит моды не под свою версию, и они не установятся.`,
     `- Страница «Обзор»/FindProjectsPage лаунчера работает через встроенный Modrinth-шлюз (search_modrinth/get_modrinth_project/get_modrinth_versions). Когда пользователь просит «найти/установить мод как в Discover» — используй те же источники: при установке ОБЯЗАТЕЛЬНО передай в launcher_install_mod полные метаданные из mod_search: mod_id (slug проекта), mod_name, mod_version (номер версии файла), version_id, source="modrinth", mod_type, author и icon_url. Так мод появится в лаунчере со своей картинкой, автором и описанием — как будто его установили из каталога.`,
     `- Страница «Обзор»/FindProjectsPage лаунчера работает через встроенный Modrinth-шлюз (search_modrinth/get_modrinth_project/get_modrinth_versions). Когда пользователь просит «найти/установить мод как в Discover» — используй те же источники: при установке ОБЯЗАТЕЛЬНО передай в launcher_install_mod полные метаданные из mod_search: mod_id (slug проекта), mod_name, mod_version (номер версии файла), version_id, source="modrinth", author и icon_url. Так мод появится в лаунчере со своей картинкой, автором и описанием — как будто его установили из каталога.`,
     `- Дубликатов не будет: лаунчер сам заменяет запись по id проекта + тип (мод/ресурспак/шейдер) и по имени файла; при установке другой версии старого файла не остаётся. НЕ скачивай мод «вручную» в папку mods, минуя launcher_install_mod — только если пользователь явно просит это сделать, иначе потеряются картинка/автор/инфо.`,

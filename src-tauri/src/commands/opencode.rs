@@ -1795,6 +1795,14 @@ pub async fn op_http_request(
 pub struct ListedModel {
     pub id: String,
     pub name: Option<String>,
+    /// Размер контекстного окна, если провайдер его сообщает
+    /// (OpenRouter-совместимые используют `context_length`).
+    /// Без этого поле удалённые модели показывались с дефолтом 128K.
+    #[serde(default)]
+    pub context_length: Option<u64>,
+    /// Провайдер иногда сообщает лимит вывода.
+    #[serde(default)]
+    pub max_output_tokens: Option<u64>,
 }
 
 /// Запрашивает `URL` (готовый endpoint `/models` у провайдера) и возвращает
@@ -1824,13 +1832,31 @@ pub async fn op_list_models(url: String, api_key: Option<String>) -> Result<Vec<
         for item in arr {
             if let Some(id) = item.get("id").and_then(|x| x.as_str()) {
                 let name = item.get("name").and_then(|x| x.as_str()).map(|s| s.to_string());
-                out.push(ListedModel { id: id.to_string(), name });
+                // context_length: у OpenRouter-совместимых провайдеров, включая
+                // модели с 1M+ контекста. Ещё встречается context_window/max_context.
+                let context_length = item.get("context_length")
+                    .or_else(|| item.get("context_window"))
+                    .or_else(|| item.get("max_context_tokens"))
+                    .and_then(|x| x.as_u64());
+                let max_output_tokens = item
+                    .get("max_completion_tokens")
+                    .or_else(|| item.get("max_output_tokens"))
+                    .and_then(|x| x.as_u64());
+                out.push(ListedModel { id: id.to_string(), name, context_length, max_output_tokens });
             }
         }
     } else if let Some(arr) = value.as_array() {
         for item in arr {
             if let Some(id) = item.get("id").and_then(|x| x.as_str()) {
-                out.push(ListedModel { id: id.to_string(), name: None });
+                let context_length = item.get("context_length")
+                    .or_else(|| item.get("context_window"))
+                    .or_else(|| item.get("max_context_tokens"))
+                    .and_then(|x| x.as_u64());
+                let max_output_tokens = item
+                    .get("max_completion_tokens")
+                    .or_else(|| item.get("max_output_tokens"))
+                    .and_then(|x| x.as_u64());
+                out.push(ListedModel { id: id.to_string(), name: None, context_length, max_output_tokens });
             }
         }
     }

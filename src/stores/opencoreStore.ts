@@ -51,6 +51,7 @@ function defaultConfig(): OpenPortalConfig {
     project: { kind: 'none' },
     temperature: 0.4,
     permissionPreset: 'dfa',
+    effort: 'medium',
     imageGenProvider: 'stable_horde',
     browserBookmarks: [],
   };
@@ -79,7 +80,7 @@ interface OpenCoreState {
   toggleModel: (providerId: string, modelId: string, enabled: boolean) => void;
   setProviderApiKey: (providerId: string, apiKey: string) => void;
   setProviderBaseUrl: (providerId: string, baseUrl: string) => void;
-  setProviderModels: (providerId: string, models: { id: string; name?: string; free?: boolean }[]) => void;
+  setProviderModels: (providerId: string, models: { id: string; name?: string; free?: boolean; contextLength?: number; maxOutputTokens?: number }[]) => void;
   setActiveModel: (providerId: string, modelId: string) => void;
   setMode: (mode: 'build' | 'plan') => void;
   setPermissionPreset: (preset: PermissionPreset) => void;
@@ -511,7 +512,17 @@ export function activeProviders(config: OpenPortalConfig): ProviderDef[] {
     const registry = new Map(p.models.map(m => [m.id, m]));
     const merged = st.remoteModels.map(m => {
       const cur = registry.get(m.id);
-      return cur ? { ...m, ...cur, free: m.free || cur.free, name: cur.name ?? m.name } : m;
+      if (!cur) return m;
+      // Размер контекста из реестра — запасной вариант. Если провайдер
+      // сообщил свой (например 1_048_576 у Space Bunny Free), берём его:
+      // иначе все удалённые модели считались бы по дефолту 128K.
+      return {
+        ...m,
+        ...cur,
+        contextLength: m.contextLength ?? cur.contextLength,
+        free: m.free || cur.free,
+        name: cur.name ?? m.name,
+      };
     });
     return { ...p, models: merged };
   });

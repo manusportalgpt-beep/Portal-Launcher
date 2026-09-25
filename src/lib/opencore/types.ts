@@ -131,7 +131,7 @@ export interface ProviderState {
   /** карта modelId → включена. Не задано = включены все из реестра. */
   modelStates?: Record<string, boolean>;
   /** Модели, загруженные с API провайдера (перезаписывает реестр в пикере). */
-  remoteModels?: { id: string; name?: string; free?: boolean }[];
+  remoteModels?: { id: string; name?: string; free?: boolean; contextLength?: number; maxOutputTokens?: number }[];
 }
 
 /** Пресет разрешений агента: DFA — спрашивать (как раньше), FA — полный доступ
@@ -149,6 +149,12 @@ export interface OpenPortalConfig {
   /** Последняя рабочая папка (root: portal|temp|launcher + путь). */
   cwd?: { root: string; path: string };
   temperature?: number;
+  /**
+   * Уровень рассуждения модели: minimal | low | medium | high.
+   * Передаётся в API в том формате, который понимает конкретный провайдер
+   * (reasoning_effort / reasoning.effort / thinking.budget_tokens).
+   */
+  effort?: 'minimal' | 'low' | 'medium' | 'high';
   /** Токены сервисов (API) для инструмента http_request: хост → токен. */
   serviceTokens?: Record<string, string>;
   /** Пресет прав: dfa | fa | ask (по умолчанию dfa). */

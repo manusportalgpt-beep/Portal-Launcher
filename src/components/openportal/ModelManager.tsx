@@ -99,7 +99,7 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
           key = await copilotJwt(key);
         } catch { /* оставляем исходный ключ: API-ответ сам объяснит ошибку */ }
       }
-      const list = await invoke<{ id: string; name?: string | null }[]>('op_list_models', {
+      const list = await invoke<{ id: string; name?: string | null; context_length?: number | null; max_output_tokens?: number | null }[]>('op_list_models', {
         url: modelsListUrl(p, baseUrl),
         apiKey: key,
       });
@@ -107,6 +107,10 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
         id: m.id,
         name: m.name || undefined,
         free: m.id.endsWith('-free') || /free/i.test(m.id),
+        // Без этого у всех удалённых моделей оставался дефолт 128K, даже если
+        // модель работает с 1M+.
+        contextLength: m.context_length ?? undefined,
+        maxOutputTokens: m.max_output_tokens ?? undefined,
       })));
     } catch (e) {
       setError(String(e));

@@ -4,7 +4,7 @@ import {
   Plus, MessageSquare, Trash2, Sparkles, Send, StopCircle, ChevronDown, ChevronRight,
   Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Boxes, Check, Copy, Download,
   Gauge, Minimize2, CornerDownRight, Shield, ShieldCheck, ShieldAlert, Globe, ExternalLink,
-  Package, Wand2, Image as ImageIcon, Search, X, FileDiff,
+  Package, Wand2, Image as ImageIcon, Search, X, FileDiff, Brain,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
@@ -527,6 +527,47 @@ function ModeToggle({ mode, onChange }: { mode: 'build' | 'plan'; onChange: (m: 
           : { color: 'var(--color-text-secondary)' }}>
         <DraftingCompass size={11} /> Plan
       </button>
+    </div>
+  );
+}
+
+function EffortPicker({ value, onChange }: { value: 'minimal' | 'low' | 'medium' | 'high'; onChange: (v: 'minimal' | 'low' | 'medium' | 'high') => void }) {
+  const [open, setOpen] = useState(false);
+  const levels: { id: 'minimal' | 'low' | 'medium' | 'high'; label: string; title: string }[] = [
+    { id: 'minimal', label: 'Мин', title: 'Минимум рассуждений — быстрее и дешевле' },
+    { id: 'low', label: 'Низ', title: 'Немного рассуждений' },
+    { id: 'medium', label: 'Сред', title: 'Обычный уровень рассуждений' },
+    { id: 'high', label: 'Выс', title: 'Максимум рассуждений — медленнее, но внимательнее' },
+  ];
+  const current = levels.find(l => l.id === value) ?? levels[2];
+  return (
+    <div className="relative shrink-0">
+      <button onClick={() => setOpen(o => !o)} title={current.title}
+        className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold transition-colors hover:bg-[var(--color-surface)]"
+        style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
+        <Brain size={11} style={{ color: 'var(--color-primary)' }} />
+        {current.label}
+        <ChevronDown size={10} className={`transition-transform ${open ? 'rotate-180' : ''}`} style={{ color: 'var(--color-text-tertiary)' }} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute bottom-full left-0 z-50 mb-2 w-40 overflow-hidden rounded-lg border p-1"
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>
+            {levels.map(l => (
+              <button key={l.id} title={l.title} onClick={() => { onChange(l.id); setOpen(false); }}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] font-semibold transition-colors hover:bg-[var(--color-surface-2)]"
+                style={{ color: l.id === value ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: l.id === value ? 'var(--color-primary)' : 'var(--color-border-strong)' }} />
+                {l.label}
+              </button>
+            ))}
+            <p className="px-2 py-1 text-[9px] leading-3" style={{ color: 'var(--color-text-tertiary)' }}>
+              Работает у моделей с рассуждением. Для остальных параметр не отправляется.
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1302,6 +1343,7 @@ export function OpenPortalPage() {
         input: history,
         mode,
         contextLimit: ctxLimit,
+        effort: cfgNow.effort,
         requestPermission,
         policy: preset === 'ask' ? 'ask' : undefined,
         interrupt: async () => {
@@ -1564,12 +1606,8 @@ export function OpenPortalPage() {
             <div className="flex items-center gap-1.5 border-b px-2 py-1.5" style={{ borderColor: 'var(--color-border)' }}>
               <ModeToggle mode={cfg.mode} onChange={m => useOpenCoreStore.getState().setMode(m)} />
               <CurrentModelPicker />
-              <button onClick={() => useOpenCoreStore.getState().setModelsMenuOpen(true)} title="Модели и провайдеры: ключи, список моделей, закладки"
-                className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[10px] font-bold transition-colors hover:bg-[var(--color-surface)]"
-                style={{ color: 'var(--color-text-secondary)' }}>
-                <Settings2 size={11} /> Модели
-              </button>
               <ContextMeter onCompact={() => void compressChat()} />
+              <EffortPicker value={cfg.effort ?? 'medium'} onChange={v => useOpenCoreStore.getState().updateConfig({ effort: v })} />
               <PresetToggle preset={cfg.permissionPreset ?? 'dfa'} onChange={p => useOpenCoreStore.getState().setPermissionPreset(p)} />
             </div>
             <div className="flex items-end gap-1.5 p-1.5">

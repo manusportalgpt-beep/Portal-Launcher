@@ -175,6 +175,63 @@ async function fetchWithToolFallback(
   }
 }
 
+/**
+ * Уровень рассуждения (effort) в том виде, в каком его понимает конкретный API.
+ *
+ * Формы разные, и отправка неправильной — верный способ получить HTTP 400:
+ *  - OpenAI и OpenAI-совместимые: `reasoning_effort: 'minimal'|'low'|'medium'|'high'`.
+ *  - OpenRouter: вложенный объект `reasoning: { effort }`.
+ *  - Anthropic: не effort, а бюджет токенов `thinking: { type, budget_tokens }`.
+ *
+ * Значение не выдумывается: если модель не размечена как reasoning, параметр
+ * не отправляется вовсе.
+ */
+export type EffortLevel = 'minimal' | 'low' | 'medium' | 'high';
+
+const EFFORT_BUDGET: Record<EffortLevel, number> = {
+  minimal: 1024,
+  low: 4096,
+  medium: 12_288,
+  high: 24_576,
+};
+
+/** Модель умеет рассуждение: помечена в реестре либо приехала с API. */
+function supportsEffort(ep: ResolvedEndpoint): boolean {
+  if (ep.model.reasoning === true) return true;
+  return /^(gpt-5|o[134]|gpt-oss|deepseek-r|qwq|space-bunny|big-pickle|claude.*(sonnet|opus|haiku))/i.test(ep.model.id);
+}
+
+function applyEffort(
+  body: Record<string, unknown>,
+  ep: ResolvedEndpoint,
+  effort: EffortLevel | undefined,
+): void {
+  // Без явного выбора не трогаем тело запроса — провайдер сам выберет дефолт.
+  if (!effort) return;
+  if (!supportsEffort(ep)) return;
+
+  const isAnthropic = ep.provider.kind === 'anthropic' || ep.baseUrl.includes('anthropic');
+  const isOpenRouter = ep.provider.id === 'openrouter' || ep.baseUrl.includes('openrouter');
+
+  if (isAnthropic) {
+    // У Anthropic вместо уровня — бюджет токенов на размышление.
+    body.thinking = { type: 'enabled', budget_tokens: EFFORT_BUDGET[effort] };
+    // temperature вместе с thinking запрещён — это тоже даёт 400.
+    delete body.temperature;
+    return;
+  }
+  if (isOpenRouter) {
+    body.reasoning = { effort, max_tokens: EFFORT_BUDGET[effort] * 2 };
+    return;
+  }
+  // OpenAI и совместимые. У моделей без 'minimal' такой уровень не принимают.
+  if (effort === 'minimal' && !/^gpt-5/i.test(ep.model.id)) {
+    body.reasoning_effort = 'low';
+    return;
+  }
+  body.reasoning_effort = effort;
+}
+
 export const TOOLS: ToolDef[] = [
   {
     name: 'web_search',
@@ -2519,10 +2576,15 @@ export function resolveEndpoint(
 
   if (preset) {
     baseUrl = st.baseUrl || preset.baseUrl || '';
-    // Модель может быть из API-списка (remoteModels), а не из реестра — ищем в обоих.
-    model = preset.models.find(m => m.id === modelId)
-      ?? (st.remoteModels ?? []).find(m => m.id === modelId)
-      ?? { id: modelId };
+    // Сначала ищем в реестре, потом в моделях, загруженных с API.
+    const fromPreset = preset.models.find(m => m.id === modelId);
+    const fromRemote = (st.remoteModels ?? []).find(m => m.id === modelId);
+    // Размер контекста из API приоритетнее: у провайдера он актуальный
+    // (например 1_048_576 у Space Bunny Free), а в реестре может стоять
+    // устаревший дефолт.
+    model = fromPreset
+      ? { ...fromPreset, contextLength: fromRemote?.contextLength ?? fromPreset.contextLength }
+      : fromRemote ?? { id: modelId };
   } else {
     // кастомный провайдер
     baseUrl = st.baseUrl || '';
@@ -2654,6 +2716,7 @@ export async function callProvider(
   turns: ChatTurn[],
   signal?: AbortSignal,
   onDelta?: (d: StreamDelta) => void,
+  opts?: { effort?: EffortLevel },
 ): Promise<ApiOutcome> {
   if (!ep.baseUrl) throw new Error('Не настроен baseUrl провайдера.');
 
@@ -2678,8 +2741,8 @@ export async function callProvider(
   for (let attempt = 0; attempt < PROVIDER_MAX_ATTEMPTS; attempt++) {
     if (signal?.aborted) throw new Error('Отменено пользователем.');
     try {
-      if (ep.format === 'anthropic') return await callAnthropic(ep, systemPrompt, turns, signal);
-      return await callOpenAI(ep, systemPrompt, turns, signal, onDelta);
+      if (ep.format === 'anthropic') return await callAnthropic(ep, systemPrompt, turns, signal, opts);
+      return await callOpenAI(ep, systemPrompt, turns, signal, onDelta, opts);
     } catch (e: unknown) {
       if (signal?.aborted) throw e;
       lastError = e;
@@ -2702,6 +2765,7 @@ async function callOpenAI(
   turns: ChatTurn[],
   signal?: AbortSignal,
   onDelta?: (d: StreamDelta) => void,
+  opts?: { effort?: EffortLevel },
 ): Promise<ApiOutcome> {
   const url = ep.useZen
     ? `${ep.baseUrl.replace(/\/+$/, '')}/v1/chat/completions`
@@ -2757,14 +2821,19 @@ async function callOpenAI(
 
   const zen = isZenHost(url);
   const requestTools = zen ? zenTools(tools) : tools;
+  // Модели с рассуждением часто отклоняют temperature, поэтому для них
+  // параметр не отправляем — это частая причина HTTP 400.
+  const isReasoning = ep.model.reasoning === true
+    || /^(gpt-5|o[134]|deepseek-r|gpt-oss|qwq|space-bunny|big-pickle)/i.test(ep.model.id);
 
   const body: Record<string, unknown> = {
     model: ep.model.id,
     messages,
     tools: requestTools,
-    temperature: 0.4,
     max_tokens: 8192,
   };
+  if (!isReasoning) body.temperature = 0.4;
+  applyEffort(body, ep, opts?.effort);
   if (onDelta) {
     body.stream = true;
     body.stream_options = { include_usage: true };
@@ -2791,18 +2860,40 @@ async function callOpenAI(
     // Фолбэк: веб-вью не может дотянуться (CORS/сеть) — идём через бэкенд.
     // Бэкенд буферизует ответ целиком, поэтому SSE от zen разбираем после
     // получения; для обычных провайдеров просим сразу JSON.
-    const fbBody: Record<string, unknown> = {
+    const fbBase: Record<string, unknown> = {
       model: body.model,
       messages: body.messages,
-      tools: requestTools,
-      temperature: body.temperature,
-      max_tokens: body.max_tokens,
     };
-    if (zen) fbBody.stream = true;
-    const fr = await raceSignal(
-      httpViaRust('POST', url, { ...headers, Accept: zen ? 'text/event-stream' : 'application/json' }, JSON.stringify(fbBody), 180000),
+    if (body.temperature !== undefined) fbBase.temperature = body.temperature;
+    if (body.max_tokens !== undefined) fbBase.max_tokens = body.max_tokens;
+    if (body.reasoning_effort !== undefined) fbBase.reasoning_effort = body.reasoning_effort;
+    if (body.reasoning !== undefined) fbBase.reasoning = body.reasoning;
+    if (body.thinking !== undefined) fbBase.thinking = body.thinking;
+    if (zen) fbBase.stream = true;
+
+    // Тот же откат, что и для веб-вью: Zen возвращает HTTP 400 на слишком
+    // большой набор инструментов, и запрос шёл именно через бэкенд, где
+    // повтора не было — задача падала.
+    let fr = await raceSignal(
+      httpViaRust('POST', url, { ...headers, Accept: zen ? 'text/event-stream' : 'application/json' }, JSON.stringify({ ...fbBase, tools: requestTools }), 180000),
       signal,
     );
+    if (!fr.ok && fr.status === 400) {
+      const firstText = fr.text;
+      const reduced = reducedToolSet(requestTools);
+      if (reduced.length > 0 && reduced.length < requestTools.length) {
+        fr = await raceSignal(
+          httpViaRust('POST', url, { ...headers, Accept: zen ? 'text/event-stream' : 'application/json' }, JSON.stringify({ ...fbBase, tools: reduced }), 180000),
+          signal,
+        );
+        if (!fr.ok) {
+          throw new Error(appendZenErrorHint(
+            `${ep.provider.name} вернул HTTP 400 и не принял урезанный набор инструментов. Первый ответ: ${firstText.trim().slice(0, 400)} | Повтор: ${fr.text.trim().slice(0, 400)}`,
+            `${firstText} ${fr.text}`,
+          ));
+        }
+      }
+    }
     if (!fr.ok) {
       const snippet = fr.text.trim().slice(0, 240);
       throw new Error(appendZenErrorHint(
@@ -2996,6 +3087,7 @@ async function callAnthropic(
   systemPrompt: string,
   turns: ChatTurn[],
   signal?: AbortSignal,
+  opts?: { effort?: EffortLevel },
 ): Promise<ApiOutcome> {
   const base = `${ep.baseUrl.replace(/\/+$/, '')}`;
   const url = `${base}/v1/messages`;
@@ -3049,6 +3141,8 @@ async function callAnthropic(
     input_schema: t.parameters,
   }));
   const requestTools = zen ? zenTools(tools) : tools;
+  const isReasoning = ep.model.reasoning === true
+    || /^(gpt-5|o[134]|deepseek-r|gpt-oss|qwq|space-bunny|big-pickle)/i.test(ep.model.id);
 
   const body: Record<string, unknown> = {
     model: ep.model.id,
@@ -3057,6 +3151,7 @@ async function callAnthropic(
     messages,
     tools: requestTools,
   };
+  applyEffort(body, ep, opts?.effort);
   // Free-тариф zen принимает только стриминговые запросы.
   if (zen) body.stream = true;
 
@@ -3498,6 +3593,8 @@ export interface RunTurnOptions {
   signal?: AbortSignal;
   /** Лимит контекста модели в токенах (по умолчанию 128000). Автокомпрессия сработает при расходе более 75%. */
   contextLimit?: number;
+  /** Уровень рассуждения: minimal | low | medium | high. Передаётся в API в нужном формате. */
+  effort?: EffortLevel;
   onAppend?: (msgs: ChatMessage[]) => void;
   onUpdate?: (id: string, patch: Partial<ChatMessage>) => void;
   maxIterations?: number;
@@ -3573,7 +3670,7 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
         if (d.content !== undefined) patchData.content = d.content;
         if (d.thinking !== undefined) patchData.thinking = d.thinking;
         if (Object.keys(patchData).length) patch(assistantId, patchData);
-      });
+      }, { effort: opts.effort });
     } catch (e: unknown) {
       if (signal?.aborted) throw new Error('Отменено пользователем.');
       // Самопочинка: удаляются только сообщения с битым JSON в вызовах

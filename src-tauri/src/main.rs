@@ -72,6 +72,12 @@ fn main() {
         .manage(app_state)
         .manage(discord_state)
         .setup(|app| {
+            // Папки песочницы OpenPortal (Projects, Skills, Sessions, Cache,
+            // Config, Images) создаются сразу при старте. Раньше они появлялись
+            // только после первого вызова op_layout, то есть в файловом
+            // меню папки «Projects» и «Skills» могли отсутствовать.
+            let _ = commands::opencode::op_layout();
+
             // Иконка в трее: лаунчер и его ИИ-агент продолжают работать, даже
             // когда окно скрыто/свёрнуто; из трея окно можно вернуть или выйти.
             let show_i = MenuItem::with_id(app, "show", "Открыть лаунчер", true, None::<&str>)?;

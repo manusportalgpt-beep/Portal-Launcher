@@ -2,6 +2,8 @@
 
 export type Role = 'user' | 'assistant' | 'tool';
 
+import type { DiffLine } from '@/lib/opencore/diff';
+
 export interface ToolCall {
   id: string;
   name: string;
@@ -56,6 +58,23 @@ export interface ModCard {
   url: string;
 }
 
+/**
+ * Изменение файла, сделанное агентом. В чате показывается как
+ * «имя-файла +12 −3» с возможностью развернуть построчный diff.
+ */
+export interface FileChange {
+  path: string;
+  root: string;
+  added: number;
+  removed: number;
+  /** Построчный diff. Может отсутствовать для очень больших файлов. */
+  lines: DiffLine[];
+  /** true — файл создан заново. */
+  created?: boolean;
+  /** true — файл был удалён. */
+  deleted?: boolean;
+}
+
 export interface ChatMessage {
   id: string;
   role: Role;
@@ -67,6 +86,8 @@ export interface ChatMessage {
   attachments?: Attachment[];
   /** Карточки контента для отрисовки в чате (mod_search). */
   cards?: ModCard[];
+  /** Изменённые файлы с диффом (write_text / edit_file). */
+  changes?: FileChange[];
   error?: boolean;
   model?: string;
   timestamp: number;

@@ -62,7 +62,9 @@ export function useStylePreset(preset: StylePreset, themeRefreshKey?: string) {
 }
 
 /** Акцент по умолчанию для OreUI — зелёная база интерфейса. */
-export const OREUI_DEFAULT_ACCENT = '#2ECC71';
+// Дефолтный акцент OreUI — второй свот в настройках (зелёный Minecraft #3c8527),
+// а не первый: пользователь просил именно его ставить по умолчанию.
+export const OREUI_DEFAULT_ACCENT = '#3c8527';
 
 const ACCENT_PRESETS: Array<[string, string]> = [
   ['#2ECC71', '#27AE60'],

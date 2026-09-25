@@ -556,25 +556,37 @@ function ProjectCard({ p, view, instanceId, mcVersion, loader, onClick }: {
       </div>
     </div>
   );
+  // Сетка повторяет карточку Discover: иконка 40px (не во всю ширину),
+  // прозрачный фон, те же отступы, радиусы и кегли. Раньше здесь была
+  // отдельная вёрстка с aspect-square иконкой — из-за этого «Большой» вид
+  // отличался от Discover.
   return (
     <div
-      className="flex flex-col p-3 rounded-2xl cursor-pointer hover:bg-white/3 transition-all"
-      style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}
+      className="group/card flex cursor-pointer flex-col p-3 rounded-md text-left transition-colors"
+      style={{ background: 'transparent', border: '1px solid var(--color-border)' }}
       onClick={onClick}>
-      <div className="w-full aspect-square rounded-xl mb-3 overflow-hidden flex items-center justify-center"
-        style={{ background:`${accent}1A` }}>
-        {p.iconUrl
-          ? <img src={p.iconUrl} className="w-full h-full object-cover" alt="" />
-          : <span className="text-4xl font-black" style={{ color: accent }}>{p.title[0]}</span>}
-      </div>
-      <div className="mb-0.5 flex items-center gap-1.5"><p className="min-w-0 flex-1 truncate text-sm font-bold" title={p.title} style={{ color:'var(--color-text)' }}>{p.title}</p><PlatformMark platform={p.sources?.length === 2 ? 'combined' : p.platform} size={13} /></div>
-      <p className="text-xs mb-2 line-clamp-2 flex-1" title={p.description} style={{ color:'var(--color-text-secondary)' }}>{p.description}</p>
-      <div className="flex items-center justify-between">
+      <div className="mb-3 flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>
-            <Download className="w-3 h-3" />{fmtNum(p.downloads)}
-          </span>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-sm font-black"
+            style={{ background: p.iconUrl ? 'transparent' : `${accent}1A`, color: accent }}>
+            {p.iconUrl
+              ? <img src={p.iconUrl} alt="" className="h-full w-full rounded-sm object-cover" />
+              : <span className="text-sm">{p.title[0]?.toUpperCase()}</span>}
+          </div>
+          <PlatformMark platform={p.sources?.length === 2 ? 'combined' : p.platform} size={14} />
         </div>
+      </div>
+      <p className="text-sm font-bold leading-tight" title={p.title} style={{ color: 'var(--color-text)' }}>{p.title}</p>
+      <p className="mt-0.5 text-[10px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>{t('findProjects.byAuthor', { author: p.author })}</p>
+      <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed" title={p.description} style={{ color: 'var(--color-text-tertiary)' }}>{p.description}</p>
+      <div className="mt-3 flex items-center gap-3 pt-1">
+        <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+          <Download className="w-3 h-3" />{fmtNum(p.downloads)}
+        </div>
+        <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+          <Star className="w-3 h-3" />{fmtNum(p.follows)}
+        </div>
+        <div className="flex-1" />
         <div onClick={e => e.stopPropagation()}>
           <InstallBtn project={p} instanceId={instanceId} mcVersion={mcVersion} loader={loader} />
         </div>
@@ -1060,13 +1072,16 @@ export function FindProjectsPage() {
           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color:'var(--color-text-secondary)' }} />
         </div>
 
-        {/* View toggle */}
-        <div className="flex rounded-xl overflow-hidden shrink-0" style={{ border:'1px solid var(--color-border)' }}>
-          {([['list',List],['grid',Grid]] as const).map(([v, Icon]) => (
-            <button key={v} onClick={() => setView(v as 'grid'|'list')}
-              className="w-8 h-8 flex items-center justify-center transition-all"
-              style={view===v?{background:'var(--color-primary)',color:'#fff'}:{color:'var(--color-text-secondary)'}}>
-              <Icon className="w-4 h-4" />
+        {/* Переключатель вида. Радиус 2px и явная высота кнопок — иначе
+            активная кнопка вылезала за рамку сегмента. */}
+        <div className="flex shrink-0 overflow-hidden rounded" style={{ border: '1px solid var(--color-border)' }}>
+          {([['list', List], ['grid', Grid]] as const).map(([v, Icon]) => (
+            <button key={v} onClick={() => setView(v as 'grid' | 'list')}
+              className="ore-flat flex h-8 w-8 shrink-0 items-center justify-center rounded-none"
+              style={view === v
+                ? { background: 'var(--color-primary)', color: 'var(--color-primary-text)' }
+                : { background: 'transparent', color: 'var(--color-text-secondary)' }}>
+              <Icon className="h-4 w-4" />
             </button>
           ))}
         </div>

@@ -61,6 +61,8 @@ base64 = "0.22"
 boa_engine = "0.17"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
 urlencoding = "2.1"
+# Поиск по коду для ИИ-агента (op_search_code) — поддержка регулярных выражений.
+regex = "1"
 cpal = "0.15"
 once_cell = "1"
 webbrowser = "1.0"

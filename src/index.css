@@ -2485,6 +2485,16 @@ html[data-portal-style="oreui"] [role="tooltip"]::after {
   border-top: 8px solid var(--ore-blue);
 }
 
+/* Переключатели (role="switch") везде квадратные — в любом пресете оформления.
+   Раньше скругление задавалось в компонентах по-разному (rounded-full, 999),
+   и в части схем они выглядели круглыми. Ручка переключателя — 1px. */
+button[role="switch"] {
+  border-radius: 2px !important;
+}
+button[role="switch"] > span {
+  border-radius: 1px !important;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
    ORE-UI: фоновые слои.
    Раньше здесь был пиксельный пейзаж (облака + холмы) на body::before и

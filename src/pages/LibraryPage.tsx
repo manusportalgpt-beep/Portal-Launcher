@@ -817,9 +817,9 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                         <label className="text-xs font-bold" style={{ color:'var(--color-text)' }}>Версия игры</label>
                         <button type="button" role="switch" aria-checked={showSnapshots}
                           onClick={() => setShowSnapshots(v => !v)}
-                          className="flex items-center gap-2 rounded-full px-2.5 py-1.5 text-[10px] font-bold transition-all"
-                          style={{ background: showSnapshots ? 'var(--color-primary-dim)' : 'var(--color-surface-2)', border:`1px solid ${showSnapshots ? 'var(--color-primary)' : 'var(--color-border)'}`, color: showSnapshots ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
-                          <span className="relative h-3.5 w-6 rounded-full" style={{ background: showSnapshots ? 'var(--color-primary)' : 'var(--color-border)' }}><span className="absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white transition-all" style={{ left: showSnapshots ? 11 : 2 }} /></span>
+                          className="flex items-center gap-2 rounded px-2.5 py-1.5 text-[10px] font-bold transition-colors"
+                          style={{ background: showSnapshots ? 'var(--color-surface-2)' : 'var(--color-surface-2)', border:`1px solid ${showSnapshots ? 'var(--color-primary)' : 'var(--color-border)'}`, color: showSnapshots ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
+                          <span className="relative h-3.5 w-6 rounded-sm" style={{ background: showSnapshots ? 'var(--color-primary)' : 'var(--color-border-strong)' }}><span className="absolute top-0.5 h-2.5 w-2.5 rounded-sm transition-all" style={{ left: showSnapshots ? 11 : 2, background: showSnapshots ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)' }} /></span>
                           Snapshot-версии
                         </button>
                       </div>
@@ -1328,9 +1328,9 @@ function ContentRow({ item, onToggle, onDelete, onShowInFolder, onUpdate, updati
           <ContentSourceBadge source={item.source} />
           <button onClick={onToggle} role="switch" aria-checked={!!item.enabled}
             title={item.enabled ? 'Выключить модификацию' : 'Включить модификацию'}
-            className="relative w-10 h-5 rounded-full shrink-0 transition-all"
+            className="relative h-5 w-10 shrink-0 rounded transition-all"
             style={{ background:item.enabled ? 'var(--color-primary)' : 'var(--color-surface-2)', border:`1px solid ${item.enabled ? 'var(--color-primary)' : 'var(--color-border)'}`, boxShadow:'none' }}>
-            <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left:item.enabled ? 'calc(100% - 18px)' : '2px', boxShadow:'0 1px 3px rgba(0,0,0,0.35)' }} />
+            <span className="absolute top-0.5 h-4 w-4 rounded-sm transition-all" style={{ left:item.enabled ? 'calc(100% - 18px)' : '2px', background:item.enabled ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)' }} />
           </button>
           <button onClick={onDelete} className="w-6 h-6 rounded-lg flex items-center justify-center"
             style={{ background:'rgba(231,76,60,0.1)',color:'var(--color-error)' }} title="Delete">

@@ -14,12 +14,53 @@ const MC_PROFILE_URL: &str = "https://api.minecraftservices.com/minecraft/profil
 const XBL_AUTH_URL: &str = "https://user.auth.xboxlive.com/user/authenticate";
 const XSTS_AUTH_URL: &str = "https://xsts.auth.xboxlive.com/xsts/authorize";
 
-// Публичный client_id для Minecraft Java
-const MS_CLIENT_ID: &str = "63792cab-8f22-423d-834c-37a509d48d9c2";
-const MS_REDIRECT_URI: &str = "http://localhost:5000/auth/callback";
-const MS_SCOPE: &str = "XboxLive.signin offline_access openid profile";
-const MS_LOGIN_URL: &str = "https://login.live.com/oauth20_authorize.srf";
-const MS_TOKEN_URL: &str = "https://login.live.com/oauth20_token.srf";
+// Публичный client_id приложения Portal Launcher — тот же, что работает
+// во входе по коду подтверждения (minecraft_lib::oauth). Раньше здесь стоял
+// посторонний client (63792cab-…) из старого endpoint v1, из-за чего Microsoft
+// отвечал «unauthorized_client: The client does not exist or is not enabled».
+const DEFAULT_MS_CLIENT_ID: &str = "c36a9fb6-4f2a-41ff-90bd-ae7cc92031eb";
+const DEFAULT_MS_REDIRECT_URI: &str = "http://localhost:5000/auth/callback";
+const MS_SCOPE: &str = "XboxLive.signin offline_access";
+// Endpoint v2.0 — тот же, что и у рабочего device-code флоу.
+const MS_LOGIN_URL: &str = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize";
+const MS_TOKEN_URL: &str = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
+
+/// Публичный client_id приложения Portal Launcher — тот же, что работает
+/// во входе по коду подтверждения (minecraft_lib::oauth). Раньше здесь стоял
+/// посторонний client (63792cab-…) из старого endpoint v1, из-за чего Microsoft
+/// отвечал «unauthorized_client: The client does not exist or is not enabled».
+fn ms_client_id() -> String { read_oauth_config().0 }
+fn ms_redirect_uri() -> String { read_oauth_config().1 }
+
+/// Читает переопределения client_id / redirect_uri из portal-oauth.json в папке
+/// данных приложения, чтобы пользователь мог подставить своё Azure-приложение
+/// без пересборки. Формат: {"clientId":"...","redirectUri":"http://localhost:5000/auth/callback"}
+fn read_oauth_config() -> (String, String) {
+    let path = dirs_next::data_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("PortalLauncher")
+        .join("portal-oauth.json");
+    if let Ok(text) = std::fs::read_to_string(&path) {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(&text) {
+            let client = value
+                .get("clientId")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .unwrap_or(DEFAULT_MS_CLIENT_ID)
+                .to_string();
+            let redirect = value
+                .get("redirectUri")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .unwrap_or(DEFAULT_MS_REDIRECT_URI)
+                .to_string();
+            return (client, redirect);
+        }
+    }
+    (DEFAULT_MS_CLIENT_ID.to_string(), DEFAULT_MS_REDIRECT_URI.to_string())
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct McProfile {
@@ -82,13 +123,14 @@ pub async fn start_oauth_web_flow(
     
     // Формируем URL для авторизации с PKCE
     let code_challenge = generate_code_challenge(&code_verifier);
+    let (client_id, redirect_uri) = (ms_client_id(), ms_redirect_uri());
     let auth_url = format!(
-        "{}?client_id={}&redirect_uri={}&response_type=code&scope={}&code_challenge={}&code_challenge_method=S256",
+        "{}?client_id={}&redirect_uri={}&response_type=code&response_mode=query&scope={}&code_challenge={}&code_challenge_method=S256",
         MS_LOGIN_URL,
-        MS_CLIENT_ID,
-        urlencoding::encode(MS_REDIRECT_URI),
-        MS_SCOPE,
-        code_challenge
+        urlencoding::encode(&client_id),
+        urlencoding::encode(&redirect_uri),
+        urlencoding::encode(MS_SCOPE),
+        urlencoding::encode(&code_challenge),
     );
     
     log::info!("🌐 Opening browser for authorization...");
@@ -240,12 +282,14 @@ pub async fn exchange_code_for_token(
         .map_err(|e| format!("Failed to build client: {}", e))?;
     
     // Обмениваем код на токены Microsoft
+    let (client_id, redirect_uri) = (ms_client_id(), ms_redirect_uri());
     let ms_response = client.post(MS_TOKEN_URL)
         .form(&[
-            ("client_id", MS_CLIENT_ID),
+            ("client_id", &client_id),
             ("code", &code),
-            ("redirect_uri", MS_REDIRECT_URI),
+            ("redirect_uri", &redirect_uri),
             ("grant_type", "authorization_code"),
+            ("scope", MS_SCOPE),
             ("code_verifier", &code_verifier),
         ])
         .send()

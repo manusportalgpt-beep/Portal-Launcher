@@ -33,11 +33,13 @@ function SettingCard({ label, desc, children }: { label: string; desc?: string; 
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button onClick={() => onChange(!value)} className="relative h-6 w-11 rounded-full transition-colors"
-      style={{ background: value ? 'var(--color-primary)' : 'var(--color-surface)' }}>
-      <motion.div className="absolute top-1 h-4 w-4 rounded-full bg-white shadow"
+    <button onClick={() => onChange(!value)} role="switch" aria-checked={value}
+      className="relative h-6 w-11 rounded transition-colors"
+      style={{ background: value ? 'var(--color-primary)' : 'var(--color-surface)', border: `1px solid ${value ? 'var(--color-primary)' : 'var(--color-border)'}` }}>
+      <motion.div className="absolute top-1 h-4 w-4 rounded-sm"
         animate={{ left: value ? 24 : 4 }}
-        transition={{ type: 'spring', stiffness: 500, damping: 30 }} />
+        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+        style={{ background: value ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)' }} />
     </button>
   );
 }

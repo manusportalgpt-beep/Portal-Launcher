@@ -1122,9 +1122,108 @@ pub fn op_write_text(root: String, path: String, content: String) -> Result<(), 
     std::fs::write(&file, content).map_err(|e| format!("Запись файла: {e}"))
 }
 
+/// Одно найденное совпадение при поиске по коду.
+#[derive(Serialize)]
+pub struct CodeMatch {
+    pub path: String,
+    pub line: usize,
+    pub text: String,
+}
+
+#[derive(Serialize)]
+pub struct CodeSearchResult {
+    pub matches: Vec<CodeMatch>,
+}
+
+const SEARCH_MAX_FILES: usize = 4000;
+const SEARCH_MAX_FILE_BYTES: u64 = 512 * 1024;
+
+/// Рекурсивный поиск подстроки или регулярного выражения по файлам зоны.
+/// Нужен агенту, чтобы перед правкой кода найти все места использования
+/// функции/поля/класса — иначе легко изменить не все и сломать сборку.
 #[tauri::command]
-pub fn op_launcher_settings_path() -> String {
-    launcher_settings_path().to_string_lossy().to_string()
+pub fn op_search_code(
+    root: String,
+    query: String,
+    regex: Option<bool>,
+    glob: Option<String>,
+    limit: Option<u64>,
+) -> Result<CodeSearchResult, String> {
+    let r = root_from_name(&root)?;
+    let base = root_path(r);
+    let limit = limit.unwrap_or(60).clamp(1, 200) as usize;
+    let use_regex = regex.unwrap_or(false);
+    let pattern = glob.as_deref().unwrap_or("").trim().to_string();
+
+    let re = if use_regex {
+        Some(regex::Regex::new(&query).map_err(|e| format!("Некорректное регулярное выражение: {e}"))?)
+    } else {
+        None
+    };
+
+    let mut matches: Vec<CodeMatch> = Vec::new();
+    let mut visited = 0usize;
+    let mut stack: Vec<PathBuf> = vec![base];
+
+    while let Some(dir) = stack.pop() {
+        if visited >= SEARCH_MAX_FILES || matches.len() >= limit { break; }
+        let entries = match std::fs::read_dir(&dir) { Ok(e) => e, Err(_) => continue };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let meta = match entry.metadata() { Ok(m) => m, Err(_) => continue };
+            let name = entry.file_name().to_string_lossy().to_string();
+
+            if meta.is_dir() {
+                // Пропускаем служебные каталоги, чтобы не упираться в лимит.
+                if matches!(name.as_str(), "node_modules" | "target" | ".git" | "dist" | "build" | ".gradle") {
+                    continue;
+                }
+                stack.push(path);
+                continue;
+            }
+            if !meta.is_file() || meta.len() > SEARCH_MAX_FILE_BYTES { continue; }
+            if !pattern.is_empty() && !glob_matches(&pattern, &name, &path.to_string_lossy()) {
+                continue;
+            }
+            visited += 1;
+            if visited > SEARCH_MAX_FILES { break; }
+
+            let text = match std::fs::read_to_string(&path) { Ok(t) => t, Err(_) => continue };
+            for (idx, line) in text.lines().enumerate() {
+                if line.len() > 2000 { continue; }
+                let hit = match &re {
+                    Some(re) => re.is_match(line),
+                    None => line.contains(&query),
+                };
+                if hit {
+                    matches.push(CodeMatch {
+                        path: path.to_string_lossy().to_string(),
+                        line: idx + 1,
+                        text: line.trim().to_string(),
+                    });
+                    if matches.len() >= limit { break; }
+                }
+            }
+            if matches.len() >= limit { break; }
+        }
+    }
+
+    Ok(CodeSearchResult { matches })
+}
+
+/// Простое сопоставление фильтра: поддерживает «*.java» и вхождение как подстроку пути.
+fn glob_matches(pattern: &str, file_name: &str, full_path: &str) -> bool {
+    if let Some(ext) = pattern.strip_prefix("*.") {
+        return file_name.ends_with(&format!(".{}", ext));
+    }
+    if pattern.contains('/') {
+        return full_path.contains(pattern);
+    }
+    file_name.contains(pattern)
+}
+
+#[tauri::command]
+pub fn op_launcher_settings_path() -> String {    launcher_settings_path().to_string_lossy().to_string()
 }
 
 // ---------------------------------------------------------------------------

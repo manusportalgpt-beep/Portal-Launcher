@@ -10,7 +10,9 @@ import type {
   FsEntry,
   TokenUsage,
   ModCard,
+  FileChange,
 } from '@/lib/opencore/types';
+import { diffLines } from '@/lib/opencore/diff';
 
 // ---------------------------------------------------------------------------
 // Надёжность агента: нормализация аргументов инструментов и повторы запросов
@@ -249,6 +251,45 @@ export const TOOLS: ToolDef[] = [
     },
     root: '*',
     requiresPermission: true,
+  },
+  {
+    name: 'edit_file',
+    description:
+      'Точечная правка файла: заменяет в файле точный фрагмент на другой. ПРЕДПОЧТИТЕЛЬНЕЕ write_text для правки кода — не нужно переписывать файл целиком и нельзя случайно затереть соседние строки. ' +
+      'Перед правкой прочитай файл (read_text), чтобы фрагмент точно совпадал с текстом, включая отступы. Фрагмент должен быть уникален в файле, иначе добавь окружающий контекст или поставь replace_all. ' +
+      'В чате пользователь увидит файл и построчный diff с количеством добавленных и удалённых строк.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона файловой системы' },
+        path: { type: 'string', description: 'Путь к файлу' },
+        find: { type: 'string', description: 'Точный фрагмент, который заменяем (с отступами, как в файле)' },
+        replace: { type: 'string', description: 'Новый текст вместо find' },
+        replace_all: { type: 'boolean', description: 'Заменить все вхождения (по умолчанию только одно)' },
+      },
+      required: ['root', 'path', 'find', 'replace'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'search_code',
+    description:
+      'Ищет подстроку или регулярное выражение по файлам зоны. Используй перед правкой кода, чтобы найти все места использования функции, поля или класса — иначе легко сломать сборку, изменив не все места. ' +
+      'Возвращает список совпадений в формате путь:строка: текст.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона поиска' },
+        query: { type: 'string', description: 'Искомая подстрока или регулярное выражение' },
+        regex: { type: 'boolean', description: 'Считать query регулярным выражением (по умолчанию — обычная подстрока)' },
+        glob: { type: 'string', description: 'Фильтр по файлам, например *.java или src/**' },
+        limit: { type: 'number', description: 'Максимум совпадений (по умолчанию 60)' },
+      },
+      required: ['root', 'query'],
+    },
+    root: '*',
+    requiresPermission: false,
   },
   {
     name: 'run_command',
@@ -498,6 +539,8 @@ export interface ExecResult {
   output: string;
   /** Структурированные карточки контента для отрисовки в чате (mod_search). */
   cards?: ModCard[];
+  /** Изменённые файлы с диффом (write_text / edit_file). */
+  changes?: FileChange[];
 }
 
 /** HTTP-запрос через Rust (нет CORS, есть сеть бэкенда). Нужен инструментам и фолбэку провайдеров. */
@@ -869,8 +912,94 @@ async function execReadText(args: { root: PortalRoot; path: string }): Promise<E
 
 async function execWriteText(args: { root: PortalRoot; path: string; content: string }): Promise<ExecResult> {
   try {
+    // Читаем прежнее содержимое, чтобы в чате показать «-N +M» и сам diff.
+    let before = '';
+    try {
+      const prev = await invoke<any>('op_read_text', { root: String(args.root), path: args.path });
+      before = typeof prev === 'string' ? prev : (prev?.content ?? '');
+    } catch {
+      before = '';
+    }
     await invoke('op_write_text', { root: String(args.root), path: args.path, content: args.content });
-    return { ok: true, output: `Записано в ${args.path}` };
+    const diff = diffLines(before, args.content);
+    const change: FileChange = {
+      path: args.path,
+      root: String(args.root),
+      added: diff.added,
+      removed: diff.removed,
+      lines: diff.lines,
+      created: before.length === 0,
+    };
+    return {
+      ok: true,
+      changes: [change],
+      output: `Записано: ${args.path} (${change.created ? 'создан' : `+${diff.added} −${diff.removed}`})`,
+    };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+/**
+ * Точечная правка файла: заменяет exact-фрагмент на новый. Для кода это
+ * безопаснее и дешевле полной перезаписи — агент не обязан держать в памяти
+ * весь файл и не может случайно затереть не related строки.
+ */
+async function execEditFile(args: Record<string, unknown>): Promise<ExecResult> {
+  try {
+    const root = String(args.root ?? 'launcher');
+    const path = String(args.path ?? '');
+    const find = String(args.find ?? '');
+    const replace = String(args.replace ?? '');
+    if (!path || !find) return { ok: false, output: 'Нужны path и find.' };
+
+    const current = await invoke<any>('op_read_text', { root, path });
+    const before = typeof current === 'string' ? current : (current?.content ?? '');
+    if (!before) return { ok: false, output: `Файл не найден или пуст: ${path}` };
+
+    const occurrences = before.split(find).length - 1;
+    if (occurrences === 0) {
+      return { ok: false, output: `Фрагмент не найден в ${path}. Прочитай файл заново — он мог измениться.` };
+    }
+    if (occurrences > 1 && !args.all) {
+      return {
+        ok: false,
+        output: `Фрагмент встречается ${occurrences} раза в ${path}. Добавь фрагмент в old_string так, чтобы он был уникален, либо передай replace_all: true.`,
+      };
+    }
+
+    const after = args.all ? before.split(find).join(replace) : before.replace(find, replace);
+    await invoke('op_write_text', { root, path, content: after });
+    const diff = diffLines(before, after);
+    const change: FileChange = { path, root, added: diff.added, removed: diff.removed, lines: diff.lines };
+    return {
+      ok: true,
+      changes: [change],
+      output: `Изменено: ${path} (+${diff.added} −${diff.removed})`,
+    };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+/** Поиск по коду: подстока или регулярное выражение по файлам зоны. */
+async function execSearchCode(args: Record<string, unknown>): Promise<ExecResult> {
+  try {
+    const root = String(args.root ?? 'launcher');
+    const query = String(args.query ?? '').trim();
+    if (!query) return { ok: false, output: 'Нужен query.' };
+    const regex = args.regex === true;
+    const glob = String(args.glob ?? '').trim();
+    const limit = Math.min(200, Math.max(1, Number(args.limit ?? 60)));
+
+    const res = await invoke<any>('op_search_code', { root, query, regex, glob, limit });
+    const matches: any[] = Array.isArray(res?.matches) ? res.matches : [];
+    if (matches.length === 0) return { ok: true, output: `Ничего не найдено по «${query}».` };
+    const lines = matches.map((m: any) => `${m.path}:${m.line}: ${String(m.text ?? '').trim()}`);
+    return {
+      ok: true,
+      output: `Найдено совпадений: ${matches.length}${matches.length >= limit ? ' (обрезано)' : ''}\n${lines.join('\n')}`,
+    };
   } catch (e) {
     return { ok: false, output: String(e) };
   }
@@ -1775,7 +1904,7 @@ async function runSubAgentTurn(
       const tmId = `sub-tool-${Date.now()}-${iter}-${tc.id}`;
       msgs.push({ id: tmId, role: 'tool', content: '…', toolCallId: tc.id, toolName: tc.name, timestamp: Date.now() });
       const res = await executeTool(tc.name, tc.arguments, requestPermission, ep, signal);
-      msgs = msgs.map(m => (m.id === tmId ? { ...m, content: res.output, cards: res.cards } : m));
+      msgs = msgs.map(m => (m.id === tmId ? { ...m, content: res.output, cards: res.cards, changes: res.changes } : m));
     }
   }
   return (lastText || '(субагент не успел ответить)') + '\n\n(достигнут лимит итераций)';
@@ -1897,6 +2026,7 @@ export async function executeTool(
 
   if (tool === 'list_dir') return execListDir(args);
   if (tool === 'read_text') return execReadText(args);
+  if (tool === 'search_code') return execSearchCode(args);
 
   if (tool === 'inspect_image') return execInspectImage(args);
   if (tool === 'hexdump') return execHexdump(args);
@@ -1965,7 +2095,7 @@ export async function executeTool(
   }
 
   // Безопасные инструменты с запросом разрешения:
-  if (tool === 'write_text' || tool === 'run_command' || tool === 'terminal') {
+  if (tool === 'write_text' || tool === 'edit_file' || tool === 'run_command' || tool === 'terminal') {
     const root: PortalRoot = String(args.root || 'portal') as PortalRoot;
     if (!['portal', 'temp', 'launcher'].includes(root)) {
       return { ok: false, output: `Неизвестная зона: ${root}` };
@@ -1974,17 +2104,20 @@ export async function executeTool(
     if (tool === 'terminal') {
       args = { ...args, shell: args.shell ?? 'powershell' };
     }
-    if (tool === 'write_text' && (root === 'portal' || root === 'temp')) {
-      return execWriteText(args);
+    // Правка файла идёт тем же путём, что и запись: для portal/temp без
+    // запроса разрешения, для launcher — через модалку подтверждения.
+    const isFileWrite = tool === 'write_text' || tool === 'edit_file';
+    if (isFileWrite && (root === 'portal' || root === 'temp')) {
+      return tool === 'edit_file' ? execEditFile(args) : execWriteText(args);
     }
-    const isNetFetch = tool !== 'write_text' && /^\s*(curl|wget)\b/i.test(String(args.command ?? '').trim());
+    const isNetFetch = !isFileWrite && /^\s*(curl|wget)\b/i.test(String(args.command ?? '').trim());
     if (isNetFetch || root === 'portal' || root === 'temp') {
-      if (tool === 'write_text') return execWriteText(args);
+      if (isFileWrite) return tool === 'edit_file' ? execEditFile(args) : execWriteText(args);
       return execRunCommand(args);
     }
-    const label = tool === 'write_text' ? 'Запись файла' : tool === 'terminal' ? 'Команда в PowerShell' : 'Выполнение команды';
-    const detail = tool === 'write_text'
-      ? `Путь: ${args.path}`
+    const label = tool === 'edit_file' ? 'Правка файла' : tool === 'write_text' ? 'Запись файла' : tool === 'terminal' ? 'Команда в PowerShell' : 'Выполнение команды';
+    const detail = isFileWrite
+      ? `Путь: ${args.path}${tool === 'edit_file' ? `\nЗаменяемый фрагмент:\n${String(args.find ?? '').slice(0, 800)}` : ''}`
       : `Команда: ${args.command}\nПапка: ${args.cwd}`;
     const decision = await requestPermission({
       tool,
@@ -1992,14 +2125,14 @@ export async function executeTool(
       label,
       detail,
       cwdLabel: `${label} → ${args.path ?? args.cwd ?? ''}`,
-      hazard: tool === 'write_text' ? false : isHazardousCommand(args.command),
+      hazard: isFileWrite ? false : isHazardousCommand(args.command),
       resolve: () => {},
     });
     if (decision === 'deny' || decision === 'never') {
       return { ok: false, output: `Пользователь не разрешил: ${label}.` };
     }
     if (decision === 'allow' || decision === 'always') {
-      if (tool === 'write_text') return execWriteText(args);
+      if (isFileWrite) return tool === 'edit_file' ? execEditFile(args) : execWriteText(args);
       return execRunCommand(args);
     }
     return { ok: false, output: 'Разрешение не получено.' };
@@ -2844,7 +2977,10 @@ export function buildSystemPrompt(opts: {
     `- spawn_agents(task, agents[]) — параллельные субагенты для больших задач: исследование, сравнение, сбор информации по нескольким темам разом.`,
     `- list_dir(root, path) — список каталога. root: portal | temp | launcher.`,
     `- read_text(root, path) — прочесть текстовый файл (до 512 КБ).`,
-    `- write_text(root, path, content) — записать файл. В зонах portal и temp — мгновенно, без модалки; в launcher запросит разрешение.`,
+    `- search_code(root, query, regex?, glob?, limit?) — найти все вхождения подстроки или регулярного выражения по файлам зоны. ВОЛШЕБНАЯ ПАЛОЧКА для работы с кодом: перед тем как переименовать поле/метод/класс или изменить сигнатуру, найди search_code все места использования и поправь их все — иначе сборка сломается. Возвращает список «путь:строка: текст».`,
+    `- edit_file(root, path, find, replace, replace_all?) — ТОЧЕЧНАЯ правка файла, предпочтительнее write_text. Правишь только нужный фрагмент, остальное не трогаешь. Перед вызовом обязательно read_text, чтобы find совпадал с реальным текстом (с отступами!). Фрагмент должен быть уникален; иначе добавь окружающие строки или replace_all.`,
+    `- write_text(root, path, content) — создать/перезаписать файл целиком. Только для новых файлов или полной переработки; для правок существующего кода используй edit_file.`,
+    `- В чате пользователь видит каждое изменение файла: имя файла, «+N −M» и построчный diff с раскрытием. Поэтому пиши аккуратные правки и не затирай файл целиком ради двух строк — это видно и выглядит небрежно.`,
     `- run_command(root, cwd, command, timeout_ms) — команда (в portal/temp и curl/wget — без модалки; launcher спросит разрешение). Оболочка по умолчанию cmd, можно передать shell: 'powershell'.`,
     `- terminal(root, cwd, command) — команда в PowerShell-терминале (масштаб разрешений как у run_command).`,
     `- generate_image(prompt, size?, provider?) — сгенерировать изображение (без запроса разрешения; после генерации в чате появится превью).`,
@@ -2886,6 +3022,13 @@ export function buildSystemPrompt(opts: {
     `- Создание/доработка своего мода: выясни загрузчик (fabric/forge/neoforge/quilt), версию Minecraft и маппинги; для больших модов предложи и сделай структуру src/main/java/...+src/main/resources/ с fabric.mod.json (Fabric) или META-INF/mods.toml (Forge/NeoForge); укажи все dependencies (loader/fabric-api и т.п.).`,
     `- Сборка в .jar: скачай нужные загрузчик-и-движок jar (fabricmc.net / maven.neoforged.net / maven.fabricmc.net) в temp-папку проекта, компилируй javac -cp "<forge.jar>;<minecraft.jar>[;...]" -d build/classes $(find src -name '*.java'), скопируй ресурсы в build/classes и упакуй jar -cf mods/<modid>-<version>.jar -C build/classes . Затем положи готовый jar в mods активной сборки (как выше) — не в корень проекта.`,
     `- Пиши аккуратный код на Java: package по шаблону ru.<ник>/<modid>, события загрузчика, null-безопасность, логирование через свою логгер-префикс. Компилируй без warnings, проверь, что modid строго нижним регистром и уникален. После установки попроси пользователя пересобрать сборку и запустить — по логам/крашам (launcher_logs) уточняй и чини.`,
+    `РАБОТА С КОДОМ, ТЕКСТУР-ПАКАМИ И ШЕЙДЕРАМИ:`,
+    `- Порядок любой правки кода в лаунчере: (1) search_code — найти все места использования; (2) read_text — прочитать нужные файлы; (3) edit_file — точечно изменить; (4) search_code повторно — убедиться, что старых мест не осталось. Никогда не правь файл вслепую.`,
+    `- Создание мода с нуля: выясни загрузчик и версию; создай структуру src/main/java/ru/<ник>/<modid>/ + src/main/resources/ с fabric.mod.json (Fabric) или META-INF/mods.toml (Forge/NeoForge/Quilt); укажи id, version, entrypoint и все dependencies. Собери .jar (пункт выше) и положи в mods активной сборки.`,
+    `- Ресурс-пак: zip с pack.mcmeta и папками assets/<namespace>/{textures,models,lang,sounds,...}. Текстуры — PNG 16x16 (32x32 для HD), модели и шрифты — JSON. Собери: cd <папка> && zip -r ../MyPack.zip pack.mcmeta assets, затем положи zip в resourcepacks сборки.`,
+    `- Шейдер: zip с shaders/ и текстурами, форматы OptiFine или Iris. Запакуй и положи в shaderpacks сборки. Шейдеры не зависят от загрузчика — им нужна только версия игры и сам OptiFine/Iris.`,
+    `- Простая замена текстур — тоже кодовая задача: прочитай pack.mcmeta, проверь, что namespace папок assets совпадает с mcmeta, и помни: файл должен быть PNG 16x16 с прозрачностью.`,
+    `- Перед правкой кода прочитай соседний файл (read_text), чтобы соблюсти его стиль: отступы, порядок импортов, нейминг.`,
     '',
     `Браузерные ИИ (закладки-ссылки; в чате это markdown-ссылки, но их нельзя быстро открыть без перехода — не открывай их автоматически):`,
     `- Когда задача про веб/поиск/сервисы/сайты («дай сайт», «где скачать», «как зайти», «оформить», «купить») или пользователю удобнее ответ другого ИИ — в конце ответа предложи уместную кликабельную ссылку-закладку: ` + '`[Название](https://…)`' + ` — и, если полезно, официальный сайт/документацию. Открывает их пользователь кликом, сам НЕ открывай.`,
@@ -3079,7 +3222,7 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
         };
         push(toolMsg);
         const res = await executeTool(tc.name, tc.arguments, requestPermission, ep, signal, opts.policy);
-        patch(toolMsg.id, { content: res.output, error: !res.ok, cards: res.cards });
+        patch(toolMsg.id, { content: res.output, error: !res.ok, cards: res.cards, changes: res.changes });
         if (signal?.aborted) throw new Error('Отменено пользователем.');
         await drainInterrupt();
       }

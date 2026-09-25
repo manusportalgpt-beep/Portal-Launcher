@@ -6,8 +6,8 @@ import { OREUI_DEFAULT_ACCENT } from '@/lib/style-presets';
 import { playClick, playSuccess } from '@/lib/soundEngine';
 
 const ACCENT_SWATCHES = [
-  { id: 'green', color: '#2ECC71', label: 'Зелёный (по умолчанию)' },
-  { id: 'mint', color: '#3c8527', label: 'Ореховый (Minecraft)' },
+  { id: 'green', color: '#2ECC71', label: 'Светло-зелёный' },
+  { id: 'minecraft', color: '#3c8527', label: 'Зелёный Minecraft (по умолчанию)' },
   { id: 'red', color: '#DA2A3F', label: 'Красный' },
   { id: 'blue', color: '#4299E1', label: 'Синий' },
   { id: 'purple', color: '#8B5CF6', label: 'Фиолетовый' },

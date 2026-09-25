@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { invoke } from '@/lib/invoke-shim';
+import { buildLocalSummary } from '@/lib/opencore/summary';
 import {
   OP_PROVIDERS,
   CUSTOM_PROVIDER_PREFIX,
@@ -260,10 +261,15 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
         if (currentSessionId && prevKey !== nextKey) {
           const nextContexts = { ...modelContexts };
           if (messages.length > 0) nextContexts[prevKey] = messages;
-          // Каждая модель ведёт свой контекст внутри сессии: при переключении
-          // сохраняем текущий и восстанавливаем свой у новой модели.
+          // Смена модели больше не обнуляет чат. Раньше здесь стояло
+          // `stored ?? []`, и без сохранённого контекста новая модель получала
+          // пустую историю — чат выглядел только что созданным. Теперь в новый
+          // контекст кладётся выжимка предыдущей работы, её модель видит.
           const stored = nextContexts[nextKey];
-          set({ config: next, modelContexts: nextContexts, messages: stored ?? [] });
+          const carried = stored && stored.length > 0
+            ? stored
+            : (() => { const s = buildLocalSummary(messages); return s ? [s] : []; })();
+          set({ config: next, modelContexts: nextContexts, messages: carried });
         } else {
           set({ config: next });
         }

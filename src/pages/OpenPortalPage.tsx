@@ -4,7 +4,7 @@ import {
   Plus, MessageSquare, Trash2, Sparkles, Send, StopCircle, ChevronDown, ChevronRight,
   Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Boxes, Check, Copy, Download,
   Gauge, Minimize2, CornerDownRight, Shield, ShieldCheck, ShieldAlert, Globe, ExternalLink,
-  Package, Wand2, Image as ImageIcon, Search, X,
+  Package, Wand2, Image as ImageIcon, Search, X, FileDiff,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
@@ -17,7 +17,7 @@ import { contextWindow, BROWSER_LINKS } from '@/lib/opencore/providers';
 import { Markdown, PortalImage } from '@/components/openportal/Markdown';
 import { ModelManager } from '@/components/openportal/ModelManager';
 import { PermissionModal } from '@/components/openportal/PermissionModal';
-import type { ChatMessage, SessionData, SessionMeta, PermissionRequest, Attachment, ProjectContext, PermissionPreset, ModCard } from '@/lib/opencore/types';
+import type { ChatMessage, SessionData, SessionMeta, PermissionRequest, Attachment, ProjectContext, PermissionPreset, ModCard, FileChange } from '@/lib/opencore/types';
 
 /** Русская форма множественного числа: plural(5, 'чат', 'чата', 'чатов') → 'чатов'. */
 function plural(n: number, one: string, few: string, many: string): string {
@@ -157,7 +157,7 @@ function ThinkingBlock({ text }: { text: string }) {
   );
 }
 
-function ToolMsg({ name, content, error, cards }: { name: string; content: string; error?: boolean; cards?: ModCard[] }) {
+function ToolMsg({ name, content, error, cards, changes, onInstalled }: { name: string; content: string; error?: boolean; cards?: ModCard[]; changes?: FileChange[]; onInstalled?: (text: string) => void }) {
   const [open, setOpen] = useState(false);
   // Карточки результата mod_search показываются сразу, без раскрытия: раньше
   // агент отдавал только текст, и найденный контент приходилось читать вручную.
@@ -172,9 +172,10 @@ function ToolMsg({ name, content, error, cards }: { name: string; content: strin
         {showCards && <span className="rounded px-1 text-[9px] font-bold" style={{ background: 'var(--color-surface)', color: 'var(--color-text-tertiary)' }}>{cards!.length}</span>}
         <span className="ml-auto font-normal" style={{ color: 'var(--color-text-tertiary)' }}>{error ? 'ошибка' : 'ок'}</span>
       </button>
+      {changes && changes.length > 0 && <FileChanges changes={changes} />}
       {showCards && (
         <div className="grid gap-1.5 border-t p-1.5" style={{ borderColor: 'var(--color-border)' }}>
-          {cards!.map(card => <ModResultCard key={card.projectId + card.versionNumber} card={card} />)}
+          {cards!.map(card => <ModResultCard key={card.projectId + card.versionNumber} card={card} onInstalled={onInstalled} />)}
         </div>
       )}
       {imgMatch && !error && (
@@ -210,35 +211,152 @@ const SOURCE_META: Record<string, { label: string; color: string }> = {
 };
 
 /** Карточка найденного контента: иконка, название, описание, платформа, тип. */
-function ModResultCard({ card }: { card: ModCard }) {
+function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (text: string) => void }) {
   const type = MOD_TYPE_META[card.projectType] ?? MOD_TYPE_META.mod;
   const source = SOURCE_META[card.source] ?? SOURCE_META.other;
-  const open = () => { void invoke('open_url', { url: card.url }).catch(() => window.open(card.url, '_blank', 'noopener')); };
+  const instances = useInstanceStore(s => s.instances);
+  const project = useOpenCoreStore(s => s.config.project);
+  const [detail, setDetail] = useState(false);
+  const [pickBuild, setPickBuild] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+
+  const selectedId = project && project.kind === 'build' ? project.instanceId : '';
+  const selectedName = instances.find(i => i.id === selectedId)?.name ?? '';
+
+  const install = useCallback(async (instanceId: string) => {
+    const inst = instances.find(i => i.id === instanceId);
+    if (!inst || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const res = await invoke<any[]>('install_mod', {
+        instanceId,
+        downloadUrl: card.downloadUrl,
+        fileName: card.fileName,
+        modId: card.projectId,
+        modName: card.title,
+        modVersion: card.versionNumber,
+        versionId: '',
+        source: card.source,
+        modType: card.projectType,
+        projectId: card.projectId,
+        author: card.author,
+        iconUrl: card.iconUrl,
+      });
+      const count = Array.isArray(res) ? res.length : 0;
+      setDone(true);
+      setPickBuild(false);
+      // Агент сразу узнаёт об установке — сообщение уходит в тот же чат.
+      onInstalled?.(`Установлено в сборку «${inst.name}»: ${card.title} (${type.label})${count ? `, файлов: ${count}` : ''}. Пересобери сборку, чтобы контент проиндексировался.`);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [card, instances, busy, onInstalled, type.label]);
+
   return (
-    <button onClick={open} title="Открыть на Modrinth"
-      className="flex w-full items-start gap-2.5 rounded-md p-2 text-left transition-colors hover:bg-[var(--color-surface)]"
-      style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
-      {card.iconUrl
-        ? <img src={card.iconUrl} alt="" className="h-10 w-10 shrink-0 rounded" style={{ objectFit: 'cover', imageRendering: 'auto' }} />
-        : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded text-[9px] font-black" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>{type.label.slice(0, 2).toUpperCase()}</div>}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-1.5">
-          <span className="truncate text-[12px] font-bold" style={{ color: 'var(--color-text)' }}>{card.title}</span>
-          {card.versionNumber && <span className="shrink-0 font-mono text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>{card.versionNumber}</span>}
+    <div className="overflow-hidden rounded-md" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+      <button onClick={() => setDetail(d => !d)} title={detail ? 'Свернуть' : 'Открыть в лаунчере'}
+        className="flex w-full items-start gap-2.5 p-2 text-left transition-colors hover:bg-[var(--color-surface-2)]">
+        {card.iconUrl
+          ? <img src={card.iconUrl} alt="" className="h-10 w-10 shrink-0 rounded" style={{ objectFit: 'cover', imageRendering: 'auto' }} />
+          : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded text-[9px] font-black" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>{type.label.slice(0, 2).toUpperCase()}</div>}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-1.5">
+            <span className="truncate text-[12px] font-bold" style={{ color: 'var(--color-text)' }}>{card.title}</span>
+            {card.versionNumber && <span className="shrink-0 font-mono text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>{card.versionNumber}</span>}
+          </div>
+          {card.description && <p className="mt-0.5 line-clamp-2 text-[11px] leading-4" style={{ color: 'var(--color-text-secondary)' }}>{card.description}</p>}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)' }}>{source.label}</span>
+            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>{type.label}</span>
+            <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>{card.platform}</span>
+            {card.loaders.slice(0, 3).map(l => <span key={l} className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>{l}</span>)}
+            {card.gameVersions.slice(0, 2).map(v => <span key={v} className="rounded px-1.5 py-0.5 font-mono text-[9px]" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>{v}</span>)}
+          </div>
         </div>
-        {card.description && <p className="mt-0.5 line-clamp-2 text-[11px] leading-4" style={{ color: 'var(--color-text-secondary)' }}>{card.description}</p>}
-        <div className="mt-1.5 flex flex-wrap items-center gap-1">
-          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)' }}>{source.label}</span>
-          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>{type.label}</span>
-          <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>{card.platform}</span>
-          {card.loaders.slice(0, 3).map(l => <span key={l} className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>{l}</span>)}
-          {card.gameVersions.slice(0, 2).map(v => <span key={v} className="rounded px-1.5 py-0.5 font-mono text-[9px]" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>{v}</span>)}
-          <span className="ml-auto shrink-0 text-[9px] font-semibold" style={{ color: card.installable ? 'var(--color-success)' : 'var(--color-text-tertiary)' }}>
-            {card.installable ? 'установка доступна' : 'нет под версию'}
-          </span>
-        </div>
+      </button>
+
+      <div className="flex items-center gap-1.5 border-t px-2 py-1.5" style={{ borderColor: 'var(--color-border)' }}>
+        {card.installable ? (
+          done ? (
+            <span className="text-[10px] font-bold" style={{ color: 'var(--color-success)' }}>Установлено</span>
+          ) : selectedId ? (
+            <button onClick={() => void install(selectedId)} disabled={busy}
+              className="rounded px-2 py-1 text-[10px] font-bold disabled:opacity-50"
+              style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+              {busy ? 'Установка…' : `Установить в «${selectedName || 'сборку'}»`}
+            </button>
+          ) : (
+            <button onClick={() => setPickBuild(true)}
+              className="rounded px-2 py-1 text-[10px] font-bold"
+              style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+              Установить — выбрать сборку
+            </button>
+          )
+        ) : (
+          <span className="text-[10px] font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>Нет файла под выбранную версию</span>
+        )}
+        <span className="flex-1" />
+        <span className="text-[9px]" style={{ color: card.installable ? 'var(--color-success)' : 'var(--color-text-tertiary)' }}>
+          {card.installable ? 'установка доступна' : 'не найден файл'}
+        </span>
       </div>
-    </button>
+
+      {error && <p className="px-2 pb-1.5 text-[10px]" style={{ color: 'var(--color-error)' }}>{error}</p>}
+
+      {pickBuild && (
+        <div className="border-t p-1.5" style={{ borderColor: 'var(--color-border)' }}>
+          <p className="px-1 pb-1 text-[10px] font-bold" style={{ color: 'var(--color-text-secondary)' }}>Куда установить?</p>
+          <div className="max-h-40 overflow-y-auto">
+            {instances.length === 0 && <p className="px-1 py-1 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>Сборок пока нет.</p>}
+            {instances.map(inst => (
+              <button key={inst.id} onClick={() => void install(inst.id)} disabled={busy}
+                className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left transition-colors hover:bg-[var(--color-surface-2)]">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: inst.color || 'var(--color-surface-2)' }} />
+                <span className="min-w-0 flex-1 truncate text-[11px] font-semibold" style={{ color: 'var(--color-text)' }}>{inst.name}</span>
+                <span className="shrink-0 font-mono text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>{inst.minecraftVersion}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {detail && (
+        <div className="border-t p-2.5" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="mb-2 flex items-center gap-2">
+            <button onClick={() => setDetail(false)}
+              className="flex items-center gap-1 rounded px-1.5 py-1 text-[10px] font-bold"
+              style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+              <ChevronLeft size={11} /> Назад
+            </button>
+            <span className="flex-1" />
+            <button onClick={() => { void invoke('open_url', { url: card.url }); }}
+              className="flex items-center gap-1 rounded px-1.5 py-1 text-[10px] font-bold"
+              style={{ color: 'var(--color-text-tertiary)' }}>
+              Открыть на Modrinth <ExternalLink size={10} />
+            </button>
+          </div>
+          {card.iconUrl && (
+            <img src={card.iconUrl} alt="" className="mb-2 w-full rounded" style={{ maxHeight: 180, objectFit: 'contain', imageRendering: 'auto' }} />
+          )}
+          <p className="whitespace-pre-wrap text-[12px] leading-5" style={{ color: 'var(--color-text-secondary)' }}>{card.description || 'Описание не указано.'}</p>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {card.author && <span className="rounded px-1.5 py-0.5 text-[10px]" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>автор: {card.author}</span>}
+            <span className="rounded px-1.5 py-0.5 text-[10px]" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>загрузок: {fmtNum(card.downloads)}</span>
+            {card.fileName && <span className="rounded px-1.5 py-0.5 font-mono text-[10px]" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>{card.fileName}</span>}
+          </div>
+          {card.gameVersions.length > 0 && (
+            <p className="mt-1.5 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+              Версии: {card.gameVersions.slice(0, 12).join(', ')}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -321,6 +439,57 @@ function SummaryBlock({ content }: { content: string }) {
   );
 }
 
+/** Список изменённых файлов: «имя-файла +12 −3», разворачивается в diff. */
+function FileChanges({ changes }: { changes: FileChange[] }) {
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  return (
+    <div className="mb-2 overflow-hidden rounded-lg" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+      <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+        <FileDiff size={12} style={{ color: 'var(--color-text-secondary)' }} />
+        <span className="text-[11px] font-bold" style={{ color: 'var(--color-text)' }}>Изменённые файлы</span>
+        <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>{changes.length}</span>
+      </div>
+      <div className="border-t" style={{ borderColor: 'var(--color-border)' }}>
+        {changes.map(change => {
+          const key = `${change.root}/${change.path}`;
+          const isOpen = openPath === key;
+          return (
+            <div key={key} className="border-b last:border-b-0" style={{ borderColor: 'var(--color-border)' }}>
+              <button onClick={() => setOpenPath(isOpen ? null : key)}
+                className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--color-surface)]">
+                <ChevronRight size={11} className={`shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} style={{ color: 'var(--color-text-tertiary)' }} />
+                <span className="min-w-0 flex-1 truncate font-mono text-[11px]" style={{ color: 'var(--color-text)' }} title={key}>{change.path}</span>
+                {change.created && <span className="shrink-0 rounded px-1 text-[9px] font-bold" style={{ background: 'var(--color-surface)', color: 'var(--color-success)' }}>новый</span>}
+                <span className="shrink-0 font-mono text-[10px] font-bold" style={{ color: 'var(--color-success)' }}>+{change.added}</span>
+                <span className="shrink-0 font-mono text-[10px] font-bold" style={{ color: 'var(--color-error)' }}>−{change.removed}</span>
+              </button>
+              {isOpen && (
+                <div className="max-h-72 overflow-auto border-t px-2 py-1.5" style={{ borderColor: 'var(--color-border)' }}>
+                  {change.lines.length === 0 && <p className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>Нет строк для показа.</p>}
+                  {change.lines.map((line, i) => (
+                    <div key={i} className="flex items-start gap-2 font-mono text-[10px] leading-4"
+                      style={{
+                        background: line.kind === 'add' ? 'rgba(38,166,65,0.12)'
+                          : line.kind === 'remove' ? 'rgba(218,54,51,0.12)' : 'transparent',
+                        color: line.kind === 'context' ? 'var(--color-text-tertiary)' : 'var(--color-text)',
+                      }}>
+                      <span className="w-8 shrink-0 select-none text-right" style={{ color: 'var(--color-text-tertiary)' }}>{line.after ?? ''}</span>
+                      <span className="w-2 shrink-0 select-none" style={{ color: line.kind === 'add' ? 'var(--color-success)' : line.kind === 'remove' ? 'var(--color-error)' : 'transparent' }}>
+                        {line.kind === 'add' ? '+' : line.kind === 'remove' ? '−' : ' '}
+                      </span>
+                      <span className="min-w-0 flex-1 whitespace-pre-wrap break-all">{line.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ModeToggle({ mode, onChange }: { mode: 'build' | 'plan'; onChange: (m: 'build' | 'plan') => void }) {
   return (
     <div className="flex shrink-0 items-center gap-0.5 rounded-lg p-0.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
@@ -361,7 +530,7 @@ function PresetToggle({ preset, onChange }: { preset: PermissionPreset; onChange
   );
 }
 
-function ChatBubble({ m, onContinue, streaming }: { m: ChatMessage; onContinue?: () => void; streaming?: boolean }) {
+function ChatBubble({ m, onContinue, streaming, onInstalled }: { m: ChatMessage; onContinue?: () => void; streaming?: boolean; onInstalled?: (text: string) => void }) {
   const cfg = useOpenCoreStore(s => s.config);
   const [copied, setCopied] = useState(false);
   const providers = activeProviders(cfg).filter(p => isProviderEnabled(p, cfg));
@@ -400,7 +569,7 @@ function ChatBubble({ m, onContinue, streaming }: { m: ChatMessage; onContinue?:
     return <SummaryBlock content={m.content} />;
   }
   if (m.role === 'tool') {
-    return <ToolMsg name={m.toolName ?? m.content.slice(0, 40)} content={m.content} error={m.error} cards={m.cards} />;
+    return <ToolMsg name={m.toolName ?? m.content.slice(0, 40)} content={m.content} error={m.error} cards={m.cards} changes={m.changes} onInstalled={onInstalled} />;
   }
   if (m.role === 'user') {
     return (
@@ -528,8 +697,8 @@ function CurrentModelPicker() {
           <motion.div
             initial={{ opacity: 0, y: 4, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 4, scale: 0.98 }}
             transition={{ duration: 0.12 }}
-            className="absolute bottom-full right-0 z-50 mb-2 w-64 rounded-2xl border p-1.5"
-            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 24px 60px rgba(0,0,0,.4)' }}>
+            className="absolute bottom-full right-0 z-50 mb-2 w-64 rounded-lg border p-1.5"
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>
             <div className="px-2 pt-1.5 flex items-center justify-between">
               <button onClick={() => setTab('models')} className="rounded-md px-2 py-1 text-[10px] font-black uppercase tracking-wider transition-colors"
                 style={{ color: tab === 'models' ? 'var(--color-primary)' : 'var(--color-text-tertiary)', background: tab === 'models' ? 'var(--color-surface-2)' : 'transparent' }}>
@@ -1326,7 +1495,8 @@ export function OpenPortalPage() {
                 <ChatBubble key={m.id} m={m} streaming={running && m.id === lastAssistantId}
                   onContinue={m.id === lastAssistantId && !running
                     ? () => void send('Продолжи ровно с того места, где ты остановился. Не повторяй уже написанное и не начинай заново — просто продолжи.')
-                    : undefined} />
+                    : undefined}
+                  onInstalled={text => void send(text)} />
               ))}
               {running && (
                 <div className="flex items-center gap-2 px-1 py-1 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
@@ -1366,7 +1536,10 @@ export function OpenPortalPage() {
                 ))}
               </div>
             )}
-            <div className="flex items-center gap-1.5 overflow-x-auto border-b px-2 py-1.5" style={{ borderColor: 'var(--color-border)' }}>
+            {/* overflow-x-auto здесь обрезал бы выпадающий список модели,
+                поэтому строка тулбара не имеет overflow — модели могут
+                вылезать вверх поверх поля ввода. */}
+            <div className="flex items-center gap-1.5 border-b px-2 py-1.5" style={{ borderColor: 'var(--color-border)' }}>
               <ModeToggle mode={cfg.mode} onChange={m => useOpenCoreStore.getState().setMode(m)} />
               <CurrentModelPicker />
               <ContextMeter onCompact={() => void compressChat()} />

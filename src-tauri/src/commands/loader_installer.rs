@@ -696,9 +696,13 @@ pub async fn install_quilt(mc_version: String, loader_version: String, _instance
             || loader_version.starts_with("0.24.") || loader_version.starts_with("0.25."));
     let lv = if loader_version.trim().is_empty() || requested_is_old {
         let meta_url = format!("https://meta.quiltmc.org/v3/versions/loader/{mc_version}");
-        let meta: serde_json::Value = client.get(&meta_url)
+        // reqwest без gzip/brotli: сжатый ответ не декодируется.
+        let meta_text = client.get(&meta_url)
+            .header(reqwest::header::ACCEPT_ENCODING, "identity")
             .send().await.map_err(|e| format!("Quilt metadata: {e}"))?
-            .json().await.map_err(|e| format!("Quilt metadata JSON: {e}"))?;
+            .text().await.map_err(|e| format!("Quilt metadata body: {e}"))?;
+        let meta: serde_json::Value = serde_json::from_str(&meta_text)
+            .map_err(|e| format!("Quilt metadata JSON: {e}"))?;
         let versions = meta.as_array().ok_or_else(|| format!("Quilt has no loader builds for Minecraft {mc_version}"))?;
         versions.iter()
             .filter(|entry| entry["loader"]["stable"].as_bool().unwrap_or(false)
@@ -844,12 +848,17 @@ pub async fn get_quilt_versions(mc_version: String) -> Result<Vec<serde_json::Va
     let url = format!("https://meta.quiltmc.org/v3/versions/loader/{mc_version}");
     let data: serde_json::Value = client
         .get(&url)
+        // Без фичи gzip/brotli у reqwest сжатый ответ не декодируется —
+        // приходил «error decoding response body».
+        .header(reqwest::header::ACCEPT_ENCODING, "identity")
         .send()
         .await
         .map_err(|e| format!("Quilt metadata: {e}"))?
-        .json()
+        .text()
         .await
-        .map_err(|e| format!("Quilt metadata JSON: {e}"))?;
+        .map_err(|e| format!("Quilt metadata body: {e}"))?;
+    let data: serde_json::Value = serde_json::from_str(&data)
+        .map_err(|e| format!("Quilt metadata JSON: {e} (получено {} байт)", data.len()))?;
     Ok(data.as_array().cloned().unwrap_or_default())
 }
 

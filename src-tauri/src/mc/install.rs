@@ -548,8 +548,13 @@ async fn fetch_latest_loader(
     version_id: &str,
 ) -> Result<String, String> {
     let url = format!("{base}/{version_id}");
+    // reqwest собран без gzip/brotli (в Cargo.toml так и написано), поэтому если
+    // сервер пришлёт тело в сжатом виде, декодирование падает с
+    // «error decoding response body» — именно эту ошибку показывал Quilt.
+    // Явно просим несжатый ответ.
     let text = client
         .get(&url)
+        .header(reqwest::header::ACCEPT_ENCODING, "identity")
         .send()
         .await
         .map_err(|e| format!("meta: {e}"))?

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,6 +6,7 @@ import {
   User, Cpu, Palette,
   LogIn, RefreshCw, Trash2, Check, X,
   Volume2, Code, Shield, Save, Layout, Upload, Gamepad2, Globe, Github, ExternalLink, Search, SlidersHorizontal,
+  Rocket, Download, Clock,
 } from 'lucide-react';
 import { invoke } from '@/lib/invoke-shim';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -22,6 +23,7 @@ import { useLayoutStore, type LayoutMode } from '@/stores/layoutStore';
 import { readThemeFile } from '@/lib/ui-engine';
 import { removeBackgroundMedia, saveBackgroundMedia } from '@/lib/background-media';
 import { openBrowserWindow } from '@/lib/browser';
+import { tauriUpdate, type UpdateInfo } from '@/lib/tauri-bridge';
 import { useLanguageStore, type Lang } from '@/stores/languageStore';
 import { getAvatarUrl, getAvatarFallbackUrl } from '@/lib/avatar';
 import { CachedPlayerFace } from '@/components/CachedPlayerFace';
@@ -35,7 +37,7 @@ import { dialog } from '@/stores/dialogStore';
 import { HOTKEY_DEFAULTS, HOTKEY_LABELS, normaliseHotkey, useHotkeyStore, type HotkeyAction } from '@/stores/hotkeyStore';
 import manusAchievement from '@/assets/manus-achievement.png';
 
-type Section = 'account' | 'minecraft' | 'appearance' | 'controls' | 'audio' | 'language' | 'advanced' | 'about';
+type Section = 'account' | 'minecraft' | 'appearance' | 'controls' | 'audio' | 'language' | 'update' | 'advanced' | 'about';
 
 interface SectionDef { id: Section; icon: any; label: string; desc: string }
 const SECTIONS: SectionDef[] = [
@@ -45,6 +47,7 @@ const SECTIONS: SectionDef[] = [
   { id:'controls',   icon:Gamepad2,label:'Управление',  desc:'Горячие клавиши и быстрые действия' },
   { id:'audio',      icon:Volume2, label:'Аудио',       desc:'Громкость, звуки и фоновая музыка' },
   { id:'language',   icon:Globe,   label:'Язык',        desc:'Язык интерфейса лаунчера' },
+  { id:'update',     icon:RefreshCw,label:'Обновление', desc:'Проверка релизов, скачивание и установка' },
   { id:'advanced',   icon:Code,    label:'Дополнительно', desc:'Каталоги, API и расширенные параметры' },
   { id:'about',      icon:Shield,  label:'О лаунчере',  desc:'Версия, лицензия и системная информация' },
 ];
@@ -1031,6 +1034,133 @@ function InterfaceModeSelector() {
   );
 }
 
+function UpdateSection() {
+  const [info, setInfo] = useState<UpdateInfo | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'downloading' | 'installing' | 'done'>('idle');
+  const [error, setError] = useState('');
+  const [current, setCurrent] = useState('—');
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const { getVersion } = await import('@tauri-apps/api/app');
+        setCurrent(await getVersion());
+      } catch {
+        // вне Tauri версия неизвестна
+      }
+    })();
+  }, []);
+
+  const check = useCallback(async (silent?: boolean) => {
+    setChecking(true);
+    setError('');
+    try {
+      const found = await tauriUpdate.check();
+      setInfo(found);
+    } catch (e) {
+      if (!silent) setError(String(e));
+    } finally {
+      setChecking(false);
+    }
+  }, []);
+
+  useEffect(() => { void check(true); }, [check]);
+
+  const install = async () => {
+    if (!info?.download_url) return;
+    setStatus('downloading');
+    setError('');
+    try {
+      const path = await tauriUpdate.download(info.download_url, info.file_name);
+      setStatus('installing');
+      await tauriUpdate.install(path);
+      setStatus('done');
+    } catch (e) {
+      setStatus('idle');
+      setError(String(e));
+    }
+  };
+
+  const upToDate = !info?.version || info.version === current;
+
+  return (
+    <div className="max-w-2xl space-y-3">
+      <section className="rounded-lg p-4" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+        <div className="flex items-center gap-2">
+          <RefreshCw size={15} style={{ color: 'var(--color-primary)' }} />
+          <h2 className="text-sm font-black" style={{ color: 'var(--color-text)' }}>Обновление</h2>
+        </div>
+        <p className="mt-1 text-xs leading-5" style={{ color: 'var(--color-text-secondary)' }}>
+          Релизы берутся с GitHub. Установщик скачивает файл и заменяет текущую версию лаунчера.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="rounded px-2 py-1 text-[11px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>
+            Установлено: {current}
+          </span>
+          {info?.version && (
+            <span className="rounded px-2 py-1 text-[11px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>
+              Доступно: {info.version}
+            </span>
+          )}
+          <span className="flex-1" />
+          <button onClick={() => void check()} disabled={checking}
+            className="rounded px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+            style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
+            {checking ? 'Проверка…' : 'Проверить обновления'}
+          </button>
+        </div>
+      </section>
+
+      {error && (
+        <p className="rounded-lg px-3 py-2 text-xs" style={{ background: 'var(--color-surface-2)', color: 'var(--color-error)' }}>
+          {error}
+        </p>
+      )}
+
+      {info?.version && (
+        <section className="rounded-lg p-4" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+          <div className="flex items-center gap-2">
+            <Rocket size={15} style={{ color: upToDate ? 'var(--color-text-tertiary)' : 'var(--color-primary)' }} />
+            <h3 className="flex-1 text-sm font-black" style={{ color: 'var(--color-text)' }}>{info.version}</h3>
+            {upToDate && (
+              <span className="flex items-center gap-1 text-[10px] font-bold" style={{ color: 'var(--color-success)' }}>
+                <Check size={11} /> Актуальная версия
+              </span>
+            )}
+          </div>
+          {info.published_at && (
+            <p className="mt-1 flex items-center gap-1 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+              <Clock size={10} /> {new Date(info.published_at).toLocaleString('ru-RU')}
+            </p>
+          )}
+          {info.body && (
+            <div className="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap rounded p-2.5 text-[11px] leading-4"
+              style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>
+              {info.body}
+            </div>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button onClick={install} disabled={upToDate || status !== 'idle'}
+              className="flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+              style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+              <Download size={13} />
+              {status === 'downloading' ? 'Скачивание…' : status === 'installing' ? 'Установка…' : status === 'done' ? 'Готово' : 'Скачать и установить'}
+            </button>
+            {info.html_url && (
+              <a href={info.html_url} target="_blank" rel="noreferrer"
+                className="flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-bold"
+                style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+                <ExternalLink size={13} /> Открыть на GitHub
+              </a>
+            )}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
 const SECTION_CONTENT: Record<Section, React.FC> = {
   account: AccountSection,
   minecraft: MinecraftSection,
@@ -1038,6 +1168,7 @@ const SECTION_CONTENT: Record<Section, React.FC> = {
   controls: ControlsSection,
   audio: AudioSection,
   language: LanguageSection,
+  update: UpdateSection,
   advanced: AdvancedSection,
   about: AboutSection,
 };

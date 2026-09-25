@@ -418,6 +418,11 @@ pub struct ImageInspect {
     pub colors: Vec<ImageColor>,
     pub dominant: String,
     pub average: String,
+    /// MIME уменьшенной копии.
+    pub mime: String,
+    /// Сама картинка в base64 (уменьшенная копия), чтобы модель могла
+    /// РЕАЛЬНО её рассмотреть, а не читать статистику.
+    pub b64: String,
 }
 
 /// Анализирует изображение: размеры, палитра доминирующих цветов, яркость.
@@ -486,7 +491,30 @@ pub fn op_image_inspect(root: String, path: String) -> Result<ImageInspect, Stri
         String::new()
     };
 
-    Ok(ImageInspect { width, height, alpha, colors, dominant, average })
+    // Уменьшенная копия в base64: именно её модель может посмотреть.
+    // Ограничиваем сторону, чтобы картинка не раздувала контекст.
+    let (mime, b64) = match decoded.as_ref() {
+        Ok(dyn_img) => {
+            let small = dyn_img.thumbnail(1024, 1024);
+            let rgba = small.to_rgba8();
+            let (w, h) = rgba.dimensions();
+            let mut out: Vec<u8> = Vec::new();
+            let enc_ok = image::codecs::png::PngEncoder::new(&mut out)
+                .write_image(rgba.as_raw(), w, h, image::ExtendedColorType::Rgba8)
+                .is_ok();
+            if enc_ok {
+                (
+                    "image/png".to_string(),
+                    base64::engine::general_purpose::STANDARD.encode(&out),
+                )
+            } else {
+                (String::new(), String::new())
+            }
+        }
+        Err(_) => (String::new(), String::new()),
+    };
+
+    Ok(ImageInspect { width, height, alpha, colors, dominant, average, mime, b64 })
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

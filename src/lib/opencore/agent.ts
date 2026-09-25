@@ -3796,7 +3796,9 @@ function toTurns(messages: ChatMessage[]): ChatTurn[] {
   const turns: ChatTurn[] = [];
   for (const m of messages) {
     if (m.role === 'user') {
-      turns.push({ role: 'user', content: m.content });
+      // Вложения обязаны дойти до запроса: без них multimodal-ветка в
+      // callOpenAI не срабатывала и модель получала только текст.
+      turns.push({ role: 'user', content: m.content, attachments: m.attachments });
     } else if (m.role === 'assistant') {
       turns.push({
         role: 'assistant',

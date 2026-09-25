@@ -1521,22 +1521,8 @@ export function OpenPortalPage() {
 
       {/* Main */}
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="ore-plain flex items-center gap-3 border-b px-5 py-3" style={{ borderColor: 'var(--color-border)' }}>
-          <div className="flex items-center gap-2">
-            <Bot size={15} style={{ color: 'var(--color-primary)' }} />
-            <span className="text-xs font-black" style={{ color: 'var(--color-text)' }}>OpenPortal</span>
-          </div>
-          <span
-            className="flex items-center gap-1.5 text-[10px] font-bold"
-            title={running ? 'Агент выполняет задачу' : 'Агент свободен'}
-            style={{ color: running ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
-            {running
-              ? <><span className="h-2 w-2 animate-spin rounded-full border-[1.5px] border-current border-t-transparent" />работает</>
-              : <><span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--color-success)' }} />готов</>}
-          </span>
-          <div className="flex-1" />
-          <BuildPicker />
-        </header>
+        {/* Верхняя панель убрана: заголовок «OpenPortal готов/занят» и выбор
+            сборки перенесены в панель композитора, где было свободное место. */}
 
         <div ref={scrollRef} onScroll={() => {
             const el = scrollRef.current;
@@ -1627,11 +1613,21 @@ export function OpenPortalPage() {
                 поэтому строка тулбара не имеет overflow — модели могут
                 вылезать вверх поверх поля ввода. */}
             <div className="flex items-center gap-1.5 border-b px-2 py-1.5" style={{ borderColor: 'var(--color-border)' }}>
+              <BuildPicker />
+              <span className="h-4 w-px shrink-0" style={{ background: 'var(--color-border)' }} />
               <ModeToggle mode={cfg.mode} onChange={m => useOpenCoreStore.getState().setMode(m)} />
               <CurrentModelPicker />
               <ContextMeter onCompact={() => void compressChat()} />
               <EffortPicker value={cfg.effort ?? 'medium'} onChange={v => useOpenCoreStore.getState().updateConfig({ effort: v })} />
               <PresetToggle preset={cfg.permissionPreset ?? 'dfa'} onChange={p => useOpenCoreStore.getState().setPermissionPreset(p)} />
+              <span className="flex-1" />
+              <span className="flex shrink-0 items-center gap-1.5 pr-1 text-[10px] font-bold"
+                title={running ? 'Агент выполняет задачу' : 'Агент свободен'}
+                style={{ color: running ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
+                {running
+                  ? <><span className="h-2 w-2 animate-spin rounded-full border-[1.5px] border-current border-t-transparent" />работает</>
+                  : <><span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--color-success)' }} />готов</>}
+              </span>
             </div>
             <div className="flex items-end gap-1.5 p-1.5">
               <input type="file" id="op-file" className="hidden" onChange={onFilePicked} />

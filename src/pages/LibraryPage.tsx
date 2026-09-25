@@ -818,8 +818,12 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                         <button type="button" role="switch" aria-checked={showSnapshots}
                           onClick={() => setShowSnapshots(v => !v)}
                           className="flex items-center gap-2 rounded px-2.5 py-1.5 text-[10px] font-bold transition-colors"
-                          style={{ background: showSnapshots ? 'var(--color-surface-2)' : 'var(--color-surface-2)', border:`1px solid ${showSnapshots ? 'var(--color-primary)' : 'var(--color-border)'}`, color: showSnapshots ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
-                          <span className="relative h-3.5 w-6 rounded-sm" style={{ background: showSnapshots ? 'var(--color-primary)' : 'var(--color-border-strong)' }}><span className="absolute top-0.5 h-2.5 w-2.5 rounded-sm transition-all" style={{ left: showSnapshots ? 11 : 2, background: showSnapshots ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)' }} /></span>
+                          style={{ background: 'var(--color-surface-2)', border:`1px solid ${showSnapshots ? 'var(--color-primary)' : 'var(--color-border)'}`, color: showSnapshots ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
+                          <span className="relative inline-block h-3.5 w-6 shrink-0 overflow-hidden rounded-sm align-middle"
+                            style={{ background: showSnapshots ? 'var(--color-primary)' : 'var(--color-border-strong)' }}>
+                            <span className="absolute top-0.5 h-2.5 w-2.5 rounded-sm transition-all"
+                              style={{ left: showSnapshots ? 11 : 2, background: showSnapshots ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)' }} />
+                          </span>
                           Snapshot-версии
                         </button>
                       </div>

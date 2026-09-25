@@ -920,6 +920,11 @@ export function OpenPortalPage() {
   const layout = useOpenCoreStore(s => s.layout);
   const user = useCurrentUser();
 
+  // init() нигде не вызывался: из-за этого layout оставался undefined, в
+  // системный промпт попадал блок с пустой «Папка:», и агент не знал, где его
+  // песочница. Отсюда были относительные пути и пустая папка Projects.
+  useEffect(() => { void useOpenCoreStore.getState().init(); }, []);
+
   const [input, setInput] = useState('');
   const [sessionFilter, setSessionFilter] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -1308,7 +1313,7 @@ export function OpenPortalPage() {
       } catch { /* папка сборки не определилась — остаёмся на portal */ }
     }
     const extraBase = layout
-      ? `Игрок (Minecraft-ник): ${user?.username || 'игрок'}\nРабочая область агента: ${workspaceLabel}${workspaceZone === 'launcher' ? ' (сборка)' : ''}\nПапка: ${workspaceDir}\nПрава: ${workspaceZone === 'launcher' ? 'чтение лаунчера везде; запись — только в папку сборки и в settings.json' : 'полный доступ внутри OpenPortal Projects'}\nВременная (Temp): ${layout.temp}\nКаталог лаунчера: ${layout.launcher}\nПортал (OpenPortal): ${layout.base}\nАктивная модель: ${modelId} (${ep.provider.name}).`
+      ? `Игрок (Minecraft-ник): ${user?.username || 'игрок'}\nРабочая область агента: ${workspaceLabel}${workspaceZone === 'launcher' ? ' (сборка)' : ''}\nПапка: ${workspaceDir}\nПрава: ${workspaceZone === 'launcher' ? 'чтение лаунчера везде; запись — только в папку сборки и в settings.json' : 'полный доступ внутри OpenPortal Projects'}${workspaceZone === 'portal' ? `\nПЕСОЧНИЦА: это твоя рабочая папка. Относительные пути (например src/main/java/Mod.java, notes.md, assets/pack.png) считаются от неё — создавай проекты прямо здесь, отдельной папкой на проект (например shader-optics/, my-mod/). Вложенные папки создаются автоматически, можешь писать сразу вглубь. Всё, что ты здесь создаёшь и скачиваешь, сохраняется и доступно в следующих сессиях.` : ''}\nВременная (Temp): ${layout.temp}\nКаталог лаунчера: ${layout.launcher}\nПортал (OpenPortal): ${layout.base}\nАктивная модель: ${modelId} (${ep.provider.name}).`
       : undefined;
     const extra = taskDirective && extraBase
       ? `${extraBase}\nПапка навыков агента: ${layout?.base}\\Skills`

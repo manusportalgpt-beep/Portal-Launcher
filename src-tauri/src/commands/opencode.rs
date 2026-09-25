@@ -1077,8 +1077,8 @@ fn root_from_name(name: &str) -> Result<Root, String> {
 #[tauri::command]
 pub fn op_list_dir(root: String, path: String) -> Result<Vec<FsEntry>, String> {
     let r = root_from_name(&root)?;
-    let p = Path::new(&path);
-    let dir = enforce_root(r, p, false)?;
+    let p = resolve_agent_path(r, Path::new(&path));
+    let dir = enforce_root(r, &p, false)?;
     let mut out = Vec::new();
     for e in std::fs::read_dir(&dir).map_err(|err| format!("Чтение каталога: {err}"))? {
         let e = e.map_err(|err| err.to_string())?;
@@ -1098,8 +1098,8 @@ pub fn op_list_dir(root: String, path: String) -> Result<Vec<FsEntry>, String> {
 #[tauri::command]
 pub fn op_read_text(root: String, path: String) -> Result<String, String> {
     let r = root_from_name(&root)?;
-    let p = Path::new(&path);
-    let file = enforce_root(r, p, false)?;
+    let p = resolve_agent_path(r, Path::new(&path));
+    let file = enforce_root(r, &p, false)?;
     let meta = std::fs::metadata(&file).map_err(|e| format!("Команда метаданных: {e}"))?;
     if meta.len() > MAX_TEXT_READ as u64 {
         return Err(format!(
@@ -1114,12 +1114,39 @@ pub fn op_read_text(root: String, path: String) -> Result<String, String> {
     std::fs::read_to_string(&file).map_err(|e| format!("Чтение файла: {e}"))
 }
 
+/// Разрешает путь агента в абсолютный.
+///
+/// Агент почти всегда пишет относительные пути (`src/main/java/Mod.java`,
+/// `Projects/my-mod/file.txt`), а `enforce_root` умеет проверять только
+/// абсолютные. Раньше такой вызов падал с «Путь вне разрешённой зоны», и
+/// агент не мог создать структуру проекта вообще.
+///
+/// Относительный путь отсчитывается от рабочей папки зоны: для portal это
+/// `Projects` (то самое «место песочницы»), для остальных — корень зоны.
+fn resolve_agent_path(root: Root, path: &Path) -> PathBuf {
+    if path.is_absolute() {
+        return path.to_path_buf();
+    }
+    let base = root_path(root);
+    if matches!(root, Root::Portal) {
+        return projects_dir().join(path);
+    }
+    base.join(path)
+}
+
 #[tauri::command]
 pub fn op_write_text(root: String, path: String, content: String) -> Result<(), String> {
     let r = root_from_name(&root)?;
-    let p = Path::new(&path);
-    let file = enforce_root(r, p, true)?;
-    std::fs::write(&file, content).map_err(|e| format!("Запись файла: {e}"))
+    let p = resolve_agent_path(r, Path::new(&path));
+    let file = enforce_root(r, &p, true)?;
+    // Родительские папки создаём сами: без этого невозможно разложить проект
+    // по вложенным каталогам (src/main/resources и т.п.) — запись падала с
+    // «No such file or directory», и песочница оставалась пустой.
+    if let Some(dir) = file.parent() {
+        std::fs::create_dir_all(dir)
+            .map_err(|e| format!("Не удалось создать папку {}: {e}", dir.to_string_lossy()))?;
+    }
+    std::fs::write(&file, content).map_err(|e| format!("Не удалось записать файл: {e}"))
 }
 
 /// Одно найденное совпадение при поиске по коду.
@@ -1225,8 +1252,8 @@ fn glob_matches(pattern: &str, file_name: &str, full_path: &str) -> bool {
 #[tauri::command]
 pub fn op_write_bytes(root: String, path: String, b64: String) -> Result<String, String> {
     let r = root_from_name(&root)?;
-    let p = Path::new(&path);
-    let file = enforce_root(r, p, true)?;
+    let p = resolve_agent_path(r, Path::new(&path));
+    let file = enforce_root(r, &p, true)?;
     if let Some(dir) = file.parent() {
         std::fs::create_dir_all(dir).ok();
     }
@@ -1263,7 +1290,20 @@ pub async fn op_run_command(
     shell: Option<String>,
 ) -> Result<CmdResult, String> {
     let r = root_from_name(&root)?;
-    let cwd_path = enforce_root(r, Path::new(&cwd), false)?;
+    // Рабочая папка команды: если агент передал относительный путь или пустой —
+    // работаем в песочнице (Projects для portal), а не в произвольном месте.
+    let requested = if cwd.trim().is_empty() { PathBuf::new() } else { PathBuf::from(&cwd) };
+    let cwd_candidate = if requested.as_os_str().is_empty() {
+        root_path(r)
+    } else {
+        resolve_agent_path(r, &requested)
+    };
+    let cwd_path = if cwd_candidate.is_dir() {
+        enforce_root(r, &cwd_candidate, false)?
+    } else {
+        // Папки могло ещё не быть — берём корень зоны, а путь создастся при записи.
+        enforce_root(r, &root_path(r), false)?
+    };
     if command.trim().is_empty() {
         return Err("Пустая команда".into());
     }

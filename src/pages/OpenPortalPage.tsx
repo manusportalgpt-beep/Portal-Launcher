@@ -1527,7 +1527,9 @@ export function OpenPortalPage() {
           )}
           {/* Композер собран в один контейнер: тулбар, поле ввода и кнопки
               больше не висят тремя отдельными плавающими рядами. */}
-          <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-lg"
+          {/* Без overflow-hidden: контейнер обрезал выпадающий список модели и
+              панель управления моделями, из-за чего они не открывались. */}
+          <div className="mx-auto w-full max-w-3xl rounded-lg"
             style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
             {attachments.length > 0 && (
               <div className="flex flex-wrap gap-1.5 border-b p-2" style={{ borderColor: 'var(--color-border)' }}>
@@ -1542,6 +1544,11 @@ export function OpenPortalPage() {
             <div className="flex items-center gap-1.5 border-b px-2 py-1.5" style={{ borderColor: 'var(--color-border)' }}>
               <ModeToggle mode={cfg.mode} onChange={m => useOpenCoreStore.getState().setMode(m)} />
               <CurrentModelPicker />
+              <button onClick={() => useOpenCoreStore.getState().setModelsMenuOpen(true)} title="Модели и провайдеры: ключи, список моделей, закладки"
+                className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[10px] font-bold transition-colors hover:bg-[var(--color-surface)]"
+                style={{ color: 'var(--color-text-secondary)' }}>
+                <Settings2 size={11} /> Модели
+              </button>
               <ContextMeter onCompact={() => void compressChat()} />
               <PresetToggle preset={cfg.permissionPreset ?? 'dfa'} onChange={p => useOpenCoreStore.getState().setPermissionPreset(p)} />
             </div>

@@ -281,17 +281,19 @@ pub async fn exchange_code_for_token(
         .build()
         .map_err(|e| format!("Failed to build client: {}", e))?;
     
-    // Обмениваем код на токены Microsoft
+    // Обмениваем код на токены Microsoft.
+    // Все значения приводим к &str: массив .form() должен быть однородным по типам.
     let (client_id, redirect_uri) = (ms_client_id(), ms_redirect_uri());
+    let form: Vec<(&str, &str)> = vec![
+        ("client_id", client_id.as_str()),
+        ("code", code.as_str()),
+        ("redirect_uri", redirect_uri.as_str()),
+        ("grant_type", "authorization_code"),
+        ("scope", MS_SCOPE),
+        ("code_verifier", code_verifier.as_str()),
+    ];
     let ms_response = client.post(MS_TOKEN_URL)
-        .form(&[
-            ("client_id", &client_id),
-            ("code", &code),
-            ("redirect_uri", &redirect_uri),
-            ("grant_type", "authorization_code"),
-            ("scope", MS_SCOPE),
-            ("code_verifier", &code_verifier),
-        ])
+        .form(&form)
         .send()
         .await
         .map_err(|e| format!("Failed to send token request: {}", e))?;

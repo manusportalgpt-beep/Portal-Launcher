@@ -184,7 +184,7 @@ fn port_from_redirect(redirect_uri: &str) -> u16 {
     };
     let host_part = after_scheme.split(['/', '?', '#']).next().unwrap_or("");
     let maybe_port = host_part.rsplit(':').next().unwrap_or("");
-    maybe_port.parse::<u16>().filter(|p| *p > 0).unwrap_or(5000)
+    maybe_port.parse::<u16>().ok().filter(|p| *p > 0).unwrap_or(5000)
 }
 
 /// Запускает локальный сервер для приёма OAuth callback.

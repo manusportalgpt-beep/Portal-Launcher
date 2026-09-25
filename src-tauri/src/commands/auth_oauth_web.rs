@@ -19,7 +19,13 @@ const XSTS_AUTH_URL: &str = "https://xsts.auth.xboxlive.com/xsts/authorize";
 // посторонний client (63792cab-…) из старого endpoint v1, из-за чего Microsoft
 // отвечал «unauthorized_client: The client does not exist or is not enabled».
 const DEFAULT_MS_CLIENT_ID: &str = "c36a9fb6-4f2a-41ff-90bd-ae7cc92031eb";
-const DEFAULT_MS_REDIRECT_URI: &str = "http://localhost:5000/auth/callback";
+// Redirect URI: для публичного (native) клиента Microsoft сверяет host:port и
+// игнорирует путь, но ЛЮБОЙ путь в значении приводит к ошибке
+// «redirect_uri is not valid», если в Azure зарегистрирован просто
+// http://localhost. Поэтому здесь без пути — такой вариант совпадает и с
+// «http://localhost», и с «http://localhost:5000».
+// Порт нужен обязательно: на 80 может не хватить прав.
+const DEFAULT_MS_REDIRECT_URI: &str = "http://localhost:5000";
 const MS_SCOPE: &str = "XboxLive.signin offline_access";
 // Endpoint v2.0 — тот же, что и у рабочего device-code флоу.
 const MS_LOGIN_URL: &str = "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize";
@@ -34,7 +40,7 @@ fn ms_redirect_uri() -> String { read_oauth_config().1 }
 
 /// Читает переопределения client_id / redirect_uri из portal-oauth.json в папке
 /// данных приложения, чтобы пользователь мог подставить своё Azure-приложение
-/// без пересборки. Формат: {"clientId":"...","redirectUri":"http://localhost:5000/auth/callback"}
+/// без пересборки. Формат: {"clientId":"...","redirectUri":"http://localhost:5000"}
 fn read_oauth_config() -> (String, String) {
     let path = dirs_next::data_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
@@ -110,20 +116,32 @@ pub struct McAuthResponse {
     pub expires_in: u64,
 }
 
-/// Start OAuth2 Web Flow с localhost callback
+/// Start OAuth2 Web Flow с localhost callback.
+/// client_id и redirect_uri можно передать из интерфейса — тогда берутся
+/// именно те значения, которые зарегистрированы в конкретном Azure-приложении.
 #[tauri::command]
 pub async fn start_oauth_web_flow(
     app: AppHandle,
     _state: State<'_, AppState>,
+    client_id: Option<String>,
+    redirect_uri: Option<String>,
 ) -> Result<(), String> {
     log::info!("🔐 Starting OAuth2 Web Flow with localhost callback");
-    
+
     // Генерируем code verifier для PKCE
     let code_verifier = uuid::Uuid::new_v4().to_string();
-    
+
     // Формируем URL для авторизации с PKCE
     let code_challenge = generate_code_challenge(&code_verifier);
-    let (client_id, redirect_uri) = (ms_client_id(), ms_redirect_uri());
+    let (file_client, file_redirect) = read_oauth_config();
+    let client_id = client_id
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .unwrap_or(file_client);
+    let redirect_uri = redirect_uri
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .unwrap_or(file_redirect);
     let auth_url = format!(
         "{}?client_id={}&redirect_uri={}&response_type=code&response_mode=query&scope={}&code_challenge={}&code_challenge_method=S256",
         MS_LOGIN_URL,
@@ -144,24 +162,39 @@ pub async fn start_oauth_web_flow(
     }
     
     // Открываем браузер
-    webbrowser::open(&auth_url).map_err(|e| format!("Failed to open browser: {}", e))?;
-    
-    // Запускаем локальный сервер для приёма callback в отдельном потоке
+    webbrowser::open(&auth_url).map_err(|e| format!("Failed to open browser: {e}"))?;
+
+    // Запускаем локальный сервер для приёма callback в отдельном потоке.
+    // Порт берём из redirect_uri, иначе он не совпадёт с тем, куда Microsoft
+    // отправит браузер.
+    let port = port_from_redirect(&redirect_uri);
     let app_clone = app.clone();
     thread::spawn(move || {
-        run_oauth_callback_server(app_clone);
+        run_oauth_callback_server(app_clone, port);
     });
-    
+
     Ok(())
 }
 
-/// Запускает локальный сервер для приёма OAuth callback
-fn run_oauth_callback_server(app: AppHandle) {
-    let listener = TcpListener::bind("127.0.0.1:5000");
-    
+/// Достаёт порт из redirect URI. Если порт не указан — 5000 (80 требует прав).
+fn port_from_redirect(redirect_uri: &str) -> u16 {
+    let after_scheme = match redirect_uri.split("://").nth(1) {
+        Some(v) => v,
+        None => return 5000,
+    };
+    let host_part = after_scheme.split(['/', '?', '#']).next().unwrap_or("");
+    let maybe_port = host_part.rsplit(':').next().unwrap_or("");
+    maybe_port.parse::<u16>().filter(|p| *p > 0).unwrap_or(5000)
+}
+
+/// Запускает локальный сервер для приёма OAuth callback.
+/// Путь в запросе игнорируется: code всегда лежит в query-строке.
+fn run_oauth_callback_server(app: AppHandle, port: u16) {
+    let listener = TcpListener::bind(("127.0.0.1", port));
+
     match listener {
         Ok(listener) => {
-            log::info!("✅ Local OAuth server listening on port 5000");
+            log::info!("✅ Local OAuth server listening on port {port}");
             
             for stream in listener.incoming().take(1) {
                 if let Ok(mut stream) = stream {
@@ -211,7 +244,7 @@ fn run_oauth_callback_server(app: AppHandle) {
             }
         }
         Err(e) => {
-            log::error!("❌ Failed to bind to port 5000: {}", e);
+            log::error!("❌ Failed to bind to port {port}: {e}");
         }
     }
 }
@@ -273,6 +306,8 @@ pub async fn exchange_code_for_token(
     code: String,
     code_verifier: String,
     _state: State<'_, AppState>,
+    client_id: Option<String>,
+    redirect_uri: Option<String>,
 ) -> Result<Option<McProfile>, String> {
     log::info!("🔄 Exchanging code for token");
     
@@ -282,8 +317,18 @@ pub async fn exchange_code_for_token(
         .map_err(|e| format!("Failed to build client: {}", e))?;
     
     // Обмениваем код на токены Microsoft.
+    // client_id и redirect_uri должны ТОЧНО совпадать с теми, что были в
+    // authorize-запросе, иначе Microsoft отклонит обмен.
     // Все значения приводим к &str: массив .form() должен быть однородным по типам.
-    let (client_id, redirect_uri) = (ms_client_id(), ms_redirect_uri());
+    let (file_client, file_redirect) = read_oauth_config();
+    let client_id = client_id
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .unwrap_or(file_client);
+    let redirect_uri = redirect_uri
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .unwrap_or(file_redirect);
     let form: Vec<(&str, &str)> = vec![
         ("client_id", client_id.as_str()),
         ("code", code.as_str()),

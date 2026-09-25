@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import { invoke } from '@/lib/invoke-shim';
 import { listen } from '@tauri-apps/api/event';
 import { useAuthStore } from '@/stores/authStore';
+import { safeLocalStorage } from '@/lib/safe-storage';
 
 /**
  * Второй способ входа в Microsoft: OAuth 2.0 Authorization Code с PKCE.
  *
  * Отличие от основного способа (код подтверждения): браузер сразу открывает
  * страницу выбора аккаунта Microsoft, где виден уже залогиненный аккаунт —
- * вводить код вручную не нужно. Локальный callback-сервер на 127.0.0.1:5000
- * принимает код, после чего токены обмениваются на профиль Minecraft.
+ * вводить код вручную не нужно. Локальный callback-сервер принимает код,
+ * после чего токены обмениваются на профиль Minecraft.
  *
  * Текущий основной способ не изменяется — он вызывается из рамки выбора.
  */
@@ -21,6 +22,37 @@ export function MicrosoftAuthBrowser({ onSuccess, onCancel }: {
   const setLoading = useAuthStore(s => s.setLoading);
   const [status, setStatus] = useState<'idle' | 'waiting' | 'exchanging' | 'success' | 'error'>('idle');
   const [error, setError] = useState('');
+
+  // Client ID и redirect URI можно задать вручную: если в Azure приложение
+  // зарегистрировано с другим redirect URI, вход иначе не пройдёт.
+  const [showSetup, setShowSetup] = useState(false);
+  const [clientId, setClientId] = useState('');
+  const [redirectUri, setRedirectUri] = useState('http://localhost:5000');
+
+  // safeLocalStorage — асинхронная обёртка, поэтому читаем через effect.
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      const [savedClient, savedRedirect] = await Promise.all([
+        safeLocalStorage().getItem('portal.msOAuthClientId'),
+        safeLocalStorage().getItem('portal.msOAuthRedirectUri'),
+      ]);
+      if (!alive) return;
+      if (typeof savedClient === 'string') setClientId(savedClient);
+      if (typeof savedRedirect === 'string' && savedRedirect) setRedirectUri(savedRedirect);
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const credentials = useMemo(
+    () => ({ clientId: clientId.trim(), redirectUri: redirectUri.trim() }),
+    [clientId, redirectUri],
+  );
+
+  const saveCredentials = useCallback(() => {
+    if (credentials.clientId) void safeLocalStorage().setItem('portal.msOAuthClientId', credentials.clientId);
+    if (credentials.redirectUri) void safeLocalStorage().setItem('portal.msOAuthRedirectUri', credentials.redirectUri);
+  }, [credentials]);
 
   const finish = useCallback((profile: any) => {
     setStatus('success');
@@ -58,7 +90,12 @@ export function MicrosoftAuthBrowser({ onSuccess, onCancel }: {
       const codeVerifier = String(event.payload?.code_verifier ?? '');
       if (!code || !codeVerifier) return;
       setStatus('exchanging');
-      void invoke<any>('exchange_code_for_token', { code, codeVerifier })
+      void invoke<any>('exchange_code_for_token', {
+        code,
+        codeVerifier,
+        clientId: credentials.clientId || null,
+        redirectUri: credentials.redirectUri || null,
+      })
         .then(profile => {
           if (disposed) return;
           if (!profile) { setStatus('error'); setError('Microsoft не вернул профиль аккаунта.'); return; }
@@ -72,20 +109,24 @@ export function MicrosoftAuthBrowser({ onSuccess, onCancel }: {
     }).then(fn => { unlisten = fn; }).catch(() => undefined);
 
     return () => { disposed = true; unlisten?.(); };
-  }, [finish]);
+  }, [finish, credentials]);
 
   const start = useCallback(async () => {
     setStatus('waiting');
     setError('');
     setLoading(true);
+    saveCredentials();
     try {
-      await invoke('start_oauth_web_flow');
+      await invoke('start_oauth_web_flow', {
+        clientId: credentials.clientId || null,
+        redirectUri: credentials.redirectUri || null,
+      });
     } catch (e) {
       setLoading(false);
       setStatus('error');
       setError(String(e));
     }
-  }, [setLoading]);
+  }, [setLoading, credentials, saveCredentials]);
 
   useEffect(() => { if (status === 'success' || status === 'error') setLoading(false); }, [status, setLoading]);
 
@@ -130,9 +171,44 @@ export function MicrosoftAuthBrowser({ onSuccess, onCancel }: {
       )}
 
       {status !== 'success' && (
-        <button onClick={onCancel} className="self-center text-xs font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>
-          Назад к выбору способа
-        </button>
+        <div className="flex flex-col gap-2">
+          <button onClick={() => setShowSetup(v => !v)} className="self-start text-[11px] font-semibold"
+            style={{ color: 'var(--color-text-tertiary)' }}>
+            {showSetup ? 'Скрыть настройку Azure' : 'Ошибка входа? Задать Client ID и Redirect URI'}
+          </button>
+
+          {showSetup && (
+            <div className="flex flex-col gap-2 rounded-lg p-2.5"
+              style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+              <p className="text-[10px] leading-4" style={{ color: 'var(--color-text-tertiary)' }}>
+                В Azure Portal → «Регистрация приложений» → ваше приложение → «Аутентификация» добавьте
+                тип «Общедоступный клиент (мобильные и настольные приложения)» с URI вида{' '}
+                <code className="font-mono">http://localhost:5000</code>. Значение отсюда должно совпадать
+                с тем, что указано в Azure. Поля можно оставить пустыми, чтобы использовать встроенный Client ID.
+              </p>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold" style={{ color: 'var(--color-text-secondary)' }}>Client ID (Application client ID)</span>
+                <input value={clientId} onChange={e => setClientId(e.target.value)} placeholder="не задан — используется встроенный"
+                  className="rounded px-2 py-1.5 font-mono text-[11px] outline-none"
+                  style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10px] font-bold" style={{ color: 'var(--color-text-secondary)' }}>Redirect URI</span>
+                <input value={redirectUri} onChange={e => setRedirectUri(e.target.value)} placeholder="http://localhost:5000"
+                  className="rounded px-2 py-1.5 font-mono text-[11px] outline-none"
+                  style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
+              </label>
+              <p className="text-[10px] leading-4" style={{ color: 'var(--color-text-tertiary)' }}>
+                Значения сохраняются на этом компьютере. Порт из Redirect URI используется для локального
+                приёма ответа — можно выбрать любой свободный от 1024.
+              </p>
+            </div>
+          )}
+
+          <button onClick={onCancel} className="self-center text-xs font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>
+            Назад к выбору способа
+          </button>
+        </div>
       )}
     </div>
   );

@@ -51,6 +51,8 @@ export interface ModCard {
   downloadUrl: string;
   /** Есть ли подходящий файл под запрошенные версию/загрузчик. */
   installable: boolean;
+  /** Источник контента: modrinth | curseforge | other. */
+  source: string;
   url: string;
 }
 

@@ -11,7 +11,7 @@ import { invoke } from '@/lib/invoke-shim';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useCurrentUser, useIsAuthenticated, useAuthStore } from '@/stores/authStore';
-import { MicrosoftAuthOAuth } from '@/components/auth/MicrosoftAuthOAuth';
+import { MicrosoftAuthChoice } from '@/components/auth/MicrosoftAuthChoice';
 import { type ThemeId } from '@/lib/theme-engine';
 import { STYLE_PRESETS } from '@/lib/style-presets';
 import { DawnAccentPicker } from '@/components/DawnAccentPicker';
@@ -242,7 +242,7 @@ function AccountSection() {
                 <h3 className="font-bold" style={{ color:'var(--color-text)' }}>Вход в аккаунт</h3>
                 <button onClick={() => setShowAuth(false)}><X className="w-4 h-4" style={{ color:'var(--color-text-secondary)' }} /></button>
               </div>
-              <MicrosoftAuthOAuth onSuccess={() => setShowAuth(false)} onCancel={() => setShowAuth(false)} />
+              <MicrosoftAuthChoice onSuccess={() => setShowAuth(false)} onCancel={() => setShowAuth(false)} />
             </motion.div>
           </motion.div>
         )}

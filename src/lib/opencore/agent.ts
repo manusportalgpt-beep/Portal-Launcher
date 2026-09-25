@@ -431,6 +431,7 @@ export const TOOLS: ToolDef[] = [
         mc_version: { type: 'string', description: 'Версия Minecraft сборки, например 1.20.1 или 26.2. Если неизвестна — можно не указывать.' },
         loader: { type: 'string', enum: ['fabric', 'forge', 'neoforge', 'quilt', 'vanilla'], description: 'Загрузчик сборки (необязательно).' },
         project_type: { type: 'string', enum: ['mod', 'resourcepack', 'shaderpack', 'modpack'], description: 'Что именно ищем. По умолчанию mod. Для наборов текстур и тем указывай resourcepack, для шейдеров (Complementary, SEUS, BSL, Iris) — shaderpack, для готовых сборок — modpack. Если пользователь просит ресурс-паки или шейдеры, тип нужно указать явно, иначе поиск вернёт только моды.' },
+        source: { type: 'string', enum: ['modrinth', 'curseforge', 'both'], description: 'Где искать. По умолчанию modrinth. Ставь "both", если пользователь не указал источник или просит сравнить — CurseForge требует настроенный API-ключ (Настройки → Дополнительно), без него поиск идёт только по Modrinth.' },
         limit: { type: 'number', description: 'Сколько результатов вернуть (по умолчанию 5, максимум 10).' },
       },
       required: ['query'],
@@ -1030,6 +1031,85 @@ function platformLabel(client: unknown, server: unknown): string {
   return 'Неизвестно';
 }
 
+/**
+ * Поиск на CurseForge. Требует API-ключ (Настройки → Дополнительно), поэтому
+ * при его отсутствии ветка молча пропускается, а не роняет весь поиск.
+ * classId в CurseForge: 6 — мод, 12 — ресурс-пак, 6551 — шейдеры.
+ */
+async function searchCurseforgeCards(
+  query: string,
+  projectType: string,
+  mcVersion: string | null,
+  limit: number,
+): Promise<{ cards: ModCard[]; lines: string[]; note: string }> {
+  const classId = projectType === 'resourcepack' ? 12 : projectType === 'shaderpack' ? 6551 : 6;
+  let result: any;
+  try {
+    result = await invoke<any>('search_curseforge', {
+      query,
+      limit,
+      classId,
+      gameVersion: mcVersion,
+      apiKey: '',
+      gameId: 432,
+    });
+  } catch (e) {
+    return { cards: [], lines: [], note: `CurseForge пропущен: ${String(e)}` };
+  }
+  const items: any[] = Array.isArray(result?.data) ? result.data : [];
+  const cards: ModCard[] = [];
+  const lines: string[] = [];
+  for (const it of items.slice(0, limit)) {
+    const id = Number(it.id ?? 0);
+    const logo = it.logo?.url ?? it.logo?.thumbnailUrl ?? null;
+    const title = String(it.name ?? '');
+    const author = Array.isArray(it.authors) ? it.authors.map((a: any) => String(a.name ?? '')).filter(Boolean).join(', ') : '';
+    const description = String(it.summary ?? '');
+    // Файл для установки: последний подходящий по версии игры.
+    let fileUrl = '';
+    let fileName = '';
+    let versionNumber = '';
+    try {
+      const files = await invoke<any[]>('get_curseforge_mod_files', { modId: id, gameVersion: mcVersion });
+      const list: any[] = Array.isArray(files) ? files : [];
+      const pick = list.find((f: any) => f?.downloadUrl) ?? list[0];
+      if (pick) {
+        fileUrl = String(pick.downloadUrl ?? '');
+        fileName = String(pick.fileName ?? '');
+        versionNumber = String(pick.displayName ?? pick.fileName ?? '');
+      }
+    } catch { /* остаёмся с метаданными без файла */ }
+    cards.push({
+      projectId: String(id),
+      slug: String(it.slug ?? id),
+      title,
+      description,
+      author,
+      iconUrl: logo,
+      projectType,
+      platform: 'Клиент и сервер',
+      loaders: [],
+      gameVersions: mcVersion ? [mcVersion] : [],
+      downloads: Number(it.downloadCount ?? 0),
+      versionNumber,
+      fileName,
+      downloadUrl: fileUrl,
+      installable: Boolean(fileUrl),
+      source: 'curseforge',
+      url: `https://www.curseforge.com/minecraft/${it.slug ?? id}`,
+    });
+    lines.push(
+      `- ${title} · ${author} · id ${id} (CurseForge)` +
+      `\n  тип: ${TYPE_LABELS[projectType] ?? 'мод'} · загрузок: ${it.downloadCount ?? 0}` +
+      (fileUrl
+        ? `\n  файл: ${fileName} · версия: ${versionNumber}\n  download_url: ${fileUrl}\n  для установки: launcher_install_mod(instance_id, download_url="${fileUrl}", file_name="${fileName}", mod_id="${id}", mod_name="${title}", mod_version="${versionNumber}", source="curseforge", mod_type="${projectType}", author="${author}", icon_url="${logo ?? ''}")`
+        : '\n  подходящего файла не найдено — уточни версию игры или выбери другой результат'),
+    );
+  }
+  const note = items.length > 0 ? '' : 'CurseForge: результатов нет';
+  return { cards, lines, note };
+}
+
 async function execModSearch(args: Record<string, unknown>): Promise<ExecResult> {
   try {
     const query = String(args.query ?? '').trim();
@@ -1040,18 +1120,24 @@ async function execModSearch(args: Record<string, unknown>): Promise<ExecResult>
     // поэтому агент физически не мог найти ресурс-паки и шейдеры.
     const rawType = String(args.project_type ?? 'mod').trim().toLowerCase();
     const projectType = (['mod', 'resourcepack', 'shaderpack', 'modpack'].includes(rawType) ? rawType : 'mod');
+    // Где искать: только Modrinth, только CurseForge или оба сразу.
+    const rawSource = String(args.source ?? 'modrinth').trim().toLowerCase();
+    const withCurseforge = rawSource === 'curseforge' || rawSource === 'both';
+    const withModrinth = rawSource !== 'curseforge';
     const limit = Math.min(10, Math.max(1, Number(args.limit ?? 5)));
 
-    const search = await invoke<any>('search_modrinth', {
-      query,
-      limit,
-      versions: mcVersion ? [mcVersion] : null,
-      loaders: loader ? [loader] : null,
-      sort: 'relevance',
-      projectType,
-    });
+    const search = withModrinth
+      ? await invoke<any>('search_modrinth', {
+          query,
+          limit,
+          versions: mcVersion ? [mcVersion] : null,
+          loaders: loader ? [loader] : null,
+          sort: 'relevance',
+          projectType,
+        })
+      : { hits: [] };
     const hits: any[] = Array.isArray(search?.hits) ? search.hits : [];
-    if (hits.length === 0) {
+    if (hits.length === 0 && !withCurseforge) {
       return { ok: true, output: `По запросу «${query}» в Modrinth ничего не найдено. Попробуй другие слова или убери фильтры mc_version/loader.` };
     }
 
@@ -1102,8 +1188,8 @@ async function execModSearch(args: Record<string, unknown>): Promise<ExecResult>
     });
 
     const okCount = rows.filter((r) => r.file?.url).length;
-    // Карточки для чата: иконка, название, описание, платформа и тип.
-    const cards: ModCard[] = rows.map(({ h, file, versionNumber }) => ({
+    // Карточки для чата: иконка, название, описание, платформа, тип и источник.
+    const modrinthCards: ModCard[] = rows.map(({ h, file, versionNumber }) => ({
       projectId: String(h.project_id ?? ''),
       slug: String(h.slug ?? h.project_id ?? ''),
       title: String(h.title ?? ''),
@@ -1119,13 +1205,36 @@ async function execModSearch(args: Record<string, unknown>): Promise<ExecResult>
       fileName: String(file?.filename ?? ''),
       downloadUrl: String(file?.url ?? ''),
       installable: Boolean(file?.url),
+      source: 'modrinth',
       url: `https://modrinth.com/${TYPE_PATHS[String(h.project_type ?? projectType)] ?? 'modpack'}/${h.slug ?? h.project_id ?? ''}`,
     }));
+
+    // CurseForge — по запросу. Ошибка или отсутствие ключа не должна рушить
+    // выдачу Modrinth, поэтому ветка мягкая.
+    const cf = withCurseforge
+      ? await searchCurseforgeCards(query, projectType, mcVersion, limit)
+      : { cards: [] as ModCard[], lines: [] as string[], note: '' };
+
+    const cards = [...modrinthCards, ...cf.cards];
+    const sources = [
+      withModrinth && rows.length > 0 ? `Modrinth (${typeLabel}): ${rows.length}, из них ${okCount} с подходящей версией` : '',
+      withCurseforge ? `CurseForge (${typeLabel}): ${cf.cards.length}` : '',
+    ].filter(Boolean).join(' · ');
+
+    const sections = [
+      withModrinth && lines.length > 0 ? lines.join('\n\n') : '',
+      cf.lines.length > 0 ? cf.lines.join('\n\n') : '',
+      cf.note,
+    ].filter(Boolean).join('\n\n');
+
+    if (cards.length === 0) {
+      return { ok: true, cards: [], output: `По запросу «${query}» ничего не найдено${cf.note ? ` (${cf.note})` : ''}. Попробуй другие слова или сними фильтры mc_version/loader.` };
+    }
 
     return {
       ok: true,
       cards,
-      output: `Modrinth (${typeLabel}): ${rows.length} результат(ов), ${okCount} с подходящей версией под этот Minecraft/лоадер:\n${lines.join('\n\n')}`,
+      output: `${sources}:\n\n${sections}`,
     };
   } catch (e) {
     return { ok: false, output: String(e) };

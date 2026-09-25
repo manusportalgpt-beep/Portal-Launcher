@@ -127,9 +127,13 @@ fn main() {
             }
         })
         .invoke_handler(tauri::generate_handler![
-            // Minecraft OAuth через minecraft_lib::oauth
+            // Minecraft OAuth: вход по коду подтверждения (текущий способ).
             minecraft_lib::oauth::start_device_code_flow,
             minecraft_lib::oauth::poll_for_token,
+            // Minecraft OAuth 2.0: вход через браузер с выбором аккаунта
+            // (Authorization Code + PKCE, callback на 127.0.0.1:5000).
+            commands::auth_oauth_web::start_oauth_web_flow,
+            commands::auth_oauth_web::exchange_code_for_token,
             minecraft_lib::oauth::login_offline,
             minecraft_lib::oauth::login_elyby,
             minecraft_lib::oauth::refresh_token,

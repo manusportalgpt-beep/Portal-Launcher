@@ -12,7 +12,7 @@ import { useOpenCoreStore, activeProviders, isProviderEnabled, isModelEnabled, f
 import { useInstanceStore } from '@/stores/instanceStore';
 import { useCurrentUser } from '@/stores/authStore';
 import { toIconSrc } from '@/lib/icon-src';
-import { resolveEndpoint, runAgentTurn, buildSystemPrompt, compressHistory, callProvider } from '@/lib/opencore/agent';
+import { resolveEndpoint, runAgentTurn, buildSystemPrompt, compressHistory, callProvider, estimateTokens } from '@/lib/opencore/agent';
 import { contextWindow, BROWSER_LINKS } from '@/lib/opencore/providers';
 import { Markdown, PortalImage } from '@/components/openportal/Markdown';
 import { ModelManager } from '@/components/openportal/ModelManager';
@@ -203,9 +203,16 @@ const MOD_TYPE_META: Record<string, { label: string; path: string }> = {
   modpack: { label: 'Модпак', path: 'modpack' },
 };
 
+const SOURCE_META: Record<string, { label: string; color: string }> = {
+  modrinth: { label: 'Modrinth', color: 'var(--color-primary)' },
+  curseforge: { label: 'CurseForge', color: 'var(--color-warning)' },
+  other: { label: 'Другое', color: 'var(--color-text-tertiary)' },
+};
+
 /** Карточка найденного контента: иконка, название, описание, платформа, тип. */
 function ModResultCard({ card }: { card: ModCard }) {
   const type = MOD_TYPE_META[card.projectType] ?? MOD_TYPE_META.mod;
+  const source = SOURCE_META[card.source] ?? SOURCE_META.other;
   const open = () => { void invoke('open_url', { url: card.url }).catch(() => window.open(card.url, '_blank', 'noopener')); };
   return (
     <button onClick={open} title="Открыть на Modrinth"
@@ -221,6 +228,7 @@ function ModResultCard({ card }: { card: ModCard }) {
         </div>
         {card.description && <p className="mt-0.5 line-clamp-2 text-[11px] leading-4" style={{ color: 'var(--color-text-secondary)' }}>{card.description}</p>}
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
+          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)' }}>{source.label}</span>
           <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>{type.label}</span>
           <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>{card.platform}</span>
           {card.loaders.slice(0, 3).map(l => <span key={l} className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>{l}</span>)}
@@ -244,9 +252,17 @@ function fmtNum(n: number): string {
 /** Индикатор расхода контекстного окна: процент, детали и кнопка сжатия истории. */
 function ContextMeter({ onCompact }: { onCompact: () => void }) {
   const usage = useOpenCoreStore(s => s.usage);
+  const messages = useOpenCoreStore(s => s.messages);
   const [open, setOpen] = useState(false);
   const limit = usage.limit || 128_000;
-  const pct = Math.min(100, Math.round((usage.context / limit) * 100));
+  // Выжимки сжатой истории модель получает, но в расход контекста они не идут,
+  // поэтому вычитаем их оценку из занятого места.
+  const summaryTokens = useMemo(
+    () => messages.filter(m => m.summary === true).reduce((sum, m) => sum + estimateTokens(m.content), 0),
+    [messages],
+  );
+  const context = Math.max(0, usage.context - summaryTokens);
+  const pct = Math.min(100, Math.round((context / limit) * 100));
   const total = usage.input + usage.output;
   const color = pct >= 85 ? 'var(--color-error)' : pct >= 60 ? 'var(--color-warning)' : 'var(--color-primary)';
   return (
@@ -258,15 +274,20 @@ function ContextMeter({ onCompact }: { onCompact: () => void }) {
         <span style={{ color }}>{usage.estimated ? '~' : ''}{pct}%</span>
       </button>
       {open && (
-        <div className="absolute bottom-full right-0 z-40 mb-2 w-64 rounded-xl border p-3 text-[11px] shadow-xl"
-          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 16px 40px rgba(0,0,0,.35)' }}>
+        <div className="absolute bottom-full right-0 z-40 mb-2 w-64 rounded-lg border p-3 text-[11px]"
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>
           <p className="mb-1.5 text-xs font-black" style={{ color: 'var(--color-text)' }}>Контекст</p>
           <div className="mb-2 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--color-surface-2)' }}>
             <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
           </div>
           <p style={{ color: 'var(--color-text-secondary)' }}>
-            Последний запрос: <b style={{ color: 'var(--color-text)' }}>{fmtNum(usage.context)}</b> / {fmtNum(limit)} токенов ({pct}%){usage.estimated ? ' — оценка' : ''}
+            Последний запрос: <b style={{ color: 'var(--color-text)' }}>{fmtNum(context)}</b> / {fmtNum(limit)} токенов ({pct}%){usage.estimated ? ' — оценка' : ''}
           </p>
+          {summaryTokens > 0 && (
+            <p className="mt-1" style={{ color: 'var(--color-text-tertiary)' }}>
+              Выжимки сжатой истории: {fmtNum(summaryTokens)} токенов — модель их видит, но в расход не входят.
+            </p>
+          )}
           <p className="mt-1" style={{ color: 'var(--color-text-secondary)' }}>
             За сессию: {fmtNum(usage.input)} вход · {fmtNum(usage.output)} выход · <b style={{ color: 'var(--color-text)' }}>{fmtNum(total)}</b> всего
           </p>
@@ -275,6 +296,25 @@ function ContextMeter({ onCompact }: { onCompact: () => void }) {
             style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
             <Minimize2 size={11} /> Сжать историю
           </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Блок выжимки сжатой истории: виден пользователю и модели, но не входит в расход контекста. */
+function SummaryBlock({ content }: { content: string }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="mb-2 overflow-hidden rounded-lg" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+      <button onClick={() => setOpen(o => !o)} className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left">
+        <ChevronRight size={12} className={`shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} style={{ color: 'var(--color-text-tertiary)' }} />
+        <span className="text-[11px] font-bold" style={{ color: 'var(--color-text)' }}>Выжимка контекста</span>
+        <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>виден модели, не входит в расход</span>
+      </button>
+      {open && (
+        <div className="border-t px-3 py-2 text-[12px] leading-5" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+          <Markdown text={content} />
         </div>
       )}
     </div>
@@ -353,6 +393,12 @@ function ChatBubble({ m, onContinue, streaming }: { m: ChatMessage; onContinue?:
       )}
     </div>
   );
+  if (m.summary) {
+    // Выжимка сжатой истории: её видит и пользователь, и модель, но она не
+    // учитывается в расходе контекста — поэтому показывается отдельным
+    // блоком, а не обычной репликой агента.
+    return <SummaryBlock content={m.content} />;
+  }
   if (m.role === 'tool') {
     return <ToolMsg name={m.toolName ?? m.content.slice(0, 40)} content={m.content} error={m.error} cards={m.cards} />;
   }

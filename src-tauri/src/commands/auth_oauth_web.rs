@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
-use tauri::{State, AppHandle, Emitter};
+use tauri::{State, AppHandle, Emitter, Manager};
 use crate::AppState;
 use std::net::TcpListener;
 use std::thread;
 use std::io::{Read, Write};
-use std::str::FromStr;
+use base64::Engine as _;
 
 // Minecraft API URLs
 const MC_AUTH_URL: &str = "https://api.minecraftservices.com/authentication/login_with_xbox";
@@ -270,7 +270,14 @@ pub async fn exchange_code_for_token(
     log::info!("✅ XSTS token received");
     
     // Step 4: Get Minecraft authentication token
-    let mc_token = get_mc_token(&xbl_token.display_claims.xui[0].uhs, &xsts_token.token).await?;
+    // xui может оказаться пустым — раньше здесь был panic на xui[0].
+    let user_hash = xbl_token
+        .display_claims
+        .xui
+        .first()
+        .map(|u| u.uhs.clone())
+        .ok_or_else(|| "Xbox Live не вернул данные аккаунта (xui пуст)".to_string())?;
+    let mc_token = get_mc_token(&user_hash, &xsts_token.token).await?;
     log::info!("✅ Minecraft token received");
     
     // Step 5: Get Minecraft profile

@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod auth_oauth_web;
 pub mod token_manager;
 pub mod auth_save;
 pub mod instances;

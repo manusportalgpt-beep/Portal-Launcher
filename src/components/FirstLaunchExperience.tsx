@@ -9,7 +9,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { type ThemeId } from '@/lib/theme-engine';
 import { STYLE_PRESETS, type StylePreset } from '@/lib/style-presets';
-import { MicrosoftAuthOAuth } from '@/components/auth/MicrosoftAuthOAuth';
+import { MicrosoftAuthChoice } from '@/components/auth/MicrosoftAuthChoice';
 
 const SETUP_KEY = 'portal-first-launch-complete-v1';
 
@@ -185,7 +185,7 @@ function AccountStep({ onNext }: { onNext: () => void }) {
         Выберите способ входа. Можно пропустить и добавить позже в настройках.
       </p>
       <div className="mt-6 w-full" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', padding: 16 }}>
-        <MicrosoftAuthOAuth onSuccess={onNext} />
+        <MicrosoftAuthChoice onSuccess={onNext} />
       </div>
     </div>
   );

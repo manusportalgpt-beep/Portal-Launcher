@@ -107,6 +107,74 @@ export interface ToolDef {
   requiresPermission: boolean;
 }
 
+/**
+ * Минимальный набор инструментов для повторной попытки.
+ *
+ * Некоторые провайдеры отвечают HTTP 400, когда схем инструментов слишком
+ * много или одна из схем им не нравится. Чтобы задача не падала целиком,
+ * запрос повторяется с коротким безопасным списком. Всё равно больше, чем
+ * ничего: файлы, команды и веб остаются доступны.
+ */
+const ESSENTIAL_TOOL_NAMES = [
+  'read_text', 'write_text', 'edit_file', 'list_dir', 'run_command',
+  'web_search', 'fetch_page',
+];
+
+function reducedToolSet(tools: any[]): any[] {
+  const kept = tools.filter(t => ESSENTIAL_TOOL_NAMES.includes(t?.function?.name));
+  return kept.length > 0 ? kept : [];
+}
+
+/**
+ * Запрос к провайдеру с автоматическим откатом набора инструментов.
+ * Возвращает ответ; при сетевой ошибке возвращает null, чтобы вызывающий код
+ * ушёл в запасной путь через бэкенд (как раньше).
+ */
+async function fetchWithToolFallback(
+  url: string,
+  headers: Record<string, string>,
+  body: Record<string, unknown>,
+  requestTools: any[],
+  signal: AbortSignal | undefined,
+  providerName: string,
+): Promise<Response | null> {
+  let res: Response | null = null;
+  try {
+    res = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(body) });
+  } catch (e) {
+    if ((e as DOMException)?.name === 'AbortError') throw e;
+    return null;
+  }
+
+  if (res.status !== 400) return res;
+
+  const firstBody = await res.text().catch(() => '');
+  const reduced = reducedToolSet(requestTools);
+  if (reduced.length === 0 || reduced.length >= requestTools.length) {
+    throw new Error(appendZenErrorHint(`${providerName} вернул HTTP 400: ${firstBody.slice(0, 600)}`, firstBody));
+  }
+
+  try {
+    const retry = await fetch(url, {
+      method: 'POST', signal, headers,
+      body: JSON.stringify({ ...body, tools: reduced }),
+    });
+    if (retry.status !== 400) return retry;
+    const retryBody = await retry.text().catch(() => '');
+    throw new Error(appendZenErrorHint(
+      `${providerName} вернул HTTP 400 и не принял урезанный набор инструментов. Первый ответ: ${firstBody.slice(0, 400)} | Повтор: ${retryBody.slice(0, 400)}`,
+      `${firstBody} ${retryBody}`,
+    ));
+  } catch (e) {
+    if (e instanceof Error && /HTTP 400/.test(e.message)) throw e;
+    if ((e as DOMException)?.name === 'AbortError') throw e;
+    throw new Error(appendZenErrorHint(
+      `${providerName} вернул HTTP 400: ${firstBody.slice(0, 400)}. Повтор с урезанным набором инструментов не удался: ${String(e)}`,
+      firstBody,
+    ));
+  }
+}
+
 export const TOOLS: ToolDef[] = [
   {
     name: 'web_search',
@@ -371,6 +439,92 @@ export const TOOLS: ToolDef[] = [
         root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона' },
         path: { type: 'string', description: 'Абсолютный путь к файлу' },
         max_bytes: { type: 'number', description: 'Сколько байт показать (до 65536, по умолчанию 4096)' },
+      },
+      required: ['root', 'path'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'download_file',
+    description:
+      'СКАЧИВАЕТ файл по URL прямо в песочницу (temp или portal) и возвращает локальный путь. Это способ достать картинки, текстуры, json, .jar и любые бинарные файлы: fetch_page годится только для текста, а http_request не сохраняет тело. ' +
+      'Используй обязательно, когда нужен реальный файл: иконка мода, текстура, репозиторий, архив. После скачивания путь можно передать в inspect_image, archive_extract, read_text или hexdump.',
+    parameters: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Прямая ссылка http/https на файл' },
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Куда сохранить (по умолчанию temp)' },
+        path: { type: 'string', description: 'Имя файла с расширением, например sodium.jar' },
+      },
+      required: ['url'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'decompile_jar',
+    description:
+      'Распаковывает .jar/.zip в папку и разбирает байткод в читаемый вид: список классов, а для каждого — поля, методы и сигнатуры (через javap из JDK активной сборки). ' +
+      'Это первый шаг к разбору чужого мода: посмотри структуру, потом читай нужный класс через read_text. Полный исходный код Java восстановить нельзя — доступны сигнатуры и байткод.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона, где лежит .jar' },
+        path: { type: 'string', description: 'Путь к .jar файлу' },
+        class_filter: { type: 'string', description: 'Показывать классы, содержащие эту подстроку (например ru.mymod.MyClass)' },
+      },
+      required: ['root', 'path'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'build_jar',
+    description:
+      'Собирает Java-проект в .jar: компилирует исходники из src (javac) с classpath, указанным в classpath, копирует ресурсы и упаковывает всё в jar. ' +
+      'Используй после того как написал код мода, чтобы получить готовый файл для установки в сборку. Если нужен Gradle-проект, всё равно вызывай этот инструмент как запасной вариант.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона проекта' },
+        project_dir: { type: 'string', description: 'Папка проекта (где лежит src)' },
+        classpath: { type: 'string', description: 'Classpath через ; — loader/engine jar и minecraft, если нужен' },
+        out_name: { type: 'string', description: 'Имя результата, например mymod-1.0.jar' },
+      },
+      required: ['root', 'project_dir', 'out_name'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'run_python',
+    description:
+      'Запускает Python-скрипт из песочницы и возвращает его вывод. Удобно для генерации текстур и ресурс-паков, обработки изображений (Pillow), массовых операций и упаковки архивов. ' +
+      'Сначала запиши скрипт через write_text, потом вызови этот инструмент. Если нужен модуль, которого нет (например Pillow), скрипт это покажет в выводе — тогда скажи пользователю про pip install или используй другой подход.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона скрипта' },
+        path: { type: 'string', description: 'Путь к .py файлу' },
+        args: { type: 'string', description: 'Аргументы командной строки через пробел' },
+        timeout_ms: { type: 'number', description: 'Таймаут в мс (по умолчанию 120000)' },
+      },
+      required: ['root', 'path'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'project_info',
+    description:
+      'Быстрая сводка по проекту без чтения всех файлов: список файлов по типам, размер, точки входа, манифесты (fabric.mod.json, META-INF/mods.toml, pack.mcmeta, shaders). ' +
+      'Начинай с этого инструмента, когда впервые работаешь с папкой, чтобы понять структуру и не читать всё подряд.',
+    parameters: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', enum: ['portal', 'temp', 'launcher'], description: 'Зона' },
+        path: { type: 'string', description: 'Папка проекта' },
       },
       required: ['root', 'path'],
     },
@@ -983,6 +1137,187 @@ async function execEditFile(args: Record<string, unknown>): Promise<ExecResult> 
 }
 
 /** Поиск по коду: подстока или регулярное выражение по файлам зоны. */
+/** Скачивает файл по URL в песочницу: текстуры, картинки, .jar, json. */
+async function execDownloadFile(args: Record<string, unknown>): Promise<ExecResult> {
+  try {
+    const url = String(args.url ?? '').trim();
+    if (!url) return { ok: false, output: 'Нужен url.' };
+    const root = String(args.root ?? 'temp');
+    if (!['portal', 'temp', 'launcher'].includes(root)) {
+      return { ok: false, output: `Неизвестная зона: ${root}` };
+    }
+    const res = await httpGetBytesViaRust(url);
+    if (!res.b64) {
+      return { ok: false, output: `Не удалось скачать ${url}: HTTP ${res.status}${res.error ? ` — ${res.error}` : ''}` };
+    }
+    // Имя берём из URL, если не задано явно.
+    const fromUrl = decodeURIComponent(url.split('?')[0].split('/').filter(Boolean).pop() ?? 'download.bin');
+    const raw = String(args.path ?? fromUrl).trim() || 'download.bin';
+    const name = raw.includes('.') ? raw : `${raw}.bin`;
+    const written = await invoke<any>('op_write_bytes', { root, path: name, b64: res.b64 });
+    const savedPath = typeof written === 'string' && written ? written : name;
+    const sizeKb = Math.round((res.b64?.length ?? 0) * 0.75 / 1024);
+    return {
+      ok: true,
+      output: `Скачано (${res.content_type || 'неизвестный тип'}, ~${sizeKb} КБ) в ${root}: ${savedPath}\nДальше с файлом можно работать: inspect_image, archive_list/archive_extract, read_text (если текст), hexdump.`,
+    };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+/** Разбор .jar: список классов и сигнатуры методов через javap. */
+async function execDecompileJar(args: Record<string, unknown>): Promise<ExecResult> {
+  try {
+    const root = String(args.root ?? 'temp');
+    const path = String(args.path ?? '');
+    if (!path) return { ok: false, output: 'Нужен path до .jar.' };
+
+    const entries = await invoke<{ name: string; is_dir: boolean; size: number }[]>('op_archive_list', { root, path });
+    const classes = entries.filter(e => e.name.endsWith('.class')).map(e => e.name.replace(/\.class$/, '').replace(/\//g, '.'));
+    const manifests = entries
+      .filter(e => /fabric\.mod\.json|META-INF\/mods\.toml|META-INF\/META-INF\/neoforge\.mods\.toml|pack\.mcmeta|shaders\/.*\.(vsh|fsh)$|assets\//.test(e.name))
+      .slice(0, 60)
+      .map(e => e.name);
+
+    const parts: string[] = [
+      `Классов в архиве: ${classes.length}`,
+      `Ключевые файлы (манифесты, ресурсы, шейдеры):\n${manifests.length ? manifests.join('\n') : 'не найдено'}`,
+    ];
+    if (classes.length) {
+      const sample = classes.slice(0, 40).join('\n');
+      parts.push(`Классы (первые ${Math.min(40, classes.length)}):\n${sample}`);
+    }
+
+    // Сигнатуры методов верхнего пакета — там обычно основной код мода.
+    const filter = String(args.class_filter ?? '').trim();
+    const targets = (filter ? classes.filter(c => c.includes(filter)) : classes.filter(c => !c.includes('$$')))
+      .filter(c => !c.startsWith('net/minecraft') && !c.startsWith('java/') && !c.startsWith('com/mojang'))
+      .slice(0, 5);
+    if (targets.length) {
+      const javap = await invoke<any>('op_run_command', {
+        root,
+        cwd: await lookupRoot(root as PortalRoot),
+        command: `javap -classpath "${path}" ${targets.join(' ')}`,
+        timeout_ms: 60000,
+        shell: null,
+      });
+      parts.push(`Сигнатуры (javap):\n${String(javap?.stdout ?? javap?.output ?? '').slice(0, 6000)}`);
+    }
+
+    return { ok: true, output: parts.join('\n\n') };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+/** Быстрая сводка по папке проекта. */
+async function execProjectInfo(args: Record<string, unknown>): Promise<ExecResult> {
+  try {
+    const root = String(args.root ?? 'launcher');
+    const path = String(args.path ?? '').trim();
+    const entries = await invoke<{ name: string; is_dir: boolean; size: number }[]>('op_list_dir', { root, path });
+    const files = entries.filter(e => !e.is_dir);
+    const dirs = entries.filter(e => e.is_dir);
+    const byExt: Record<string, number> = {};
+    let total = 0;
+    for (const f of files) {
+      const m = /\.([a-z0-9]+)$/i.exec(f.name);
+      const ext = m ? m[1].toLowerCase() : '(без расширения)';
+      byExt[ext] = (byExt[ext] ?? 0) + 1;
+      total += f.size;
+    }
+    const key = files.filter(f => /fabric\.mod\.json|mods\.toml|neoforge\.mods\.toml|pack\.mcmeta|quilt\.mod\.json|build\.gradle|settings\.gradle|gradlew|\.java$|\.py$|\.vsh$|\.fsh$|\.json$/i.test(f.name))
+      .slice(0, 40).map(f => f.name);
+    return {
+      ok: true,
+      output: [
+        `Папка: ${path || '/'}`,
+        `Файлов: ${files.length}, папок: ${dirs.length}, общий размер: ~${Math.round(total / 1024)} КБ`,
+        `По типам: ${Object.entries(byExt).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k}×${v}`).join(', ') || '—'}`,
+        `Ключевые файлы:\n${key.join('\n') || 'не найдено'}`,
+        dirs.length ? `Папки: ${dirs.map(d => d.name).slice(0, 25).join(', ')}` : '',
+      ].filter(Boolean).join('\n\n'),
+    };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+function rootBaseFor(root: string): string {
+  return root;
+}
+
+/** Запуск Python-скрипта из песочницы. */
+async function execRunPython(args: Record<string, unknown>): Promise<ExecResult> {
+  try {
+    const root = String(args.root ?? 'temp');
+    const path = String(args.path ?? '');
+    if (!path) return { ok: false, output: 'Нужен path к .py файлу.' };
+    if (!/^portal$|^temp$|^launcher$/.test(root)) return { ok: false, output: `Неизвестная зона: ${root}` };
+    const argsText = String(args.args ?? '').trim();
+    const res = await invoke<CmdResult>('op_run_command', {
+      root,
+      cwd: await lookupRoot(root as PortalRoot),
+      command: `python "${path}"${argsText ? ` ${argsText}` : ''}`,
+      timeout_ms: Number(args.timeout_ms ?? 120000),
+      shell: null,
+    });
+    const out = String(res?.stdout ?? '');
+    const err = String(res?.stderr ?? '');
+    if (res?.exit_code !== 0) {
+      return { ok: false, output: `Скрипт завершился с кодом ${res?.exit_code}${err ? `\n--- stderr ---\n${err.slice(0, 6000)}` : ''}${out ? `\n--- stdout ---\n${out.slice(0, 3000)}` : ''}` };
+    }
+    return { ok: true, output: `${out.slice(0, 8000)}${err ? `\n--- stderr ---\n${err.slice(0, 2000)}` : ''}` };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+/** Сборка Java-проекта в .jar через javac + jar. */
+async function execBuildJar(args: Record<string, unknown>): Promise<ExecResult> {
+  try {
+    const root = String(args.root ?? 'temp');
+    const projectDir = String(args.project_dir ?? '');
+    const outName = String(args.out_name ?? 'build.jar');
+    if (!projectDir || !outName) return { ok: false, output: 'Нужны project_dir и out_name.' };
+    const classpath = String(args.classpath ?? '');
+    const cwd = await lookupRoot(root as PortalRoot);
+    const cp = classpath ? `-cp "${classpath}"` : '';
+    const classes = `${projectDir}/build/classes`;
+
+    const compile = await invoke<CmdResult>('op_run_command', {
+      root, cwd,
+      command: `javac ${cp} -d "${classes}" $(dir /b /s "${projectDir}\\src\\*.java")`,
+      timeout_ms: 300000, shell: null,
+    });
+    if (compile?.exit_code !== 0) {
+      return { ok: false, output: `Компиляция не удалась (код ${compile?.exit_code}):\n${String(compile?.stderr ?? '').slice(0, 8000)}` };
+    }
+    // Ресурсы (fabric.mod.json, resources, assets) копируем в классы.
+    const copyRes = await invoke<CmdResult>('op_run_command', {
+      root, cwd,
+      command: `if exist "${projectDir}\\src\\main\\resources" xcopy /E /I /Y "${projectDir}\\src\\main\\resources\\*" "${classes}" >nul 2>&1`,
+      timeout_ms: 120000, shell: null,
+    });
+    const jar = await invoke<CmdResult>('op_run_command', {
+      root, cwd,
+      command: `jar cf "${outName}" -C "${classes}" .`,
+      timeout_ms: 120000, shell: null,
+    });
+    if (jar?.exit_code !== 0) {
+      return { ok: false, output: `Упаковка не удалась:\n${String(jar?.stderr ?? '').slice(0, 4000)}` };
+    }
+    void copyRes;
+    return {
+      ok: true,
+      output: `Собрано: ${outName}. Проверь содержимое через archive_list, затем положи jar в mods сборки и скажи пользователю пересобрать её.`,
+    };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
 async function execSearchCode(args: Record<string, unknown>): Promise<ExecResult> {
   try {
     const root = String(args.root ?? 'launcher');
@@ -2027,6 +2362,11 @@ export async function executeTool(
   if (tool === 'list_dir') return execListDir(args);
   if (tool === 'read_text') return execReadText(args);
   if (tool === 'search_code') return execSearchCode(args);
+  if (tool === 'download_file') return execDownloadFile(args);
+  if (tool === 'decompile_jar') return execDecompileJar(args);
+  if (tool === 'project_info') return execProjectInfo(args);
+  if (tool === 'run_python') return execRunPython(args);
+  if (tool === 'build_jar') return execBuildJar(args);
 
   if (tool === 'inspect_image') return execInspectImage(args);
   if (tool === 'hexdump') return execHexdump(args);
@@ -2445,11 +2785,7 @@ async function callOpenAI(
 
   let res: Response | null = null;
   if (canFetchFromWebview(url)) {
-    try {
-      res = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(body) });
-    } catch (e) {
-      if ((e as DOMException)?.name === 'AbortError') throw e;
-    }
+    res = await fetchWithToolFallback(url, headers, body, requestTools, signal, ep.provider.name);
   }
   if (res === null) {
     // Фолбэк: веб-вью не может дотянуться (CORS/сеть) — идём через бэкенд.
@@ -2734,11 +3070,7 @@ async function callAnthropic(
 
   let res: Response | null = null;
   if (canFetchFromWebview(url)) {
-    try {
-      res = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(body) });
-    } catch (e) {
-      if ((e as DOMException)?.name === 'AbortError') throw e;
-    }
+    res = await fetchWithToolFallback(url, headers, body, requestTools, signal, ep.provider.name);
   }
   if (res === null) {
     const fr = await raceSignal(httpViaRust('POST', url, headers, JSON.stringify(body), 180000), signal);
@@ -2974,6 +3306,11 @@ export function buildSystemPrompt(opts: {
     `- fetch_page(url, max_chars?) — прочитать конкретную страницу/документацию/GitHub по URL.`,
     `- http_request(method, url, headers?, jsonBody?, body?) — прямой REST-запрос к любому API (GitHub, GitLab и др.); сохранённый токен хоста подставится сам.`,
     `- set_service_token(host, token) — сохранить API-токен сервиса локально (спросит пользователя).`,
+    `- project_info(root, path) — быстрая сводка по папке: файлы по типам, размер, манифесты, точки входа. НАЧИНАЙ с неё, когда впервые видишь незнакомый проект.`,
+    `- download_file(url, path?, root?) — скачивает ЛЮБОЙ файл (картинку, текстуру, .jar, json, архив) в песочницу и возвращает локальный путь. Обязательный способ достать бинарные файлы: fetch_page берёт только текст.`,
+    `- decompile_jar(root, path, class_filter?) — разбор чужого .jar: список классов, манифесты, сигнатуры методов через javap.`,
+    `- build_jar(root, project_dir, classpath, out_name) — компилирует исходники через javac, копирует ресурсы и упаковывает готовый .jar.`,
+    `- run_python(root, path, args?) — запускает Python-скрипт из песочницы и возвращает его вывод.`,
     `- spawn_agents(task, agents[]) — параллельные субагенты для больших задач: исследование, сравнение, сбор информации по нескольким темам разом.`,
     `- list_dir(root, path) — список каталога. root: portal | temp | launcher.`,
     `- read_text(root, path) — прочесть текстовый файл (до 512 КБ).`,
@@ -3022,6 +3359,58 @@ export function buildSystemPrompt(opts: {
     `- Создание/доработка своего мода: выясни загрузчик (fabric/forge/neoforge/quilt), версию Minecraft и маппинги; для больших модов предложи и сделай структуру src/main/java/...+src/main/resources/ с fabric.mod.json (Fabric) или META-INF/mods.toml (Forge/NeoForge); укажи все dependencies (loader/fabric-api и т.п.).`,
     `- Сборка в .jar: скачай нужные загрузчик-и-движок jar (fabricmc.net / maven.neoforged.net / maven.fabricmc.net) в temp-папку проекта, компилируй javac -cp "<forge.jar>;<minecraft.jar>[;...]" -d build/classes $(find src -name '*.java'), скопируй ресурсы в build/classes и упакуй jar -cf mods/<modid>-<version>.jar -C build/classes . Затем положи готовый jar в mods активной сборки (как выше) — не в корень проекта.`,
     `- Пиши аккуратный код на Java: package по шаблону ru.<ник>/<modid>, события загрузчика, null-безопасность, логирование через свою логгер-префикс. Компилируй без warnings, проверь, что modid строго нижним регистром и уникален. После установки попроси пользователя пересобрать сборку и запустить — по логам/крашам (launcher_logs) уточняй и чини.`,
+    `БАЗА ЗНАНИЙ: КАК ПИСАТЬ КОД (это твой рабочий стандарт, а не пересказ):`,
+    `РАБОЧИЙ ПРОЦЕСС — всегда один и тот же:`,
+    `1) ПОНЯТЬ: project_info / list_dir, чтобы увидеть структуру, а не гадать. 2) СПРОСИТЬ: непонятные требования уточняй ДО написания (версия, загрузчик, формат). 3) ПЛАН: коротко перечисли, что будешь делать. 4) КОД: пиши файлы инструментами, малыми логическими шагами. 5) ПРОВЕРИТЬ: скомпилировать/запустить, а не объявлять готовность. 6) ОТЧЁТ: что сделал, что проверил, что осталось.`,
+    `НИКОГДА не пиши код целиком в ответе текстом, если можешь записать файл инструментом — пользователь видит дифф и может откатить. Текстом давай только короткие пояснения.`,
+    `КАЧЕСТВО КОДА:`,
+    `- Читаемость важнее краткости. Понятные имена, маленькие функции с одной задачей, ранний выход вместо вложенных if.`,
+    `- Обрабатывай ошибки явно: не глотай исключения, не возвращай заглушки вместо результата. Если не знаешь, как обработать — скажи об этом пользователю.`,
+    `- Проверяй границы: null/undefined, пустые списки, нулевые значения, переполнение, отрицательные числа, очень большие файлы.`,
+    `- Не добавляй зависимость, если можно решить стандартной библиотекой. Не создавай абстракцию ради одного использования.`,
+    `- Именуй: функции — глаголы (parseConfig, buildTexture), константы — UPPER_SNAKE, приватные поля — с префиксом по стилю проекта. Сначала посмотри существующий файл и следуй его стилю.`,
+    `АЛГОРИТМЫ И СТРУКТУРЫ ДАННЫХ (выбирай по задаче, а не наугад):`,
+    `- Для порядка и уникальности — HashMap/HashSet (в JS — Map/Set). Для диапазонов значений — дерево отрезков. Для быстрых запросов по префиксу — бор. Для порядка с ограничением памяти — куча. Для хранения диапазонов — дерево интервалов.`,
+    `- Не сортируй в цикле без нужды: один sort O(n log n) лучше n сортировок.`,
+    `- Кэшируй то, что считаешь повторно, но только если это реально повторяется — преждевременный кэш это баг, а не оптимизация.`,
+    `ТЕСТЫ И ПРОВЕРКА:`,
+    `- Перед «готово» запусти то, что можно запустить: скрипт — python, Java — javac/gradle build, проект — pnpm build, чужой jar — javap.`,
+    `- Если проверить нечем — прямо скажи «проверить не могу, потому что…», а не делай вид, что всё работает.`,
+    `- Для граничных случаев пиши проверки: пустой вход, один элемент, дубликаты, очень большой ввод.`,
+    `GIT И КОМАНДЫ:`,
+    `- Перед рискованными командами (rm, reset --hard, force push) предупреждай пользователя.`,
+    `- Не коммить без просьбы пользователя.`,
+    `ЯЗЫКИ — КРАТКО О ПРАВИЛАХ:`,
+    `- Java: public класс = имя файла, package соответствует папке. Не используй var в полях и полях нельзя инициализировать без конструктора. final где не меняется. Исключения — проверяемые (throws) или оборачивай в свои.`,
+    `- Python: не используй eval, избегай mutable default аргументов (def f(items=[])), используй f-строки, pathlib вместо склейки путей, контекстные менеджеры (with) для файлов, типизация через type hints.`,
+    `- JavaScript/TypeScript: не используй ==, предпочитай const, async/await вместо цепочек колбэков, обработка ошибок в try/catch с понятным сообщением, избегай any (используй unknown и сужение типов).`,
+    `- GLSL: типизируй всё явно, uniform только объявленные, аккуратно с precision (mediump на мобильных), не дели на ноль без проверки, используй константы вместо магических чисел.`,
+    `- Rust: сначала подумай о владении и заимствованиях, unwrap только когда ошибка невозможна (лучше expect с пояснением), избегай clone без необходимости.`,
+    `FRONTEND И ДИЗАЙН ИНТЕРФЕЙСОВ (если задача про UI):`,
+    `- Сначала определи иерархию: что главное на экране, что второстепенно, что действие пользователя. Потом типографика, потом отступы, потом цвет. Не начинай с цвета.`,
+    `- Типографика: одна базовая гарнитура + размеры по шкале. Заголовок должен отличаться от текста заметно, а не на пару пикселей.`,
+    `- Сетка и отступы: держись шкалы (4/8px). Выравнивание важнее декора.`,
+    `- Цвет: сначала нейтральная шкала (фон, поверхности, границы, текст 3 уровня), потом один акцент. Контраст текста к фону — минимум 4.5:1.`,
+    `- Состояния: у каждого интерактивного элемента должны быть normal / hover / active / focus-visible / disabled.`,
+    `- Не делай интерфейс «красивым» за счёт читаемости. Если текст не читается — это не дизайн.`,
+    `- Проверяй на узком экране: длинные слова, переполнение, отсутствие горизонтальной прокрутки.`,
+    `MAVEN — ТОНКОСТИ, КОТОРЫЕ ЧАСТО ЛОМАЮТ:`,
+    `- mappings: Yarn для Fabric, Mojang official для Forge/NeoForge. Файлы классов и названия методов различаются — не выдумывай API, проверяй по docs или javap.`,
+    `- Реестры: в новых версиях (1.19.2+) почти всё регистрируется через Registries и Registrar, а не через события. Не пиши код под старые API, если версия новая.`,
+    `- Миксины (Mixin): аннотация @Mixin на классе, @Inject/@Redirect/@ModifyArg с target и method = "имя;descriptor". Дескриптор обязателен, если同名 перегрузки.`,
+    `- Access widener / AccessTransformer — для доступа к приватным полям, а не reflection в рантайме.`,
+    `- Сеть: пакеты регистрируются на клиенте и сервере симметрично, у канала есть id. Не забудь про channel на обеих сторонах.`,
+    `- Ресурсы: assets/<namespace>/ — для клиента, data/<namespace>/ — для сервера. Ошибка в namespace — самая частая причина «мод не грузится».`,
+    `- Теги и рецепты в modern Minecraft пишутся в data/minecraft/tags и data/<ns>/recipe в JSON.`,
+    `- Мирогенерация: Feature/ConfiguredFeature/BiomeModifier (Fabric) или datapack JSON. Проверь версию — API менялся несколько раз.`,
+    `- Событие Lifecycle: ClientModInitializer / ModInitializer, а на сервере — ServerLifecycleEvents.`,
+    `СЕРВЕРНАЯ ЧАСТЬ:`,
+    `- Серверные моды не должны тянуть клиентские классы (иначе краш на сервере).`,
+    `- Для своего сервера: можно создать сборку и указать серверные моды, но лаунчер не запускает сервер автоматически — предупреди пользователя, что нужен отдельный запуск java -jar server.jar.`,
+    `ЕСЛИ НЕ УВЕРЕН:`,
+    `- Не выдумывай имена классов, методов, аннотаций и сигнатур. Не знаешь — проверь через javap, archive_extract, web_search или спроси.`,
+    `- Лучше честно сказать «не знаю, как это делается в версии X» и предложить способ проверить, чем выдумать несуществующий API.`,
+    '',
     `СОЗДАНИЕ vs ПОИСК — ЭТО РАЗНЫЕ ЗАДАЧИ:`,
     `- Если пользователь пишет «создай», «сделай», «напиши», «сгенерируй», «собери», «замути» — он просит, чтобы ты САМ ПРОИЗВЁЛ результат. НЕ вызывай mod_search в ответ на «создай шейдер» или «создай мод»: поиск готового — это не создание. Сначала определи, что именно создаём, задай уточняющие вопросы (версия Minecraft, загрузчик, версия/формат шейдера), затем пиши файлы инструментами и собери результат.`,
     `- Если пользователь пишет «найди», «поставь», «скачай», «установи», «покажи» — тогда ищи (mod_search) и устанавливай (launcher_install_mod).`,

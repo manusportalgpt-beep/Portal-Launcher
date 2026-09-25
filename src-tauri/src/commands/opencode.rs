@@ -1223,7 +1223,23 @@ fn glob_matches(pattern: &str, file_name: &str, full_path: &str) -> bool {
 }
 
 #[tauri::command]
-pub fn op_launcher_settings_path() -> String {    launcher_settings_path().to_string_lossy().to_string()
+pub fn op_write_bytes(root: String, path: String, b64: String) -> Result<String, String> {
+    let r = root_from_name(&root)?;
+    let p = Path::new(&path);
+    let file = enforce_root(r, p, true)?;
+    if let Some(dir) = file.parent() {
+        std::fs::create_dir_all(dir).ok();
+    }
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64.as_bytes())
+        .map_err(|e| format!("Не удалось декодировать base64: {e}"))?;
+    std::fs::write(&file, &bytes).map_err(|e| format!("Не удалось записать файл: {e}"))?;
+    Ok(file.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn op_launcher_settings_path() -> String {
+    launcher_settings_path().to_string_lossy().to_string()
 }
 
 // ---------------------------------------------------------------------------

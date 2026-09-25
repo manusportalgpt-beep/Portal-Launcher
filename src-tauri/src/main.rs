@@ -383,6 +383,7 @@ fn main() {
     commands::opencode::op_read_text,
     commands::opencode::op_write_text,
     commands::opencode::op_search_code,
+    commands::opencode::op_write_bytes,
             commands::opencode::op_launcher_settings_path,
             commands::opencode::op_run_command,
             commands::opencode::op_web_fetch,

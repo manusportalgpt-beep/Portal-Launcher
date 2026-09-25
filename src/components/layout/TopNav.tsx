@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  House, Search, Boxes, Shirt, SlidersHorizontal, PanelsTopLeft, LogIn, Pin, ChevronLeft, ChevronRight, Bot,
+  House, Search, Boxes, Shirt, SlidersHorizontal, PanelsTopLeft, LogIn, Pin, ChevronLeft, ChevronRight, Bot, Square,
   type LucideIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -150,6 +150,13 @@ function InstanceQuickAccess({ vertical, shape = 'round', grid = false }: { vert
     }
   }, [user, globalSettings, getStatus, setStatus, navigate, update]);
 
+  // Принудительная остановка запущенной сборки прямо из Notch: kill_instance
+  // сбрасывает процесс, статус возвращается в idle.
+  const stop = useCallback(async (inst: Instance) => {
+    try { await invoke('kill_instance', { instance_id: inst.id }); } catch (e) { console.error(e); }
+    setStatus(inst.id, 'idle');
+  }, [setStatus]);
+
   const shown = instances.slice(0, count);
   const isSquare = shape === 'square';
   return (
@@ -158,19 +165,38 @@ function InstanceQuickAccess({ vertical, shape = 'round', grid = false }: { vert
         const status = getStatus(inst.id);
         const busy = status === 'launching';
         const running = status === 'running';
+        const size = isSquare ? undefined : (vertical ? 40 : 32);
         return (
-          <button key={inst.id} title={`${inst.name} — ЛКМ: настройки · ПКМ: запуск`}
+          <div key={inst.id} className="relative shrink-0" style={isSquare ? undefined : { width: size, height: size }}>
+          <button title={`${inst.name} — ЛКМ: настройки · ПКМ: запуск${running ? ' · ⏹: остановить' : ''}`}
             onClick={() => navigate(`/library/${inst.id}`)}
             onContextMenu={e => { e.preventDefault(); void launch(inst); }}
             disabled={busy}
-            className={`${isSquare ? 'ps-inst' : 'rounded-full transition-transform hover:scale-110'} overflow-hidden shrink-0 flex items-center justify-center font-bold text-[10px] select-none cursor-pointer`}
-            style={{ width: isSquare ? '100%' : (vertical ? 40 : 32), height: isSquare ? undefined : (vertical ? 40 : 32), aspectRatio: isSquare ? 1 : undefined, background: inst.color || 'var(--color-surface-2)', color: '#fff', border: running ? '2px solid var(--color-success)' : '1px solid var(--color-border)' }}>
+            className={`${isSquare ? 'ps-inst' : 'rounded-full transition-transform hover:scale-110'} overflow-hidden shrink-0 flex items-center justify-center font-bold text-[10px] select-none cursor-pointer w-full h-full`}
+            style={{ width: isSquare ? '100%' : size, height: isSquare ? '100%' : size, aspectRatio: isSquare ? 1 : undefined, background: inst.color || 'var(--color-surface-2)', color: '#fff', border: running ? '2px solid var(--color-success)' : '1px solid var(--color-border)' }}>
             {busy
               ? <span className="h-3 w-3 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
               : inst.iconPath
                 ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" draggable={false} style={{ imageRendering:'auto', filter:'none', opacity:1 }} />
                 : <span className="letter">{inst.name[0]?.toUpperCase()}</span>}
           </button>
+          {running && (
+            <button
+              title={`Остановить ${inst.name}`}
+              aria-label={`Остановить ${inst.name}`}
+              onClick={event => { event.stopPropagation(); void stop(inst); }}
+              className="ore-flat absolute flex items-center justify-center"
+              style={{
+                top: -4, right: -4, width: 16, height: 16, borderRadius: 2,
+                background: 'var(--color-danger)', color: '#fff',
+                border: '1px solid var(--color-bg)', boxShadow: '0 0 0 1px rgba(0,0,0,.6)',
+                zIndex: 2,
+              }}
+            >
+              <Square size={8} fill="currentColor" />
+            </button>
+          )}
+          </div>
         );
       })}
     </div>

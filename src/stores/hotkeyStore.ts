@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { safeLocalStorage } from '@/lib/safe-storage';
 
-export type HotkeyAction = 'home' | 'discover' | 'library' | 'settings' | 'librarySearch' | 'newInstance';
+export type HotkeyAction = 'home' | 'discover' | 'library' | 'settings' | 'librarySearch' | 'newInstance' | 'browser';
 export type HotkeyBindings = Record<HotkeyAction, string>;
 
 export const HOTKEY_LABELS: Record<HotkeyAction, { label: string; description: string }> = {
@@ -12,10 +12,12 @@ export const HOTKEY_LABELS: Record<HotkeyAction, { label: string; description: s
   settings: { label: 'Открыть настройки', description: 'Переход к настройкам лаунчера' },
   librarySearch: { label: 'Поиск в библиотеке', description: 'Открыть Library и поставить фокус в умный поиск' },
   newInstance: { label: 'Новая сборка', description: 'Открыть мастер создания сборки' },
+  browser: { label: 'Встроенный браузер', description: 'Открыть DuckDuckGo в отдельном окне. По умолчанию не назначено' },
 };
 
 export const HOTKEY_DEFAULTS: HotkeyBindings = {
-  home: 'Alt+H', discover: 'Alt+D', library: 'Alt+L', settings: 'Alt+S', librarySearch: 'Ctrl+F', newInstance: 'Ctrl+N',
+  // browser — пустая строка: сочетание не назначено, браузер выключен.
+  home: 'Alt+H', discover: 'Alt+D', library: 'Alt+L', settings: 'Alt+S', librarySearch: 'Ctrl+F', newInstance: 'Ctrl+N', browser: '',
 };
 
 export function normaliseHotkey(event: KeyboardEvent): string | null {

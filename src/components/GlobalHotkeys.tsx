@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { normaliseHotkey, useHotkeyStore, type HotkeyAction } from '@/stores/hotkeyStore';
+import { openBrowserWindow } from '@/lib/browser';
 
 const routes: Partial<Record<HotkeyAction, string>> = { home:'/home', discover:'/discover', library:'/library', settings:'/settings' };
 const editable = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || ['INPUT','TEXTAREA','SELECT'].includes(target.tagName));
@@ -39,6 +40,7 @@ export function GlobalHotkeys() {
       if (!action) return;
       event.preventDefault();
       if (routes[action]) { navigate(routes[action]!); return; }
+      if (action === 'browser') { void openBrowserWindow(); return; }
       if (action === 'librarySearch') { navigate('/library'); window.setTimeout(() => document.querySelector<HTMLInputElement>('[data-library-search="true"]')?.focus(), 0); }
       if (action === 'newInstance') { navigate('/library'); window.setTimeout(() => window.dispatchEvent(new Event('portal:new-instance')), 0); }
     };

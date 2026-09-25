@@ -319,11 +319,12 @@ function AppearanceSection() {
   };
   const fileRef = useRef<HTMLInputElement | null>(null);
   const backgroundVideoFileRef = useRef<HTMLInputElement | null>(null);
+  const backgroundImageFileRef = useRef<HTMLInputElement | null>(null);
   const [cssDraft, setCssDraft] = useState(ui.customCss);
   const [cssSaved, setCssSaved] = useState(false);
 
   async function importVideo(file?: File | null) {
-    if (!file || !file.type.startsWith('video/')) return;
+    if (!file || !(file.type.startsWith('video/') || file.type === 'image/gif')) return;
     if (file.size > 64 * 1024 * 1024) return;
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -336,6 +337,24 @@ function AppearanceSection() {
       ui.set('backgroundVideo', token);
     } catch {
       // Keep the previous video if the browser storage quota is unavailable.
+    }
+  }
+
+  async function importBackgroundImage(file?: File | null) {
+    // Принимаем любой image/* — это покрывает и скриншоты (png/jpg), и gif.
+    if (!file || !file.type.startsWith('image/')) return;
+    if (file.size > 64 * 1024 * 1024) return;
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result ?? ''));
+        reader.onerror = () => reject(new Error('Unable to read image'));
+        reader.readAsDataURL(file);
+      });
+      const token = await saveBackgroundMedia('image', dataUrl);
+      ui.set('backgroundImageStored', token);
+    } catch {
+      // Keep the previous image if the browser storage quota is unavailable.
     }
   }
 
@@ -564,12 +583,20 @@ function AppearanceSection() {
         <Palette className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
         <h3 className="text-sm font-black tracking-wide uppercase" style={{ color: 'var(--color-text)' }}>Фон</h3>
       </div>
-      <p className="mb-3 text-xs" style={{ color: 'var(--color-text-secondary)' }}>Выберите встроенный фон или отключите изображение. Настройки прозрачности и читаемости ниже применяются сразу.</p>
+      <p className="mb-3 text-xs" style={{ color: 'var(--color-text-secondary)' }}>Выберите встроенный фон, загрузите своё изображение, видео или gif — либо отключите фон целиком. Настройки прозрачности и читаемости применяются сразу.</p>
+      <Row label="Фоновый режим" desc="Показывать выбранный фон за интерфейсом. Выключается вместе с картинкой и видео.">
+        <Toggle value={ui.backgroundEnabled} onChange={v => ui.set('backgroundEnabled', v)} />
+      </Row>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <input ref={backgroundImageFileRef} type="file" accept="image/*" hidden onChange={event => void importBackgroundImage(event.target.files?.[0])} />
+        <button onClick={() => backgroundImageFileRef.current?.click()} className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}><Upload className="h-3.5 w-3.5" />Своё изображение / gif / скриншот</button>
+        {ui.backgroundImageStored && <button onClick={() => { void removeBackgroundMedia('image'); ui.set('backgroundImageStored', ''); }} className="rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>Убрать изображение</button>}
+      </div>
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <button onClick={() => ui.set('backgroundImage', '')} className="overflow-hidden text-left" style={{ border:`2px solid ${ui.backgroundImage ? 'transparent' : 'var(--color-primary)'}`, borderRadius:'var(--radius-card)', background:'var(--color-surface-2)' }}>
+        <button onClick={() => { void removeBackgroundMedia('image'); ui.set('backgroundImageStored', ''); ui.set('backgroundImage', ''); }} className="overflow-hidden text-left" style={{ border:`2px solid ${!ui.backgroundImage && !ui.backgroundImageStored ? 'var(--color-primary)' : 'transparent'}`, borderRadius:'var(--radius-card)', background:'var(--color-surface-2)' }}>
           <div className="aspect-[16/9]" style={{ background:'var(--color-bg)' }} /><p className="px-2 py-1.5 text-[10px] font-bold">Без изображения</p>
         </button>
-        {ONBOARDING_BACKGROUNDS.map(background => <button key={background.id} onClick={() => ui.set('backgroundImage', background.src)} className="group overflow-hidden text-left" style={{ border:`2px solid ${ui.backgroundImage === background.src ? 'var(--color-primary)' : 'transparent'}`, borderRadius:'var(--radius-card)', background:'var(--color-surface-2)' }}>
+        {ONBOARDING_BACKGROUNDS.map(background => <button key={background.id} onClick={() => { void removeBackgroundMedia('image'); ui.set('backgroundImageStored', ''); ui.set('backgroundImage', background.src); }} className="group overflow-hidden text-left" style={{ border:`2px solid ${ui.backgroundImage === background.src && !ui.backgroundImageStored ? 'var(--color-primary)' : 'transparent'}`, borderRadius:'var(--radius-card)', background:'var(--color-surface-2)' }}>
           <div className="aspect-[16/9] bg-cover bg-center transition-transform duration-200 group-hover:scale-[1.03]" style={{ backgroundImage:`url("${background.src}")` }} /><p className="truncate px-2 py-1.5 text-[10px] font-bold">{background.name}</p>
         </button>)}
       </div>
@@ -584,7 +611,7 @@ function AppearanceSection() {
       <RangeRow label="Насыщенность фона" desc="Интенсивность цветов пользовательского фонового изображения" value={ui.backgroundSaturation} min={0} max={180} unit="%" onChange={v => ui.set('backgroundSaturation', v)} />
       <Row label={t('settings.appearanceUi.videoBackground')} desc={t('settings.appearanceUi.videoBackgroundDescription')}>
         <div className="flex items-center gap-2">
-          <input ref={backgroundVideoFileRef} type="file" accept="video/mp4,video/webm,video/ogg" hidden onChange={event => void importVideo(event.target.files?.[0])} />
+          <input ref={backgroundVideoFileRef} type="file" accept="video/mp4,video/webm,video/ogg,image/gif" hidden onChange={event => void importVideo(event.target.files?.[0])} />
           <button onClick={() => backgroundVideoFileRef.current?.click()} className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Upload className="h-3.5 w-3.5" />{t('settings.appearanceUi.chooseVideo')}</button>
           {ui.backgroundVideo && <button onClick={() => { void removeBackgroundMedia('video'); ui.set('backgroundVideo', ''); }} className="rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>{t('settings.appearanceUi.removeVideo')}</button>}
         </div>

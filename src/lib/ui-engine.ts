@@ -60,8 +60,17 @@ export function useUiEffects() {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty('--custom-bg', s.backgroundImage ? `url("${s.backgroundImage}")` : 'none');
-    root.style.setProperty('--custom-bg-opacity', String(s.backgroundOpacity / 100));
+    // Выключенный фоновый режим должен полностью прятать и картинку, и видео.
+    // Для картинки достаточно --custom-bg:none, а --custom-bg-opacity:1 делает
+    // защитный слой body::after непрозрачным (он красит --color-bg поверх).
+    const on = s.backgroundEnabled;
+    // Если фон загружен файлом (IndexedDB) или это видео, его рисует
+    // BackgroundMedia-компонент — CSS-слой должен быть пустым, иначе
+    // картинка и видео накладываются друг на друга.
+    const hasStoredMedia = Boolean(s.backgroundImageStored) || Boolean(s.backgroundVideo);
+    const cssImage = on && !hasStoredMedia ? s.backgroundImage : '';
+    root.style.setProperty('--custom-bg', cssImage ? `url("${cssImage}")` : 'none');
+    root.style.setProperty('--custom-bg-opacity', on && !hasStoredMedia ? String(s.backgroundOpacity / 100) : '1');
     root.style.setProperty('--custom-bg-size', s.backgroundFit === 'stretch' ? '100% 100%' : s.backgroundFit === 'tile' ? 'auto' : s.backgroundFit);
     root.style.setProperty('--custom-bg-repeat', s.backgroundFit === 'tile' ? 'repeat' : 'no-repeat');
     root.style.setProperty('--custom-bg-position', s.backgroundPosition);
@@ -69,7 +78,7 @@ export function useUiEffects() {
     root.style.setProperty('--custom-bg-saturation', `${Math.max(0, s.backgroundSaturation)}%`);
     root.style.setProperty('--custom-bg-scale', String(1 + Math.min(0.08, Math.max(0, s.backgroundBlur) / 300)));
     root.style.setProperty('--custom-bg-readability', String(Math.max(0, Math.min(90, s.backgroundReadability)) / 100));
-  }, [s.backgroundImage, s.backgroundOpacity, s.backgroundFit, s.backgroundPosition, s.backgroundBlur, s.backgroundSaturation, s.backgroundReadability]);
+  }, [s.backgroundEnabled, s.backgroundImage, s.backgroundImageStored, s.backgroundVideo, s.backgroundOpacity, s.backgroundFit, s.backgroundPosition, s.backgroundBlur, s.backgroundSaturation, s.backgroundReadability]);
 
   useEffect(() => {
     applyCustomCss(s.customCss, s.customCssEnabled);

@@ -73,8 +73,12 @@ export interface UiState {
   blur: boolean;
   /** Компактный режим списков */
   compact: boolean;
+  /** Главный выключатель фонового режима (картинка + видео). */
+  backgroundEnabled: boolean;
   /** Пользовательский background (url или data:) */
   backgroundImage: string;
+  /** Загруженная картинка/gif в IndexedDB (ссылка вида indexeddb:background-image). */
+  backgroundImageStored: string;
   backgroundOpacity: number;
   /** Импортированная .prtheme тема */
   customCss: string;
@@ -177,7 +181,9 @@ const defaults = {
   animations: true,
   blur: true,
   compact: false,
+  backgroundEnabled: true,
   backgroundImage: '',
+  backgroundImageStored: '',
   backgroundVideo: '',
   backgroundVideoOpacity: 42,
   backgroundVideoMuted: true,

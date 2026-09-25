@@ -1658,7 +1658,10 @@ html[data-portal-style="oreui"] button,
 html[data-portal-style="oreui"] input,
 html[data-portal-style="oreui"] select,
 html[data-portal-style="oreui"] textarea {
-  font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Через var(--font-ui), а не литерал: раньше здесь был жёстко прописан
+     'Segoe UI Variable', и выбор шрифта в настройках не давал никакого
+     эффекта в режиме oreui. Значение по умолчанию задаёт theme-engine. */
+  font-family: var(--font-ui, 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, sans-serif);
   letter-spacing: normal;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -2049,24 +2052,31 @@ html :is(button.shot-nav-btn, [role="button"].shot-nav-btn):active {
    Включённое состояние — зелёный сегментированный трек, выключенное —
    серый; ручка квадратная, как в референсе, и не белая. */
 html[data-portal-style="oreui"] button[role="switch"] {
-  border-radius: var(--ore-radius) !important;
+  border-radius: 2px !important;
   border: 2px solid var(--ore-outline) !important;
-  box-shadow: var(--ore-bevel-gray) !important;
+  box-shadow: var(--ore-bevel) !important;
   overflow: hidden !important;
-  background-image: repeating-linear-gradient(90deg,
-    rgba(0, 0, 0, 0.22) 0 2px, transparent 2px 8px) !important;
-  background-position: left center !important;
-  background-repeat: repeat-x !important;
+  /* Текстуры нет: раньше здесь был repeating-linear-gradient, который
+     проступал поверх заливки и читался как «вылезающий» полосатый слой. */
+  background-image: none !important;
   transition: background-color 90ms linear, border-color 90ms linear !important;
 }
+/* Ручка занимает всю высоту трека и при включении упирается в правый край.
+   Прежние 12px при left:22 оставляли справа 4px зелёного хвоста. */
 html[data-portal-style="oreui"] button[role="switch"] > span {
-  background: var(--ore-gray) !important;
+  width: 16px !important;
+  height: 16px !important;
   border-radius: 0 !important;
-  box-shadow: 0 0 0 1px var(--ore-outline) !important;
+  top: 0 !important;
+  transform: none !important;
+  background: #d8d8d8 !important;
+  box-shadow: none !important;
   transition: left 90ms linear !important;
 }
+html[data-portal-style="oreui"] button[role="switch"][aria-checked="false"] > span { left: 1px !important; }
+html[data-portal-style="oreui"] button[role="switch"][aria-checked="true"] > span { left: 17px !important; }
 html[data-portal-style="oreui"] button[role="switch"]:hover > span {
-  background: var(--ore-gray-hi) !important;
+  background: #e6e6e6 !important;
 }
 html[data-portal-style="oreui"] button[role="switch"]:active {
   transform: none !important;
@@ -2476,76 +2486,14 @@ html[data-portal-style="oreui"] [role="tooltip"]::after {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   ORE-UI: пиксельный пейзаж.
-   Фон не однотонный: в верхней трети — пиксельные облака из прямоугольных
-   ступенек (как в референсе), внизу — слоистые полосы ландшафта с
-   «зубцами» деревьев. Всё на CSS, без картинок. Слои помечены
-   `aria-hidden`, чтобы не мешать читалкам.
+   ORE-UI: фоновые слои.
+   Раньше здесь был пиксельный пейзаж (облака + холмы) на body::before и
+   body::after. Это ломало пользовательский фон: в index.css:449/462 эти же
+   псевдоэлементы отвечают за слой картинки (--custom-bg) и защитный слой
+   читаемости, поэтому в режиме oreui выбранное изображение/видео не
+   отображалось вообще. Облака убраны по запросу — фон теперь только
+   пользовательский, из настроек.
    ═══════════════════════════════════════════════════════════════════════ */
-html[data-portal-style="oreui"] body::before,
-html[data-portal-style="oreui"] body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Пиксельные облака: два ряда ступенчатых прямоугольников, дрейф вбок.
-   Каждый «зубец» — жёсткий блок без сглаживания, поэтому графики
-   читаются как пиксель-арт, а не как размытая текстура. */
-html[data-portal-style="oreui"] body::before {
-  top: 0;
-  height: 34vh;
-  background-image:
-    repeating-linear-gradient(90deg,
-      transparent 0 96px,
-      rgba(255, 255, 255, 0.05) 96px 160px,
-      transparent 160px 208px,
-      rgba(255, 255, 255, 0.05) 208px 272px,
-      transparent 272px 320px),
-    repeating-linear-gradient(0deg,
-      transparent 0 26px,
-      rgba(255, 255, 255, 0.04) 26px 38px,
-      transparent 38px 64px);
-  background-size: 320px 64px, 100% 64px;
-  opacity: 0.9;
-  animation: ore-drift 64s linear infinite;
-}
-
-/* Ландшафт внизу: тёмная полоса земли с «зубцами» и редкими пикселями
-   (трава/звёзды). Чем ниже слой, тем он темнее — даёт глубину. */
-html[data-portal-style="oreui"] body::after {
-  top: auto;
-  height: 22vh;
-  background-image:
-    /* зубчатый гребень */
-    repeating-linear-gradient(135deg,
-      transparent 0 12px,
-      var(--ore-hill-back, #1a2a1a) 12px 24px),
-    repeating-linear-gradient(135deg,
-      transparent 0 8px,
-      var(--ore-hill-front, #162116) 8px 16px),
-    linear-gradient(180deg,
-      transparent 0 34%,
-      var(--ore-hill-back, #1a2a1a) 34% 62%,
-      var(--ore-hill-front, #162116) 62% 100%);
-  background-size: 64px 64px, 48px 48px, 100% 100%;
-  background-position: left top, left top, left top;
-  opacity: 0.5;
-}
-
-/* Ландшафт и облака — только тёмные. Светлых переопределений больше нет:
-   схема единственная, тёмная. */
-
-@keyframes ore-drift {
-  from { background-position: 0 0, 0 0; }
-  to   { background-position: 320px 0, 0 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html[data-portal-style="oreui"] body::before { animation: none; }
-}
 
 /* Контент лежит выше фоновых слоёв. */
 html[data-portal-style="oreui"] #root {

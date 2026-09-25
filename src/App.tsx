@@ -67,7 +67,7 @@ function App() {
   const setLaunchStatus = useLaunchStore(s => s.setStatus);
   useTheme(themeId, textColorOverride, fontFamily, customThemes);
   useStylePreset(stylePreset, themeId);
-  useAccentColor(stylePreset, accentColor, themeId);
+  useAccentColor(stylePreset, accentColor, themeId, fontFamily);
   useEffect(() => {
     void i18n.changeLanguage(language);
     document.documentElement.lang = language;

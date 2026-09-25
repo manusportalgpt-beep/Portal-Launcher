@@ -94,6 +94,11 @@ export function applyAccentColor(preset: StylePreset, accent: string | null) {
   root.style.setProperty('--color-primary-text', '#FFFFFF');
 }
 
-export function useAccentColor(preset: StylePreset, accentColor: string | null, themeId?: string) {
-  useEffect(() => applyAccentColor(preset, accentColor), [preset, accentColor, themeId]);
+/**
+ * Акцент должен переживать смену шрифта: useTheme перезаписывает
+ * --color-primary из палитры темы, поэтому после смены fontFamily акцент
+ * нужно применить заново, иначе выбранный цвет молча сбрасывался.
+ */
+export function useAccentColor(preset: StylePreset, accentColor: string | null, themeId?: string, fontFamily?: string) {
+  useEffect(() => applyAccentColor(preset, accentColor), [preset, accentColor, themeId, fontFamily]);
 }

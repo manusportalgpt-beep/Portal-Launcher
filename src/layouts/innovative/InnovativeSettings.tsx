@@ -113,7 +113,7 @@ export function InnovativeSettings() {
               </p>
               <div className="flex flex-col gap-1.5">
                 <SettingCard label="Фоновое видео" desc="Анимированный фон на главном экране">
-                  <Toggle value={!!uiStore.backgroundImage} onChange={() => uiStore.set('backgroundImage', uiStore.backgroundImage ? '' : '/backgrounds/default.mp4')} />
+                  <Toggle value={uiStore.backgroundEnabled} onChange={v => uiStore.set('backgroundEnabled', v)} />
                 </SettingCard>
                 <SettingCard label="Прозрачность интерфейса" desc="Эффект стекла на панелях">
                   <Toggle value={true} onChange={() => {}} />

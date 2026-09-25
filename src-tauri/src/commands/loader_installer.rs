@@ -846,10 +846,10 @@ pub async fn get_quilt_versions(mc_version: String) -> Result<Vec<serde_json::Va
         .build()
         .map_err(|e| e.to_string())?;
     let url = format!("https://meta.quiltmc.org/v3/versions/loader/{mc_version}");
-    let data: serde_json::Value = client
+    let body: String = client
         .get(&url)
-        // Без фичи gzip/brotli у reqwest сжатый ответ не декодируется —
-        // приходил «error decoding response body».
+        // Без gzip/brotli в reqwest сжатый ответ не декодируется и падает
+        // с <error decoding response body>.
         .header(reqwest::header::ACCEPT_ENCODING, "identity")
         .send()
         .await
@@ -857,8 +857,8 @@ pub async fn get_quilt_versions(mc_version: String) -> Result<Vec<serde_json::Va
         .text()
         .await
         .map_err(|e| format!("Quilt metadata body: {e}"))?;
-    let data: serde_json::Value = serde_json::from_str(&data)
-        .map_err(|e| format!("Quilt metadata JSON: {e} (получено {} байт)", data.len()))?;
+    let data: serde_json::Value = serde_json::from_str(&body)
+        .map_err(|e| format!("Quilt metadata JSON: {e} (получено {} байт)", body.len()))?;
     Ok(data.as_array().cloned().unwrap_or_default())
 }
 

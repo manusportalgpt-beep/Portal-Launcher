@@ -499,9 +499,14 @@ pub fn op_image_inspect(root: String, path: String) -> Result<ImageInspect, Stri
             let rgba = small.to_rgba8();
             let (w, h) = rgba.dimensions();
             let mut out: Vec<u8> = Vec::new();
-            let enc_ok = image::codecs::png::PngEncoder::new(&mut out)
-                .write_image(rgba.as_raw(), w, h, image::ExtendedColorType::Rgba8)
-                .is_ok();
+            let enc_ok = image::ImageEncoder::write_image(
+                image::codecs::png::PngEncoder::new(&mut out),
+                rgba.as_raw(),
+                w,
+                h,
+                image::ExtendedColorType::Rgba8,
+            )
+            .is_ok();
             if enc_ok {
                 (
                     "image/png".to_string(),

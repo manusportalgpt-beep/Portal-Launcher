@@ -445,7 +445,8 @@ pub fn op_image_inspect(root: String, path: String) -> Result<ImageInspect, Stri
     let mut total: u64 = 0;
     let mut alpha = false;
     let (mut sr, mut sg, mut sb) = (0u64, 0u64, 0u64);
-    if let Ok(dyn_img) = decoded {
+    // &decoded, а не decoded: значение нужно и здесь, и ниже для base64.
+    if let Ok(dyn_img) = &decoded {
         let small = dyn_img.thumbnail(96, 96);
         let rgba = small.to_rgba8();
         let (w, h) = rgba.dimensions();
@@ -493,11 +494,13 @@ pub fn op_image_inspect(root: String, path: String) -> Result<ImageInspect, Stri
 
     // Уменьшенная копия в base64: именно её модель может посмотреть.
     // Ограничиваем сторону, чтобы картинка не раздувала контекст.
-    let (mime, b64) = match decoded.as_ref() {
+    let (mime, b64) = match decoded {
         Ok(dyn_img) => {
             let small = dyn_img.thumbnail(1024, 1024);
+            // w/h берём у small, а не у rgba: rgba потом целиком уходит в encode.
+            let w = small.width();
+            let h = small.height();
             let rgba = small.to_rgba8();
-            let (w, h) = rgba.dimensions();
             let mut out: Vec<u8> = Vec::new();
             let enc_ok = image::ImageEncoder::write_image(
                 image::codecs::png::PngEncoder::new(&mut out),

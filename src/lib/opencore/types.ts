@@ -26,6 +26,34 @@ export interface TokenUsage {
   estimated?: boolean;
 }
 
+/**
+ * Карточка найденного контента, которую ИИ-агент показывает в чате.
+ * Раньше mod_search отдавал только текст, поэтому результат приходилось
+ * читать глазами. Теперь это структура: иконка, название, описание,
+ * платформа (клиент/сервер) и тип — мод, ресурс-пак или шейдер.
+ */
+export interface ModCard {
+  projectId: string;
+  slug: string;
+  title: string;
+  description: string;
+  author: string;
+  iconUrl: string | null;
+  /** mod | resourcepack | shaderpack | modpack */
+  projectType: string;
+  /** Человекочитаемая платформа: «Клиент», «Сервер», «Клиент и сервер». */
+  platform: string;
+  loaders: string[];
+  gameVersions: string[];
+  downloads: number;
+  versionNumber: string;
+  fileName: string;
+  downloadUrl: string;
+  /** Есть ли подходящий файл под запрошенные версию/загрузчик. */
+  installable: boolean;
+  url: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: Role;
@@ -35,6 +63,8 @@ export interface ChatMessage {
   toolCalls?: ToolCall[];
   thinking?: string;
   attachments?: Attachment[];
+  /** Карточки контента для отрисовки в чате (mod_search). */
+  cards?: ModCard[];
   error?: boolean;
   model?: string;
   timestamp: number;

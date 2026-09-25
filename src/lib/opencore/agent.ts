@@ -9,6 +9,7 @@ import type {
   FetchResult,
   FsEntry,
   TokenUsage,
+  ModCard,
 } from '@/lib/opencore/types';
 
 // ---------------------------------------------------------------------------
@@ -429,6 +430,7 @@ export const TOOLS: ToolDef[] = [
         query: { type: 'string', description: 'Поисковый запрос: название мода или ключевые слова (можно по-русски). Обязательный параметр.' },
         mc_version: { type: 'string', description: 'Версия Minecraft сборки, например 1.20.1 или 26.2. Если неизвестна — можно не указывать.' },
         loader: { type: 'string', enum: ['fabric', 'forge', 'neoforge', 'quilt', 'vanilla'], description: 'Загрузчик сборки (необязательно).' },
+        project_type: { type: 'string', enum: ['mod', 'resourcepack', 'shaderpack', 'modpack'], description: 'Что именно ищем. По умолчанию mod. Для наборов текстур и тем указывай resourcepack, для шейдеров (Complementary, SEUS, BSL, Iris) — shaderpack, для готовых сборок — modpack. Если пользователь просит ресурс-паки или шейдеры, тип нужно указать явно, иначе поиск вернёт только моды.' },
         limit: { type: 'number', description: 'Сколько результатов вернуть (по умолчанию 5, максимум 10).' },
       },
       required: ['query'],
@@ -493,6 +495,8 @@ export const TOOLS: ToolDef[] = [
 export interface ExecResult {
   ok: boolean;
   output: string;
+  /** Структурированные карточки контента для отрисовки в чате (mod_search). */
+  cards?: ModCard[];
 }
 
 /** HTTP-запрос через Rust (нет CORS, есть сеть бэкенда). Нужен инструментам и фолбэку провайдеров. */
@@ -995,12 +999,47 @@ async function execLauncherLogs(args: { instance_id: string }): Promise<ExecResu
   }
 }
 
+/** Человекочитаемые названия типов контента Modrinth. */
+const TYPE_LABELS: Record<string, string> = {
+  mod: 'мод',
+  resourcepack: 'ресурс-пак',
+  shaderpack: 'шейдер',
+  modpack: 'модпак',
+};
+
+/** Путь раздела на modrinth.com для типа проекта. */
+const TYPE_PATHS: Record<string, string> = {
+  mod: 'mod',
+  resourcepack: 'resourcepack',
+  shaderpack: 'shader',
+  modpack: 'modpack',
+};
+
+/**
+ * Платформа проекта по сторонам установки Modrinth.
+ * client_side/server_side: required | optional | unsupported | unknown.
+ */
+function platformLabel(client: unknown, server: unknown): string {
+  const c = String(client ?? 'unknown');
+  const s = String(server ?? 'unknown');
+  const clientOn = c === 'required' || c === 'optional';
+  const serverOn = s === 'required' || s === 'optional';
+  if (clientOn && serverOn) return 'Клиент и сервер';
+  if (clientOn) return 'Только клиент';
+  if (serverOn) return 'Только сервер';
+  return 'Неизвестно';
+}
+
 async function execModSearch(args: Record<string, unknown>): Promise<ExecResult> {
   try {
     const query = String(args.query ?? '').trim();
     if (!query) return { ok: false, output: 'Нужен запрос (query).' };
     const mcVersion = args.mc_version != null && String(args.mc_version).trim() ? String(args.mc_version).trim() : null;
     const loader = args.loader != null && String(args.loader).trim() ? String(args.loader).trim() : null;
+    // Тип контента. Раньше он не передавался, и Rust всегда ставил project_type:mod —
+    // поэтому агент физически не мог найти ресурс-паки и шейдеры.
+    const rawType = String(args.project_type ?? 'mod').trim().toLowerCase();
+    const projectType = (['mod', 'resourcepack', 'shaderpack', 'modpack'].includes(rawType) ? rawType : 'mod');
     const limit = Math.min(10, Math.max(1, Number(args.limit ?? 5)));
 
     const search = await invoke<any>('search_modrinth', {
@@ -1009,6 +1048,7 @@ async function execModSearch(args: Record<string, unknown>): Promise<ExecResult>
       versions: mcVersion ? [mcVersion] : null,
       loaders: loader ? [loader] : null,
       sort: 'relevance',
+      projectType,
     });
     const hits: any[] = Array.isArray(search?.hits) ? search.hits : [];
     if (hits.length === 0) {
@@ -1045,10 +1085,11 @@ async function execModSearch(args: Record<string, unknown>): Promise<ExecResult>
       return { h, file, versionId, versionNumber };
     }));
 
+    const typeLabel = TYPE_LABELS[projectType] ?? 'мод';
     const lines = rows.map(({ h, file, versionId, versionNumber }) => {
       const meta = [
         `- ${h.title ?? ''} · ${h.author ?? ''} · id ${h.project_id ?? ''}`,
-        `  загрузок: ${h.downloads ?? 0} · лоадеры: ${Array.isArray(h.loaders) ? h.loaders.join(',') : ''} · MC: ${Array.isArray(h.game_versions) ? h.game_versions.slice(0, 8).join(', ') : ''}`,
+        `  тип: ${typeLabel} · платформа: ${platformLabel(h.client_side, h.server_side)} · загрузок: ${h.downloads ?? 0} · лоадеры: ${Array.isArray(h.loaders) ? h.loaders.join(',') : ''} · MC: ${Array.isArray(h.game_versions) ? h.game_versions.slice(0, 8).join(', ') : ''}`,
         `  версия: ${versionNumber || '—'}${versionId ? ` (id ${versionId})` : ''} · файл: ${file?.filename || '—'}`,
       ];
       if (!file?.url) {
@@ -1056,14 +1097,35 @@ async function execModSearch(args: Record<string, unknown>): Promise<ExecResult>
         return meta.join('\n');
       }
       meta.push(`  download_url: ${file.url}${file.sha1 ? ` · sha1: ${file.sha1}` : ''}`);
-      meta.push(`  для установки: launcher_install_mod(instance_id, download_url="${file.url}", file_name="${file.filename}", mod_id="${h.project_id ?? ''}", mod_name="${h.title ?? ''}", mod_version="${versionNumber}", version_id="${versionId}", source="modrinth", author="${h.author ?? ''}", icon_url="${h.icon_url ?? ''}")`);
+      meta.push(`  для установки: launcher_install_mod(instance_id, download_url="${file.url}", file_name="${file.filename}", mod_id="${h.project_id ?? ''}", mod_name="${h.title ?? ''}", mod_version="${versionNumber}", version_id="${versionId}", source="modrinth", mod_type="${projectType}", author="${h.author ?? ''}", icon_url="${h.icon_url ?? ''}")`);
       return meta.join('\n');
     });
 
     const okCount = rows.filter((r) => r.file?.url).length;
+    // Карточки для чата: иконка, название, описание, платформа и тип.
+    const cards: ModCard[] = rows.map(({ h, file, versionNumber }) => ({
+      projectId: String(h.project_id ?? ''),
+      slug: String(h.slug ?? h.project_id ?? ''),
+      title: String(h.title ?? ''),
+      description: String(h.description ?? ''),
+      author: String(h.author ?? ''),
+      iconUrl: h.icon_url ? String(h.icon_url) : null,
+      projectType: String(h.project_type ?? projectType),
+      platform: platformLabel(h.client_side, h.server_side),
+      loaders: Array.isArray(h.loaders) ? h.loaders.map(String) : [],
+      gameVersions: Array.isArray(h.game_versions) ? h.game_versions.map(String) : [],
+      downloads: Number(h.downloads ?? 0),
+      versionNumber: String(versionNumber ?? ''),
+      fileName: String(file?.filename ?? ''),
+      downloadUrl: String(file?.url ?? ''),
+      installable: Boolean(file?.url),
+      url: `https://modrinth.com/${TYPE_PATHS[String(h.project_type ?? projectType)] ?? 'modpack'}/${h.slug ?? h.project_id ?? ''}`,
+    }));
+
     return {
       ok: true,
-      output: `Modrinth: ${rows.length} результат(ов), ${okCount} с подходящей версией под этот Minecraft/лоадер:\n${lines.join('\n\n')}`,
+      cards,
+      output: `Modrinth (${typeLabel}): ${rows.length} результат(ов), ${okCount} с подходящей версией под этот Minecraft/лоадер:\n${lines.join('\n\n')}`,
     };
   } catch (e) {
     return { ok: false, output: String(e) };
@@ -1604,7 +1666,7 @@ async function runSubAgentTurn(
       const tmId = `sub-tool-${Date.now()}-${iter}-${tc.id}`;
       msgs.push({ id: tmId, role: 'tool', content: '…', toolCallId: tc.id, toolName: tc.name, timestamp: Date.now() });
       const res = await executeTool(tc.name, tc.arguments, requestPermission, ep, signal);
-      msgs = msgs.map(m => (m.id === tmId ? { ...m, content: res.output } : m));
+      msgs = msgs.map(m => (m.id === tmId ? { ...m, content: res.output, cards: res.cards } : m));
     }
   }
   return (lastText || '(субагент не успел ответить)') + '\n\n(достигнут лимит итераций)';
@@ -2702,9 +2764,13 @@ export function buildSystemPrompt(opts: {
     `Многозадачность: если пользователь перечислил СРАЗУ НЕСКОЛЬКО разных задач («сделай X, ещё Y и Z», «и», «а также», «в дополнение», «потом») — составь чек-лист, выполни все пункты по очереди (независимые части можно распараллелить через spawn_agents), затем отчитайся ПО КАЖДОМУ пункту отдельно. Начатое в этом ответе — доведи до конца; пункты не смешивай и не теряй.`,
     '',
     `Моды Minecraft (взаимодействие с лаунчером):`,
+    `- mod_search ищет не только моды. Параметр project_type: "mod" (по умолчанию), "resourcepack" (наборы текстур, темы, HD-паки), "shaderpack" (шейдеры: Complementary, SEUS, BSL, Iris), "modpack" (готовые сборки). ВСЕГДЯ ставь project_type явно, когда речь о текстурах или шейдерах, иначе поиск вернёт только моды и пользователь получит не то.`,
+    `- Определяй тип по запросу пользователя: «текстуры/набор текстур/HD/тема/иконки» → resourcepack; «шейдеры/свет/Complementary/SEUS/BSL» → shaderpack; «мод/моды/плагин» → mod; «готовая сборка/модпак» → modpack. В Modrinth шейдеры лежат в разделе shader, ресурс-паки — resourcepack.`,
+    `- У шейдеров и ресурс-паков mc_version/loader обычно не нужны: они встают в любую сборку той же версии игры. Не передавай им loader, если он не задан сборкой. При установке обязательно подставляй mod_type в launcher_install_mod, иначе файл уйдёт не в ту папку.`,
+    `- Страница «Обзор»/FindProjectsPage лаунчера работает через встроенный Modrinth-шлюз (search_modrinth/get_modrinth_project/get_modrinth_versions). Когда пользователь просит «найти/установить мод как в Discover» — используй те же источники: при установке ОБЯЗАТЕЛЬНО передай в launcher_install_mod полные метаданные из mod_search: mod_id (slug проекта), mod_name, mod_version (номер версии файла), version_id, source="modrinth", mod_type, author и icon_url. Так мод появится в лаунчере со своей картинкой, автором и описанием — как будто его установили из каталога.`,
     `- Страница «Обзор»/FindProjectsPage лаунчера работает через встроенный Modrinth-шлюз (search_modrinth/get_modrinth_project/get_modrinth_versions). Когда пользователь просит «найти/установить мод как в Discover» — используй те же источники: при установке ОБЯЗАТЕЛЬНО передай в launcher_install_mod полные метаданные из mod_search: mod_id (slug проекта), mod_name, mod_version (номер версии файла), version_id, source="modrinth", author и icon_url. Так мод появится в лаунчере со своей картинкой, автором и описанием — как будто его установили из каталога.`,
     `- Дубликатов не будет: лаунчер сам заменяет запись по id проекта + тип (мод/ресурспак/шейдер) и по имени файла; при установке другой версии старого файла не остаётся. НЕ скачивай мод «вручную» в папку mods, минуя launcher_install_mod — только если пользователь явно просит это сделать, иначе потеряются картинка/автор/инфо.`,
-    `- Правильный порядок установки мода: (1) launcher_list_builds → нужный instance_id; (2) mod_search(query, mc_version, loader) → известны точные версии под этот Minecraft/лоадер, download_url, sha1 и метаданные; (3) launcher_install_mod(instance_id, download_url, file_name, mod_id, mod_name, mod_version, version_id, source="modrinth", author, icon_url). Перед установкой мода убедись, что его версия совместима с версией Minecraft и загрузчиком сборки (Fabric-мод не встанет в Forge-сборку).`,
+    `- Правильный порядок установки мода: (1) launcher_list_builds → нужный instance_id; (2) mod_search(query, mc_version, loader, project_type) → известны точные версии под этот Minecraft/лоадер, download_url, sha1 и метаданные; (3) launcher_install_mod(instance_id, download_url, file_name, mod_id, mod_name, mod_version, version_id, source="modrinth", mod_type, author, icon_url). Перед установкой мода убедись, что его версия совместима с версией Minecraft и загрузчиком сборки (Fabric-мод не встанет в Forge-сборку).`,
     `- Новую сборку создавай только через launcher_create_build(name, mc_version, loader, loader_version, ...) — это создаст сборку в лаунчере со структурой папок; саму загрузку Minecraft/загрузчика сделает лаунчер (установи нужные версии через интерфейс, если их нет: сообщи пользователю, что нужно «установить версию» в лаунчере). Не выдумывай путь сборки от руки — всегда получай instance_id через launcher_list_builds и читай папку сборки через list_dir/read_text в зоне launcher.`,
     `- После установки мода обнови представление: в лаунчере контент сборки читается из instance.json — пересборка/обновление списка запускается лаунчером, но если пользователь держит лаунчер открытым, попроси его открыть вкладку модов сборки, чтобы обновился список установленного.`,
     `- Установка вручную (только по явной просьбе пользователя): скачай .jar через fetch_page/curl и положи в mods активной сборки; затем сообщи, что нужно применить сборку в лаунчере для индексации по SHA-1.` +
@@ -2904,7 +2970,7 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
         };
         push(toolMsg);
         const res = await executeTool(tc.name, tc.arguments, requestPermission, ep, signal, opts.policy);
-        patch(toolMsg.id, { content: res.output, error: !res.ok });
+        patch(toolMsg.id, { content: res.output, error: !res.ok, cards: res.cards });
         if (signal?.aborted) throw new Error('Отменено пользователем.');
         await drainInterrupt();
       }

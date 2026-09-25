@@ -16,6 +16,15 @@ pub struct ModrinthMod {
     pub date_modified: String,
     pub color: Option<i64>,
     pub slug: String,
+    /// Тип проекта на Modrinth: mod, resourcepack, shaderpack, modpack.
+    /// Нужен, чтобы поиск в ИИ-агенте различал моды, ресурс-паки и шейдеры.
+    #[serde(default)]
+    pub project_type: String,
+    /// Сторона установки: required, optional, unsupported, unknown.
+    #[serde(default)]
+    pub client_side: String,
+    #[serde(default)]
+    pub server_side: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -45,6 +54,9 @@ fn parse_hit(h: &serde_json::Value) -> ModrinthMod {
         date_modified: h["date_modified"].as_str().unwrap_or("").to_string(),
         color: h["color"].as_i64(),
         slug: h["slug"].as_str().unwrap_or("").to_string(),
+        project_type: h["project_type"].as_str().unwrap_or("mod").to_string(),
+        client_side: h["client_side"].as_str().unwrap_or("unknown").to_string(),
+        server_side: h["server_side"].as_str().unwrap_or("unknown").to_string(),
     }
 }
 

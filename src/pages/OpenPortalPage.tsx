@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, MessageSquare, Trash2, Sparkles, Send, StopCircle, ChevronDown, ChevronRight,
   Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Boxes, Check, Copy, Download,
   Gauge, Minimize2, CornerDownRight, Shield, ShieldCheck, ShieldAlert, Globe, ExternalLink,
+  Package, Wand2, Image as ImageIcon, Search, X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
@@ -16,7 +17,48 @@ import { contextWindow, BROWSER_LINKS } from '@/lib/opencore/providers';
 import { Markdown, PortalImage } from '@/components/openportal/Markdown';
 import { ModelManager } from '@/components/openportal/ModelManager';
 import { PermissionModal } from '@/components/openportal/PermissionModal';
-import type { ChatMessage, SessionData, PermissionRequest, Attachment, ProjectContext, PermissionPreset } from '@/lib/opencore/types';
+import type { ChatMessage, SessionData, SessionMeta, PermissionRequest, Attachment, ProjectContext, PermissionPreset, ModCard } from '@/lib/opencore/types';
+
+/** Русская форма множественного числа: plural(5, 'чат', 'чата', 'чатов') → 'чатов'. */
+function plural(n: number, one: string, few: string, many: string): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+  return many;
+}
+
+/** Стартовые темы пустого чата: клик подставляет готовую команду в композер. */
+const START_TOPICS: { title: string; hint: string; prompt: string; icon: React.ReactNode; color: string }[] = [
+  {
+    title: 'Найти мод',
+    hint: 'Оптимизации, библиотеки, механики',
+    prompt: 'Найди мод на скорость и производительность для ',
+    icon: <Package size={15} />,
+    color: 'var(--color-primary)',
+  },
+  {
+    title: 'Ресурс-пак',
+    hint: 'Текстуры, темы, HD-паки',
+    prompt: 'Найди ресурс-пак с текстурами высокого разрешения для ',
+    icon: <ImageIcon size={15} />,
+    color: 'var(--color-primary)',
+  },
+  {
+    title: 'Шейдеры',
+    hint: 'Complementary, SEUS, BSL',
+    prompt: 'Найди шейдеры для ',
+    icon: <Wand2 size={15} />,
+    color: 'var(--color-primary)',
+  },
+  {
+    title: 'Разобрать сборку',
+    hint: 'Файлы, логи, установка модов',
+    prompt: 'Посмотри мою сборку и объясни, что в ней установлено и что можно улучшить',
+    icon: <Boxes size={15} />,
+    color: 'var(--color-primary)',
+  },
+];
 
 const HELP_TEXT = [
   '**Команды OpenPortal:**',
@@ -115,35 +157,80 @@ function ThinkingBlock({ text }: { text: string }) {
   );
 }
 
-function ToolMsg({ name, content, error }: { name: string; content: string; error?: boolean }) {
+function ToolMsg({ name, content, error, cards }: { name: string; content: string; error?: boolean; cards?: ModCard[] }) {
   const [open, setOpen] = useState(false);
-  // После генерации картинки сразу показываем превью, а не только текст-путь:
-  // рендер без какого-либо запроса разрешения (tool-сообщение уже одобрено).
+  // Карточки результата mod_search показываются сразу, без раскрытия: раньше
+  // агент отдавал только текст, и найденный контент приходилось читать вручную.
   const imgMatch = name === 'generate_image' ? /\/op-image\/([A-Za-z0-9-]+\.(?:png|jpg|jpeg|webp|gif|avif|heic))/i.exec(content) : null;
+  const showCards = !error && cards && cards.length > 0;
   return (
-    <div className="ore-plain mb-1.5 overflow-hidden rounded-lg border px-2.5 py-1.5" style={{ borderColor: 'var(--color-border)', background: 'rgba(127,127,127,0.08)' }}>
-      <button onClick={() => setOpen(o => !o)} className="flex w-full items-center gap-2 text-left text-[11px] font-semibold"
+    <div className="ore-plain mb-2 overflow-hidden rounded-lg border" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}>
+      <button onClick={() => setOpen(o => !o)} className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-semibold"
         style={{ color: error ? 'var(--color-error)' : 'var(--color-text-secondary)' }}>
         <ChevronRight size={11} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
         {name}
+        {showCards && <span className="rounded px-1 text-[9px] font-bold" style={{ background: 'var(--color-surface)', color: 'var(--color-text-tertiary)' }}>{cards!.length}</span>}
         <span className="ml-auto font-normal" style={{ color: 'var(--color-text-tertiary)' }}>{error ? 'ошибка' : 'ок'}</span>
       </button>
+      {showCards && (
+        <div className="grid gap-1.5 border-t p-1.5" style={{ borderColor: 'var(--color-border)' }}>
+          {cards!.map(card => <ModResultCard key={card.projectId + card.versionNumber} card={card} />)}
+        </div>
+      )}
       {imgMatch && !error && (
-        <div className="pt-1.5">
+        <div className="pt-1.5 px-2.5">
           <PortalImage name={imgMatch[1]} />
-          <span className="mt-1 block text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>Изображение сгенерировано — нажми, чтобы открыть на весь экран</span>
+          <span className="mt-1 block text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>Сгенерированное изображение — можно открыть и скачать кнопкой рядом</span>
         </div>
       )}
       <AnimatePresence>
       {open && (
         <motion.pre initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-          className="max-h-72 overflow-y-auto pt-1.5 text-[11px] leading-4 whitespace-pre-wrap font-mono"
+          className="max-h-72 overflow-y-auto whitespace-pre-wrap px-2.5 pt-1.5 font-mono text-[11px] leading-4"
           style={{ color: 'var(--color-text-secondary)' }}>
           {content}
         </motion.pre>
       )}
       </AnimatePresence>
     </div>
+  );
+}
+
+const MOD_TYPE_META: Record<string, { label: string; path: string }> = {
+  mod: { label: 'Мод', path: 'mod' },
+  resourcepack: { label: 'Ресурс-пак', path: 'resourcepack' },
+  shaderpack: { label: 'Шейдер', path: 'shader' },
+  modpack: { label: 'Модпак', path: 'modpack' },
+};
+
+/** Карточка найденного контента: иконка, название, описание, платформа, тип. */
+function ModResultCard({ card }: { card: ModCard }) {
+  const type = MOD_TYPE_META[card.projectType] ?? MOD_TYPE_META.mod;
+  const open = () => { void invoke('open_url', { url: card.url }).catch(() => window.open(card.url, '_blank', 'noopener')); };
+  return (
+    <button onClick={open} title="Открыть на Modrinth"
+      className="flex w-full items-start gap-2.5 rounded-md p-2 text-left transition-colors hover:bg-[var(--color-surface)]"
+      style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+      {card.iconUrl
+        ? <img src={card.iconUrl} alt="" className="h-10 w-10 shrink-0 rounded" style={{ objectFit: 'cover', imageRendering: 'auto' }} />
+        : <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded text-[9px] font-black" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>{type.label.slice(0, 2).toUpperCase()}</div>}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-1.5">
+          <span className="truncate text-[12px] font-bold" style={{ color: 'var(--color-text)' }}>{card.title}</span>
+          {card.versionNumber && <span className="shrink-0 font-mono text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>{card.versionNumber}</span>}
+        </div>
+        {card.description && <p className="mt-0.5 line-clamp-2 text-[11px] leading-4" style={{ color: 'var(--color-text-secondary)' }}>{card.description}</p>}
+        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>{type.label}</span>
+          <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>{card.platform}</span>
+          {card.loaders.slice(0, 3).map(l => <span key={l} className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>{l}</span>)}
+          {card.gameVersions.slice(0, 2).map(v => <span key={v} className="rounded px-1.5 py-0.5 font-mono text-[9px]" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>{v}</span>)}
+          <span className="ml-auto shrink-0 text-[9px] font-semibold" style={{ color: card.installable ? 'var(--color-success)' : 'var(--color-text-tertiary)' }}>
+            {card.installable ? 'установка доступна' : 'нет под версию'}
+          </span>
+        </div>
+      </div>
+    </button>
   );
 }
 
@@ -267,7 +354,7 @@ function ChatBubble({ m, onContinue, streaming }: { m: ChatMessage; onContinue?:
     </div>
   );
   if (m.role === 'tool') {
-    return <ToolMsg name={m.toolName ?? m.content.slice(0, 40)} content={m.content} error={m.error} />;
+    return <ToolMsg name={m.toolName ?? m.content.slice(0, 40)} content={m.content} error={m.error} cards={m.cards} />;
   }
   if (m.role === 'user') {
     return (
@@ -558,7 +645,29 @@ export function OpenPortalPage() {
   const user = useCurrentUser();
 
   const [input, setInput] = useState('');
+  const [sessionFilter, setSessionFilter] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+
+  // Чаты группируются по свежести — длинный список перестаёт быть стеной.
+  const sessionGroups = useMemo(() => {
+    const query = sessionFilter.trim().toLowerCase();
+    const visible = query ? sessions.filter(s => s.title.toLowerCase().includes(query)) : sessions;
+    const day = 86_400_000;
+    const now = Date.now();
+    const buckets: { label: string; items: SessionMeta[] }[] = [
+      { label: 'Сегодня', items: [] },
+      { label: 'Вчера', items: [] },
+      { label: 'Раньше', items: [] },
+    ];
+    for (const s of visible) {
+      const age = now - s.updated;
+      if (age < day) buckets[0].items.push(s);
+      else if (age < day * 2) buckets[1].items.push(s);
+      else buckets[2].items.push(s);
+    }
+    return buckets.filter(b => b.items.length > 0);
+  }, [sessions, sessionFilter]);
+
   const abortRefs = useRef<Record<string, AbortController>>({});
   const interruptsRef = useRef<{ sessionId: string; msg: ChatMessage }[]>([]);
   /** Троттлинг сохранения промежуточного прогресса агента на диск (не чаще раза в 1.5 с). */
@@ -1037,41 +1146,75 @@ export function OpenPortalPage() {
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
       {/* Sidebar */}
-      <aside className="flex w-64 shrink-0 flex-col border-r" style={{ borderColor: 'var(--color-border)' }}>
-        <div className="flex items-center gap-2 px-4 pt-4 pb-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg text-[12px] font-black"
+      <aside className="flex w-64 shrink-0 flex-col border-r" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
+        <div className="flex items-center gap-2.5 px-3.5 pt-3.5 pb-2.5">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-[11px] font-black"
             style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>OP</div>
-          <h2 className="flex-1 text-sm font-black" style={{ color: 'var(--color-text)' }}>OpenPortal</h2>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-[13px] font-black leading-4" style={{ color: 'var(--color-text)' }}>OpenPortal</h2>
+            <p className="truncate text-[10px] leading-3" style={{ color: 'var(--color-text-tertiary)' }}>
+              {sessions.length > 0 ? `${sessions.length} ${plural(sessions.length, 'чат', 'чата', 'чатов')}` : 'История пуста'}
+            </p>
+          </div>
           <button onClick={() => void store.newSession()} title="Новый чат"
-            className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-surface-2)]" style={{ color: 'var(--color-text-secondary)' }}>
-            <Plus size={15} />
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded transition-colors hover:bg-[var(--color-surface-2)]"
+            style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+            <Plus size={14} />
           </button>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2">
-          {sessions.map(s => (
-            <button key={s.id} onClick={() => void store.openSession(s.id)}
-              className={`group flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors ${s.id === currentSessionId ? '' : 'hover:bg-[var(--color-surface-2)]'}`}
-              style={s.id === currentSessionId
-                ? { background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }
-                : { border: '1px solid transparent' }}>
-              {runningSessions[s.id]
-                ? <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-[1.5px] border-[var(--color-primary)] border-t-transparent" />
-                : <MessageSquare size={13} className="shrink-0" style={{ color: s.id === currentSessionId ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }} />}
-              <span className="min-w-0 flex-1 truncate text-xs font-semibold" style={{ color: 'var(--color-text)' }}>{s.title}</span>
-              <span className="hidden shrink-0 group-hover:inline-block" onClick={e => { e.stopPropagation(); void store.deleteSession(s.id); }}>
-                <Trash2 size={12} className="text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]" />
-              </span>
-            </button>
+        <div className="px-3 pb-2">
+          <div className="flex items-center gap-1.5 rounded px-2 py-1.5"
+            style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+            <Search size={12} className="shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />
+            <input
+              value={sessionFilter}
+              onChange={e => setSessionFilter(e.target.value)}
+              placeholder="Поиск по чатам"
+              className="min-w-0 flex-1 bg-transparent text-[11px] outline-none"
+              style={{ color: 'var(--color-text)' }}
+            />
+            {sessionFilter && (
+              <button onClick={() => setSessionFilter('')} title="Очистить" style={{ color: 'var(--color-text-tertiary)' }}>
+                <X size={11} />
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2">
+          {sessionGroups.map(group => (
+            <div key={group.label} className="mb-1">
+              <p className="px-2 py-1 text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>{group.label}</p>
+              {group.items.map(s => {
+                const active = s.id === currentSessionId;
+                return (
+                  <button key={s.id} onClick={() => void store.openSession(s.id)}
+                    className="group relative flex w-full items-center gap-2 rounded py-2 pl-2.5 pr-1.5 text-left transition-colors hover:bg-[var(--color-surface-2)]"
+                    style={active ? { background: 'var(--color-surface-2)' } : undefined}>
+                    {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full" style={{ background: 'var(--color-primary)' }} />}
+                    {runningSessions[s.id]
+                      ? <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-[1.5px] border-[var(--color-primary)] border-t-transparent" />
+                      : <MessageSquare size={12} className="shrink-0" style={{ color: active ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }} />}
+                    <span className="min-w-0 flex-1 truncate text-[12px] font-semibold leading-4" style={{ color: active ? 'var(--color-text)' : 'var(--color-text-secondary)' }}>{s.title}</span>
+                    <span className="hidden shrink-0 group-hover:inline-block" onClick={e => { e.stopPropagation(); void store.deleteSession(s.id); }}>
+                      <Trash2 size={11} style={{ color: 'var(--color-text-tertiary)' }} />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           ))}
           {sessions.length === 0 && (
-            <p className="px-3 py-3 text-[11px] leading-5" style={{ color: 'var(--color-text-tertiary)' }}>Чатов пока нет. Нажми «+», чтобы начать новую сессию.</p>
+            <p className="px-2.5 py-3 text-[11px] leading-5" style={{ color: 'var(--color-text-tertiary)' }}>Чатов пока нет. Нажми «+», чтобы начать новую сессию.</p>
+          )}
+          {sessions.length > 0 && sessionGroups.length === 0 && (
+            <p className="px-2.5 py-3 text-[11px] leading-5" style={{ color: 'var(--color-text-tertiary)' }}>Ничего не найдено по запросу «{sessionFilter}».</p>
           )}
         </div>
-        <div className="border-t p-3" style={{ borderColor: 'var(--color-border)' }}>
+        <div className="border-t p-2" style={{ borderColor: 'var(--color-border)' }}>
           <button onClick={() => navigate('/home')}
-            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition-colors hover:bg-[var(--color-surface-2)]"
+            className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-[12px] font-bold transition-colors hover:bg-[var(--color-surface-2)]"
             style={{ color: 'var(--color-text-secondary)' }}>
-            <ChevronLeft size={14} /> В лаунчер
+            <ChevronLeft size={13} /> В лаунчер
           </button>
         </div>
       </aside>
@@ -1084,11 +1227,9 @@ export function OpenPortalPage() {
             <span className="text-xs font-black" style={{ color: 'var(--color-text)' }}>OpenPortal</span>
           </div>
           <span
-            className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold"
+            className="flex items-center gap-1.5 text-[10px] font-bold"
             title={running ? 'Агент выполняет задачу' : 'Агент свободен'}
-            style={running
-              ? { background: 'color-mix(in srgb, var(--color-primary) 14%, transparent)', color: 'var(--color-primary)' }
-              : { background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>
+            style={{ color: running ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
             {running
               ? <><span className="h-2 w-2 animate-spin rounded-full border-[1.5px] border-current border-t-transparent" />работает</>
               : <><span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--color-success)' }} />готов</>}
@@ -1102,15 +1243,35 @@ export function OpenPortalPage() {
             if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
           }} className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
           {messages.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2">
-              <div className="mb-1 flex h-14 w-14 items-center justify-center rounded-2xl"
-                style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
-                <Sparkles size={26} className="text-[var(--color-primary)]" />
+            <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-5 py-8">
+              <div className="flex flex-col gap-2">
+                <h1 className="text-xl font-black" style={{ color: 'var(--color-text)' }}>С чем помочь?</h1>
+                <p className="max-w-xl text-[13px] leading-6" style={{ color: 'var(--color-text-secondary)' }}>
+                  Агент работает с файлами и сборками лаунчера, ищет контент на Modrinth и ставит его прямо в сборку.
+                  Выбери направление — подставится готовая команда.
+                </p>
               </div>
-              <h1 className="text-lg font-black" style={{ color: 'var(--color-text)' }}>OpenPortal</h1>
-              <p className="max-w-sm text-center text-xs leading-5" style={{ color: 'var(--color-text-secondary)' }}>
-                Встроенный ИИ-агент лаунчера. Режим <b>Build</b> — выполняет задачи с файлами и командами, <b>Plan</b> — только план.
-                Команды: <code className="font-mono text-[var(--color-primary)]">/help</code>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {START_TOPICS.map(topic => (
+                  <button
+                    key={topic.title}
+                    onClick={() => { setInput(topic.prompt); composerRef.current?.focus(); }}
+                    className="group flex items-start gap-3 rounded-lg p-3 text-left transition-colors hover:bg-[var(--color-surface-2)]"
+                    style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded" style={{ background: 'var(--color-surface-2)', color: topic.color }}>
+                      {topic.icon}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[13px] font-bold" style={{ color: 'var(--color-text)' }}>{topic.title}</span>
+                      <span className="mt-0.5 block text-[11px] leading-4" style={{ color: 'var(--color-text-tertiary)' }}>{topic.hint}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] leading-5" style={{ color: 'var(--color-text-tertiary)' }}>
+                Режим <b style={{ color: 'var(--color-text-secondary)' }}>Build</b> выполняет задачи, <b style={{ color: 'var(--color-text-secondary)' }}>Plan</b> только планирует.
+                Команды — <code className="font-mono" style={{ color: 'var(--color-primary)' }}>/help</code>
               </p>
             </div>
           ) : (
@@ -1131,16 +1292,16 @@ export function OpenPortalPage() {
           )}
         </div>
 
-        <div className="ore-plain relative border-t p-4" style={{ borderColor: 'var(--color-border)' }}>
+        <div className="ore-plain relative shrink-0 border-t p-3" style={{ borderColor: 'var(--color-border)' }}>
           {cmdOpen && cmdList.length > 0 && (
-            <div className="absolute bottom-full left-0 right-0 z-30 mx-auto mb-2 w-full max-w-3xl overflow-hidden rounded-2xl border p-1.5 shadow-xl"
-              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 24px 60px rgba(0,0,0,.4)' }}>
+            <div className="absolute bottom-full left-0 right-0 z-30 mx-auto mb-2 w-full max-w-3xl overflow-hidden rounded-lg border p-1"
+              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>
               {cmdList.map(c => (
                 <button key={c.cmd} onClick={() => {
                   if (c.instant) { setInput(''); if (!runCommandLine(c.cmd)) void send(c.cmd); }
                   else setInput(`${c.cmd} `);
                 }}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--color-surface-2)]">
+                  className="flex w-full items-center gap-2.5 rounded px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--color-surface-2)]">
                   <span className="shrink-0 font-mono text-[11px] font-bold" style={{ color: 'var(--color-primary)' }}>{c.cmd}</span>
                   <span className="truncate text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>{c.desc}</span>
                   {!c.instant && <span className="ml-auto shrink-0 text-[9px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}>+ описание</span>}
@@ -1148,54 +1309,57 @@ export function OpenPortalPage() {
               ))}
             </div>
           )}
-          {attachments.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-2">
-              {attachments.map((a, i) => (
-                <AttachmentChip key={i} a={a} onRemove={() => setAttachments(prev => prev.filter((_, j) => j !== i))} />
-              ))}
-            </div>
-          )}
-          <div className="mx-auto mb-1.5 flex max-w-3xl items-center gap-1.5 px-1">
-            <ModeToggle mode={cfg.mode} onChange={m => useOpenCoreStore.getState().setMode(m)} />
-            <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>·</span>
-            <CurrentModelPicker />
-            <ContextMeter onCompact={() => void compressChat()} />
-            <PresetToggle preset={cfg.permissionPreset ?? 'dfa'} onChange={p => useOpenCoreStore.getState().setPermissionPreset(p)} />
-            <span className="flex-1" />
-          </div>
-          <div className="mx-auto flex max-w-3xl items-end gap-1.5">
-            <input type="file" id="op-file" className="hidden" onChange={onFilePicked} />
-            <label htmlFor="op-file" title="Прикрепить файл или картинку"
-              className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-surface-2)]"
-              style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-tertiary)' }}>
-              <Plus size={15} />
-            </label>
-            <textarea
-              ref={composerRef}
-              value={input}
-              onChange={e => { setInput(e.target.value); }}
-              onKeyDown={onKeyDown}
-              rows={1}
-              placeholder={running ? 'Агент занят — отправь сообщение, он продолжит после текущего шага' : 'Что сделать?  (/ — команды)'}
-              className="max-h-40 min-h-10 flex-1 resize-none overflow-y-auto rounded-2xl px-4 py-2.5 text-[13px] leading-6 outline-none"
-              style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
-            />
-            {running ? (
-              <button onClick={() => { if (currentSessionId) abortRefs.current[currentSessionId]?.abort(); }} title="Остановить"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-                style={{ background: 'rgba(239,68,68,0.12)', color: 'var(--color-error)' }}>
-                <StopCircle size={16} />
-              </button>
-            ) : (
-              <button onClick={() => void send()} title="Отправить" disabled={!input.trim()}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-opacity disabled:opacity-40"
-                style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
-                <Send size={15} />
-              </button>
+          {/* Композер собран в один контейнер: тулбар, поле ввода и кнопки
+              больше не висят тремя отдельными плавающими рядами. */}
+          <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-lg"
+            style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 border-b p-2" style={{ borderColor: 'var(--color-border)' }}>
+                {attachments.map((a, i) => (
+                  <AttachmentChip key={i} a={a} onRemove={() => setAttachments(prev => prev.filter((_, j) => j !== i))} />
+                ))}
+              </div>
             )}
+            <div className="flex items-center gap-1.5 overflow-x-auto border-b px-2 py-1.5" style={{ borderColor: 'var(--color-border)' }}>
+              <ModeToggle mode={cfg.mode} onChange={m => useOpenCoreStore.getState().setMode(m)} />
+              <CurrentModelPicker />
+              <ContextMeter onCompact={() => void compressChat()} />
+              <PresetToggle preset={cfg.permissionPreset ?? 'dfa'} onChange={p => useOpenCoreStore.getState().setPermissionPreset(p)} />
+            </div>
+            <div className="flex items-end gap-1.5 p-1.5">
+              <input type="file" id="op-file" className="hidden" onChange={onFilePicked} />
+              <label htmlFor="op-file" title="Прикрепить файл или картинку"
+                className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded transition-colors hover:bg-[var(--color-surface)]"
+                style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-tertiary)' }}>
+                <Plus size={14} />
+              </label>
+              <textarea
+                ref={composerRef}
+                value={input}
+                onChange={e => { setInput(e.target.value); }}
+                onKeyDown={onKeyDown}
+                rows={1}
+                placeholder={running ? 'Агент занят — отправь сообщение, он продолжит после текущего шага' : 'Что сделать?  (/ — команды)'}
+                className="max-h-40 min-h-9 flex-1 resize-none overflow-y-auto bg-transparent px-2.5 py-1.5 text-[13px] leading-6 outline-none"
+                style={{ color: 'var(--color-text)' }}
+              />
+              {running ? (
+                <button onClick={() => { if (currentSessionId) abortRefs.current[currentSessionId]?.abort(); }} title="Остановить"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded"
+                  style={{ background: 'var(--color-surface)', color: 'var(--color-error)', border: '1px solid var(--color-border)' }}>
+                  <StopCircle size={15} />
+                </button>
+              ) : (
+                <button onClick={() => void send()} title="Отправить" disabled={!input.trim()}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded transition-opacity disabled:opacity-40"
+                  style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+                  <Send size={14} />
+                </button>
+              )}
+            </div>
           </div>
-          <p className="mt-2 text-center text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
-            OpenPortal может ошибаться. Проверяй важные изменения. Файлы, команды и ключи хранятся локально в папке OpenPortal.
+          <p className="mt-1.5 text-center text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+            Агент может ошибаться — проверяй важные изменения. Файлы и ключи хранятся локально в папке OpenPortal.
           </p>
         </div>
       </main>

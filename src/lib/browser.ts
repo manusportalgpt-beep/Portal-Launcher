@@ -37,5 +37,6 @@ export async function openBrowserWindow(): Promise<void> {
 /** Закрывает окно браузера, если оно открыто. */
 export async function closeBrowserWindow(): Promise<void> {
   const existing = await WebviewWindow.getByLabel(BROWSER_LABEL);
+  if (!existing) return;
   await existing.close();
 }

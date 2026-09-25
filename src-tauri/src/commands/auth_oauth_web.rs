@@ -97,7 +97,7 @@ pub async fn start_oauth_web_flow(
     // Сохраняем code_verifier в state app
     {
         let mut state = app.state::<AppState>();
-        let mut pending = state.pending_auth.write().unwrap();
+        let mut pending = state.pending_auth.write().await;
         *pending = Some(code_verifier);
     }
     
@@ -135,7 +135,9 @@ fn run_oauth_callback_server(app: AppHandle) {
                             // Получаем code_verifier из state
                             let pending = app.state::<AppState>();
                             let code_verifier = {
-                                let mut p = pending.pending_auth.write().unwrap();
+                                // Это обычный поток, а pending_auth — tokio::sync::RwLock,
+                                // поэтому нужен blocking_write(), а не await.
+                                let mut p = pending.pending_auth.blocking_write();
                                 p.take()
                             };
                             

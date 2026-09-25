@@ -878,9 +878,11 @@ function BuildPicker() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            initial={{ opacity: 0, y: 4, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 4, scale: 0.98 }}
             transition={{ duration: 0.12 }}
-            className="absolute right-0 top-full z-50 mt-2 w-72 rounded-2xl border p-2"
+            // bottom-full: список раскрывается вверх от кнопки, иначе его
+            // обрезает край окна, потому что тулбар стоит у низа экрана.
+            className="absolute bottom-full right-0 z-50 mb-2 w-72 rounded-2xl border p-2"
             style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 24px 60px rgba(0,0,0,.4)' }}>
             <button onClick={() => choose({ kind: 'none' })}
               className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs transition-colors hover:bg-[var(--color-surface-2)]"
@@ -1521,8 +1523,8 @@ export function OpenPortalPage() {
 
       {/* Main */}
       <main className="flex min-w-0 flex-1 flex-col">
-        {/* Верхняя панель убрана: заголовок «OpenPortal готов/занят» и выбор
-            сборки перенесены в панель композитора, где было свободное место. */}
+        {/* Верхняя панель убрана целиком: заголовок со статусом «готов/занят»
+            и выбор сборки перенесены в тулбар композитора. */}
 
         <div ref={scrollRef} onScroll={() => {
             const el = scrollRef.current;
@@ -1613,21 +1615,13 @@ export function OpenPortalPage() {
                 поэтому строка тулбара не имеет overflow — модели могут
                 вылезать вверх поверх поля ввода. */}
             <div className="flex items-center gap-1.5 border-b px-2 py-1.5" style={{ borderColor: 'var(--color-border)' }}>
-              <BuildPicker />
-              <span className="h-4 w-px shrink-0" style={{ background: 'var(--color-border)' }} />
               <ModeToggle mode={cfg.mode} onChange={m => useOpenCoreStore.getState().setMode(m)} />
               <CurrentModelPicker />
               <ContextMeter onCompact={() => void compressChat()} />
               <EffortPicker value={cfg.effort ?? 'medium'} onChange={v => useOpenCoreStore.getState().updateConfig({ effort: v })} />
               <PresetToggle preset={cfg.permissionPreset ?? 'dfa'} onChange={p => useOpenCoreStore.getState().setPermissionPreset(p)} />
               <span className="flex-1" />
-              <span className="flex shrink-0 items-center gap-1.5 pr-1 text-[10px] font-bold"
-                title={running ? 'Агент выполняет задачу' : 'Агент свободен'}
-                style={{ color: running ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
-                {running
-                  ? <><span className="h-2 w-2 animate-spin rounded-full border-[1.5px] border-current border-t-transparent" />работает</>
-                  : <><span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--color-success)' }} />готов</>}
-              </span>
+              <BuildPicker />
             </div>
             <div className="flex items-end gap-1.5 p-1.5">
               <input type="file" id="op-file" className="hidden" onChange={onFilePicked} />

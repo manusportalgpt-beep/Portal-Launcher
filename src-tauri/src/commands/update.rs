@@ -35,6 +35,8 @@ fn build_update_info_from_tag(
         },
         download_url,
         file_name: format!("Portal-Launcher-{tag}.exe"),
+        is_update_available: true,
+        current_version: CURRENT_VERSION.to_string(),
     })
 }
 
@@ -102,6 +104,15 @@ pub struct UpdateInfo {
     pub html_url: String,
     pub download_url: String,
     pub file_name: String,
+    /// Есть ли обновление для установленной версии.
+    ///
+    /// Раньше при отсутствии обновления возвращался `None`, и если сборка
+    /// оказывалась новее последнего тега, интерфейс молча показывал
+    /// «Актуальная версия» — выглядело так, будто обновлений нет. Теперь
+    /// информация о последнем релизе приходит всегда, и расхождение видно.
+    pub is_update_available: bool,
+    /// Версия, установленная у пользователя.
+    pub current_version: String,
 }
 
 /// Заголовки для GitHub API.
@@ -229,9 +240,9 @@ pub async fn check_for_update() -> Result<Option<UpdateInfo>, String> {
         return Err("GitHub не вернул номер версии релиза".into());
     }
 
-    if !is_newer(&tag, CURRENT_VERSION) {
-        return Ok(None);
-    }
+    // Не «нет обновления», а «последний релиз такой-то»: версия сборки может
+    // оказаться новее тега, и это расхождение нужно показать, а не скрыть.
+    let is_update_available = is_newer(&tag, CURRENT_VERSION);
 
     let body = data["body"].as_str().unwrap_or("").to_string();
     let published_at = data["published_at"].as_str().unwrap_or("").to_string();
@@ -266,19 +277,6 @@ pub async fn check_for_update() -> Result<Option<UpdateInfo>, String> {
         }
     };
 
-    if download_url.is_empty() {
-        // Релиз есть, но без .exe — показываем карточку без кнопки установки
-        // (ссылка на страницу релиза остаётся рабочей).
-        return Ok(Some(UpdateInfo {
-            version: tag,
-            body,
-            published_at,
-            html_url,
-            download_url: String::new(),
-            file_name: String::new(),
-        }));
-    }
-
     Ok(Some(UpdateInfo {
         version: tag,
         body,
@@ -286,6 +284,8 @@ pub async fn check_for_update() -> Result<Option<UpdateInfo>, String> {
         html_url,
         download_url,
         file_name,
+        is_update_available,
+        current_version: CURRENT_VERSION.to_string(),
     }))
 }
 

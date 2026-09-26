@@ -31,6 +31,8 @@ jobs:
           targets: x86_64-pc-windows-msvc
 
       # Delete Cargo.lock so Cargo re-solves cleanly — prevents brotli/alloc-no-stdlib conflicts
+      - name: Verify version matches release tag
+        run: node scripts/check-release-version.mjs
       - name: Remove Cargo.lock (ensure clean dep resolution)
         run: |
           if (Test-Path "src-tauri\Cargo.lock") {

@@ -22,6 +22,10 @@ export function UpdateChecker() {
       const info = await tauriUpdate.check();
       if (!info || !info.version) return;
       setLastChecked(info.version);
+      // Бэкенд возвращает последний релиз всегда, даже когда обновления нет,
+      // чтобы было видно расхождение версий. Уведомляем только о реальном
+      // обновлении, иначе всплывашка появлялась бы на актуальной сборке.
+      if (!info.is_update_available) return;
       if (isDismissed(info.version)) return;
       if (isSnoozed()) return;
       const n: UpdateNotification = {

@@ -195,6 +195,10 @@ export interface UpdateInfo {
   html_url: string;
   download_url: string;
   file_name: string;
+  /** Есть ли обновление для установленной версии. */
+  is_update_available: boolean;
+  /** Версия, установленная у пользователя. */
+  current_version: string;
 }
 export interface UpdateProgress {
   percent: number;

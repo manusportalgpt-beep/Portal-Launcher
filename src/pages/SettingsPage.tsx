@@ -1024,8 +1024,24 @@ function InterfaceModeSelector() {
   );
 }
 
-function UpdateSection() {
-  const [info, setInfo] = useState<UpdateInfo | null>(null);
+/** Сравнение версий: -1 если a < b, 0 если равны, 1 если a > b. */
+function compareVersions(a: string, b: string): number {
+  const parts = (v: string) => {
+    const digits = v.trim().replace(/^v/i, '').match(/\d+(\.\d+)*/);
+    return digits ? digits[0].split('.').map(n => Number(n)) : [];
+  };
+  const pa = parts(a);
+  const pb = parts(b);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] ?? 0;
+    const y = pb[i] ?? 0;
+    if (x > y) return 1;
+    if (x < y) return -1;
+  }
+  return 0;
+}
+
+function UpdateSection() {  const [info, setInfo] = useState<UpdateInfo | null>(null);
   const [checking, setChecking] = useState(false);
   const [status, setStatus] = useState<'idle' | 'downloading' | 'installing' | 'done'>('idle');
   const [error, setError] = useState('');
@@ -1072,7 +1088,10 @@ function UpdateSection() {
     }
   };
 
-  const upToDate = !info?.version || info.version === current;
+  // Расхождение видно явно: сборка может оказаться новее последнего тега,
+  // и раньше это молча выглядело как «обновлений нет».
+  const upToDate = info ? !info.is_update_available : true;
+  const localAhead = Boolean(info && !info.is_update_available && compareVersions(info.version, current) < 0);
 
   return (
     <div className="max-w-2xl space-y-3">
@@ -1105,6 +1124,14 @@ function UpdateSection() {
       {error && (
         <p className="rounded-lg px-3 py-2 text-xs" style={{ background: 'var(--color-surface-2)', color: 'var(--color-error)' }}>
           {error}
+        </p>
+      )}
+
+      {localAhead && (
+        <p className="rounded-lg px-3 py-2 text-xs leading-5" style={{ background: 'var(--color-surface-2)', color: 'var(--color-warning)' }}>
+          Твоя сборка ({current}) новее последнего релиза на GitHub ({info!.version}).
+          Чтобы обновления снова приходили, версия в сборке должна быть ниже тега релиза:
+          тег всегда на единицу больше, чем версия внутри exe.
         </p>
       )}
 

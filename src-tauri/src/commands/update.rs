@@ -131,7 +131,7 @@ async fn github_error_message(res: reqwest::Response) -> String {
     let api_message = detail["message"].as_str().unwrap_or("").to_string();
 
     if status.as_u16() == 403 || status.as_u16() == 429 {
-        if remaining == "0" || /rate limit|abuse/i.test(&api_message) {
+        if remaining == "0" || /rate.?limit|abuse/i.test(&api_message) {
             return "GitHub временно ограничил число запросов (лимит API исчерпан). \
                     Проверка обновлений вернётся через несколько минут — можно подождать и нажать «Проверить обновления» ещё раз."
                 .to_string();

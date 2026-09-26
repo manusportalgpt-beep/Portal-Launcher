@@ -5,7 +5,7 @@
 **Лаунчер Minecraft, в котором ИИ-агент реально работает с твоими сборками**
 
 [![CI](https://github.com/manusportalgpt-beep/Portal-Launcher/actions/workflows/main.yml/badge.svg)](https://github.com/manusportalgpt-beep/Portal-Launcher/actions/workflows/main.yml)
-[![Версия](https://img.shields.io/badge/version-1.2.0-blue)](https://github.com/manusportalgpt-beep/Portal-Launcher/releases)
+[![Версия](https://img.shields.io/badge/version-1.0.3-blue)](https://github.com/manusportalgpt-beep/Portal-Launcher/releases)
 [![Платформа](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-informational)](https://github.com/manusportalgpt-beep/Portal-Launcher/releases)
 [![Лицензия](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -107,7 +107,7 @@ Portal Launcher — не «ещё один лаунчер». Обычный ла
 
 ### 1. Откуда берётся версия
 
-Приложение знает свою версию из `src-tauri/Cargo.toml` → `version = "1.2.0"` (на момент публикации этого README).
+Приложение знает свою версию из `src-tauri/Cargo.toml` → `version = "1.0.3"` (на момент публикации этого README).
 
 Кнопка **«Проверить обновления»** в *Настройки → Обновление* вызывает команду `check_for_update`, которая делает один запрос:
 
@@ -149,12 +149,12 @@ GET https://api.github.com/repos/manusportalgpt-beep/Portal-Launcher/releases/la
 
 ### ⚠️ Как выпустить релиз, чтобы обновление нашлось
 
-1. Поднять `version` в `src-tauri/Cargo.toml` (например `1.2.0` → `1.2.1`).
+1. Поднять `version` в `src-tauri/Cargo.toml` (например `1.0.3` → `1.0.4`).
 2. Запушить изменения в `main` и дождаться зелёной галочки в Actions.
 3. Скачать инсталлер из артефактов прогона (`portal-launcher-windows-exe`) — это обычный `.exe` из `bundle/nsis`.
-4. Создать релиз на GitHub с тегом **`v1.2.1`** и приложить этот `.exe`.
+4. Создать релиз на GitHub с тегом **`v1.0.4`** и приложить этот `.exe`.
 
-> **Важно:** теги вроде `Тест`, `LAN` или `NeW` не содержат версии. Приложение их не поймёт и покажет «Актуальная версия», даже если релиз новый. Нужен тег вида `v1.2.1`.
+> **Важно:** теги вроде `Тест`, `LAN` или `NeW` не содержат версии. Приложение их не поймёт и покажет «Актуальная версия», даже если релиз новый. Нужен тег вида `v1.0.4`.
 
 Actions только собирает проект и отдаёт инсталлер артефактом — сам релиз публикуется вручную, так что номер версии в теге ты контролируешь сам.
 

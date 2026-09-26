@@ -25,6 +25,8 @@ import { LanRelayBanner, LanRelayAddressChip } from '@/components/LanRelayContro
 import { ModpackManifestPreview, type ModpackPreview } from '@/components/ModpackManifestPreview';
 import { useUiStore } from '@/stores/uiStore';
 import { PlayTimeChart } from '@/components/PlayTimeChart';
+import { Toggle } from '@/components/Toggle';
+import { ShareProgressOverlay, type ShareState, type SharePhase } from '@/components/ShareProgressOverlay';
 import modrinthWrench from '@/assets/modrinth-wrench-clean.png';
 import curseforgeAnvil from '@/assets/curseforge-anvil.png';
 
@@ -815,15 +817,10 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <label className="text-xs font-bold" style={{ color:'var(--color-text)' }}>Версия игры</label>
-                        <button type="button" role="switch" aria-checked={showSnapshots}
-                          onClick={() => setShowSnapshots(v => !v)}
-                          className="flex items-center gap-2 rounded px-2.5 py-1.5 text-[10px] font-bold transition-colors"
-                          style={{ background: 'var(--color-surface-2)', border:`1px solid ${showSnapshots ? 'var(--color-primary)' : 'var(--color-border)'}`, color: showSnapshots ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
-                          <span className="relative inline-block h-3.5 w-6 shrink-0 overflow-hidden rounded-sm align-middle"
-                            style={{ background: showSnapshots ? 'var(--color-primary)' : 'var(--color-border-strong)' }}>
-                            <span className="absolute top-0.5 h-2.5 w-2.5 rounded-sm transition-all"
-                              style={{ left: showSnapshots ? 11 : 2, background: showSnapshots ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)' }} />
-                          </span>
+                        <button type="button" onClick={() => setShowSnapshots(v => !v)}
+                          className="flex items-center gap-2 text-[10px] font-bold"
+                          style={{ color: showSnapshots ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
+                          <Toggle value={showSnapshots} onChange={setShowSnapshots} title="Показывать снимки (snapshot) версий" />
                           Snapshot-версии
                         </button>
                       </div>
@@ -1536,6 +1533,7 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
     minRam: s.minRam, maxRam: s.maxRam, javaPath: s.javaPath, customJvmArgs: s.customJvmArgs,
   }));
   const [tab, setTab] = useState<ContentTab>('content');
+  const [shareState, setShareState] = useState<ShareState>(null);
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
   const [search, setSearch] = useState('');
   /** 'all' | 'modrinth' | 'curseforge' | 'local' — source filter for mod list */
@@ -1707,8 +1705,15 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
     return () => off?.();
   }, [updatingAll]);
 
-  const launch = useCallback(async () => {
+  // forceDownload=true пропускает защиту: так работает единственная кнопка
+  // «Продолжить загрузку» — она и обязана докачать файлы перед стартом.
+  const launch = useCallback(async (forceDownload = false) => {
     if (launchStatus!=='idle') return;
+    // Незавершённая загрузка после отмены — всегда докачиваем, обойти нельзя.
+    if (inst.installStatus === 'partial' && !forceDownload) {
+      setLaunchError('Загрузка файлов сборки не завершена — дождитесь загрузки.');
+      return;
+    }
     if (inst.modLoader === 'bedrock') {
       setLaunchStatus('launching'); setLaunchError('');
       try {
@@ -1892,20 +1897,15 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
               <Square className="w-3.5 h-3.5 fill-current" />{launchStatus==='launching' ? t('instancePage.cancel') : t('instancePage.stop')}
             </button>
           ) : inst.installStatus === 'partial' ? (
-            <>
-              <button onClick={launch}
+            // После отмены загрузки выбор не предлагаем: загрузка обязательна,
+              // иначе сборка стартует с недокачанными файлами.
+              <button onClick={() => void launch(true)}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition-all"
                 style={{ background:'var(--color-primary)',color:'#fff' }}>
                 <Download className="w-3.5 h-3.5" />{t('instancePage.continueDownload')}
               </button>
-              <button onClick={() => { update(inst.id, { installStatus: 'idle' }); launch(); }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition-all"
-                style={{ background:'var(--color-surface-2)',color:'var(--color-text)',border:'1px solid var(--color-border)' }}>
-                <Play className="w-3.5 h-3.5 fill-current" />{t('instancePage.startAnyway')}
-              </button>
-            </>
-          ) : (
-            <button onClick={launch}
+            ) : (
+            <button onClick={() => void launch()}
               className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-bold hover:opacity-90 transition-all"
               style={{ background:'var(--color-primary)',color:'#fff' }}>
               <Play className="w-3.5 h-3.5 fill-current" />{t('instancePage.play')}
@@ -1986,40 +1986,37 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
                   <button
                     onClick={async () => {
                       setHeaderMenu(false);
-                      let shareProgressUnsub: (() => void) | undefined;
+                      let unsub: (() => void) | undefined;
+                      setShareState({ open: true, phase: 'scan', current: 0, total: 0, message: '', url: '' });
                       try {
-                        const progressEl = document.createElement('div');
-                        progressEl.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-4 py-3 rounded-xl text-xs font-semibold shadow-lg';
-                        progressEl.style.cssText = 'background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-border)';
-                        progressEl.textContent = t('instancePage.shareInProgress');
-                        document.body.appendChild(progressEl);
-
-                        shareProgressUnsub = (await listen('share-progress', (e: any) => {
-                          const p = e.payload;
-                          if (p.phase === 'done') {
-                            progressEl.textContent = t('instancePage.shareComplete');
-                          } else if (p.phase === 'error') {
-                            progressEl.textContent = String(p.message || t('instancePage.shareFailed', { error: '' }));
-                          } else {
-                            const phase = p.phase === 'hash' ? 'Хеширование' : p.phase === 'upload' ? 'Загрузка' : p.phase === 'scan' ? 'Сканирование' : p.phase;
-                            progressEl.textContent = p.total ? `${phase} (${p.current}/${p.total})` : `${phase}…`;
+                        unsub = await listen('share-progress', (e: any) => {
+                          const p = e.payload ?? {};
+                          const phase = (p.phase ?? 'scan') as SharePhase;
+                          setShareState(prev => prev && ({
+                            ...prev,
+                            phase,
+                            current: Number(p.current ?? 0),
+                            total: Number(p.total ?? 0),
+                            message: String(p.message ?? ''),
+                            url: String(p.url ?? ''),
+                          }));
+                          if (phase === 'done' && p.url) {
+                            void navigator.clipboard.writeText(String(p.url)).catch(() => {});
                           }
-                        })) as any;
+                        }) as any;
 
-                        const result = await invoke<any>('share_instance', { id: inst.id });
+                        const result = await invoke<any>('share_instance', { id: inst.id, authorName: null });
                         if (result?.ok && result.url) {
-                          await navigator.clipboard.writeText(result.url).catch(() => {});
-                          progressEl.textContent = `${t('instancePage.shareComplete')} ${result.url}`;
-                          setTimeout(() => progressEl.remove(), 8000);
+                          setShareState({ open: true, phase: 'done', current: 1, total: 1, message: '', url: String(result.url) });
+                          void navigator.clipboard.writeText(String(result.url)).catch(() => {});
                         } else {
-                          throw new Error(result?.error || 'Unknown error');
+                          throw new Error(result?.error || t('common.error'));
                         }
                       } catch (e) {
-                        const el = document.querySelector('.fixed.bottom-6.left-1\/2');
-                        if (el) el.remove();
+                        setShareState(prev => prev && ({ ...prev, phase: 'error', message: String(e) }));
                         dialog.alert(t('instancePage.shareFailed', { error: String(e) }), { title: t('common.error'), danger: true });
                       } finally {
-                        if (shareProgressUnsub) shareProgressUnsub();
+                        if (unsub) unsub();
                       }
                     }}
                     className="flex items-center gap-2 px-3 py-2 w-full text-xs text-left hover:bg-white/5"
@@ -2260,6 +2257,8 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
           <GameLogsModal instanceId={inst.id} onClose={() => setShowLogs(false)} />
         )}
       </AnimatePresence>
+
+      <ShareProgressOverlay state={shareState} onClose={() => setShareState(null)} />
     </div>
   );
 }

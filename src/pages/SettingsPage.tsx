@@ -24,6 +24,7 @@ import { readThemeFile } from '@/lib/ui-engine';
 import { removeBackgroundMedia, saveBackgroundMedia } from '@/lib/background-media';
 import { openBrowserWindow } from '@/lib/browser';
 import { tauriUpdate, type UpdateInfo } from '@/lib/tauri-bridge';
+import { Toggle } from '@/components/Toggle';
 import { useLanguageStore, type Lang } from '@/stores/languageStore';
 import { getAvatarUrl, getAvatarFallbackUrl } from '@/lib/avatar';
 import { CachedPlayerFace } from '@/components/CachedPlayerFace';
@@ -70,17 +71,6 @@ const FONT_OPTIONS = [
   { id:'jetbrains-mono', name:'JetBrains Mono',preview:'&gt;_', family:"'JetBrains Mono', monospace" },
   { id:'pixel',          name:'Press Start 2P',preview:'8B', family:"'Press Start 2P', monospace" },
 ] as const;
-
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button onClick={() => onChange(!value)} role="switch" aria-checked={value}
-      className="relative transition-colors shrink-0"
-      style={{ width:38, height:20, borderRadius:2, background:value?'var(--color-primary)':'var(--color-surface-2)', border:`1px solid ${value?'var(--color-primary)':'var(--color-border)'}` }}>
-      <span className="absolute transition-[left]"
-        style={{ width:12, height:12, borderRadius:1, background:'var(--color-text)', top:'50%', transform:'translateY(-50%)', left:value?22:3, boxShadow:'none' }} />
-    </button>
-  );
-}
 
 function Row({ label, desc, children }: { label: string; desc?: string; children: React.ReactNode }) {
   return (

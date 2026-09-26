@@ -622,8 +622,52 @@ function SummaryBlock({ content }: { content: string }) {
 }
 
 /** Список изменённых файлов: «имя-файла +12 −3», разворачивается в diff. */
+/** Открывает файл из песочницы агента: HTML — в браузере, остальное — в приложении по умолчанию. */
+async function openSandboxFile(root: string, path: string): Promise<void> {
+  await invoke('op_open_sandbox_file', { root, path, reveal: false });
+}
+
+/** Человеческий вес файла: 976 Б, 12,4 КБ, 3,1 МБ. */
+function fileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '';
+  if (bytes < 1024) return `${bytes} Б`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1).replace('.', ',')} КБ`;
+  return `${(bytes / 1048576).toFixed(1).replace('.', ',')} МБ`;
+}
+
+/** Имя файла из пути + вес строк. Пользователю путь не нужен, он видит только имя. */
+function changeTitle(change: FileChange): { name: string; size: string } {
+  const parts = change.path.replace(/\\/g, '/').split('/').filter(Boolean);
+  const name = parts[parts.length - 1] ?? change.path;
+  const chars = change.lines.reduce((sum, l) => sum + l.text.length, 0);
+  return { name, size: fileSize(chars) };
+}
+
 function FileChanges({ changes }: { changes: FileChange[] }) {
   const [openPath, setOpenPath] = useState<string | null>(null);
+  const [saved, setSaved] = useState<Record<string, boolean>>({});
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<Record<string, string>>({});
+
+  const download = async (change: FileChange, key: string) => {
+    if (busy) return;
+    setBusy(key);
+    setErr(prev => ({ ...prev, [key]: '' }));
+    try {
+      // Копируем прямо из песочницы агента в «Загрузки» и открываем проводник.
+      await invoke('op_copy_to_downloads', {
+        root: change.root,
+        path: change.path,
+        name: null,
+      });
+      setSaved(prev => ({ ...prev, [key]: true }));
+    } catch (e) {
+      setErr(prev => ({ ...prev, [key]: String(e) }));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <div className="mb-2 overflow-hidden rounded-lg" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
       <div className="flex items-center gap-1.5 px-2.5 py-1.5">
@@ -635,16 +679,39 @@ function FileChanges({ changes }: { changes: FileChange[] }) {
         {changes.map(change => {
           const key = `${change.root}/${change.path}`;
           const isOpen = openPath === key;
+          const { name, size } = changeTitle(change);
           return (
             <div key={key} className="border-b last:border-b-0" style={{ borderColor: 'var(--color-border)' }}>
-              <button onClick={() => setOpenPath(isOpen ? null : key)}
-                className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--color-surface)]">
-                <ChevronRight size={11} className={`shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} style={{ color: 'var(--color-text-tertiary)' }} />
-                <span className="min-w-0 flex-1 truncate font-mono text-[11px]" style={{ color: 'var(--color-text)' }} title={key}>{change.path}</span>
+              <div className="flex items-center gap-2 px-2.5 py-1.5">
+                <button onClick={() => setOpenPath(isOpen ? null : key)}
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left transition-colors hover:text-[var(--color-primary)]">
+                  <ChevronRight size={11} className={`shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} style={{ color: 'var(--color-text-tertiary)' }} />
+                  <span className="min-w-0 flex-1 truncate text-[11px] font-semibold" style={{ color: 'var(--color-text)' }}>
+                    {name}
+                    {size && <span className="ml-1.5 font-normal" style={{ color: 'var(--color-text-tertiary)' }}>{size}</span>}
+                  </span>
+                </button>
                 {change.created && <span className="shrink-0 rounded px-1 text-[9px] font-bold" style={{ background: 'var(--color-surface)', color: 'var(--color-success)' }}>новый</span>}
                 <span className="shrink-0 font-mono text-[10px] font-bold" style={{ color: 'var(--color-success)' }}>+{change.added}</span>
                 <span className="shrink-0 font-mono text-[10px] font-bold" style={{ color: 'var(--color-error)' }}>−{change.removed}</span>
-              </button>
+                <button onClick={() => void download(change, key)} disabled={busy === key} title="Скопировать в «Загрузки» и открыть проводник"
+                  className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[10px] font-bold disabled:opacity-50"
+                  style={{
+                    background: saved[key] ? 'var(--color-surface)' : 'var(--color-primary)',
+                    color: saved[key] ? 'var(--color-success)' : 'var(--color-primary-text)',
+                    border: saved[key] ? '1px solid var(--color-border)' : 'none',
+                  }}>
+                  {saved[key]
+                    ? <><Check size={11} /> Скачано</>
+                    : <><Download size={11} />{busy === key ? '…' : 'Скачать'}</>}
+                </button>
+                <button onClick={() => void openSandboxFile(change.root, change.path)} title="Открыть файл (HTML — в браузере)"
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded"
+                  style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+                  <ExternalLink size={11} />
+                </button>
+              </div>
+              {err[key] && <p className="px-2.5 pb-1 text-[10px]" style={{ color: 'var(--color-error)' }}>{err[key]}</p>}
               {isOpen && (
                 <div className="max-h-72 overflow-auto border-t px-2 py-1.5" style={{ borderColor: 'var(--color-border)' }}>
                   {change.lines.length === 0 && <p className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>Нет строк для показа.</p>}

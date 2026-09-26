@@ -402,6 +402,7 @@ fn main() {
             commands::opencode::op_image_read,
             commands::opencode::op_save_to_downloads,
             commands::opencode::op_copy_to_downloads,
+            commands::opencode::op_open_sandbox_file,
             commands::opencode::op_image_inspect,
             commands::opencode::op_hexdump,
             commands::opencode::op_archive_list,

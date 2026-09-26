@@ -68,6 +68,154 @@ export function normalizeToolArguments(raw: string): string {
   }
 }
 
+/**
+ * Приводит аргументы инструмента к ожидаемым именам.
+ *
+ * Модели регулярно называют параметр `file_path` вместо `path` или
+ * `text` вместо `content`. Раньше это доходило до Tauri как есть, и
+ * пользователь видел сырое «command op_write_text missing required key
+ * path» — одинаковую ошибку при любой работе с файлами. Здесь имена
+ * приводятся к нужным, а недостающие проверяются с понятным текстом.
+ */
+const ARG_ALIASES: Record<string, string[]> = {
+  path: ['file_path', 'filepath', 'filePath', 'file', 'file_name', 'fileName', 'filename', 'name', 'target', 'destination'],
+  content: ['text', 'body', 'data', 'contents', 'new_content', 'newContent'],
+  root: ['dir', 'directory', 'zone', 'area', 'scope'],
+  query: ['q', 'search', 'term', 'text_query'],
+  find: ['search', 'old', 'old_text', 'oldText', 'needle', 'pattern'],
+  replace: ['new', 'new_text', 'newText', 'replacement', 'with'],
+  find_all: ['all', 'replaceAll', 'replace_all', 'global'],
+  limit: ['count', 'max', 'max_results', 'maxResults', 'top'],
+  url: ['link', 'href', 'address'],
+  instance_id: ['instanceId', 'instance', 'build_id', 'buildId', 'id'],
+  max_chars: ['maxChars', 'chars', 'limit_chars'],
+  folder: ['dir_name', 'dirName', 'subdir', 'category'],
+  file_name: ['fileName', 'filename', 'file'],
+};
+
+function coerceBool(v: unknown): boolean {
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'number') return v !== 0;
+  const s = String(v ?? '').toLowerCase();
+  return s === 'true' || s === 'yes' || s === '1' || s === 'on';
+}
+
+/** Значение похоже на путь к файлу (есть расширение или слэш). */
+function looksLikePath(v: unknown): boolean {
+  if (typeof v !== 'string' || !v.trim()) return false;
+  return /[\\/]|\\.[a-z0-9]{1,6}$/i.test(v.trim());
+}
+
+/** Ищет значение по списку синонимов среди уже разобранных аргументов. */
+function pickAlias(args: any, aliases: string[]): unknown {
+  for (const key of aliases) {
+    const v = args[key];
+    if (v !== undefined && v !== null && v !== '') return v;
+  }
+  return undefined;
+}
+
+/**
+ * Убирает задвоенное имя файла: модель часто пишет
+ * `Projects/2048/2048.html/2048.html`, потому что уже указала папку с
+ * файлом и добавила имя ещё раз. Если последний сегмент существует как
+ * папка и содержит точку — значит имя приклеилось к пути дважды.
+ */
+function dedupeTrailingFileName(path: string): string {
+  const norm = path.replace(/\\/g, '/');
+  const parts = norm.split('/').filter(Boolean);
+  for (let i = parts.length - 1; i > 0; i--) {
+    const seg = parts[i];
+    if (!seg.includes('.')) continue;
+    if (parts.slice(0, i).join('/') && looksLikeDir(parts.slice(0, i + 1).join('/'))) {
+      return parts.slice(0, i).join('/');
+    }
+  }
+  return path;
+}
+
+function looksLikeDir(relPath: string): boolean {
+  // Проверка без Rust: опираемся на то, что агент работал с этими папками,
+  // и на типичное имя каталога проекта. Точность не критична — при
+  // несовпадении путь просто останется как есть.
+  return !/\.[a-z0-9]{1,6}$/i.test(relPath.split('/').pop() ?? '');
+}
+
+/** Проверяет, что путь не упирается в существующий файл как в папку. */
+function parentLooksLikeFile(path: string): boolean {
+  const parts = path.replace(/\\/g, '/').split('/').filter(Boolean);
+  // Все сегменты до последнего должны быть папками: если где-то попалось
+  // расширение, это точно не папка.
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (/\.[a-z0-9]{1,6}$/i.test(parts[i])) return true;
+  }
+  return false;
+}
+
+export function normalizeToolArgs(tool: string, raw: any): { args: any; error?: string } {
+  const args: any = { ...(raw ?? {}) };
+  if (typeof args !== 'object' || args === null) return { args: {} };
+
+  // 1) Переименование по синонимам.
+  for (const [canonical, aliases] of Object.entries(ARG_ALIASES)) {
+    if (args[canonical] === undefined) {
+      const v = pickAlias(args, aliases);
+      if (v !== undefined) args[canonical] = v;
+    }
+  }
+  // 2) Типовые приведения: модель часто пишет "true"/1 вместо булева.
+  for (const key of ['find_all', 'recursive', 'write', 'overwrite', 'silent']) {
+    if (args[key] !== undefined) args[key] = coerceBool(args[key]);
+  }
+  // 3) content иногда приходит массивом строк — склеиваем.
+  if (Array.isArray(args.content)) args.content = args.content.join('\n');
+  if (args.root !== undefined) args.root = String(args.root).toLowerCase();
+  // 4) Правка задвоенного имени файла и защита от «файл как папка».
+  if (typeof args.path === 'string' && args.path.trim()) {
+    args.path = dedupeTrailingFileName(args.path.trim());
+    if (parentLooksLikeFile(args.path)) {
+      return {
+        args,
+        error: `Неверный путь: «${args.path}». Похоже, в путь попало имя файла, хотя это папка. `
+          + 'Укажи путь к файлу целиком, например Projects/2048/index.html.',
+      };
+    }
+  }
+
+  // 5) Проверка обязательных аргументов с понятным текстом вместо сырой
+  //    ошибки Tauri «missing required key».
+  const required: Record<string, string[]> = {
+    write_text: ['path', 'content'],
+    edit_file: ['path', 'find', 'replace'],
+    read_text: ['path'],
+    list_dir: ['path'],
+    search_code: ['query'],
+    op_read_text: ['path'],
+    op_write_text: ['path', 'content'],
+    op_list_dir: ['path'],
+    op_search_code: ['query'],
+    web_search: ['query'],
+    fetch_page: ['url'],
+    download_file: ['url'],
+    hexdump: ['path'],
+    inspect_image: ['path'],
+    decompile_jar: ['path'],
+    archive_list: ['path'],
+    archive_extract: ['path'],
+    launcher_install_mod: ['instance_id', 'download_url', 'file_name'],
+    launcher_read_file: ['instance_id', 'path'],
+    launcher_write_file: ['instance_id', 'path', 'content'],
+    launcher_remove_content: ['instance_id', 'folder', 'file_name'],
+    mod_search: ['query'],
+  };
+  for (const key of required[tool] ?? []) {
+    if (args[key] === undefined || args[key] === '') {
+      return { args, error: `Инструмент ${tool}: не хватает обязательного аргумента «${key}».` };
+    }
+  }
+  return { args };
+}
+
 /** Безопасный разбор JSON в объект (при ошибке — {}). */
 export function safeJsonParseObject(raw: string): any {
   try {
@@ -2952,7 +3100,12 @@ export async function executeTool(
   signal?: AbortSignal,
   policy?: ToolPolicy,
 ): Promise<ExecResult> {
-  let args: any = safeJsonParseObject(normalizeToolArguments(argsRaw));
+  const parsed = safeJsonParseObject(normalizeToolArguments(argsRaw));
+  // Имена аргументов приводятся к ожидаемым, иначе модель, назвав параметр
+  // file_path, получала сырую ошибку Tauri вместо внятного объяснения.
+  const normalized = normalizeToolArgs(tool, parsed);
+  let args: any = normalized.args;
+  if (normalized.error) return { ok: false, output: normalized.error };
 
   // Выбранная сборка в тулбаре. Раньше агент должен был сам передавать
   // mc_version/loader в mod_search и часто этого не делал — поиск уходил без

@@ -1,5 +1,6 @@
-import { memo, useEffect, useState, type ReactNode } from 'react';
+import { memo, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { invoke } from '@/lib/invoke-shim';
+import { normalizeLang, tokenizeLine, type TokenKind } from '@/lib/opencore/highlight';
 
 /** Кеш data-URL изображений, чтобы не перечитывать файл на каждый рендер. */
 const imageCache = new Map<string, Promise<string> | string>();
@@ -250,20 +251,40 @@ function CodeCopy({ text }: { text: string }) {
   );
 }
 
+/** Цвета токенов. Заданы здесь, чтобы тема лаунчера управляла и кодом. */
+const TOKEN_COLOR: Record<TokenKind, string> = {
+  plain: 'var(--color-text)',
+  comment: 'var(--color-text-tertiary)',
+  string: '#a5d6a7',
+  number: '#ffcc80',
+  keyword: '#82aaff',
+  type: '#ffcb6b',
+  function: '#89ddff',
+  builtin: '#c792ea',
+  tag: '#f07178',
+  attr: '#ffcb6b',
+};
+
 function CodeBlock({ code, lang }: { code: string; lang: string }) {
+  const dialect = normalizeLang(lang);
+  const lines = useMemo(() => code.split('\n'), [code]);
   return (
     <div className="my-2 overflow-hidden rounded-lg text-left"
       style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(127,127,127,0.2)' }}>
       <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5"
         style={{ borderColor: 'rgba(127,127,127,0.2)' }}>
         <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
-          {lang || 'text'}
+          {dialect || 'text'}
         </span>
         <CodeCopy text={code} />
       </div>
       <pre className="overflow-x-auto p-3 text-[12px] leading-5 font-mono" style={{ color: 'var(--color-text)' }}>
-        {code.split('\n').map((ln, i) => (
-          <span key={i} className="block">{tokenizeInline(ln)}</span>
+        {lines.map((ln, i) => (
+          <span key={i} className="block">
+            {tokenizeLine(ln, dialect).map((t, j) => (
+              <span key={j} style={{ color: TOKEN_COLOR[t.kind] }}>{t.text}</span>
+            ))}
+          </span>
         ))}
       </pre>
     </div>

@@ -901,6 +901,61 @@ pub fn op_save_to_downloads(file_name: String, b64: String) -> Result<String, St
     Ok(dest.to_string_lossy().to_string())
 }
 
+/// Открывает файл из песочницы агента в системном приложении по умолчанию.
+///
+/// HTML, PNG, JPEG, GIF, WebP, PDF открываются браузером или просмотрщиком,
+/// остальное — приложением, которое назначено в системе. `reveal` открывает
+/// проводник с выделенным файлом — это нужно после копирования в «Загрузки».
+#[tauri::command]
+pub fn op_open_sandbox_file(root: String, path: String, reveal: Option<bool>) -> Result<String, String> {
+    let r = root_from_name(&root)?;
+    let p = Path::new(&path);
+    let file = enforce_root(r, p, false)?;
+    if !file.is_file() {
+        return Err(format!("Не найден файл: {}", file.to_string_lossy()));
+    }
+    if reveal.unwrap_or(false) {
+        open_in_explorer(&file)?;
+        return Ok(file.to_string_lossy().to_string());
+    }
+    let ext = file
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    // HTML открываем браузером по умолчанию, остальное — приложением,
+    // назначенным в системе. В Windows `explorer` умеет и то, и другое,
+    // поэтому отдельные ветки для картинок и PDF не нужны.
+    let result = if cfg!(target_os = "windows") {
+        std::process::Command::new("explorer").arg(&file).spawn()
+    } else if ext == "html" || ext == "htm" {
+        std::process::Command::new("xdg-open").arg(&file).spawn()
+    } else {
+        std::process::Command::new("open").arg(&file).spawn()
+    };
+    result.map_err(|e| format!("Не удалось открыть файл: {e}"))?;
+    Ok(file.to_string_lossy().to_string())
+}
+
+/// Показывает файл в проводнике: выделяет его, а папку открывает сразу.
+#[cfg(target_os = "windows")]
+fn open_in_explorer(file: &Path) -> Result<(), std::io::Error> {
+    // /select, обязательно с запятой, иначе показывается сама папка.
+    std::process::Command::new("explorer")
+        .arg(format!("/select,{}", file.to_string_lossy()))
+        .spawn()
+        .map(|_| ())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn open_in_explorer(file: &Path) -> Result<(), std::io::Error> {
+    // На других системах проводника с выделением нет — открываем папку.
+    if let Some(parent) = file.parent() {
+        return std::process::Command::new("xdg-open").arg(parent).spawn().map(|_| ());
+    }
+    std::process::Command::new("xdg-open").arg(file).spawn().map(|_| ())
+}
+
 fn downloads_dir() -> Option<PathBuf> {
     for env_name in ["USERPROFILE", "HOME"] {
         if let Some(p) = std::env::var_os(env_name) {

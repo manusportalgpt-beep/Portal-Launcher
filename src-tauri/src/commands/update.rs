@@ -121,11 +121,14 @@ fn github_headers() -> (String, String, String) {
 /// Ответ принимается по значению: `Response::text()` забирает сам объект.
 async fn github_error_message(res: reqwest::Response) -> String {
     let status = res.status();
+    // String, а не &str: ниже res забирается целиком через text(),
+    // и ссылка на заголовки перестала бы быть валидной.
     let remaining = res
         .headers()
         .get("x-ratelimit-remaining")
         .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
+        .unwrap_or("")
+        .to_string();
     let body = res.text().await.unwrap_or_default();
     let detail: serde_json::Value = serde_json::from_str(&body).unwrap_or(serde_json::Value::Null);
     let api_message = detail["message"].as_str().unwrap_or("").to_string();

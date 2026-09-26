@@ -217,6 +217,114 @@ function ToolMsg({ name, content, error, cards, changes, onInstalled }: { name: 
   );
 }
 
+/**
+ * Несколько действий агента одним блоком.
+ *
+ * Раньше каждый вызов инструмента становился отдельным сообщением, и на
+ * установку десяти модов лента превращалась в простыню из «ок». Теперь
+ * подряд идущие вызовы склеиваются в один блок: галочка, если всё прошло,
+ * крестик — если была ошибка, а все изменения файлов собраны вместе.
+ */
+type MessageRow =
+  | { kind: 'single'; key: string; messages: [ChatMessage] }
+  | { kind: 'group'; key: string; items: ChatMessage[] };
+
+/**
+ * Склеивает подряд идущие вызовы инструментов в один блок, чтобы лента не
+ * превращалась в список «ок» после каждого шага. Сами сообщения в массиве
+ * остаются нетронутыми: протокол требует отдельный ответ на каждый
+ * tool_call_id, группировка существует только для отображения.
+ */
+function groupedMessages(messages: ChatMessage[]): MessageRow[] {
+  const rows: MessageRow[] = [];
+  for (const m of messages) {
+    const prev = rows[rows.length - 1];
+    if (m.role === 'tool' && prev?.kind === 'group') {
+      prev.items.push(m);
+      continue;
+    }
+    if (m.role === 'tool') {
+      rows.push({ kind: 'group', key: `g-${m.id}`, items: [m] });
+      continue;
+    }
+    rows.push({ kind: 'single', key: m.id, messages: [m] });
+  }
+  return rows;
+}
+
+function ToolGroup({ items, onInstalled }: { items: ChatMessage[]; onInstalled?: (text: string) => void }) {
+  const [open, setOpen] = useState(false);
+  // Пока агент выполняет вызов, у сообщения-заглушки текст «… выполняется …».
+  const pending = items.some(m => m.content === '… выполняется …');
+  const hasError = items.some(m => m.error);
+  const cards = items.flatMap(m => (m.error ? [] : (m.cards ?? [])));
+  const changes = items.flatMap(m => m.changes ?? []);
+  const totalChanges = changes.length;
+  const one = items.length === 1;
+
+  return (
+    <div className="ore-plain mb-2 overflow-hidden rounded-lg border"
+      style={{ borderColor: hasError ? 'var(--color-error)' : 'var(--color-border)', background: 'var(--color-surface-2)' }}>
+      <button onClick={() => setOpen(o => !o)}
+        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-semibold"
+        style={{ color: hasError ? 'var(--color-error)' : 'var(--color-text-secondary)' }}>
+        <ChevronRight size={11} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
+        {hasError
+          ? <X size={12} style={{ color: 'var(--color-error)' }} />
+          : <Check size={12} style={{ color: 'var(--color-success)' }} />}
+        <span className="truncate">
+          {one ? (items[0]?.toolName ?? 'действие') : `Выполнено действий: ${items.length}`}
+        </span>
+        {totalChanges > 0 && (
+          <span className="rounded px-1 text-[9px] font-bold"
+            style={{ background: 'var(--color-surface)', color: 'var(--color-text-tertiary)' }}>
+            {totalChanges} {totalChanges === 1 ? 'файл' : 'файлов'}
+          </span>
+        )}
+        {cards.length > 0 && (
+          <span className="rounded px-1 text-[9px] font-bold"
+            style={{ background: 'var(--color-surface)', color: 'var(--color-text-tertiary)' }}>{cards.length}</span>
+        )}
+        <span className="ml-auto shrink-0 font-normal" style={{ color: 'var(--color-text-tertiary)' }}>
+          {pending ? 'выполняется…' : hasError ? 'с ошибкой' : 'готово'}
+        </span>
+      </button>
+
+      {changes.length > 0 && <FileChanges changes={changes} />}
+
+      {cards.length > 0 && (
+        <div className="grid gap-1.5 border-t p-1.5" style={{ borderColor: 'var(--color-border)' }}>
+          {cards.map((c, i) => <ModResultCard key={c.projectId + c.versionNumber + i} card={c} onInstalled={onInstalled} />)}
+        </div>
+      )}
+
+      <AnimatePresence>
+      {open && (
+        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+          className="max-h-72 overflow-y-auto border-t" style={{ borderColor: 'var(--color-border)' }}>
+          {items.map(m => {
+            const imgMatch = m.toolName === 'generate_image'
+              ? /\/op-image\/([A-Za-z0-9-]+\.(?:png|jpg|jpeg|webp|gif|avif|heic))/i.exec(m.content) : null;
+            return (
+              <div key={m.id} className="border-b px-2.5 py-1.5 last:border-b-0" style={{ borderColor: 'var(--color-border)' }}>
+                <div className="flex items-center gap-1.5 text-[10px] font-bold"
+                  style={{ color: m.error ? 'var(--color-error)' : 'var(--color-text-secondary)' }}>
+                  {m.error ? <X size={10} /> : <Check size={10} style={{ color: 'var(--color-success)' }} />}
+                  {m.toolName}
+                </div>
+                {imgMatch && !m.error && <div className="pt-1.5"><PortalImage name={imgMatch[1]} /></div>}
+                <pre className="mt-1 whitespace-pre-wrap font-mono text-[10px] leading-4"
+                  style={{ color: 'var(--color-text-secondary)' }}>{m.content}</pre>
+              </div>
+            );
+          })}
+        </motion.div>
+      )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 const MOD_TYPE_META: Record<string, { label: string; path: string }> = {
   mod: { label: 'Мод', path: 'mod' },
   resourcepack: { label: 'Ресурс-пак', path: 'resourcepack' },
@@ -1604,9 +1712,11 @@ export function OpenPortalPage() {
             </div>
           ) : (
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-              {messages.map(m => (
-                <ChatBubble key={m.id} m={m} streaming={running && m.id === lastAssistantId}
-                  onContinue={m.id === lastAssistantId && !running
+              {groupedMessages(messages).map(row => row.kind === 'group' ? (
+                <ToolGroup key={row.key} items={row.items} onInstalled={text => void send(text)} />
+              ) : (
+                <ChatBubble key={row.messages[0].id} m={row.messages[0]} streaming={running && row.messages[0].id === lastAssistantId}
+                  onContinue={row.messages[0].id === lastAssistantId && !running
                     ? () => void send('Продолжи ровно с того места, где ты остановился. Не повторяй уже написанное и не начинай заново — просто продолжи.')
                     : undefined}
                   onInstalled={text => void send(text)} />

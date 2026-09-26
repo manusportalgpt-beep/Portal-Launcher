@@ -3374,9 +3374,8 @@ export async function callProvider(
     } catch (e: unknown) {
       if (signal?.aborted) throw e;
       lastError = e;
-      // Провайдер детерминированно отверг запрос (например HTTP 400 на любом
-      // варианте набора инструментов). Пять одинаковых попыток только тянут
-      // время и повторяют одну и ту же ошибку — сразу показываем её.
+      // Пять одинаковых попыток только тянут время и повторяют одну и ту же
+      // ошибку — сразу показываем её.
       if (e instanceof ProviderRequestRejected) throw e;
       if (attempt < PROVIDER_MAX_ATTEMPTS - 1) {
         await sleep(400 + attempt * 500 + Math.random() * 300);
@@ -4314,7 +4313,7 @@ export interface RunTurnOptions {
 }
 
 export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]> {
-  const { ep, systemPrompt, requestPermission, signal, maxIterations = 40 } = opts;
+  const { ep, systemPrompt, requestPermission, signal, maxIterations = 60 } = opts;
   let messages: ChatMessage[] = opts.input;
   let didCompact = false;
 
@@ -4335,6 +4334,10 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
       push(m);
     }
   };
+
+  // Один авто-ответ на отказ провайдера: сжали историю и продолжили. Второй раз
+  // уже не жмём, иначе задача уйдёт в бесконечный цикл сжатий.
+  let autoCompressed = false;
 
   for (let iter = 0; iter < maxIterations; iter++) {
     if (signal?.aborted) throw new Error('Отменено пользователем.');
@@ -4393,6 +4396,28 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
           timestamp: Date.now(),
         });
         continue;
+      }
+      // Провайдер отверг запрос целиком (обычно HTTP 400 из-за объёма
+      // переписки). Вместо просьбы жать /compress агент сам сжимает историю
+      // и продолжает задачу: суть работы не теряется.
+      if (e instanceof ProviderRequestRejected && !autoCompressed) {
+        const withoutStubNow = messages.filter(m => m.id !== assistantId);
+        const trimmed = compressHistory(withoutStubNow, 24);
+        if (trimmed.length < withoutStubNow.length) {
+          autoCompressed = true;
+          messages = trimmed;
+          opts.onReplace?.(messages);
+          push({
+            id: `autocompact-${Date.now()}-${iter}`,
+            role: 'assistant',
+            content: 'Провайдер отклонил запрос из-за объёма переписки — сжимаю историю и продолжаю задачу сам. '
+              + 'Ключевые итоги и последние сообщения сохранены, можно просто подождать.',
+            timestamp: Date.now(),
+          });
+          // Набор инструментов мог быть причиной отказа — проверяем заново.
+          resetToolModeCache();
+          continue;
+        }
       }
       const errMsg = e instanceof Error ? e.message : String(e);
       const permanent = e instanceof ProviderRequestRejected;

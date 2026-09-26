@@ -131,7 +131,11 @@ async fn github_error_message(res: reqwest::Response) -> String {
     let api_message = detail["message"].as_str().unwrap_or("").to_string();
 
     if status.as_u16() == 403 || status.as_u16() == 429 {
-        if remaining == "0" || /rate.?limit|abuse/i.test(&api_message) {
+        // Лимит API: либо счётчик исчерпан, либо в тексте ошибки GitHub прямо
+        // об этом написано. Сравниваем строкой — литерал регулярного выражения
+        // в этом месте ломал разбор.
+        let lowered = api_message.to_lowercase();
+        if remaining == "0" || lowered.contains("rate limit") || lowered.contains("abuse") {
             return "GitHub временно ограничил число запросов (лимит API исчерпан). \
                     Проверка обновлений вернётся через несколько минут — можно подождать и нажать «Проверить обновления» ещё раз."
                 .to_string();

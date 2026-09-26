@@ -125,6 +125,74 @@ function reducedToolSet(tools: any[]): any[] {
   return kept.length > 0 ? kept : [];
 }
 
+/** Ошибка, которую бессмысленно повторять: провайдер детерминированно отверг запрос. */
+export class ProviderRequestRejected extends Error {
+  /** Повтор с тем же телом снова даст 400 — цикл попыток обязан остановиться. */
+  readonly permanent = true;
+  constructor(message: string, readonly providerBody = '') {
+    super(message);
+    this.name = 'ProviderRequestRejected';
+  }
+}
+
+/** Насколько набор инструментов прижился у конкретной модели. */
+type ToolMode = 'full' | 'reduced' | 'none';
+
+// OpenCode Zen и часть провайдеров отвечают HTTP 400 на большой набор
+// инструментов. Раньше каждый запрос заново натыкался на 400, откатывался и
+// снова падал — пользователь видел одну и ту же ошибку. Запоминаем рабочий
+// режим, и следующие запросы уходят сразу с ним, без неудачных попыток.
+const toolModeCache = new Map<string, ToolMode>();
+/** Счётчик запросов без инструментов — по нему periodically перепроверяем tools. */
+const noToolCalls = new Map<string, number>();
+const REPROBE_EVERY = 8;
+
+function toolModeKey(providerId: string, modelId: string): string {
+  return `${providerId}::${modelId}`;
+}
+
+export function resetToolModeCache(): void {
+  toolModeCache.clear();
+  noToolCalls.clear();
+}
+
+/**
+ * С какой ступени начинать. Если модель уже отвергала tools, сразу идём без них
+ * (иначе каждое сообщение начиналось бы с заведомо провального запроса), но
+ * раз в REPROBE_EVERY сообщений пробуем tools снова — вдруг провайдер починили.
+ */
+function startToolMode(key: string, requestTools: any[]): ToolMode {
+  const cached = toolModeCache.get(key);
+  if (cached !== 'none') return cached ?? 'full';
+  const n = (noToolCalls.get(key) ?? 0) + 1;
+  noToolCalls.set(key, n);
+  return n % REPROBE_EVERY === 0 ? 'full' : 'none';
+}
+
+function rememberToolMode(key: string, step: number, ladderLen: number): void {
+  // Одноступенчатая лестница — это старт с 'none': успех на ней не значит,
+  // что tools снова заработали, иначе режим скакал бы на 'full' каждый раз.
+  if (ladderLen > 1 && step === 0) { toolModeCache.set(key, 'full'); noToolCalls.set(key, 0); return; }
+  if (step === ladderLen - 1) toolModeCache.set(key, 'none');
+  else toolModeCache.set(key, 'reduced');
+}
+
+/**
+ * Ступени отката набора инструментов: полный → урезанный → совсем без tools.
+ * Пустой последний шаг обязателен: некоторые модели не принимают поле tools
+ * вообще, и раньше такой запрос падал без последней попытки.
+ */
+function toolLadder(requestTools: any[], start: ToolMode): any[][] {
+  const reduced = reducedToolSet(requestTools);
+  const steps: any[][] = [];
+  if (start === 'full') steps.push(requestTools);
+  if (start === 'full' || start === 'reduced') {
+    if (reduced.length > 0 && reduced.length < requestTools.length) steps.push(reduced);
+  }
+  steps.push([]);
+  return steps;
+}
+
 /**
  * Запрос к провайдеру с автоматическим откатом набора инструментов.
  * Возвращает ответ; при сетевой ошибке возвращает null, чтобы вызывающий код
@@ -137,54 +205,39 @@ async function fetchWithToolFallback(
   requestTools: any[],
   signal: AbortSignal | undefined,
   providerName: string,
+  modeKey: string,
 ): Promise<Response | null> {
-  let res: Response | null = null;
-  try {
-    res = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(body) });
-  } catch (e) {
-    if ((e as DOMException)?.name === 'AbortError') throw e;
-    return null;
-  }
+  const ladder = toolLadder(requestTools, startToolMode(modeKey, requestTools));
+  const seen: string[] = [];
 
-  if (res.status !== 400) return res;
+  for (let step = 0; step < ladder.length; step++) {
+    const tools = ladder[step];
+    const attemptBody: Record<string, unknown> = { ...body };
+    // Пустой массив tools тоже отвергается частью провайдеров — поле убираем.
+    if (tools.length > 0) attemptBody.tools = tools;
+    else delete attemptBody.tools;
 
-  const firstBody = await res.text().catch(() => '');
-  // Ступень 1: минимальный набор инструментов.
-  const reduced = reducedToolSet(requestTools);
-  if (reduced.length > 0 && reduced.length < requestTools.length) {
+    let res: Response;
     try {
-      const retry = await fetch(url, {
-        method: 'POST', signal, headers,
-        body: JSON.stringify({ ...body, tools: reduced }),
-      });
-      if (retry.status !== 400) return retry;
+      res = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(attemptBody) });
     } catch (e) {
       if ((e as DOMException)?.name === 'AbortError') throw e;
+      return null;
     }
+
+    if (res.status !== 400) {
+      rememberToolMode(modeKey, step, ladder.length);
+      return res;
+    }
+    seen.push(await res.text().catch(() => ''));
   }
-  // Ступень 2: вообще без инструментов и необязательных параметров.
-  // Если и это не прошло — дело не в tools, и дальше уменьшать нечего:
-  // сообщение пользователя лучше отправить как обычный чат, чем потерять.
-  try {
-    const plainBody: Record<string, unknown> = { model: body.model, messages: body.messages };
-    if (body.stream) plainBody.stream = true;
-    if (body.system !== undefined) plainBody.system = body.system;
-    if (body.max_tokens !== undefined) plainBody.max_tokens = body.max_tokens;
-    const plain = await fetch(url, { method: 'POST', signal, headers, body: JSON.stringify(plainBody) });
-    if (plain.status !== 400) return plain;
-    const plainBodyText = await plain.text().catch(() => '');
-    throw new Error(appendZenErrorHint(
-      `${providerName} вернул HTTP 400 даже без инструментов. Первый ответ: ${firstBody.slice(0, 300)} | Без инструментов: ${plainBodyText.slice(0, 300)}`,
-      `${firstBody} ${plainBodyText}`,
-    ));
-  } catch (e) {
-    if (e instanceof Error && /HTTP 400/.test(e.message)) throw e;
-    if ((e as DOMException)?.name === 'AbortError') throw e;
-    throw new Error(appendZenErrorHint(
-      `${providerName} вернул HTTP 400: ${firstBody.slice(0, 400)}. Повторы не помогли: ${String(e)}`,
-      firstBody,
-    ));
-  }
+
+  // Все ступени отвергнуты. Дальше уменьшать нечего: дело не в инструментах.
+  const joined = seen.join(' ');
+  throw new ProviderRequestRejected(
+    `${providerName} вернул HTTP 400 на всех вариантах запроса (с инструментами, с урезанным набором и без них). Ответ сервера: ${seen[seen.length - 1]?.slice(0, 300) ?? 'пусто'}`,
+    joined,
+  );
 }
 
 /**
@@ -1050,6 +1103,38 @@ function zenClientHeaders(): Record<string, string> {
 }
 
 /** Free-тариф требует в payload инструменты с именами "bash" и "read". */
+/**
+ * Приводит схемы инструментов к виду, который принимают строгие
+ * OpenAI-совместимые шлюзы (в том числе OpenCode Zen).
+ *
+ * Главные причины HTTP 400 наtools: пустой массив `required: []` (валидатор
+ * требует минимум один элемент) и мусорные ключи в схеме. Убираем их молча —
+ * для модели ничего не меняется, а запрос перестаёт отвергаться.
+ */
+function sanitizeToolSchemas(tools: any[]): any[] {
+  return tools.map(tool => {
+    const params = tool?.function?.parameters;
+    if (!params || typeof params !== 'object') return tool;
+    const next: Record<string, any> = { ...params };
+    if (Array.isArray(next.required) && next.required.length === 0) delete next.required;
+    if (Array.isArray(next.enum) && next.enum.length === 0) delete next.enum;
+    delete next.additionalProperties;
+    if (next.properties && typeof next.properties === 'object') {
+      const props: Record<string, any> = {};
+      for (const [key, value] of Object.entries(next.properties as Record<string, any>)) {
+        if (!value || typeof value !== 'object') continue;
+        const p: Record<string, any> = { ...value };
+        if (Array.isArray(p.required) && p.required.length === 0) delete p.required;
+        if (Array.isArray(p.enum) && p.enum.length === 0) delete p.enum;
+        delete p.additionalProperties;
+        props[key] = p;
+      }
+      next.properties = props;
+    }
+    return { ...tool, function: { ...tool.function, parameters: next } };
+  });
+}
+
 function zenTools(tools: any[]): any[] {
   const names = new Set(tools.map(t => t?.function?.name));
   const out = [...tools];
@@ -3288,6 +3373,10 @@ export async function callProvider(
     } catch (e: unknown) {
       if (signal?.aborted) throw e;
       lastError = e;
+      // Провайдер детерминированно отверг запрос (например HTTP 400 на любом
+      // варианте набора инструментов). Пять одинаковых попыток только тянут
+      // время и повторяют одну и ту же ошибку — сразу показываем её.
+      if (e instanceof ProviderRequestRejected) throw e;
       if (attempt < PROVIDER_MAX_ATTEMPTS - 1) {
         await sleep(400 + attempt * 500 + Math.random() * 300);
       }
@@ -3362,7 +3451,7 @@ async function callOpenAI(
   }));
 
   const zen = isZenHost(url);
-  const requestTools = zen ? zenTools(tools) : tools;
+  const requestTools = sanitizeToolSchemas(zen ? zenTools(tools) : tools);
   // Модели с рассуждением часто отклоняют temperature, поэтому для них
   // параметр не отправляем — это частая причина HTTP 400.
   const isReasoning = ep.model.reasoning === true
@@ -3395,8 +3484,12 @@ async function callOpenAI(
   };
 
   let res: Response | null = null;
+  const modeKey = toolModeKey(ep.provider.id, ep.model.id);
+  // Если эта модель уже отвергала tools — не отправляем их снова, иначе 400
+  // повторялся бы на каждом сообщении.
+  if (toolModeCache.get(modeKey) === 'none') delete body.tools;
   if (canFetchFromWebview(url)) {
-    res = await fetchWithToolFallback(url, headers, body, requestTools, signal, ep.provider.name);
+    res = await fetchWithToolFallback(url, headers, body, requestTools, signal, ep.provider.name, modeKey);
   }
   if (res === null) {
     // Фолбэк: веб-вью не может дотянуться (CORS/сеть) — идём через бэкенд.
@@ -3413,28 +3506,35 @@ async function callOpenAI(
     if (body.thinking !== undefined) fbBase.thinking = body.thinking;
     if (zen) fbBase.stream = true;
 
-    // Тот же откат, что и для веб-вью: Zen возвращает HTTP 400 на слишком
-    // большой набор инструментов, и запрос шёл именно через бэкенд, где
-    // повтора не было — задача падала.
-    let fr = await raceSignal(
-      httpViaRust('POST', url, { ...headers, Accept: zen ? 'text/event-stream' : 'application/json' }, JSON.stringify({ ...fbBase, tools: requestTools }), 180000),
-      signal,
-    );
-    if (!fr.ok && fr.status === 400) {
-      const firstText = fr.text;
-      const reduced = reducedToolSet(requestTools);
-      if (reduced.length > 0 && reduced.length < requestTools.length) {
-        fr = await raceSignal(
-          httpViaRust('POST', url, { ...headers, Accept: zen ? 'text/event-stream' : 'application/json' }, JSON.stringify({ ...fbBase, tools: reduced }), 180000),
-          signal,
-        );
-        if (!fr.ok) {
-          throw new Error(appendZenErrorHint(
-            `${ep.provider.name} вернул HTTP 400 и не принял урезанный набор инструментов. Первый ответ: ${firstText.trim().slice(0, 400)} | Повтор: ${fr.text.trim().slice(0, 400)}`,
-            `${firstText} ${fr.text}`,
-          ));
-        }
-      }
+    // Та же лестница отката, что и для веб-вью: полный набор → урезанный →
+    // вообще без tools. Раньше через бэкенд последней ступени не было, поэтому
+    // при 400 на урезанный набор запрос падал сразу и пользователь терял
+    // сообщение — то самое сообщение «не принял урезанный набор инструментов».
+    const ladder = toolLadder(requestTools, startToolMode(modeKey, requestTools));
+    let fr = { ok: false, status: 0, text: '', error: '' } as { ok: boolean; status: number; text: string; error?: string };
+    let acceptedStep = -1;
+    const rejected: string[] = [];
+
+    for (let step = 0; step < ladder.length; step++) {
+      const tools = ladder[step];
+      const payload: Record<string, unknown> = { ...fbBase };
+      if (tools.length > 0) payload.tools = tools;
+      fr = await raceSignal(
+        httpViaRust('POST', url, { ...headers, Accept: zen ? 'text/event-stream' : 'application/json' }, JSON.stringify(payload), 180000),
+        signal,
+      );
+      if (fr.ok) { acceptedStep = step; break; }
+      if (fr.status !== 400) break;
+      rejected.push(fr.text);
+    }
+
+    if (acceptedStep >= 0) {
+      rememberToolMode(modeKey, acceptedStep, ladder.length);
+    } else if (rejected.length > 0) {
+      throw new ProviderRequestRejected(
+        `${ep.provider.name} вернул HTTP 400 на всех вариантах запроса (с инструментами, с урезанным набором и без них). Ответ сервера: ${rejected[rejected.length - 1].trim().slice(0, 300)}`,
+        rejected.join(' '),
+      );
     }
     if (!fr.ok) {
       const snippet = fr.text.trim().slice(0, 240);
@@ -3682,7 +3782,7 @@ async function callAnthropic(
     description: t.description,
     input_schema: t.parameters,
   }));
-  const requestTools = zen ? zenTools(tools) : tools;
+  const requestTools = sanitizeToolSchemas(zen ? zenTools(tools) : tools);
   const isReasoning = ep.model.reasoning === true
     || /^(gpt-5|o[134]|deepseek-r|gpt-oss|qwq|space-bunny|big-pickle)/i.test(ep.model.id);
 
@@ -3706,8 +3806,10 @@ async function callAnthropic(
   else if (ep.apiKey) headers['x-api-key'] = ep.apiKey;
 
   let res: Response | null = null;
+  const modeKey = toolModeKey(ep.provider.id, ep.model.id);
+  if (toolModeCache.get(modeKey) === 'none') delete body.tools;
   if (canFetchFromWebview(url)) {
-    res = await fetchWithToolFallback(url, headers, body, requestTools, signal, ep.provider.name);
+    res = await fetchWithToolFallback(url, headers, body, requestTools, signal, ep.provider.name, modeKey);
   }
   if (res === null) {
     const fr = await raceSignal(httpViaRust('POST', url, headers, JSON.stringify(body), 180000), signal);
@@ -4301,6 +4403,7 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
         continue;
       }
       const errMsg = e instanceof Error ? e.message : String(e);
+      const permanent = e instanceof ProviderRequestRejected;
       const withoutStub = messages.filter(m => m.id !== assistantId);
       if (withoutStub.length !== messages.length) {
         messages = withoutStub;
@@ -4309,7 +4412,9 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
       push({
         id: `fail-${Date.now()}-${iter}`,
         role: 'assistant',
-        content: `Не удалось получить ответ модели (после ${PROVIDER_MAX_ATTEMPTS} попыток): ${errMsg}\n\nСообщение, вызвавшее ошибку, не засчитано — его содержимое модели неизвестно; весь предыдущий контекст сохранён.`,
+        content: permanent
+          ? `${errMsg}\n\nТвоё сообщение осталось в чате — просто отправь его ещё раз, повторы не помогут. Если повторяется: попробуй другую модель в «Управление моделями» или уменьши объём переписки (команда /compact).`
+          : `Не удалось получить ответ модели (после ${PROVIDER_MAX_ATTEMPTS} попыток): ${errMsg}\n\nТвоё сообщение осталось в чате — отправь его ещё раз, и я продолжу с того же места.`,
         error: true,
         timestamp: Date.now(),
       });

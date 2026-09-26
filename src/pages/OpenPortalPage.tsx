@@ -232,6 +232,9 @@ const SOURCE_META: Record<string, { label: string; color: string }> = {
 
 /** Карточка найденного контента: иконка, название, описание, платформа, тип. */
 function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (text: string) => void }) {
+  // Сборка (модпак) ставится не внутрь другой сборки, а создаётся как новая —
+  // ровно как в «Обзоре». Поэтому у неё своя кнопка и своя логика.
+  const isBuild = card.projectType === 'modpack';
   const type = MOD_TYPE_META[card.projectType] ?? MOD_TYPE_META.mod;
   const source = SOURCE_META[card.source] ?? SOURCE_META.other;
   const instances = useInstanceStore(s => s.instances);
@@ -244,6 +247,29 @@ function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (te
 
   const selectedId = project && project.kind === 'build' ? project.instanceId : '';
   const selectedName = instances.find(i => i.id === selectedId)?.name ?? '';
+
+  const installBuild = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const inst = await invoke<any>('import_remote_modpack', {
+        downloadUrl: card.downloadUrl,
+        fileName: card.fileName,
+        source: card.source,
+        excludedPaths: null,
+        projectIconUrl: card.iconUrl,
+        projectScreenshots: null,
+      });
+      setDone(true);
+      onInstalled?.(`Сборка «${card.title}» установлена как НОВАЯ сборка лаунчера: ${inst?.name ?? '?'} (id ${inst?.id ?? '?'}). `
+        + 'Сборку нельзя поставить внутрь другой сборки — у неё свой набор модов, версия и загрузчик.');
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }, [card, busy, onInstalled]);
 
   const install = useCallback(async (instanceId: string) => {
     const inst = instances.find(i => i.id === instanceId);
@@ -301,7 +327,21 @@ function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (te
       </button>
 
       <div className="flex items-center gap-1.5 border-t px-2 py-1.5" style={{ borderColor: 'var(--color-border)' }}>
-        {card.installable ? (
+        {isBuild ? (
+          // Сборка не ставится в сборку — только создаётся как новая.
+          done ? (
+            <span className="text-[10px] font-bold" style={{ color: 'var(--color-success)' }}>Сборка создана</span>
+          ) : card.installable ? (
+            <button onClick={() => void installBuild()} disabled={busy}
+              title="Сборка установится как новая сборка лаунчера"
+              className="rounded px-2 py-1 text-[10px] font-bold disabled:opacity-50"
+              style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+              {busy ? 'Установка…' : 'Установить как сборку'}
+            </button>
+          ) : (
+            <span className="text-[10px] font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>Нет файла под выбранную версию</span>
+          )
+        ) : card.installable ? (
           done ? (
             <span className="text-[10px] font-bold" style={{ color: 'var(--color-success)' }}>Установлено</span>
           ) : selectedId ? (
@@ -322,13 +362,13 @@ function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (te
         )}
         <span className="flex-1" />
         <span className="text-[9px]" style={{ color: card.installable ? 'var(--color-success)' : 'var(--color-text-tertiary)' }}>
-          {card.installable ? 'установка доступна' : 'не найден файл'}
+          {card.installable ? (isBuild ? 'новая сборка' : 'установка доступна') : 'не найден файл'}
         </span>
       </div>
 
       {error && <p className="px-2 pb-1.5 text-[10px]" style={{ color: 'var(--color-error)' }}>{error}</p>}
 
-      {pickBuild && (
+      {pickBuild && !isBuild && (
         <div className="border-t p-1.5" style={{ borderColor: 'var(--color-border)' }}>
           <p className="px-1 pb-1 text-[10px] font-bold" style={{ color: 'var(--color-text-secondary)' }}>Куда установить?</p>
           <div className="max-h-40 overflow-y-auto">

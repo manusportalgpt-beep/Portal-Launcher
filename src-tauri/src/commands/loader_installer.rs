@@ -764,19 +764,20 @@ pub async fn install_quilt(mc_version: String, loader_version: String, _instance
         crate::mc::install::version_json_path(id).is_file()
     }).unwrap_or(false);
     if !profile_ok {
-        log::warn!("[Quilt] Installer finished but profile is missing. Expected id like quilt-{lv}-{mc}. stdout: {}, stderr: {}",
-            &stdout_text[..stdout_text.len().min(500)], &stderr_text[..stderr_text.len().min(500)]);
+        log::warn!("[Quilt] Installer finished but profile is missing. Expected id like quilt-{}-{}. stdout: {}, stderr: {}",
+            lv, mc_version, &stdout_text[..stdout_text.len().min(500)], &stderr_text[..stderr_text.len().min(500)]);
     }
     let success = output.status.success() && profile_ok;
     Ok(LoaderInstallResult {
-        success, loader: "quilt".into(), version: lv,
+        // clone: lv ещё нужен в тексте ошибки ниже, а version забирает владение.
+        success, loader: "quilt".into(), version: lv.clone(),
         message: if success {
             "Quilt установлен".into()
         } else if output.status.success() {
             format!(
-                "Установщик Quilt завершился, но профиль запуска не создан (ожидался quilt-{lv}-{mc}).\n\
-                 Вывод установщика: {}\n{}",
-                installer_failure(&output)
+                "Установщик Quilt завершился, но профиль запуска не создан (ожидался quilt-{}-{mc_version}).\n\
+                 Вывод установщика: {}",
+                lv, installer_failure(&output)
             )
         } else {
             format!("Не удалось установить Quilt: {}", installer_failure_with_network_hint(&output))

@@ -393,9 +393,9 @@ function ContextMeter({ onCompact }: { onCompact: () => void }) {
   const messages = useOpenCoreStore(s => s.messages);
   const cfg = useOpenCoreStore(s => s.config);
   const [open, setOpen] = useState(false);
-  // ����� ���� �� �������� ������ ��������, � �� ������ �� usage.limit:
-  // ������ �������� ����������� ���� ����� �������� ���������, �������
-  // ����� ����� ����� ������ ���� ��������� ���������� 128K.
+  // Счётчик токенов нужен и для расхода, и для лимита контекста: одни и те же
+  // токены учитываются в usage.total и в сумме сообщений истории, поэтому
+  // показываем одно и то же число, а не разные счётчики.
   const activeModel = useMemo(() => {
     const provider = activeProviders(cfg).find(p => p.id === cfg.activeProviderId) ?? firstConnectedProvider(cfg);
     if (!provider) return null;
@@ -524,23 +524,23 @@ function FileChanges({ changes }: { changes: FileChange[] }) {
   );
 }
 
-function ModeToggle({ mode, onChange }: { mode: 'build' | 'plan'; onChange: (m: 'build' | 'plan') => void }) {
+function ModeToggle({ mode, onChange }: { mode: 'default' | 'build' | 'plan'; onChange: (m: 'default' | 'build' | 'plan') => void }) {
+  const modes: { id: 'default' | 'build' | 'plan'; label: string; title: string; Icon: any }[] = [
+    { id: 'default', label: 'Default', title: 'Default — агент сам выберет режим: план для вопросов и правок, сборка для задач на установку и создание', Icon: Sparkles },
+    { id: 'build', label: 'Build', title: 'Build — выполняет задачи', Icon: Hammer },
+    { id: 'plan', label: 'Plan', title: 'Plan — только план, без изменений', Icon: DraftingCompass },
+  ];
   return (
     <div className="flex shrink-0 items-center gap-0.5 rounded-lg p-0.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
-      <button onClick={() => onChange('build')} title="Build — выполняет задачи"
-        className={`flex items-center gap-1 rounded-[7px] px-2 py-1 text-[10px] font-bold transition-colors ${mode === 'build' ? '' : 'opacity-50 hover:opacity-80'}`}
-        style={mode === 'build'
-          ? { background: 'var(--color-primary)', color: 'var(--color-primary-text)' }
-          : { color: 'var(--color-text-secondary)' }}>
-        <Hammer size={11} /> Build
-      </button>
-      <button onClick={() => onChange('plan')} title="Plan — только план, без изменений"
-        className={`flex items-center gap-1 rounded-[7px] px-2 py-1 text-[10px] font-bold transition-colors ${mode === 'plan' ? '' : 'opacity-50 hover:opacity-80'}`}
-        style={mode === 'plan'
-          ? { background: 'var(--color-primary)', color: 'var(--color-primary-text)' }
-          : { color: 'var(--color-text-secondary)' }}>
-        <DraftingCompass size={11} /> Plan
-      </button>
+      {modes.map(({ id, label, title, Icon }) => (
+        <button key={id} onClick={() => onChange(id)} title={title}
+          className={`flex items-center gap-1 rounded-[7px] px-2 py-1 text-[10px] font-bold transition-colors ${mode === id ? '' : 'opacity-50 hover:opacity-80'}`}
+          style={mode === id
+            ? { background: 'var(--color-primary)', color: 'var(--color-primary-text)' }
+            : { color: 'var(--color-text-secondary)' }}>
+          <Icon size={11} /> {label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -1313,7 +1313,7 @@ export function OpenPortalPage() {
     useOpenCoreStore.getState().appendSessionMessages(runSessionId, [userMsg]);
     setAttachments([]);
 
-    const mode: 'build' | 'plan' = taskDirective ? 'build' : cfg.mode;
+    const mode: 'default' | 'build' | 'plan' = taskDirective ? 'build' : cfg.mode;
     const ep = resolveEndpoint(providerId, modelId, cfgNow.providers, cfgNow.modelContexts);
     ep.serviceTokens = useOpenCoreStore.getState().config.serviceTokens ?? {};
     ep.onSetToken = (host, token) => useOpenCoreStore.getState().setServiceToken(host, token);

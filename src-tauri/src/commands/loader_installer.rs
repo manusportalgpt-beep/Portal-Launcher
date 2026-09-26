@@ -724,18 +724,112 @@ pub async fn install_quilt(mc_version: String, loader_version: String, _instance
 
     let shared_base = mc_base_dir();
     ensure_launcher_profile_store(&shared_base)?;
+    // Quilt-установщик, как и NeoForge, обращается к libraries.minecraft.net за
+    // vanilla-библиотеками и native-классификаторами. Классический провал —
+    // org.jinput:jinput-platform (natives): если файл не скачался, установщик
+    // падает с «Unable to download jinput-platform-jar» и профиль не создаётся.
+    // Предзаливаем всё локально — установщик найдёт файлы и не пойдёт в сеть.
+    if let Err(library_error) = ensure_installer_vanilla_libraries(&client, &mc_version).await {
+        return Ok(LoaderInstallResult {
+            success: false, loader: "quilt".into(), version: lv,
+            message: format!(
+                "Не удалось докачать библиотеки Minecraft {mc_version} для установщика Quilt:\n{library_error}\n\
+                 Проверьте доступ к libraries.minecraft.net и повторите запуск."
+            ),
+        });
+    }
+    // Неполный профиль от прерванной установки блокирует повторный запуск
+    // установщика, поэтому убираем его заранее (как для NeoForge).
+    clear_incomplete_quilt_profile(&mc_version, &lv)?;
     let java = find_java_for_mc(&mc_version)?;
+    log::info!("[Quilt] Running installer: java -jar {} install client {} {} --install-dir {}",
+        jar_path.display(), mc_version, lv, shared_base.display());
     let output = crate::utils::create_hidden_command(&java)
         .args(&["-jar", &jar_path.to_string_lossy(), "install", "client",
             &mc_version, &lv, "--install-dir", &shared_base.to_string_lossy()])
         .output().map_err(|e| format!("Run Quilt ({java}): {e}"))?;
 
+    let stdout_text = String::from_utf8_lossy(&output.stdout);
+    let stderr_text = String::from_utf8_lossy(&output.stderr);
+    log::info!("[Quilt] Installer exit code: {:?}", output.status.code());
+    if !stdout_text.trim().is_empty() { log::info!("[Quilt] stdout: {}", &stdout_text[..stdout_text.len().min(2000)]); }
+    if !stderr_text.trim().is_empty() { log::warn!("[Quilt] stderr: {}", &stderr_text[..stderr_text.len().min(2000)]); }
+
     std::fs::remove_file(&jar_path).ok();
+
+    // Установщик может выйти с кодом 0, но не создать профиль — раньше это
+    // выглядело как «установилось», а запуск падал с ошибками профиля.
+    let profile_id = find_quilt_profile_id(&mc_version, &lv);
+    let profile_ok = profile_id.as_ref().map(|id| {
+        crate::mc::install::version_json_path(id).is_file()
+    }).unwrap_or(false);
+    if !profile_ok {
+        log::warn!("[Quilt] Installer finished but profile is missing. Expected id like quilt-{lv}-{mc}. stdout: {}, stderr: {}",
+            &stdout_text[..stdout_text.len().min(500)], &stderr_text[..stderr_text.len().min(500)]);
+    }
+    let success = output.status.success() && profile_ok;
     Ok(LoaderInstallResult {
-        success: output.status.success(), loader: "quilt".into(), version: lv,
-        message: if output.status.success() { "Quilt installed".into() }
-                 else { format!("Не удалось установить Quilt: {}", installer_failure(&output)) },
+        success, loader: "quilt".into(), version: lv,
+        message: if success {
+            "Quilt установлен".into()
+        } else if output.status.success() {
+            format!(
+                "Установщик Quilt завершился, но профиль запуска не создан (ожидался quilt-{lv}-{mc}).\n\
+                 Вывод установщика: {}\n{}",
+                installer_failure(&output)
+            )
+        } else {
+            format!("Не удалось установить Quilt: {}", installer_failure_with_network_hint(&output))
+        },
     })
+}
+
+/// Каталоги профилей Quilt (`versions/quilt-<loader>-<mc>`).
+fn quilt_profile_dirs(mc_version: &str, loader_version: &str) -> Vec<PathBuf> {
+    let dir = crate::commands::version_manager::versions_dir();
+    let needle_loader = loader_version.trim();
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    let Ok(entries) = std::fs::read_dir(&dir) else { return dirs };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        let lower = name.to_lowercase();
+        if !lower.contains("quilt") { continue; }
+        if !needle_loader.is_empty() && !name.contains(needle_loader) { continue; }
+        if !mc_version.trim().is_empty() && !name.contains(mc_version) { continue; }
+        dirs.push(entry.path());
+    }
+    dirs
+}
+
+/// Удаляет профили Quilt без полного набора файлов (прерванная установка).
+fn clear_incomplete_quilt_profile(mc_version: &str, loader_version: &str) -> Result<(), String> {
+    for dir in quilt_profile_dirs(mc_version, loader_version) {
+        let Some(id) = dir.file_name().and_then(|n| n.to_str()) else { continue };
+        let has_json = crate::mc::install::version_json_path(id).is_file();
+        let has_jar = crate::mc::install::version_jar_path(id).is_file();
+        if has_json && has_jar { continue; }
+        log::warn!("[Quilt] Removing incomplete profile {}", dir.display());
+        std::fs::remove_dir_all(&dir)
+            .map_err(|error| format!("Не удалось очистить неполный профиль Quilt {}: {error}", dir.display()))?;
+    }
+    Ok(())
+}
+
+/// Ищет id созданного профиля Quilt, например `quilt-0.27.1-1.21.8`.
+fn find_quilt_profile_id(mc_version: &str, loader_version: &str) -> Option<String> {
+    let dir = crate::commands::version_manager::versions_dir();
+    let entries = std::fs::read_dir(&dir).ok()?;
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        let lower = name.to_lowercase();
+        if !lower.contains("quilt") { continue; }
+        if !name.contains(mc_version) { continue; }
+        if !loader_version.trim().is_empty() && !name.contains(loader_version) { continue; }
+        if crate::mc::install::version_json_path(&name).is_file() {
+            return Some(name);
+        }
+    }
+    None
 }
 
 /// Install NeoForge – 1.20.1+ including 26.x snapshots.

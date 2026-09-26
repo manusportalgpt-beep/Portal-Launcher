@@ -111,7 +111,7 @@ export interface SessionData {
   updated: number;
   modelId: string;
   providerId: string;
-  mode: 'build' | 'plan';
+  mode: 'default' | 'build' | 'plan';
   /** Последняя рабочая папка сессии (root: portal|temp|launcher + путь). */
   cwd?: { root: string; path: string };
   messages: ChatMessage[];
@@ -143,7 +143,7 @@ export interface OpenPortalConfig {
   providers: Record<string, ProviderState>;
   activeProviderId: string;
   activeModelId: string;
-  mode: 'build' | 'plan';
+  mode: 'default' | 'build' | 'plan';
   /** С какой сборкой (или без) работает агент. */
   project?: ProjectContext;
   /** Последняя рабочая папка (root: portal|temp|launcher + путь). */

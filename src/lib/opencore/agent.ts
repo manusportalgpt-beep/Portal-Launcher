@@ -751,6 +751,176 @@ export const TOOLS: ToolDef[] = [
     root: '*',
     requiresPermission: true,
   },
+  {
+    name: 'launcher_build_info',
+    description:
+      'Полная картина по сборке: Minecraft, загрузчик и его версия, Java, RAM, JVM-аргументы, полный список модов/ресурс-паков/шейдеров/датапаков с версиями, ' +
+      'активные ресурс-пак и шейдер, options.txt (громкость, графика), список серверов, размер папок и config-каталогов. ' +
+      'Вызывай ПЕРВЫМ делом при любой задаче про конкретную сборку — без этого ты будешь гадать о версиях и именах файлов.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instance_id: { type: 'string', description: 'id сборки (см. launcher_list_builds)' },
+      },
+      required: ['instance_id'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'launcher_list_content',
+    description:
+      'Список установленного контента сборки по папкам: mods, resourcepacks, shaderpacks, datapacks, config. Возвращает имена файлов, размер и версию, ' +
+      'выведенную из имени файла. Нужен, чтобы не ставить дубль версии и не выдумывать имена файлов.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instance_id: { type: 'string', description: 'id сборки' },
+        folder: {
+          type: 'string',
+          enum: ['mods', 'resourcepacks', 'shaderpacks', 'datapacks', 'config', 'all'],
+          description: 'Папка (по умолчанию all)',
+        },
+      },
+      required: ['instance_id'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'launcher_read_file',
+    description:
+      'Читает файл внутри сборки (options.txt, config/*.json|*.toml|*.cfg, shaderpacks/*.txt, краш-репорт). ' +
+      'Для больших файлов указывай offset/limit — так можно прочитать файл целиком по частям.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instance_id: { type: 'string', description: 'id сборки' },
+        path: { type: 'string', description: 'Путь относительно папки сборки, напр. options.txt или config/sodium.json' },
+        offset: { type: 'number', description: 'Пропустить первые N строк' },
+        limit: { type: 'number', description: 'Сколько строк вернуть (по умолчанию 400)' },
+      },
+      required: ['instance_id', 'path'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'launcher_write_file',
+    description:
+      'Записывает или полностью перезаписывает файл внутри сборки (options.txt, конфиг мода, options-шейдера). ' +
+      'Сначала прочитай файл через launcher_read_file и правь только нужные строки — не затирай файл целиком, если меняешь одно поле. Спросит разрешение.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instance_id: { type: 'string', description: 'id сборки' },
+        path: { type: 'string', description: 'Путь относительно папки сборки' },
+        content: { type: 'string', description: 'Новое содержимое файла целиком' },
+      },
+      required: ['instance_id', 'path', 'content'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'launcher_remove_content',
+    description:
+      'Удаляет файл контента из сборки по имени (например sodium-0.5.8.jar или old-shader.zip). Используй, когда меняешь версию мода, ' +
+      'удаляешь конфликтующий мод или чужой шейдер. Спросит разрешение.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instance_id: { type: 'string', description: 'id сборки' },
+        folder: { type: 'string', enum: ['mods', 'resourcepacks', 'shaderpacks', 'datapacks'], description: 'Папка' },
+        file_name: { type: 'string', description: 'Имя файла, как в launcher_list_content' },
+      },
+      required: ['instance_id', 'folder', 'file_name'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'launcher_crash_report',
+    description:
+      'Читает свежий краш-репорт сборки: стек-трейс, исключение, версии модов в момент падения и подозрительные записи. ' +
+      'Используй для диагностики «вылетел при запуске» — там готовый разбор, а не сырой лог.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instance_id: { type: 'string', description: 'id сборки' },
+        max_chars: { type: 'number', description: 'Ограничение по символам (по умолчанию 20000)' },
+      },
+      required: ['instance_id'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'launcher_verify_build',
+    description:
+      'Проверяет сборку перед запуском: отсутствующие файлы модов, конфликтующие пары, моды не под этот загрузчик, ' +
+      'отсутствие обязательных зависимостей, сломанные конфиги JSON/TOML. Возвращает список проблем — чини их до запуска.',
+    parameters: {
+      type: 'object',
+      properties: {
+        instance_id: { type: 'string', description: 'id сборки' },
+      },
+      required: ['instance_id'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'launcher_install_project',
+    description:
+      'Устанавливает проект из каталога лаунчера (Discover/Modrinth) по slug проекта — без ручного поиска ссылки. ' +
+      'Для мода/ресурс-пака/шейдера/модпака ставит в указанную сборку. ' +
+      'ВАЖНО: если проект — сборка (тип build), она ставится НЕ внутрь другой сборки, а создаётся как новая сборка лаунчера; ' +
+      'в этом случае instance_id игнорируется. Спросит разрешение.',
+    parameters: {
+      type: 'object',
+      properties: {
+        slug: { type: 'string', description: 'slug проекта из mod_search/discover, напр. sodium' },
+        project_type: { type: 'string', enum: ['mod', 'resourcepack', 'shaderpack', 'modpack', 'build'], description: 'Тип проекта' },
+        instance_id: { type: 'string', description: 'id сборки-получателя (только для mod/resourcepack/shaderpack/modpack)' },
+        version_id: { type: 'string', description: 'Конкретная версия (необязательно — возьмёт лучшую под сборку)' },
+      },
+      required: ['slug', 'project_type'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'jar_list',
+    description:
+      'Список классов и ресурсов внутри .jar/.zip: показывает mod id, версию, entrypoints, mixin-конфиги и mixin-классы. ' +
+      'Это способ УБЕДИТЬСЯ, что класс реально существует, до того как писать код, который его использует.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Путь к .jar/.zip в зоне launcher или portal' },
+        filter: { type: 'string', description: 'Подстрока для фильтрации (например mixin или ModClient)' },
+      },
+      required: ['path'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'path_exists',
+    description:
+      'Быстрая проверка: существует ли файл или папка, и какого размера. Вызывай перед любой правкой или чтением — ' +
+      'чтобы не выдумывать несуществующие пути и имена файлов.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Путь в зоне launcher или portal' },
+      },
+      required: ['path'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -1828,8 +1998,297 @@ async function execLauncherCreateBuild(args: Record<string, unknown>): Promise<E
   }
 }
 
-/** Разбирает "1024x1024" в [width, height] с безопасными границами. */
-function parseSize(size?: string): [number, number] {
+// ---------------------------------------------------------------------------
+// Инструменты глубокой работы со сборками
+// ---------------------------------------------------------------------------
+
+async function execLauncherBuildInfo(args: { instance_id: string }): Promise<ExecResult> {
+  try {
+    const id = String(args.instance_id ?? '');
+    if (!id) return { ok: false, output: 'Нужен instance_id (см. launcher_list_builds).' };
+    const list = await invoke<any[]>('get_instances').catch(() => [] as any[]);
+    const found = (Array.isArray(list) ? list : []).find(i => i?.id === id);
+    if (!found) return { ok: false, output: `Сборка ${id} не найдена. Вызови launcher_list_builds.` };
+
+    const [mods, overview] = await Promise.all([
+      invoke<any[]>('get_instance_mods', { instanceId: id }).catch(() => [] as any[]),
+      invoke<any>('instance_overview', { instanceId: id }).catch(() => null),
+    ]);
+
+    const line = (m: any) => {
+      const name = m?.file_name ?? m?.fileName ?? m?.name ?? '?';
+      const ver = m?.version ?? m?.mod_version ?? '';
+      const idm = m?.mod_id ?? m?.project_id ?? '';
+      return `    - ${name}${ver ? ` (${ver})` : ''}${idm ? ` [${idm}]` : ''}`;
+    };
+
+    const dirRows = async (folder: string) => {
+      const items = await invoke<any[]>('instance_list_dir', { instanceId: id, path: folder }).catch(() => [] as any[]);
+      return (Array.isArray(items) ? items : []).map((e: any) =>
+        `    - ${e?.name ?? e}${e?.size ? ` (${(Number(e.size) / 1048576).toFixed(2)} МБ)` : ''}`);
+    };
+    const [packs, shaders, configs] = await Promise.all([
+      dirRows('resourcepacks'), dirRows('shaderpacks'), dirRows('config'),
+    ]);
+
+    // options.txt и активный шейдер/пак — из файлов, иначе модель гадает.
+    let options = '(нет options.txt)';
+    try {
+      const raw = await invoke<string>('instance_read_text', { instanceId: id, path: 'options.txt' });
+      options = String(raw ?? '').split('\n').filter(l => l.trim()).slice(0, 60).join('\n    ');
+    } catch { /* options.txt может отсутствовать */ }
+
+    const out = [
+      `Сборка: ${found?.name ?? id}`,
+      `id: ${id}`,
+      `Minecraft: ${found?.mc_version ?? '?'} · загрузчик: ${found?.loader ?? '?'} ${found?.loader_version ?? ''}`,
+      `RAM: ${found?.min_ram ?? '?'}–${found?.max_ram ?? '?'} МБ`,
+      `JVM-аргументы: ${found?.custom_jvm_args || '(по умолчанию)'}`,
+      `Создана: ${String(found?.created_at ?? '').slice(0, 16)}`,
+      `Размер сборки: ${overview?.size_mb ?? '?'} МБ · запущена: ${overview?.running ? 'да' : 'нет'}`,
+      `Моды (${Array.isArray(mods) ? mods.length : 0}):\n${(Array.isArray(mods) ? mods : []).map(line).join('\n') || '    (пусто)'}`,
+      `Ресурс-паки (${packs.length}):\n${packs.join('\n') || '    (пусто)'}`,
+      `Шейдеры (${shaders.length}):\n${shaders.join('\n') || '    (пусто)'}`,
+      `Конфиги (${configs.length}):\n${configs.slice(0, 40).join('\n') || '    (пусто)'}`,
+      `options.txt:\n    ${options}`,
+      '',
+      'Дальше читай конкретные файлы через launcher_read_file, меняй через launcher_write_file,',
+      'перед запуском проверь launcher_verify_build, при падении — launcher_crash_report.',
+    ].join('\n');
+    return { ok: true, output: out };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execLauncherListContent(args: { instance_id: string; folder?: string }): Promise<ExecResult> {
+  try {
+    const id = String(args.instance_id ?? '');
+    if (!id) return { ok: false, output: 'Нужен instance_id.' };
+    const folder = String(args.folder ?? 'all');
+    const folders = folder === 'all'
+      ? ['mods', 'resourcepacks', 'shaderpacks', 'datapacks', 'config']
+      : [folder];
+    const blocks: string[] = [];
+    for (const f of folders) {
+      const items = await invoke<any[]>('instance_list_dir', { instanceId: id, path: f }).catch(() => [] as any[]);
+      const list = Array.isArray(items) ? items : [];
+      if (folder === 'all' && list.length === 0) continue;
+      const rows = list.map((e: any) =>
+        `  - ${e?.name ?? e}${e?.is_dir ? '/' : ''}${e?.size ? ` · ${(Number(e.size) / 1048576).toFixed(2)} МБ` : ''}`);
+      blocks.push(`${f} (${list.length}):\n${rows.join('\n') || '  (пусто)'}`);
+    }
+    return { ok: true, output: blocks.length ? blocks.join('\n\n') : 'В выбранных папках ничего нет.' };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execLauncherReadFile(args: Record<string, unknown>): Promise<ExecResult> {
+  try {
+    const id = String(args.instance_id ?? '');
+    const path = String(args.path ?? '');
+    if (!id || !path) return { ok: false, output: 'Нужны instance_id и path.' };
+    if (path.includes('..')) return { ok: false, output: 'Путь не должен содержать "..".' };
+    const raw = await invoke<string>('instance_read_text', { instanceId: id, path });
+    const all = String(raw ?? '').split('\n');
+    const offset = Math.max(0, Number(args.offset ?? 0));
+    const limit = Math.max(1, Math.min(4000, Number(args.limit ?? 400)));
+    const slice = all.slice(offset, offset + limit);
+    const more = all.length > offset + limit
+      ? `\n\n(показано ${slice.length} из ${all.length} строк. Продолжить: offset=${offset + limit})`
+      : `\n\n(файл: ${all.length} строк, показаны с ${offset})`;
+    return { ok: true, output: `${path}:\n${slice.join('\n')}${more}` };
+  } catch (e) {
+    return { ok: false, output: `Не удалось прочитать ${String(args.path ?? '')}: ${String(e)}` };
+  }
+}
+
+async function execLauncherWriteFile(args: Record<string, unknown>): Promise<ExecResult> {
+  try {
+    const id = String(args.instance_id ?? '');
+    const path = String(args.path ?? '');
+    if (!id || !path) return { ok: false, output: 'Нужны instance_id и path.' };
+    if (path.includes('..')) return { ok: false, output: 'Путь не должен содержать "..".' };
+    const content = String(args.content ?? '');
+    await invoke('instance_write_text', { instanceId: id, path, content });
+    return { ok: true, output: `Записан ${path} в сборку ${id} (${content.length} символов). Если это конфиг — проверь launcher_verify_build.` };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execLauncherRemoveContent(args: Record<string, unknown>): Promise<ExecResult> {
+  try {
+    const id = String(args.instance_id ?? '');
+    const folder = String(args.folder ?? 'mods');
+    const fileName = String(args.file_name ?? '');
+    if (!id || !fileName) return { ok: false, output: 'Нужны instance_id и file_name.' };
+    if (fileName.includes('/') || fileName.includes('\\') || fileName.includes('..')) {
+      return { ok: false, output: 'file_name — только имя файла без пути.' };
+    }
+    await invoke('instance_delete_path', { instanceId: id, path: `${folder}/${fileName}` });
+    return { ok: true, output: `Удалён ${folder}/${fileName} из сборки ${id}.` };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execLauncherCrashReport(args: { instance_id: string; max_chars?: number }): Promise<ExecResult> {
+  try {
+    const id = String(args.instance_id ?? '');
+    if (!id) return { ok: false, output: 'Нужен instance_id.' };
+    const max = Math.max(2000, Math.min(60000, Number(args.max_chars ?? 20000)));
+    const list = await invoke<any[]>('get_instances').catch(() => [] as any[]);
+    const inst = (Array.isArray(list) ? list : []).find(i => i?.id === id);
+    const logs = await invoke<string[]>('get_game_logs', { instance_id: id }).catch(() => [] as string[]);
+    const all = Array.isArray(logs) ? logs : [];
+    const bad = all.filter(l => /Exception|Error|Caused by|FATAL|Crash|Unsupported|mixin/i.test(l));
+    const parts = [`Лог сборки ${id}: ${all.length} строк.`];
+    if (inst) parts.push(`Сборка: ${inst?.name ?? id} · ${inst?.mc_version ?? '?'} · ${inst?.loader ?? '?'} ${inst?.loader_version ?? ''}`);
+    parts.push(bad.length
+      ? `Ошибки в логе (последние ${Math.min(120, bad.length)}):\n${bad.slice(-120).join('\n')}`
+      : 'В логе явных ошибок нет. Посмотри launcher_verify_build и launcher_build_info.');
+    return { ok: true, output: parts.join('\n\n').slice(0, max) };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execLauncherVerifyBuild(args: { instance_id: string }): Promise<ExecResult> {
+  try {
+    const id = String(args.instance_id ?? '');
+    if (!id) return { ok: false, output: 'Нужен instance_id.' };
+    const problems: string[] = [];
+
+    const conflicts = await invoke<any[]>('detect_mod_conflicts', { instanceId: id }).catch(() => [] as any[]);
+    for (const c of conflicts) {
+      problems.push(`Конфликт модов: ${c?.mod_a ?? c?.modA ?? '?'} + ${c?.mod_b ?? c?.modB ?? '?'} — ${c?.reason ?? 'причина не указана'}`);
+    }
+
+    const mods = await invoke<any[]>('get_instance_mods', { instanceId: id }).catch(() => [] as any[]);
+    const modList = Array.isArray(mods) ? mods : [];
+    const seen = new Map<string, string>();
+    for (const m of modList) {
+      const idm = String(m?.mod_id ?? m?.project_id ?? '');
+      if (!idm) continue;
+      const prev = seen.get(idm);
+      if (prev) problems.push(`Дубль мода ${idm}: ${prev} и ${m?.file_name ?? m?.name ?? '?'} — оставь один файл.`);
+      else seen.set(idm, String(m?.file_name ?? m?.name ?? '?'));
+    }
+
+    // Битый JSON-конфиг ломает игру сразу при старте.
+    const configFiles = await invoke<any[]>('instance_list_dir', { instanceId: id, path: 'config' }).catch(() => [] as any[]);
+    let checked = 0;
+    for (const f of (Array.isArray(configFiles) ? configFiles : [])
+      .filter((e: any) => String(e?.name ?? '').toLowerCase().endsWith('.json'))
+      .slice(0, 60)) {
+      const name = String(f?.name ?? '');
+      try {
+        const raw = await invoke<string>('instance_read_text', { instanceId: id, path: `config/${name}` });
+        JSON.parse(String(raw ?? ''));
+        checked++;
+      } catch (e) {
+        problems.push(`Сломанный JSON: config/${name} — ${String(e).slice(0, 160)}`);
+      }
+    }
+
+    const head = `Проверка сборки ${id}: модов ${modList.length}, конфликтов ${Array.isArray(conflicts) ? conflicts.length : 0}, JSON-конфигов проверено ${checked}.`;
+    return {
+      ok: true,
+      output: problems.length ? `${head}\nПроблемы:\n${problems.map(p => `  ! ${p}`).join('\n')}` : `${head}\nПроблем не найдено.`,
+    };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execJarList(args: { path: string; filter?: string }): Promise<ExecResult> {
+  try {
+    const path = String(args.path ?? '');
+    if (!path) return { ok: false, output: 'Нужен path к .jar/.zip.' };
+    const entries = await invoke<any[]>('op_archive_list', { root: 'launcher', path });
+    const all = Array.isArray(entries) ? entries : [];
+    if (all.length === 0) return { ok: true, output: `В ${path} ничего не найдено (или это не архив).` };
+    const names = all.map(e => String(e?.name ?? e));
+    const meta = names.filter(n => /fabric\.mod\.json|quilt\.mod\.json|META-INF\/(mods\.toml|neoforge\.mods\.toml)|mixins?\.json|_accesswidener|entrypoints/.test(n));
+    const classes = names.filter(n => n.endsWith('.class'));
+    return {
+      ok: true,
+      output: [
+        `${path}: записей ${all.length}, классов ${classes.length}`,
+        meta.length ? `Метаданные мода:\n${meta.map(n => `  - ${n}`).join('\n')}` : 'Метаданных мода (fabric.mod.json и т.п.) нет.',
+        classes.length ? `Классы (первые 120):\n${classes.slice(0, 120).map(n => `  - ${n}`).join('\n')}` : '',
+      ].filter(Boolean).join('\n'),
+    };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execPathExists(args: { path: string }): Promise<ExecResult> {
+  try {
+    const path = String(args.path ?? '');
+    if (!path) return { ok: false, output: 'Нужен path.' };
+    // Путь вида instances/<id>/<rel> — читаем через инстанс-команды.
+    const parts = path.split('/').filter(Boolean);
+    if (parts[0] === 'instances' && parts.length >= 3) {
+      const instanceId = parts[1];
+      const rel = parts.slice(2).join('/');
+      const items = await invoke<any[]>('instance_list_dir', { instanceId, path: rel }).catch(() => null);
+      if (Array.isArray(items)) {
+        return { ok: true, output: items.length
+          ? `Существует: ${path} (${items.length} шт.)`
+          : `НЕ существует или пусто: ${path}` };
+      }
+    }
+    const entries = await invoke<any[]>('op_list_dir', { root: 'launcher', path }).catch(() => null);
+    const base = parts[parts.length - 1] ?? path;
+    const hit = Array.isArray(entries) ? entries.find((e: any) => String(e?.name ?? '') === base) : null;
+    return { ok: true, output: hit
+      ? `Существует: ${path}${hit?.size ? ` (${(Number(hit.size) / 1024).toFixed(1)} КБ)` : ''}`
+      : `НЕ существует: ${path}` };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+async function execLauncherInstallProject(args: Record<string, unknown>): Promise<ExecResult> {
+  try {
+    const slug = String(args.slug ?? '');
+    const type = String(args.project_type ?? 'mod');
+    if (!slug) return { ok: false, output: 'Нужен slug проекта (см. mod_search).' };
+
+    if (type === 'build') {
+      // Сборку нельзя положить внутрь другой сборки — она становится новой.
+      return {
+        ok: true,
+        output: `Сборка «${slug}» ставится как НОВАЯ сборка лаунчера — внутрь существующей сборки сборку поставить нельзя, `
+          + 'у неё свой набор модов, версия и загрузчик. Найди её через mod_search(project_type="modpack") или web_search, '
+          + 'скачай архив через download_file в папку загрузок и скажи пользователю путь — он импортирует её через '
+          + '«Обзор → сборка → Установить».',
+      };
+    }
+
+    const instanceId = String(args.instance_id ?? '');
+    if (!instanceId) return { ok: false, output: 'Для мода/пака/шейдера нужен instance_id (см. launcher_list_builds).' };
+    // Установка из каталога = mod_search (находит совместимую версию) + launcher_install_mod.
+    const found = await execModSearch({ query: slug, project_type: type, limit: 1 });
+    return {
+      ok: found.ok,
+      output: [
+        `Найдено по «${slug}» (${type}):`,
+        found.output,
+        '',
+        `Чтобы поставить в сборку ${instanceId}, вызови launcher_install_mod с download_url, file_name и метаданными отсюда.`,
+      ].join('\n'),
+    };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+/** Разбирает "1024x1024" в [width, height] с безопасными границами. */function parseSize(size?: string): [number, number] {
   const m = /^(\d{2,5})\s*[xх]\s*(\d{2,5})$/i.exec(String(size ?? '').trim());
   if (!m) return [1024, 1024];
   const w = Math.min(2048, Math.max(256, Number(m[1])));
@@ -2409,6 +2868,20 @@ export async function executeTool(
 ): Promise<ExecResult> {
   let args: any = safeJsonParseObject(normalizeToolArguments(argsRaw));
 
+  // Выбранная сборка в тулбаре. Раньше агент должен был сам передавать
+  // mc_version/loader в mod_search и часто этого не делал — поиск уходил без
+  // фильтров и предлагал моды не под эту версию игры.
+  let activeBuild: { mc_version?: string; loader?: string; name?: string } | null = null;
+  if (tool === 'mod_search' || tool === 'launcher_install_mod' || tool === 'launcher_install_project') {
+    try {
+      const project = useOpenCoreStore.getState().config.project;
+      if (project?.kind === 'build') {
+        const list = await invoke<any[]>('get_instances').catch(() => [] as any[]);
+        activeBuild = (Array.isArray(list) ? list : []).find(i => i?.id === project.instanceId) ?? null;
+      }
+    } catch { /* сборка может быть недоступна — работаем без фильтров */ }
+  }
+
   // Режим ASK: агент только спрашивает/ищет/читает. Все изменяющие действия отклоняем сразу,
   // до их выполнения (включая те, что обычно не спрашивают разрешение — запись и команды в portal/temp).
   if (policy === 'ask') {
@@ -2478,7 +2951,55 @@ export async function executeTool(
 
   if (tool === 'launcher_list_builds') return execLauncherListBuilds();
   if (tool === 'launcher_logs') return execLauncherLogs(args);
-  if (tool === 'mod_search') return execModSearch(args);
+  if (tool === 'mod_search') {
+    // Подставляем версию/лоадер выбранной сборки, если агент их не указал.
+    const rawType = String(args?.project_type ?? 'mod').trim().toLowerCase();
+    const loaderApplies = rawType === 'mod' || rawType === 'modpack';
+    if (activeBuild) {
+      if (!String(args?.mc_version ?? '').trim() && activeBuild.mc_version) args = { ...args, mc_version: activeBuild.mc_version };
+      if (loaderApplies && !String(args?.loader ?? '').trim() && activeBuild.loader && activeBuild.loader !== 'vanilla') {
+        args = { ...args, loader: activeBuild.loader };
+      }
+    }
+    return execModSearch(args);
+  }
+  if (tool === 'launcher_build_info') return execLauncherBuildInfo(args);
+  if (tool === 'launcher_list_content') return execLauncherListContent(args);
+  if (tool === 'launcher_read_file') return execLauncherReadFile(args);
+  if (tool === 'launcher_crash_report') return execLauncherCrashReport(args);
+  if (tool === 'launcher_verify_build') return execLauncherVerifyBuild(args);
+  if (tool === 'jar_list') return execJarList(args);
+  if (tool === 'path_exists') return execPathExists(args);
+
+  if (tool === 'launcher_write_file' || tool === 'launcher_remove_content' || tool === 'launcher_install_project') {
+    const label = tool === 'launcher_write_file'
+      ? 'Запись файла в сборку'
+      : tool === 'launcher_remove_content'
+        ? 'Удаление файла из сборки'
+        : 'Установка из каталога';
+    const detail = tool === 'launcher_write_file'
+      ? `${args.path} → сборка ${args.instance_id}`
+      : tool === 'launcher_remove_content'
+        ? `${args.folder}/${args.file_name} → сборка ${args.instance_id}`
+        : `${args.slug} (${args.project_type})${args.project_type === 'build' ? ' → новая сборка' : ` → сборка ${args.instance_id ?? ''}`}`;
+    const decision = await requestPermission({
+      tool,
+      root: 'launcher',
+      label,
+      detail,
+      cwdLabel: `${label} → ${args.instance_id ?? args.slug ?? ''}`,
+      resolve: () => {},
+    });
+    if (decision === 'deny' || decision === 'never') {
+      return { ok: false, output: `Пользователь не разрешил: ${label}.` };
+    }
+    if (decision === 'allow' || decision === 'always') {
+      if (tool === 'launcher_write_file') return execLauncherWriteFile(args);
+      if (tool === 'launcher_remove_content') return execLauncherRemoveContent(args);
+      return execLauncherInstallProject(args);
+    }
+    return { ok: false, output: 'Разрешение не получено.' };
+  }
 
   if (tool === 'launcher_install_mod' || tool === 'launcher_create_build') {
     const label = tool === 'launcher_install_mod' ? 'Установка мода в сборку' : 'Создание сборки';
@@ -3367,7 +3888,7 @@ async function compactHistoryWithModel(ep: ResolvedEndpoint, messages: ChatMessa
 // ---------------------------------------------------------------------------
 
 export function buildSystemPrompt(opts: {
-  mode: 'build' | 'plan';
+  mode: 'default' | 'build' | 'plan';
   /** Доп. сведения об окружении (сборка, пути). */
   extra?: string;
   /** Установленные навыки (описание) — агент их знает. */
@@ -3377,7 +3898,16 @@ export function buildSystemPrompt(opts: {
   /** Реальный размер контекстного окна модели (из contextWindow). */
   contextLimit?: number;
 }): string {
-  const rules = opts.mode === 'build'
+  // Режим DEFAULT — агент сам распределяет: читал/объяснял без правок, а задачу
+  // на установку или создание выполнял. Раньше режима не было, пришлось заранее
+  // угадывать Build или Plan, и задачи часто оставались невыполненными.
+  const rules = opts.mode === 'default'
+    ? `Режим DEFAULT: режим выбираешь ты сам под каждое сообщение.
+- Вопрос, объяснение, обзор кода, «что лучше», «как это работает» — отвечай сам, НЕ вызывая инструменты для изменения файлов. Ничего не меняй.
+- Задача с результатом: поставить/найти/установить/создать/починить/настроить/собрать — выполняй через инструменты, шаг за шагом, до фактического результата.
+- Если задача неоднозначна и от выбора зависит результат — сначала сделай безопасную часть (прочитай, найди), потом скажи, что нужно решить, и спроси.
+- Правки файлов и запуск сборки делай без отдельного подтверждения режима: пользователь уже выбрал DEFAULT.`
+    : opts.mode === 'build'
     ? `Режим BUILD: ты полноценный агент-исполнитель. Ты достигаешь цели пользователя через инструменты: изучаешь файлы, правишь их, запускаешь команды, шаг за шагом добиваясь результата.`
     : `Режим PLAN: ты архитектор-аналитик. Ты НЕ изменяешь файлы и НЕ запускаешь команды. Отвечаешь детальным пошаговым планом: что сделать, какими файлами заняться, какие риски, как проверить результат.`;
   const skills = opts.skills?.trim()
@@ -3400,7 +3930,7 @@ export function buildSystemPrompt(opts: {
     : '';
   return [
     `Ты — OpenPortal, встроенный агент портал-лаунчера (Minecraft). Пользователя зовут его Minecraft-ником (смотри блок «Окружение» ниже) — обращайся к нему по нику, если это уместно. Имя компьютера не упоминай без необходимости.`,
-    `Режим: ${opts.mode === 'build' ? 'BUILD — выполнять' : 'PLAN — только план'}.`,
+    `Режим: ${opts.mode === 'default' ? 'DEFAULT — режим выбираешь сам' : opts.mode === 'build' ? 'BUILD — выполнять' : 'PLAN — только план'}.`,
     rules,
     perModel,
     '',
@@ -3416,6 +3946,22 @@ export function buildSystemPrompt(opts: {
     `- Тени: --shadow-sm/md/lg. Шрифт: --font-ui. Скругление кнопок задаётся --radius-button.`,
     `Слои стилей: пресет оформления выбирается атрибутом <html data-portal-style="..."> (oreui, standard, glass, quadral, falloff, abouts); режим интерфейса — <html data-ui-mode="modern|new|old">; светлая/тёмная тема — <html data-theme="light|dark">. Файлы: src/index.css (общие стили и слой oreui), src/components/layout/portal-sidebar.css (сайдбар), src/lib/style-presets.ts (токены пресетов), src/lib/theme-engine.ts (темы).`,
     `Как создать тему по запросу игрока: добавь блок вида \`html[data-theme="<id>"] { --color-bg: ...; --color-surface: ...; ... }\` в src/index.css (или переопредели токены существующей схемы) и скажи игроку, как её включить. Соблюдай контраст текста к фону, не используй чистый белый/чёрный для текста (глаза) — лучше приглушённые оттенки. Правь CSS через write_text(root='launcher', path='src/index.css'), сначала прочитав файл read_text, и не ломай существующие селекторы.`,
+    '',
+    '',
+    `ЗАПРЕТ ВЫДУМЫВАНИЯ (самое важное правило). Мод, шейдер или ресурс-пак НЕ заработает, если ты выдумал класс, метод, mixin или файл:`,
+    `- Никогда не пиши класс, метод, поле, mixin-класс, конфиг-ключ или файл, который ты не видел. Никаких «наверное есть», «должно называться», «по моему опыту».`,
+    `- Прежде чем сослаться на класс мода или API Minecraft: (1) jar_list(path) — есть ли такой класс в .jar; (2) decompile_jar(path, class_filter) или search_code — как он выглядит на самом деле. Нет класса — не используй его.`,
+    `- То же про структуру ресурс-пака и шейдера: сначала archive_list(path) — какие файлы и папки реально есть (assets/<ns>/, shaders/, textures/, pack.mcmeta). Не создавай папку, которой нет в архиве.`,
+    `- То же про версии: версию Minecraft, загрузчика и версию мода бери из launcher_build_info и mod_search, а не из памяти. Fabric-мод нельзя ставить в Forge/NeoForge-сборку.`,
+    `- Несуществующий API = сломанная сборка. Лучше потратить вызов инструмента на проверку, чем написать код, который не скомпилируется.`,
+    `- Если не можешь проверить — прямо скажи: «не проверял, нужно подтвердить», и назови точное место проверки.`,
+    '',
+    `ДОБИВАЙ ЗАДАЧУ ДО КОНЦА. Не останавливайся на полпути и не пересказывай, что мог бы сделать:`,
+    `- Задача с результатом (поставить, создать, починить, настроить, собрать, прочитать и исправить) завершена, когда результат проверен: файл существует (path_exists), сборка проходит проверку (launcher_verify_build), а не «я написал код, осталось тебе нажать».`,
+    `- Пиши код полностью, без «...остальное по аналогии», без «// здесь добавь остальные обработчики». Все обработчики, все импорты, все методы — целиком.`,
+    `- Если задача большая (сборка на 100+ модов, пачка конфигов) — разбей её на шаги, выполни ВСЕ шаги в этом же диалоге, и только потом отчитайся списком результатов. Не останавливайся после первых трёх модов.`,
+    `- Ошибка инструмента — это не финал. Прочитай текст ошибки, исправь причину и повтори. Только после 2–3 неудачных попыток с разными подходами скажи пользователю, что не получается и что ты уже пробовал.`,
+    `- Успех считай достигнутым, только если он проверяем: покажи конкретный путь/файл/версию в ответе.`,
     '',
     `Доступные инструменты (когда они нужны — обязательно используй, не описывай «я бы сделал»):`,
     `- web_search(query, max_results?) — поисковый запрос в интернете (актуальные данные, новости, гайды).`,
@@ -3445,6 +3991,16 @@ export function buildSystemPrompt(opts: {
     `- archive_create(root, path, name) — создать .zip/.7z из папки/файла (сохраняется в Cache/archives; покажи маркером /op-project).`,
     `- save_to_downloads(root, path, name?) — скопировать файл из песочницы в системные «Загрузки».`,
     `- launcher_list_builds() — список сборок лаунчера (id нужен для launcher-инструментов).`,
+    `- launcher_build_info(instance_id) — ПОЛНАЯ картина по сборке: версии, RAM, JVM, все моды/паки/шейдеры с версиями, конфиги, options.txt. Вызывай первым при любой задаче про сборку.`,
+    `- launcher_list_content(instance_id, folder?) — что реально лежит в mods/resourcepacks/shaderpacks/datapacks/config (имена файлов, размер).`,
+    `- launcher_read_file(instance_id, path, offset?, limit?) — прочитать файл в сборке (options.txt, config/*.json|*.toml). Большой файл читай по частям через offset.`,
+    `- launcher_write_file(instance_id, path, content) — записать файл в сборке (спросит разрешение). Сначала прочитай и правь только нужные строки.`,
+    `- launcher_remove_content(instance_id, folder, file_name) — удалить файл из сборки (спросит разрешение). Нужен при смене версии мода и конфликтах.`,
+    `- launcher_verify_build(instance_id) — ПРОВЕРКА перед запуском: конфликты модов, дубли, битые JSON-конфиги.`,
+    `- launcher_crash_report(instance_id) — разбор падения: ошибки и стек-трейсы из лога.`,
+    `- jar_list(path) — список классов и метаданных внутри .jar (fabric.mod.json, mixins.json). Проверяй existence класса до того, как его использовать.`,
+    `- path_exists(path) — существует ли файл/папка. Быстрая проверка перед чтением или правкой.`,
+    `- launcher_install_project(slug, project_type, instance_id?) — установка из каталога лаунчера. project_type="build" ставится как НОВАЯ сборка, внутрь другой сборки сборку поставить нельзя.`,
     `- launcher_logs(instance_id) — последние строки лога запуска сборки (диагностика крашей, ошибок).`,
     `- launcher_install_mod(instance_id, download_url, file_name, ...) — установить мод/ресурс-пак/шейдер в сборку (спросит разрешение).`,
     `- launcher_create_build(name, mc_version, loader, loader_version, ...) — создать новую сборку (спросит разрешение).`,
@@ -3535,6 +4091,17 @@ export function buildSystemPrompt(opts: {
     `- Ошибка №1: пользователь просит «создай шейдер», ты ищешь готовый шейдер на Modrinth и предлагаешь его установить. Это неверно — нужно написать GLSL-файлы.`,
     '',
     `РАБОТА С КОДОМ, ТЕКСТУР-ПАКАМИ И ШЕЙДЕРАМИ:`,
+    `ССЫЛКИ, КОТОРЫЕ ТЫ ЧИТАЕШЬ ЧЕРЕЗ fetch_page, когда нужна точная спецификация (свою память источником не считай — читай):`,
+    `- Фабрик API (актуальные версии, class/method): https://maven.fabricmc.net/docs/ и https://fabricmc.net/wiki/`,
+    `- Yarn-маппинги имён (если сборка на Yarn): https://maven.fabricmc.net/docs/yarn-<версия>/ + https://github.com/FabricMC/yarn`,
+    `- NeoForge Javadoc: https://docs.neoforged.net/docs/javadoc/ · Forge: https://docs.minecraftforge.net/`,
+    `- Quilt: https://quiltmc.org/en/ и meta-версии https://meta.quiltmc.org/v3/versions/loader/<mc>`,
+    `- Fabric/Quilt wiki по mixin: https://wiki.fabricmc.net/ · https://quiltmc.org/en/wiki/mixin`,
+    `- GLSL/OpenGL: https://registry.khronos.org/OpenGL/extensions/ARB/GLSL/ · https://www.khronos.org/opengl/wiki/`,
+    `- Iris/OptiFine шейдеры и uniform-ы: https://shaderspack.net/ · https://github.com/IrisShaders/Iris/wiki`,
+    `- Ресурс-паки и pack_format: https://minecraft.wiki/w/Pack_format · https://minecraft.wiki/w/Resource_pack`,
+    `- Modrinth API: https://docs.modrinth.com/api/operations/ · CurseForge API: https://support.curseforge.com/en/support/solutions/articles/9000197334-curseforge-api`,
+    `- Документация лаунчера и его команды: читай исходники через read_text(root='launcher', ...) — это надёжнее любой ссылки.`,
     `- Порядок любой правки кода в лаунчере: (1) search_code — найти все места использования; (2) read_text — прочитать нужные файлы; (3) edit_file — точечно изменить; (4) search_code повторно — убедиться, что старых мест не осталось. Никогда не правь файл вслепую.`,
     `- Создание мода с нуля: выясни загрузчик и версию; создай структуру src/main/java/ru/<ник>/<modid>/ + src/main/resources/ с fabric.mod.json (Fabric) или META-INF/mods.toml (Forge/NeoForge/Quilt); укажи id, version, entrypoint и все dependencies. Собери .jar (пункт выше) и положи в mods активной сборки.`,
     `- Ресурс-пак: zip с pack.mcmeta и папками assets/<namespace>/{textures,models,lang,sounds,...}. Текстуры — PNG 16x16 (32x32 для HD), модели и шрифты — JSON. Собери: cd <папка> && zip -r ../MyPack.zip pack.mcmeta assets, затем положи zip в resourcepacks сборки.`,
@@ -3573,6 +4140,19 @@ export function buildSystemPrompt(opts: {
     `- Изменение не доходит до игры почти всегда означает одно из трёх: файл записан не туда (проверь путь), игра запущена со старой копией (попроси пересобрать сборку и перезапустить), или архив пересобран неправильно. Всегда проверяй archive_list после упаковки.`,
     `- Сборка (модпак): manifest.json обязателен, внутри files/minecraft и mods/ с реальными файлами. Не выдавай список модов за сборку.`,
     `- Не повторяй уже сделанное и не заявляй успех без проверки: archive_list, javap, запуск скрипта. Лучше честно «не смог проверить» — чем «готово».`,
+    `СБОРКА БОЛЬШОЙ СБОРКИ (100+ модов, конфиги, шейдеры) — когда просят «собери сборку»:`,
+    `- Порядок обязателен: (1) launcher_list_builds или launcher_create_build — получить instance_id; (2) launcher_build_info — точные версия Minecraft, загрузчик и версия загрузчика; (3) mod_search по каждому моду с mc_version/loader этой сборки; (4) launcher_install_mod по одному; (5) launcher_verify_build.`,
+    `- Совместимость: Fabric-мод в Forge/NeoForge-сборку не ставится. Шейдеры и ресурс-паки фильтр по загрузчику НЕ применяют — им нужна только версия игры.`,
+    `- Обязательные зависимости ставь ВМЕСТЕ с модом (например Sodium требует Embeddium, Lithium требует Fabric API). Не оставляй сборку с неработающей цепочкой.`,
+    `- Несовместимые пары (Shaders+Vibrant, Sodium+OptiFine, разные Sodium-вилки) — предупреждай и предлагай выбор, а не ставь всё подряд.`,
+    `- Конфиги ставь ПОСЛЕ модов: прочитай текущий файл (launcher_read_file) и правь только нужные значения (launcher_write_file), не затирая остальные настройки.`,
+    `- 100+ модов — это 100+ вызовов. Выполняй их все в этом диалоге, батчами по 5–10, и отчитайся только когда список закрыт полностью. Список моду держи в файле (write_text), чтобы не потерять его в длинном контексте.`,
+    `- Перед финальным отчётом: launcher_verify_build + launcher_list_content — и в ответе укажи реальные числа (сколько модов поставлено, сколько конфликтов).`,
+    `ПОЧИНКА ПО ЛОГАМ И ОШИБКАМ — когда игра падает или пишет ошибку:`,
+    `- launcher_crash_report(instance_id) — первым шагом. По строке «Caused by» и первой ненакрытой строке определяй виновника, а не последнюю.`,
+    `- Типовые причины: NoSuchMethodError/NoClassDefFoundError — неверная версия мода или загрузчика; ClassNotFoundException в mixin — забытый mixin-класс или неверный refmap; UnsupportedClassVersionError — не та Java (1.20.5+ = Java 21, старые = Java 8/17); MixingLegacyClassIntoTargetClass — несовместимые моды; OutOfMemoryError — подними max_ram.`,
+    `- Миксины: проверь jar_list — есть ли mixin-класс в .jar, и есть ли он в mixins.json пакета. Класс есть в коде, но не в mixins.json = «миксин не применится молча».`,
+    `- Найди причину, а не симптом: после правки обязательно launcher_verify_build и скажи пользователю перезапустить игру, затем снова launcher_crash_report.`,
     `ПРОВЕРКА РЕЗУЛЬТАТА (обязательно перед отчётом):`,
     `- Создал шейдер — распакуй свой zip обратно (archive_list) и убедись, что .vsh/.fsh на месте и в правильных папках. Создал ресурс-пак — проверь наличие pack.mcmeta. Создал мод — проверь, что jar не пустой и в нём есть fabric.mod.json или META-INF/mods.toml (archive_list).`,
     `- Скрипт на Python запусти и убедись в отсутствии ошибок. Проверяй себя до того, как говорить «готово».`,
@@ -3619,7 +4199,7 @@ export interface RunTurnOptions {
   systemPrompt: string;
   /** Входные сообщения (уже включая новый user-turn). Возвращаются обновлённые. */
   input: ChatMessage[];
-  mode: 'build' | 'plan';
+  mode: 'default' | 'build' | 'plan';
   requestPermission: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>;
   signal?: AbortSignal;
   /** Лимит контекста модели в токенах (по умолчанию 128000). Автокомпрессия сработает при расходе более 75%. */

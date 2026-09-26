@@ -47,11 +47,11 @@ function defaultConfig(): OpenPortalConfig {
     },
     activeProviderId: 'deepseek',
     activeModelId: 'deepseek-flash',
-    mode: 'default',
+    mode: 'build',
     project: { kind: 'none' },
     temperature: 0.4,
     permissionPreset: 'dfa',
-    effort: 'medium',
+    effort: 'default',
     imageGenProvider: 'stable_horde',
     browserBookmarks: [],
   };
@@ -82,7 +82,7 @@ interface OpenCoreState {
   setProviderBaseUrl: (providerId: string, baseUrl: string) => void;
   setProviderModels: (providerId: string, models: { id: string; name?: string; free?: boolean; contextLength?: number; maxOutputTokens?: number }[]) => void;
   setActiveModel: (providerId: string, modelId: string) => void;
-  setMode: (mode: 'default' | 'build' | 'plan') => void;
+  setMode: (mode: 'build' | 'plan') => void;
   setPermissionPreset: (preset: PermissionPreset) => void;
   /** Провайдер генерации изображений: stable_horde (по умолчанию, без ключа) или novita (по ключу). */
   setImageGenProvider: (provider: 'stable_horde' | 'novita' | 'pollinations') => void;

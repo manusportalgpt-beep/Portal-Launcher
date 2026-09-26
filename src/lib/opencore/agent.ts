@@ -251,9 +251,9 @@ async function fetchWithToolFallback(
  * Значение не выдумывается: если модель не размечена как reasoning, параметр
  * не отправляется вовсе.
  */
-export type EffortLevel = 'minimal' | 'low' | 'medium' | 'high';
+export type EffortLevel = 'default' | 'minimal' | 'low' | 'medium' | 'high';
 
-const EFFORT_BUDGET: Record<EffortLevel, number> = {
+const EFFORT_BUDGET: Record<Exclude<EffortLevel, 'default'>, number> = {
   minimal: 1024,
   low: 4096,
   medium: 12_288,
@@ -271,8 +271,9 @@ function applyEffort(
   ep: ResolvedEndpoint,
   effort: EffortLevel | undefined,
 ): void {
-  // Без явного выбора не трогаем тело запроса — провайдер сам выберет дефолт.
-  if (!effort) return;
+  // Default — уровень не задаётся: модель сама решает, сколько думать.
+  // Это же поведение, что и «не выбрано», но осознанно выбранное пользователем.
+  if (!effort || effort === 'default') return;
   if (!supportsEffort(ep)) return;
 
   const isAnthropic = ep.provider.kind === 'anthropic' || ep.baseUrl.includes('anthropic');
@@ -3990,7 +3991,7 @@ async function compactHistoryWithModel(ep: ResolvedEndpoint, messages: ChatMessa
 // ---------------------------------------------------------------------------
 
 export function buildSystemPrompt(opts: {
-  mode: 'default' | 'build' | 'plan';
+  mode: 'build' | 'plan';
   /** Доп. сведения об окружении (сборка, пути). */
   extra?: string;
   /** Установленные навыки (описание) — агент их знает. */
@@ -4000,16 +4001,7 @@ export function buildSystemPrompt(opts: {
   /** Реальный размер контекстного окна модели (из contextWindow). */
   contextLimit?: number;
 }): string {
-  // Режим DEFAULT — агент сам распределяет: читал/объяснял без правок, а задачу
-  // на установку или создание выполнял. Раньше режима не было, пришлось заранее
-  // угадывать Build или Plan, и задачи часто оставались невыполненными.
-  const rules = opts.mode === 'default'
-    ? `Режим DEFAULT: режим выбираешь ты сам под каждое сообщение.
-- Вопрос, объяснение, обзор кода, «что лучше», «как это работает» — отвечай сам, НЕ вызывая инструменты для изменения файлов. Ничего не меняй.
-- Задача с результатом: поставить/найти/установить/создать/починить/настроить/собрать — выполняй через инструменты, шаг за шагом, до фактического результата.
-- Если задача неоднозначна и от выбора зависит результат — сначала сделай безопасную часть (прочитай, найди), потом скажи, что нужно решить, и спроси.
-- Правки файлов и запуск сборки делай без отдельного подтверждения режима: пользователь уже выбрал DEFAULT.`
-    : opts.mode === 'build'
+  const rules = opts.mode === 'build'
     ? `Режим BUILD: ты полноценный агент-исполнитель. Ты достигаешь цели пользователя через инструменты: изучаешь файлы, правишь их, запускаешь команды, шаг за шагом добиваясь результата.`
     : `Режим PLAN: ты архитектор-аналитик. Ты НЕ изменяешь файлы и НЕ запускаешь команды. Отвечаешь детальным пошаговым планом: что сделать, какими файлами заняться, какие риски, как проверить результат.`;
   const skills = opts.skills?.trim()
@@ -4032,7 +4024,7 @@ export function buildSystemPrompt(opts: {
     : '';
   return [
     `Ты — OpenPortal, встроенный агент портал-лаунчера (Minecraft). Пользователя зовут его Minecraft-ником (смотри блок «Окружение» ниже) — обращайся к нему по нику, если это уместно. Имя компьютера не упоминай без необходимости.`,
-    `Режим: ${opts.mode === 'default' ? 'DEFAULT — режим выбираешь сам' : opts.mode === 'build' ? 'BUILD — выполнять' : 'PLAN — только план'}.`,
+    `Режим: ${opts.mode === 'build' ? 'BUILD — выполнять' : 'PLAN — только план'}.`,
     rules,
     perModel,
     '',
@@ -4301,7 +4293,7 @@ export interface RunTurnOptions {
   systemPrompt: string;
   /** Входные сообщения (уже включая новый user-turn). Возвращаются обновлённые. */
   input: ChatMessage[];
-  mode: 'default' | 'build' | 'plan';
+  mode: 'build' | 'plan';
   requestPermission: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>;
   signal?: AbortSignal;
   /** Лимит контекста модели в токенах (по умолчанию 128000). Автокомпрессия сработает при расходе более 75%. */

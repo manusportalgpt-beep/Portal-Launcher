@@ -126,33 +126,84 @@ fn canonical(p: &Path) -> Option<PathBuf> {
     std::fs::canonicalize(p).ok()
 }
 
-/// Проверяет, что `path` находится внутри корня `root`.
-/// Зоны доступа агента.
+/// Все каталоги, в которые агенту разрешено писать.
 ///
-/// Для Launcher теперь действует постоянное разрешение на всю папку
-/// PortalLauncher (в Roaming), а не только settings.json и папка активной
-/// сборки: агент должен сам создавать проекты, класть в сборки шейдеры,
-/// ресурс-паки и моды без постоянных вопросов. За пределы этой папки запись
-/// по-прежнему запрещена.
+/// Раньше проверка принимала только один каталог на каждый root, и агент
+/// упирался в «Путь вне разрешённой зоны» на самых обычных задачах — создании
+/// шейдера, ресурс-пака или мода в новой подпапке. Теперь разрешены все
+/// каталоги PortalLauncher: в Roaming (данные лаунчера и сборки), в Local
+/// (если лаунчер их создал), системный Temp и рабочие проекты OpenPortal.
+fn allowed_bases(root: Root) -> Vec<PathBuf> {
+    let mut bases: Vec<PathBuf> = Vec::new();
+    match root {
+        Root::Portal => bases.push(openportal_dir()),
+        Root::Temp => bases.push(system_temp_dir()),
+        Root::Launcher => {
+            bases.push(crate::commands::version_manager::mc_base_dir());
+            if let Some(local) = dirs_next::data_local_dir() {
+                bases.push(local.join("PortalLauncher"));
+            }
+        }
+    }
+    // OpenPortal и Temp доступны всегда: без них не собрать шейдер или мод,
+    // который сначала готовится во временной папке.
+    if !matches!(root, Root::Portal) {
+        bases.push(openportal_dir());
+    }
+    if !matches!(root, Root::Temp) {
+        bases.push(system_temp_dir());
+    }
+    bases
+}
+
+/// Ближайший существующий предок пути: `canonicalize` не работает для
+/// ещё не созданных папок, а агент постоянно пишет в новые.
+fn nearest_existing(path: &Path) -> Option<PathBuf> {
+    let mut cur = path;
+    loop {
+        if cur.exists() {
+            return canonical(cur);
+        }
+        match cur.parent() {
+            Some(parent) if parent != cur => cur = parent,
+            _ => return None,
+        }
+    }
+}
+
+fn is_inside(path: &Path, base: &Path) -> bool {
+    path == base || path.starts_with(base)
+}
+
+/// Проверяет, что `path` находится внутри одной из разрешённых зон агента.
 fn enforce_root(root: Root, path: &Path, write: bool) -> Result<PathBuf, String> {
-    let base = root_path(root);
-    let base = canonical(&base).unwrap_or(base);
-    let ok = if write {
-        // Для записи файл может ещё не существовать — канонизируем родителя.
-        let parent = path.parent().unwrap_or(&base);
-        canonical(parent)
-            .map(|p| p.starts_with(&base))
-            .unwrap_or(false)
+    let bases: Vec<PathBuf> = allowed_bases(root)
+        .iter()
+        .map(|b| canonical(b).unwrap_or_else(|| b.clone()))
+        .collect();
+
+    // Для записи файл может ещё не существовать — проверяем ближайшего
+    // существующего предка и сами создаём недостающие папки.
+    let target = if write {
+        nearest_existing(path.parent().unwrap_or(path))
     } else {
         canonical(path)
-            .map(|p| p.starts_with(&base))
-            .unwrap_or(false)
     };
+    let ok = target
+        .map(|p| bases.iter().any(|b| is_inside(&p, b)))
+        .unwrap_or(false);
     if !ok {
         return Err(format!(
-            "Путь вне разрешённой зоны: {}",
+            "Путь вне разрешённой зоны: {}. Разрешены папки PortalLauncher (Roaming и Local), системный Temp и OpenPortal\\Projects.",
             path.to_string_lossy()
         ));
+    }
+    if write {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                format!("Не удалось создать папку {}: {e}", parent.to_string_lossy())
+            })?;
+        }
     }
     Ok(canonical(path).unwrap_or_else(|| path.to_path_buf()))
 }

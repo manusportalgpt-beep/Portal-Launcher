@@ -111,7 +111,7 @@ export interface SessionData {
   updated: number;
   modelId: string;
   providerId: string;
-  mode: 'default' | 'build' | 'plan';
+  mode: 'build' | 'plan';
   /** Последняя рабочая папка сессии (root: portal|temp|launcher + путь). */
   cwd?: { root: string; path: string };
   messages: ChatMessage[];
@@ -143,7 +143,7 @@ export interface OpenPortalConfig {
   providers: Record<string, ProviderState>;
   activeProviderId: string;
   activeModelId: string;
-  mode: 'default' | 'build' | 'plan';
+  mode: 'build' | 'plan';
   /** С какой сборкой (или без) работает агент. */
   project?: ProjectContext;
   /** Последняя рабочая папка (root: portal|temp|launcher + путь). */
@@ -154,7 +154,7 @@ export interface OpenPortalConfig {
    * Передаётся в API в том формате, который понимает конкретный провайдер
    * (reasoning_effort / reasoning.effort / thinking.budget_tokens).
    */
-  effort?: 'minimal' | 'low' | 'medium' | 'high';
+  effort?: 'default' | 'minimal' | 'low' | 'medium' | 'high';
   /**
    * Размер контекста вручную для конкретных моделей: ключ `providerId/modelId`.
    * Нужен там, где провайдер не сообщает лимит (например, OpenCode Zen) —

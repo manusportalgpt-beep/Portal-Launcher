@@ -564,9 +564,8 @@ function FileChanges({ changes }: { changes: FileChange[] }) {
   );
 }
 
-function ModeToggle({ mode, onChange }: { mode: 'default' | 'build' | 'plan'; onChange: (m: 'default' | 'build' | 'plan') => void }) {
-  const modes: { id: 'default' | 'build' | 'plan'; label: string; title: string; Icon: any }[] = [
-    { id: 'default', label: 'Default', title: 'Default — агент сам выберет режим: план для вопросов и правок, сборка для задач на установку и создание', Icon: Sparkles },
+function ModeToggle({ mode, onChange }: { mode: 'build' | 'plan'; onChange: (m: 'build' | 'plan') => void }) {
+  const modes: { id: 'build' | 'plan'; label: string; title: string; Icon: any }[] = [
     { id: 'build', label: 'Build', title: 'Build — выполняет задачи', Icon: Hammer },
     { id: 'plan', label: 'Plan', title: 'Plan — только план, без изменений', Icon: DraftingCompass },
   ];
@@ -585,15 +584,16 @@ function ModeToggle({ mode, onChange }: { mode: 'default' | 'build' | 'plan'; on
   );
 }
 
-function EffortPicker({ value, onChange }: { value: 'minimal' | 'low' | 'medium' | 'high'; onChange: (v: 'minimal' | 'low' | 'medium' | 'high') => void }) {
+function EffortPicker({ value, onChange }: { value: 'default' | 'minimal' | 'low' | 'medium' | 'high'; onChange: (v: 'default' | 'minimal' | 'low' | 'medium' | 'high') => void }) {
   const [open, setOpen] = useState(false);
-  const levels: { id: 'minimal' | 'low' | 'medium' | 'high'; label: string; title: string }[] = [
+  const levels: { id: 'default' | 'minimal' | 'low' | 'medium' | 'high'; label: string; title: string }[] = [
+    { id: 'default', label: 'Default', title: 'Default — модель сама выбирает глубину рассуждений под задачу: быстро для простого, глубоко для сложного' },
     { id: 'minimal', label: 'Мин', title: 'Минимум рассуждений — быстрее и дешевле' },
     { id: 'low', label: 'Низ', title: 'Немного рассуждений' },
     { id: 'medium', label: 'Сред', title: 'Обычный уровень рассуждений' },
     { id: 'high', label: 'Выс', title: 'Максимум рассуждений — медленнее, но внимательнее' },
   ];
-  const current = levels.find(l => l.id === value) ?? levels[2];
+  const current = levels.find(l => l.id === value) ?? levels[0];
   return (
     <div className="relative shrink-0">
       <button onClick={() => setOpen(o => !o)} title={current.title}
@@ -1353,7 +1353,7 @@ export function OpenPortalPage() {
     useOpenCoreStore.getState().appendSessionMessages(runSessionId, [userMsg]);
     setAttachments([]);
 
-    const mode: 'default' | 'build' | 'plan' = taskDirective ? 'build' : cfg.mode;
+    const mode: 'build' | 'plan' = taskDirective ? 'build' : cfg.mode;
     const ep = resolveEndpoint(providerId, modelId, cfgNow.providers, cfgNow.modelContexts);
     ep.serviceTokens = useOpenCoreStore.getState().config.serviceTokens ?? {};
     ep.onSetToken = (host, token) => useOpenCoreStore.getState().setServiceToken(host, token);

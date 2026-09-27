@@ -1383,6 +1383,34 @@ const CONTENT_FILTERS: { id: ContentFilter; label: string }[] = [
   { id:'updates',       label:'Обновления' },
 ];
 
+/**
+ * Этапы установки сборки. Раньше показывали только процент, и он выглядел
+ * замершим: непонятно было, качает лаунчер файлы, распаковывает манифест или
+ * уже ставит зависимости. Шаги снимают этот вопрос.
+ */
+const INSTALL_STEPS = [
+  { id: 'prepare', label: 'Подготовка' },
+  { id: 'manifest', label: 'Манифест' },
+  { id: 'download', label: 'Файлы' },
+  { id: 'install', label: 'Сборка' },
+  { id: 'done', label: 'Готово' },
+];
+
+const STEP_STAGE_MAP: Record<string, string> = {
+  preparing: 'prepare', auth: 'prepare', resolve: 'prepare', java: 'prepare', starting: 'prepare', starting_game: 'prepare',
+  client: 'download', manifest: 'manifest', reading: 'manifest', importing: 'manifest', importing_pack: 'manifest', cloning: 'manifest',
+  libraries: 'download', downloading: 'download', download: 'download', natives: 'download', extracting: 'install',
+  installing: 'install', applying: 'install', setting_up: 'install', updating: 'install', install: 'install', linking: 'install',
+  creating: 'install', saving: 'install', configuring: 'install',
+  done: 'done', complete: 'done', completed: 'done', installed: 'done',
+};
+
+function installStepIndex(event: InstanceInstallEvent): number {
+  const id = STEP_STAGE_MAP[event.stage] ?? 'prepare';
+  const i = INSTALL_STEPS.findIndex(s => s.id === id);
+  return i < 0 ? 0 : i;
+}
+
 type InstanceInstallEvent = {
   source: 'launch' | 'minecraft' | 'java' | 'download';
   stage: string;
@@ -1390,6 +1418,8 @@ type InstanceInstallEvent = {
   current: number;
   total: number;
   percent: number;
+  /** Имя текущего файла — чтобы было видно, что именно качается. */
+  file?: string;
 };
 
 function installStageName(event: InstanceInstallEvent) {
@@ -1442,6 +1472,7 @@ function InstanceInstallProgress({ instanceId, active }: { instanceId: string; a
         current,
         total,
         percent: computedPercent,
+        file: payload?.file != null ? String(payload.file) : undefined,
       });
       const terminalStage = /^(?:done|complete|completed|installed|error|cancelled|canceled)$/i.test(String(payload?.stage ?? ''));
       if (terminalStage && /^(?:done|complete|completed|installed)$/i.test(String(payload?.stage ?? ''))) {
@@ -1500,24 +1531,74 @@ function InstanceInstallProgress({ instanceId, active }: { instanceId: string; a
   const fileCount = event.total > 0 && event.total <= 100000 && event.source !== 'java'
     ? `${Math.min(event.current, event.total)} / ${event.total} файлов`
     : null;
+  // «Осталось 35 файлов» — то, чего не хватало раньше: было видно только процент.
+  const remaining = event.total > 0 && event.current > 0 && event.current < event.total && event.source !== 'java'
+    ? event.total - event.current
+    : 0;
+  const stepIndex = installStepIndex(event);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-      className="mx-6 mb-3 shrink-0 rounded-xl px-3.5 py-3"
-      style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
-      <div className="mb-2 flex items-center gap-2">
-        <Download className="h-4 w-4 shrink-0 " style={{ color: 'var(--color-primary)' }} />
+      className="mx-6 mb-3 shrink-0 overflow-hidden rounded-xl"
+      style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(event.percent)}
+      aria-label={event.message}>
+      {/* Шаги: пользователь видит не «где-то 40%», а на каком этапе он. */}
+      <div className="flex items-center gap-1 px-3.5 pt-3 pb-2">
+        {INSTALL_STEPS.map((s, i) => {
+          const state = i < stepIndex ? 'done' : i === stepIndex ? 'current' : 'todo';
+          return (
+            <div key={s.id} className="flex min-w-0 flex-1 items-center gap-1">
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-[9px] font-black"
+                style={{
+                  background: state === 'todo' ? 'var(--color-surface)' : 'var(--color-primary)',
+                  color: state === 'todo' ? 'var(--color-text-tertiary)' : 'var(--color-primary-text)',
+                }}>
+                {state === 'done' ? <Check size={9} /> : i + 1}
+              </span>
+              <span className="truncate text-[10px] font-bold"
+                style={{ color: state === 'todo' ? 'var(--color-text-tertiary)' : 'var(--color-text)' }}>
+                {s.label}
+              </span>
+              {i < INSTALL_STEPS.length - 1 && (
+                <span className="mx-0.5 h-px min-w-[8px] flex-1"
+                  style={{ background: state === 'done' ? 'var(--color-primary)' : 'var(--color-border)' }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center gap-2 px-3.5 pb-2">
+        <Download className="h-4 w-4 shrink-0" style={{ color: 'var(--color-primary)' }} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-bold" style={{ color: 'var(--color-text)' }}>{event.message}</p>
           <p className="mt-0.5 truncate text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
-            {installStageName(event)}{fileCount ? ` · ${fileCount}` : ''}
+            {installStageName(event)}
+            {fileCount ? ` · ${fileCount}` : ''}
+            {event.file ? ` · ${event.file}` : ''}
           </p>
         </div>
-        <span className="shrink-0 text-sm font-black tabular-nums" style={{ color: 'var(--color-primary)' }}>{event.percent}%</span>
+        <div className="flex shrink-0 flex-col items-end">
+          <span className="text-sm font-black tabular-nums" style={{ color: 'var(--color-primary)' }}>
+            {Math.round(event.percent)}%
+          </span>
+          {remaining > 0 && (
+            <span className="text-[9px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}>
+              осталось {remaining}
+            </span>
+          )}
+        </div>
       </div>
-      <div className="h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--color-surface)' }}>
-        <motion.div className="h-full rounded-full" style={{ background: 'var(--color-primary)' }} animate={{ width: `${event.percent}%` }} transition={{ duration: 0.25 }} />
+
+      <div className="h-1.5 overflow-hidden" style={{ background: 'var(--color-surface)' }}>
+        <motion.div className="h-full" style={{ background: 'var(--color-primary)' }}
+          animate={{ width: `${Math.max(2, event.percent)}%` }}
+          transition={{ type: 'spring', stiffness: 120, damping: 22 }} />
       </div>
     </motion.div>
   );

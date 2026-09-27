@@ -1339,7 +1339,7 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, ex
     let files = index["files"].as_array().cloned().unwrap_or_default();
     let excluded_paths: std::collections::HashSet<String> = excluded_paths.unwrap_or_default().into_iter().collect();
     let total_files = files.len();
-    app.emit("instance-progress", serde_json::json!({"stage":"downloading","instance_id":new_id,"name":pack_name,"percent":30,"message":format!("Downloading {} files...", total_files)})).ok();
+    app.emit("instance-progress", serde_json::json!({"stage":"downloading","instance_id":new_id,"name":pack_name,"percent":30,"current":0,"total":total_files,"message":format!("Downloading {} files...", total_files)})).ok();
     let mut mods = vec![];
     let mut failed = 0usize;
     let mut downloaded = 0usize;
@@ -1414,7 +1414,11 @@ pub async fn import_modrinth_pack(app: tauri::AppHandle, mrpack_path: String, ex
             });
         }
         let pct = 30 + (i as u64 * 65) / total_files.max(1) as u64;
-        app.emit("instance-progress", serde_json::json!({"stage":"downloading","instance_id":new_id,"name":pack_name,"icon":icon_b64.as_deref(),"percent":pct,"message":format!("Downloaded {}/{}", i+1, total_files)})).ok();
+        // current/total/file нужны интерфейсу, чтобы показать «12 из 47» и имя
+        // текущего файла: раньше приходил только percent, и шкала выглядела
+        // замершей — непонятно было, сколько ещё осталось.
+        let shown_name = path.rsplit('/').next().filter(|s| !s.is_empty()).unwrap_or(path);
+        app.emit("instance-progress", serde_json::json!({"stage":"downloading","instance_id":new_id,"name":pack_name,"icon":icon_b64.as_deref(),"percent":pct,"current":i+1,"total":total_files,"file":shown_name,"message":format!("Downloaded {}/{}", i+1, total_files)})).ok();
     }
 
     // Пакет может состоять только из resourcepacks, shaders или datapacks.

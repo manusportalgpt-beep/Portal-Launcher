@@ -1,0 +1,285 @@
+/*
+ * ГЛОБАЛЬНЫЙ ПИКСЕЛЬНЫЙ СЛОЙ.
+ * ------------------------------------------------------------------
+ * Задача: переоформить ВСЕ окна лаунчера разом, не переписывая каждое.
+ *
+ * Почему именно CSS, а не правка каждой разметки: интерфейс собран на
+ * Tailwind-утилитах (rounded-xl, rounded-2xl, rounded-lg — сотни вхождений)
+ * и на инлайн-стилях. Чтобы не переписывать 14 тысяч строк, мы переопределяем
+ * сами правила: геометрию (скругления), элементы формы и полосы прокрутки.
+ * Там, где стоит инлайн-стиль, он важнее и остаётся как был — поэтому
+ * ключевые экраны дополнительно переводятся на компоненты из Pixel.tsx.
+ *
+ * ГЛАВНОЕ ПРАВИЛО СРЕЗА: угол срезается через clip-path, поэтому обычный
+ * border-radius тут просто выключается. Плюс всё, что идёт «по
+ * прямоугольнику» (border), на срезе рвётся — отсюда подложки из
+ * background-color, а рамка берётся готовыми классами .px-*.
+ */
+
+/* ================================================================
+   0. ПЕРЕМЕННЫЕ СКРУГЛЕНИЙ — В НОЛЬ
+   Это самый важный трюк слоя. В интерфейсе скругления берутся не
+   литералами, а переменными: borderRadius: 'var(--radius-card)' стоит
+   инлайном почти в каждой карточке. Инлайн важнее обычного правила, но
+   обычное правило с !important важнее инлайна — поэтому объявляем
+   !important здесь и глушим ВСЕ скругления разом, в том числе инлайновые.
+   Круглые элементы (borderRadius: 50%, rounded-full) не затрагиваются.
+   ================================================================ */
+:root {
+  --radius-xs: 0 !important;
+  --radius-sm: 0 !important;
+  --radius-md: 0 !important;
+  --radius-lg: 0 !important;
+  --radius-xl: 0 !important;
+  --radius-button: 0 !important;
+  --radius-card: 0 !important;
+  --radius-modal: 0 !important;
+}
+
+/* ================================================================
+   1. СКРУГЛЕНИЙ НЕТ НИГДЕ, КРОМЕ КРУГОВ
+   Пиксельный стиль держится на прямых углах. Круглые элементы
+   (аватары, бейджи-точки) оставляем круглыми — иначе ломаются.
+   ================================================================ */
+.rounded,
+.rounded-sm,
+.rounded-md,
+.rounded-lg,
+.rounded-xl,
+.rounded-2xl,
+.rounded-3xl,
+.rounded-t,
+.rounded-b,
+.rounded-l,
+.rounded-r,
+.rounded-tl,
+.rounded-tr,
+.rounded-bl,
+.rounded-br {
+  border-radius: 0 !important;
+}
+
+.rounded-full {
+  border-radius: 9999px !important;
+}
+
+/* ================================================================
+   2. ПОЛЯ ВВОДА — вдавленный срез
+   Их не трогают инлайн-стили почти нигде, поэтому эффект виден сразу
+   на всех окна��: настройки, поиск, фильтры, формы сборок.
+   ================================================================ */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+select,
+textarea {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background-color: var(--color-surface-2) !important;
+  color: var(--color-text) !important;
+  clip-path: var(--px-5) !important;
+  background-image:
+    linear-gradient(var(--px-well-ol) 0 0),
+    linear-gradient(90deg, var(--px-well-ol) 0 calc(5px + 1px), #0000 0 calc(100% - 5px - 1px), var(--px-well-ol) 0),
+    linear-gradient(90deg, var(--px-well-ol) 0 1px, #0000 0 calc(100% - 1px), var(--px-well-ol) 0),
+    linear-gradient(90deg, var(--px-well-ol) 0 calc(5px + 1px), #0000 0 calc(100% - 5px - 1px), var(--px-well-ol) 0),
+    linear-gradient(var(--px-well-ol) 0 0),
+    linear-gradient(var(--px-well-t) 0 0),
+    linear-gradient(90deg, var(--px-well-t) 0 calc(5px + 3px), #0000 0 calc(100% - 5px - 3px), var(--px-well-t) 0),
+    linear-gradient(90deg, transparent 0 3px, #0000 0 calc(100% - 3px), transparent 0),
+    linear-gradient(90deg, var(--px-well-t) 0 calc(5px + 3px), #0000 0 calc(100% - 5px - 3px), var(--px-well-t) 0),
+    linear-gradient(var(--px-well-t) 0 0) !important;
+  background-size:
+    100% 1px,
+    100% 5px,
+    100% calc(100% - 10px - 2px),
+    100% 5px,
+    100% 1px,
+    100% 3px,
+    100% 5px,
+    100% calc(100% - 10px - 3px),
+    100% 5px,
+    100% 3px !important;
+  background-position:
+    0 0,
+    0 1px,
+    0 calc(5px + 1px),
+    left 0 bottom 1px,
+    0 100%,
+    0 0,
+    0 3px,
+    0 calc(5px + 3px),
+    left 0 bottom 3px,
+    0 100% !important;
+  background-repeat: no-repeat !important;
+  background-clip: border-box !important;
+  padding-bottom: calc(0.25rem + 2px);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-tertiary) !important;
+}
+
+/* Фокус — акцентом по контуру, без мягкого свечения. */
+input:focus,
+select:focus,
+textarea:focus {
+  background-color: var(--color-surface) !important;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-primary) !important;
+  outline-offset: 1px !important;
+}
+
+/* Флажки и переключатели — в тот же срез. */
+input[type='checkbox'],
+input[type='radio'] {
+  border-radius: 0 !important;
+  accent-color: var(--color-primary);
+}
+
+/* Ползунок: квадратная дорожка и квадратная ручка. */
+input[type='range'] {
+  accent-color: var(--color-primary);
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  border-radius: 0;
+  background: var(--color-surface-2);
+  height: 6px;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  border-radius: 0;
+  border: 2px solid var(--color-outline, #0a0a0e);
+  background: var(--color-primary);
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  width: 10px;
+  margin-top: -7px;
+}
+
+/* Выпадающий список ОС тоже должен быть угловатым. */
+select {
+  appearance: none;
+}
+
+select option {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: 0;
+}
+
+/* ================================================================
+   3. КНОПКИ, ГДЕ НЕ МЕШАЕТ ИНЛАЙН-СТИЛЬ
+   Многие кнопки в разметке без инлайн-стилей — они получают объём.
+   Кнопки с инлайн-фоном не трогаем: их переводят вручную.
+   ================================================================ */
+button {
+  border-radius: 0 !important;
+}
+
+/* ================================================================
+   4. ЗАГОЛОВКИ И ТЕКСТ — плотнее и заметнее
+   ================================================================ */
+h1,
+h2,
+h3,
+.screen-title,
+.page-title {
+  font-weight: 800 !important;
+  letter-spacing: -0.02em;
+}
+
+/* ================================================================
+   5. ПОЛОСА ПРОКРУТКИ — квадратная, в тон теме
+   ================================================================ */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-active);
+  border: 3px solid var(--color-bg);
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--color-bg);
+}
+
+/* ================================================================
+   6. ВЫДЕЛЕНИЕ ТЕКСТА — в тон интерфейса, а не системное синее
+   ================================================================ */
+::selection {
+  background: color-mix(in srgb, var(--color-primary) 45%, transparent);
+  color: var(--color-text);
+}
+
+/* ================================================================
+   7. КАРТОЧКИ И ПЛИТКИ ПО УМОЛЧАНИЮ
+   Класс .px-card вешаем на общие подложки страниц. Здесь — только то,
+   что уже помечено в разметке как карточка.
+   ================================================================ */
+.px-card {
+  border: 0;
+  border-radius: 0;
+  clip-path: var(--px-10);
+  background-color: var(--color-surface);
+  background-image:
+    linear-gradient(var(--px-plate-t) 0 0),
+    linear-gradient(90deg, var(--px-plate-t) 0 calc(10px + 2px), #0000 0 calc(100% - 10px - 2px), var(--px-plate-t) 0),
+    linear-gradient(90deg, transparent 0 3px, #0000 0 calc(100% - 3px), transparent 0),
+    linear-gradient(90deg, var(--px-plate-b) 0 calc(10px + 3px), #0000 0 calc(100% - 10px - 3px), var(--px-plate-b) 0),
+    linear-gradient(var(--px-plate-b) 0 0);
+  background-size:
+    100% 2px,
+    100% 10px,
+    100% calc(100% - 20px - 5px),
+    100% 10px,
+    100% 3px;
+  background-position:
+    0 0,
+    0 2px,
+    0 calc(10px + 2px),
+    left 0 bottom 3px,
+    0 100%;
+  background-repeat: no-repeat;
+  background-clip: border-box;
+}
+
+/* Пустое состояние и заглушка «ничего не найдено» — тоже плитка. */
+.px-empty {
+  border: 0 !important;
+  clip-path: var(--px-10) !important;
+  background-color: color-mix(in srgb, var(--color-text) 3%, transparent) !important;
+}
+
+/* ================================================================
+   8. ЗАГОЛОВОК ОКНА И ПАНЕЛИ
+   ================================================================ */
+.px-titlebar {
+  clip-path: none !important;
+}
+
+/* ================================================================
+   9. ИКОНКИ-КАРТИНКИ
+   Скругление у аватаров оставляем, у картинок контента — срезаем.
+   ================================================================ */
+img[src*='/block-icons/'],
+img[src*='/build-icons/'] {
+  image-rendering: auto !important;
+  object-fit: contain;
+}

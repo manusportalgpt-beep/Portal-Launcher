@@ -6,6 +6,9 @@ import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 import './pixel-ui.css';
+// Глобальный переоформляющий слой. Идёт последним: он переопределяет
+// скругления и элементы формы во всех окнах сразу.
+import './pixel-global.css';
 import './i18n';
 import { playClick, playNav } from './lib/soundEngine';
 import { initRangeFill } from './lib/range-fill';

@@ -1107,9 +1107,14 @@ function UpdateSection() {  const [info, setInfo] = useState<UpdateInfo | null>(
           <span className="rounded px-2 py-1 text-[11px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>
             Установлено: {current}
           </span>
-          {info?.version && (
-            <span className="rounded px-2 py-1 text-[11px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>
+      {info?.version && info.is_update_available && (
+            <span className="rounded px-2 py-1 text-[11px] font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
               Доступно: {info.version}
+            </span>
+          )}
+          {info && !info.is_update_available && !localAhead && (
+            <span className="flex items-center gap-1 rounded px-2 py-1 text-[11px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-success)' }}>
+              <Check size={11} /> Актуальная версия
             </span>
           )}
           <span className="flex-1" />

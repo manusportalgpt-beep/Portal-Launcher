@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, MessageSquare, Trash2, Sparkles, Send, StopCircle, ChevronDown, ChevronRight,
@@ -195,7 +195,7 @@ function ToolMsg({ name, content, error, cards, changes, onInstalled }: { name: 
       {changes && changes.length > 0 && <FileChanges changes={changes} />}
       {showCards && (
         <div className="grid gap-1.5 border-t p-1.5" style={{ borderColor: 'var(--color-border)' }}>
-          {cards!.map(card => <ModResultCard key={card.projectId + card.versionNumber} card={card} onInstalled={onInstalled} />)}
+          <CardGrid cards={cards!} onInstalled={onInstalled} />
         </div>
       )}
       {imgMatch && !error && (
@@ -294,7 +294,7 @@ function ToolGroup({ items, onInstalled }: { items: ChatMessage[]; onInstalled?:
 
       {cards.length > 0 && (
         <div className="grid gap-1.5 border-t p-1.5" style={{ borderColor: 'var(--color-border)' }}>
-          {cards.map((c, i) => <ModResultCard key={c.projectId + c.versionNumber + i} card={c} onInstalled={onInstalled} />)}
+          <CardGrid cards={cards} onInstalled={onInstalled} />
         </div>
       )}
 
@@ -325,6 +325,59 @@ function ToolGroup({ items, onInstalled }: { items: ChatMessage[]; onInstalled?:
   );
 }
 
+/**
+ * Карточки найденного контента: показываем первые три, остальные — по кнопке.
+ *
+ * Агент часто находит 15–20 модов, и раньше все карточки вываливались
+ * одним простынём, из-за чего чат становился нечитаемым. Кнопка «Ещё N»
+ * сделана заметной и показывает точное число: пользователь видит, что
+ * нашлось больше, и сам решает, открывать ли список.
+ */
+/** Доступно всем карточкам: «упомянуть этот мод в сообщении». */
+const MentionContext = createContext<(card: ModCard) => void>(() => {});
+
+function CardGrid({ cards, onInstalled }: { cards: ModCard[]; onInstalled?: (text: string) => void }) {
+  const [all, setAll] = useState(false);
+  const LIMIT = 3;
+  const visible = all ? cards : cards.slice(0, LIMIT);
+  const rest = cards.length - visible.length;
+
+  return (
+    <div className="grid gap-1.5">
+      {visible.map((card, i) => (
+        <ModResultCard
+          key={card.projectId + card.versionNumber + i}
+          card={card}
+          onInstalled={onInstalled}
+        />
+      ))}
+      {rest > 0 && (
+        <button
+          onClick={() => setAll(true)}
+          className="flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-black transition-transform active:scale-[0.99]"
+          style={{
+            background: 'var(--color-primary)',
+            color: 'var(--color-primary-text)',
+            borderColor: 'var(--color-primary)',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
+          }}>
+          <ChevronDown size={13} />
+          Ещё {rest} {plural(rest, 'мод', 'мода', 'модов')}
+          <span className="text-[10px] font-bold opacity-80">· всего {cards.length}</span>
+        </button>
+      )}
+      {all && cards.length > LIMIT && (
+        <button
+          onClick={() => setAll(false)}
+          className="flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-[11px] font-bold"
+          style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }}>
+          <ChevronDown size={12} className="rotate-180" /> Свернуть
+        </button>
+      )}
+    </div>
+  );
+}
+
 const MOD_TYPE_META: Record<string, { label: string; path: string }> = {
   mod: { label: 'Мод', path: 'mod' },
   resourcepack: { label: 'Ресурс-пак', path: 'resourcepack' },
@@ -340,6 +393,9 @@ const SOURCE_META: Record<string, { label: string; color: string }> = {
 
 /** Карточка найденного контента: иконка, название, описание, платформа, тип. */
 function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (text: string) => void }) {
+  // Действие «упомянуть» живёт в контексте: карточки лежат глубоко в дереве
+  // сообщений, и передавать колбэк через три слояProps не нужно.
+  const onMention = useContext(MentionContext);
   // Сборка (модпак) ставится не внутрь другой сборки, а создаётся как новая —
   // ровно как в «Обзоре». Поэтому у неё своя кнопка и своя логика.
   const isBuild = card.projectType === 'modpack';
@@ -469,6 +525,13 @@ function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (te
           <span className="text-[10px] font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>Нет файла под выбранную версию</span>
         )}
         <span className="flex-1" />
+        {onMention && (
+          <button onClick={() => onMention(card)} title="Упомянуть в сообщении — можно попросить агента поставить или рассказать"
+            className="shrink-0 rounded px-2 py-1 text-[10px] font-bold"
+            style={{ background: 'var(--color-surface-2)', color: 'var(--color-primary)', border: '1px solid var(--color-border)' }}>
+            Упомянуть
+          </button>
+        )}
         <span className="text-[9px]" style={{ color: card.installable ? 'var(--color-success)' : 'var(--color-text-tertiary)' }}>
           {card.installable ? (isBuild ? 'новая сборка' : 'установка доступна') : 'не найден файл'}
         </span>
@@ -1160,6 +1223,53 @@ export function OpenPortalPage() {
   const [sessionFilter, setSessionFilter] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
+  // Модификации, которые агент нашёл в этой сессии. Их можно упоминать через
+  // @ в сообщении — без повторного поиска и без копирования slug руками.
+  const [found, setFound] = useState<ModCard[]>([]);
+  const messageCards = useMemo(
+    () => messages.flatMap(m => m.cards ?? []),
+    [messages],
+  );
+  useEffect(() => {
+    if (messageCards.length === 0) return;
+    setFound(prev => {
+      const merged = [...prev];
+      const seen = new Set(prev.map(c => `${c.projectId}|${c.versionNumber}`));
+      for (const c of messageCards) {
+        const key = `${c.projectId}|${c.versionNumber}`;
+        if (!seen.has(key)) { seen.add(key); merged.push(c); }
+      }
+      return merged.length === prev.length ? prev : merged;
+    });
+  }, [messageCards]);
+
+  const mentionOf = useCallback((card: ModCard) => {
+    setFound(prev => (prev.some(c => c.projectId === card.projectId && c.versionNumber === card.versionNumber) ? prev : [...prev, card]));
+    setInput(prev => {
+      const at = prev.lastIndexOf('@');
+      // Если @ уже есть и он «свежий», дописываем после него.
+      if (at >= 0 && !prev.slice(at + 1).includes(' ')) {
+        return prev.slice(0, at) + `@${card.slug} `;
+      }
+      return `${prev}${prev ? ' ' : ''}@${card.slug} `;
+    });
+    composerRef.current?.focus();
+  }, []);
+
+  // Подсказки по @: ищем последнее «@слово» в поле ввода.
+  const mentionQuery = (() => {
+    const m = /@([\w-]*)$/.exec(input);
+    if (!m) return null;
+    return m[1].toLowerCase();
+  })();
+  const mentionList = mentionQuery === null ? [] : found
+    .filter(c => (c.slug || c.title).toLowerCase().includes(mentionQuery) || c.title.toLowerCase().includes(mentionQuery))
+    .slice(0, 6);
+  const applyMention = useCallback((card: ModCard) => {
+    setInput(prev => prev.replace(/@([\w-]*)$/, `@${card.slug} `));
+    composerRef.current?.focus();
+  }, []);
+
   // Чаты группируются по свежести — длинный список перестаёт быть стеной.
   const sessionGroups = useMemo(() => {
     const query = sessionFilter.trim().toLowerCase();
@@ -1779,6 +1889,7 @@ export function OpenPortalPage() {
             </div>
           ) : (
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+              <MentionContext.Provider value={mentionOf}>
               {groupedMessages(messages).map(row => row.kind === 'group' ? (
                 <ToolGroup key={row.key} items={row.items} onInstalled={text => void send(text)} />
               ) : (
@@ -1794,6 +1905,7 @@ export function OpenPortalPage() {
                   OpenPortal думает…
                 </div>
               )}
+              </MentionContext.Provider>
             </div>
           )}
         </div>
@@ -1847,11 +1959,43 @@ export function OpenPortalPage() {
                 style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-tertiary)' }}>
                 <Plus size={14} />
               </label>
+              {mentionList.length > 0 && (
+                <div className="absolute bottom-full left-0 right-0 z-40 mb-2 overflow-hidden rounded-lg border p-1"
+                  style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>
+                  <p className="px-2 py-1 text-[10px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}>
+                    Упомянуть найденное
+                  </p>
+                  {mentionList.map(c => (
+                    <button key={c.projectId + c.versionNumber} onClick={() => applyMention(c)}
+                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors hover:bg-[var(--color-surface-2)]">
+                      {c.iconUrl
+                        ? <img src={c.iconUrl} alt="" className="h-6 w-6 shrink-0 rounded" style={{ objectFit: 'cover' }} />
+                        : <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[9px] font-black" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>{(c.title || '?').slice(0, 1)}</span>}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[11px] font-bold" style={{ color: 'var(--color-text)' }}>{c.title}</span>
+                        <span className="block truncate font-mono text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>@{c.slug}</span>
+                      </span>
+                      <span className="shrink-0 rounded px-1 text-[9px] font-bold"
+                        style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+                        {(MOD_TYPE_META[c.projectType] ?? MOD_TYPE_META.mod).label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <textarea
                 ref={composerRef}
                 value={input}
                 onChange={e => { setInput(e.target.value); }}
-                onKeyDown={onKeyDown}
+                onKeyDown={e => {
+                  // Tab выбирает подсказку, если она открыта, иначе работает обычное.
+                  if (e.key === 'Tab' && mentionList.length > 0) {
+                    e.preventDefault();
+                    applyMention(mentionList[0]);
+                    return;
+                  }
+                  onKeyDown(e);
+                }}
                 rows={1}
                 placeholder={running ? 'Агент занят — отправь сообщение, он продолжит после текущего шага' : 'Что сделать?  (/ — команды)'}
                 className="max-h-40 min-h-9 flex-1 resize-none overflow-y-auto bg-transparent px-2.5 py-1.5 text-[13px] leading-6 outline-none"

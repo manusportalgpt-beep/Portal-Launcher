@@ -228,4 +228,20 @@ export interface SkillMeta {
   name: string;
   path: string;
   description: string;
+  /** Откуда взят навык: `portal` — своя папка лаунчера, иначе id источника. */
+  source: string;
+  /** Человеческое имя источника для подсказки в списке. */
+  source_label: string;
+}
+
+/** Источник навыков, который пользователь может подключить. */
+export interface SkillSource {
+  id: string;
+  label: string;
+  /** Папка лаунчера — её нельзя отключить. */
+  builtin: boolean;
+  /** Каталог на диске существует. */
+  exists: boolean;
+  /** Где именно искать (может быть несколько вариантов). */
+  path: string[];
 }

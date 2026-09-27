@@ -18,8 +18,10 @@ import type {
   ProjectContext,
   ChatMessage,
   SkillMeta,
+  SkillSource,
   TokenUsage,
 } from '@/lib/opencore/types';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 const CONFIG_VERSION = 1;
 
@@ -69,8 +71,10 @@ interface OpenCoreState {
   pendingPermission: PermissionRequest | null;
   modelsMenuOpen: boolean;
   loading: boolean;
-  /** Установленные навыки агента (SKILL.md). */
+  /** Предустановленные навыки (SKILL.md) из своей папки и подключённых источников. */
   skills: SkillMeta[];
+  /** Внешние папки навыков: список источников и что подключено. */
+  skillSources: SkillSource[];
   /** Расход токенов сессии: суммарно + размер последнего контекста. */
   usage: { input: number; output: number; context: number; limit: number; estimated: boolean };
 
@@ -155,6 +159,7 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
       modelsMenuOpen: false,
       loading: true,
       skills: [],
+      skillSources: [],
       usage: { input: 0, output: 0, context: 0, limit: 0, estimated: false },
 
       async init() {
@@ -176,10 +181,13 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
             sessions = await invoke<SessionMeta[]>('op_list_sessions');
           } catch { /* пусто */ }
           let skills: SkillMeta[] = [];
+          let skillSources: SkillSource[] = [];
           try {
-            skills = await invoke<SkillMeta[]>('op_list_skills');
+            const sources = useSettingsStore.getState().skillSources ?? [];
+            skills = await invoke<SkillMeta[]>('op_list_skills', { sources });
+            skillSources = await invoke<SkillSource[]>('op_skill_sources').catch(() => []);
           } catch { /* пусто */ }
-          set({ config: cfg, permissions, sessions, skills, loading: false });
+          set({ config: cfg, permissions, sessions, skills, skillSources, loading: false });
           // Автоматически открыть самую свежую сессию.
           if (sessions.length > 0) {
             await get().openSession(sessions[0].id);
@@ -293,9 +301,15 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
 
       async refreshSkills() {
         try {
-          const skills = await invoke<SkillMeta[]>('op_list_skills');
-          set({ skills });
-        } catch { /* не критично */ }
+          // В список попадает только своя папка лаунчера плюс те внешние
+          // источники, которые пользователь включил переключателем.
+          const sources = useSettingsStore.getState().skillSources ?? [];
+          const [skills, skillSources] = await Promise.all([
+            invoke<SkillMeta[]>('op_list_skills', { sources }),
+            invoke<SkillSource[]>('op_skill_sources').catch(() => [] as SkillSource[]),
+          ]);
+          set({ skills, skillSources });
+        } catch { /* пусто */ }
       },
 
       setProject(project) {

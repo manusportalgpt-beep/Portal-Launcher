@@ -22,6 +22,11 @@ interface Settings {
   minRam: number;
   maxRam: number;
   curseforgeApiKey: string;
+  /**
+   * Какие внешние папки навыков подключены. Пусто = берутся только навыки из
+   * своей папки лаунчера. Заполняется переключателем под закладками OpenPortal.
+   */
+  skillSources: string[];
   modrinthProxyEnabled: boolean;
   modrinthProxyUrl: string;
   modrinthProxyAllowOfficialFallback: boolean;
@@ -61,6 +66,7 @@ const defaults: Settings = {
   minRam: 1024,
   maxRam: 4096,
   curseforgeApiKey: '',
+  skillSources: [],
   modrinthProxyEnabled: false,
   modrinthProxyUrl: 'https://modrinth.black',
   modrinthProxyAllowOfficialFallback: true,

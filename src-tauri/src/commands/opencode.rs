@@ -10,6 +10,7 @@
 //! (песочница, Temp, каталог лаунчера), без возможности выйти за их пределы.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::path::{Path, PathBuf};
 use base64::Engine as _;
 use std::io::{Read, Write};
@@ -210,7 +211,8 @@ fn enforce_root(root: Root, path: &Path, write: bool) -> Result<PathBuf, String>
         // Модель иногда приклеивает имя файла к папке («папка/имя/имя.html»).
         // Видно только здесь, по настоящей файловой системе: если последний
         // сегмент уже существует как папка — это явная ошибка, говорим прямо.
-        if file.is_dir() {
+        // Имя переменной не `file`: так называется макрос Rust.
+        if path.is_dir() {
             return Err(format!(
                 "Путь «{}» указывает на папку, а нужен файл. Укажи полное имя файла, например {}/index.html.",
                 path.to_string_lossy(),
@@ -302,31 +304,82 @@ pub struct SkillMeta {
     pub path: String,
     /// Короткое описание из frontmatter SKILL.md.
     pub description: String,
+    /// Откуда навык взят: `portal` или id внешнего источника.
+    pub source: String,
+    /// Человеческое имя источника (для подсказки в списке).
+    pub source_label: String,
 }
 
-/// Папки, откуда читаются навыки.
+/// Источники навыков.
 ///
-/// Кроме своей папки лаунчера сканируем стандартные каталоги навыков
-/// агентов: `~/.opencode/skills` и `~/.agents/skills`. Раньше читалась только
-/// `OpenPortal/Skills`, поэтому установленные снаружи навыки (в том числе
-/// плагины вроде ui-ux-pro-max) не появлялись в списке `/` вообще.
-fn skill_dirs() -> Vec<PathBuf> {
+/// По умолчанию включён только `portal` — папка самого лаунчера
+/// (`OpenPortal/Skills`). Остальные подключаются пользователем переключателем
+/// под закладками, потому что они лежат в чужих каталогах.
+pub fn skill_sources() -> Vec<(&'static str, &'static str)> {
+    vec![
+        ("portal", "OpenPortal (встроенные)"),
+        ("opencode", "OpenCode"),
+        ("agents", "Агенты (общие)"),
+        ("chatgpt", "ChatGPT"),
+        ("claude", "Claude"),
+        ("claude-code", "Claude Code"),
+        ("codex", "Codex"),
+        ("llm", "LLM"),
+        ("copilot", "Microsoft Copilot"),
+        ("github-copilot", "GitHub Copilot"),
+        ("deepseek", "DeepSeek"),
+        ("deepseek-harness", "DeepSeek Harness"),
+    ]
+}
+
+/// Каталоги одного источника. У некоторых агентов папка навыков может лежать
+/// в двух местах, поэтому источник даёт список путей.
+fn source_dirs(source: &str) -> Vec<PathBuf> {
+    let home = dirs_next::home_dir();
+    let rel: &[&str] = match source {
+        "portal" => return vec![skills_dir()],
+        "opencode" => &["/.opencode/skills"],
+        "agents" => &["/.agents/skills"],
+        "chatgpt" => &["/.chatgpt/skills", "/.openai/skills"],
+        "claude" => &["/.claude/skills"],
+        "claude-code" => &["/.claude-code/skills", "/.config/claude-code/skills"],
+        "codex" => &["/.codex/skills"],
+        "llm" => &["/.llm/skills", "/.config/llm/skills"],
+        "copilot" => &["/.copilot/skills", "/.config/github-copilot/skills"],
+        "github-copilot" => &["/.github-copilot/skills", "/.config/github-copilot/skills"],
+        "deepseek" => &["/.deepseek/skills"],
+        "deepseek-harness" => &["/.deepseek-harness/skills", "/.config/deepseek/skills"],
+        _ => return Vec::new(),
+    };
+    let Some(home) = home else { return Vec::new() };
+    rel.iter().map(|r| home.join(r.trim_start_matches('/'))).collect()
+}
+
+/// Папки, откуда читаются навыки для набора включённых источников.
+///
+/// Раньше внешние каталоги читались всегда и без спроса. Теперь по умолчанию
+/// видна только своя папка лаунчера, а чужие включаются переключателем.
+fn skill_dirs(sources: &[String]) -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = vec![skills_dir()];
-    if let Some(home) = dirs_next::home_dir() {
-        dirs.push(home.join(".opencode").join("skills"));
-        dirs.push(home.join(".agents").join("skills"));
-        dirs.push(home.join(".claude").join("skills"));
+    for (id, _) in skill_sources() {
+        if id == "portal" {
+            continue;
+        }
+        if !sources.iter().any(|s| s == id) {
+            continue;
+        }
+        dirs.extend(source_dirs(id));
     }
     let mut seen: Vec<PathBuf> = Vec::new();
     for d in dirs {
-        if !seen.contains(&d) {
+        if d.is_dir() && !seen.contains(&d) {
             seen.push(d);
         }
     }
     seen
 }
 
-fn read_skill_dir(dir: &Path, out: &mut Vec<SkillMeta>) {
+fn read_skill_dir(dir: &Path, source: &str, out: &mut Vec<SkillMeta>) {
     let Ok(rd) = std::fs::read_dir(dir) else { return };
     for e in rd.flatten() {
         let path = e.path();
@@ -356,19 +409,56 @@ fn read_skill_dir(dir: &Path, out: &mut Vec<SkillMeta>) {
             name: slug,
             path: path.to_string_lossy().to_string(),
             description,
+            source: source.to_string(),
+            source_label: skill_sources()
+                .iter()
+                .find(|(id, _)| *id == source)
+                .map(|(_, label)| label.to_string())
+                .unwrap_or_else(|| source.to_string()),
         });
     }
 }
 
 #[tauri::command]
-pub fn op_list_skills() -> Vec<SkillMeta> {
+pub fn op_list_skills(sources: Option<Vec<String>>) -> Vec<SkillMeta> {
     ensure_all();
+    crate::commands::opencode_skills::ensure_builtin_skills();
+    let enabled = sources.unwrap_or_default();
     let mut out: Vec<SkillMeta> = Vec::new();
-    for dir in skill_dirs() {
-        read_skill_dir(&dir, &mut out);
+    for (id, _) in skill_sources() {
+        // Папка лаунчера включается всегда: без неё у пользователя не будет
+        // вообще никаких навыков. Остальные источники — только по переключателю.
+        let on = id == "portal" || enabled.iter().any(|s| s == id);
+        if !on {
+            continue;
+        }
+        for dir in source_dirs(id) {
+            if dir.is_dir() {
+                read_skill_dir(&dir, id, &mut out);
+            }
+        }
     }
     out.sort_by(|a, b| a.name.cmp(&b.name));
     out
+}
+
+/// Каталоги всех источников — нужны UI, чтобы показать пользователю, откуда
+/// берутся навыки и что можно подключить.
+#[tauri::command]
+pub fn op_skill_sources() -> Vec<Value> {
+    skill_sources()
+        .into_iter()
+        .map(|(id, label)| {
+            let dirs = source_dirs(id);
+            serde_json::json!({
+                "id": id,
+                "label": label,
+                "builtin": id == "portal",
+                "exists": dirs.iter().any(|d| d.is_dir()),
+                "path": dirs.iter().map(|d| d.to_string_lossy().to_string()).collect::<Vec<_>>(),
+            })
+        })
+        .collect()
 }
 
 /// Достаёт `description:` из frontmatter `---\n...\n---` в начале SKILL.md.

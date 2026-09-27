@@ -26,4 +26,5 @@ pub mod bedrock_content;
 pub mod instance_share;
 pub mod update;
 pub mod opencode;
+pub mod opencode_skills;
 pub mod aternos;

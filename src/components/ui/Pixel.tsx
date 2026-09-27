@@ -20,6 +20,19 @@ export function PixelFrame({ children, className = '', style, ...rest }: {
   );
 }
 
+/** Плитка с картинкой и подписью — карточка каталога или сборки. */
+export function PixelTile({ children, className = '', style, ...rest }: {
+  children: ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+} & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={`px-tile ${className}`} style={style} {...rest}>
+      {children}
+    </div>
+  );
+}
+
 type PixelButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   /** primary — акцентная кнопка, quiet — спокойная, omit variant — обычная. */
   variant?: 'primary' | 'quiet' | 'plain';
@@ -39,7 +52,9 @@ export function PixelButton({ variant = 'plain', icon, children, className = '',
   );
 }
 
-/** Вкладки в объёмной рамке: активная поднята вверх. */
+/**
+ * Вкладки в срезе: активная подсвечена граней, а не залита акцентом.
+ */
 export function PixelTabs<T extends string>({ value, options, onChange, className = '' }: {
   value: T;
   options: Array<{ id: T; label: ReactNode; title?: string }>;
@@ -60,6 +75,19 @@ export function PixelTabs<T extends string>({ value, options, onChange, classNam
           {opt.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+/** Вдавленное поле: поиск, ввод, дорожка. */
+export function PixelWell({ children, className = '', style, ...rest }: {
+  children: ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+} & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={`px-well ${className}`} style={style} {...rest}>
+      {children}
     </div>
   );
 }

@@ -1,215 +1,428 @@
 /*
- * Оформление «объёмные рамки» — собственный слой Portal Launcher.
+ * ПИКСЕЛЬНЫЙ ЯЗЫК ПОРТАЛ-ЛАУНЧЕРА — объёмные срезанные рамки.
+ * ------------------------------------------------------------------
+ * Техника взята из лаунчера millida/launcher (GPL-3.0), файл
+ * src/styles/12-pixel.css, и перенесена на наши переменные темы.
+ * Взято именно УСТРОЙСТВО, а не оформление: свои цвета, свои токены,
+ * своё имя. Атрибуция — см. THIRD-PARTY.
  *
- * Задача слоя: дать всему интерфейсу одинаковую объёмную рамку, как у
- * пиксельного меню Minecraft, но СВОИМИ средствами (только box-shadow, без
- * картинок), и не ломать существующую тему: все цвета берутся из переменных
- * темы, поэтому пользовательский CSS и выбор темы продолжают работать.
+ * ГЛАВНОЕ, ЧТО СТОИТ ЗНАТЬ (иначе рамки «рвутся»):
  *
- * Правила слоя:
- *   1) Рамка — 3px, углы почти прямые (2px), никаких размытий.
- *   2) Тень — жёсткая, без blur: смещение, а не размытие.
- *   3) Наведение сдвигает блок, а не меняет цвет: так ощущается «кнопка».
- *   4) prefers-reduced-motion отключает сдвиги.
+ *   Срез угла сделан через clip-path. Но border и inset box-shadow рисуются
+ *   по ПРЯМОУГОЛЬНИКУ — clip-path отрезает угол вместе с куском линии, и на
+ *   ступеньке остаётся разрыв. Поэтому рамку рисуют ФОНОВЫМИ СЛОЯМИ: они лежат
+ *   там же, где inset-тень (над заливкой, под содержимым), и идут по силуэту
+ *   вместе со срезом.
+ *
+ *   Каждая сторона — отдельная полоса, и полосы НЕ перекрываются, поэтому
+ *   полупрозрачные цвета не темнеют в сту��ках:
+ *     полоса у края → полоса ступеньки → боковины → низ.
+ *
+ *   Порядок слоёв: 5 слоёв обводки, 5 слоёв граней, затем своя картинка
+ *   элемента (--px-img). Свою картинку нельзя задавать через `background:` —
+ *   иначе она сотрёт рамку, поэтому только через --px-img.
+ *
+ *   box-shadow: inset у элементов со срезом НЕ пишется.
+ *
+ * ПРАВИЛА СРЕЗА:
+ *   --px-4  — мелочь: чипы, бейджи, тумблер      (4px)
+ *   --px-5  — кнопки, поля, вкладки               (5px)
+ *   --px-10 — карточки, модалки, сайдбар          (10px)
+ *   Меньшая подложка — меньший срез, иначе он съедает контент.
  */
 
+@property --px-n    { syntax: '<length>'; inherits: false; initial-value: 5px; }
+@property --px-ol   { syntax: '<color>';  inherits: false; initial-value: transparent; }
+@property --px-ol-w { syntax: '<length>'; inherits: false; initial-value: 2px; }
+@property --px-ft   { syntax: '<color>';  inherits: false; initial-value: transparent; }
+@property --px-ft-w { syntax: '<length>'; inherits: false; initial-value: 2px; }
+@property --px-fb   { syntax: '<color>';  inherits: false; initial-value: transparent; }
+@property --px-fb-w { syntax: '<length>'; inherits: false; initial-value: 3px; }
+@property --px-fl   { syntax: '<color>';  inherits: false; initial-value: transparent; }
+@property --px-fl-w { syntax: '<length>'; inherits: false; initial-value: 3px; }
+@property --px-fr   { syntax: '<color>';  inherits: false; initial-value: transparent; }
+@property --px-fr-w { syntax: '<length>'; inherits: false; initial-value: 3px; }
+@property --px-img  { syntax: '*';         inherits: false; }
+@property --px-img-size    { syntax: '*'; inherits: false; }
+@property --px-img-pos     { syntax: '*'; inherits: false; }
+@property --px-img-repeat  { syntax: '*'; inherits: false; }
+@property --px-img-origin  { syntax: '*'; inherits: false; }
+
 :root {
-  /* Толщина рамки и глубина */
-  --px-border: 3px;
-  --px-depth: 4px;
-  --px-radius: 2px;
+  /* Срезы углов: один уступ, без скруглений. */
+  --px-4: polygon(
+    4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
+    100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%,
+    4px calc(100% - 4px), 0 calc(100% - 4px), 0 4px, 4px 4px
+  );
+  --px-5: polygon(
+    5px 0, calc(100% - 5px) 0, calc(100% - 5px) 5px, 100% 5px,
+    100% calc(100% - 5px), calc(100% - 5px) calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%,
+    5px calc(100% - 5px), 0 calc(100% - 5px), 0 5px, 5px 5px
+  );
+  --px-10: polygon(
+    10px 0, calc(100% - 10px) 0, calc(100% - 10px) 10px, 100% 10px,
+    100% calc(100% - 10px), calc(100% - 10px) calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%,
+    10px calc(100% - 10px), 0 calc(100% - 10px), 0 10px, 10px 10px
+  );
 
-  /* Контур и грани. Контур почти чёрный — держит форму на любом фоне. */
-  --px-outline: #0A0A0E;
-  --px-hi: rgba(255, 255, 255, 0.16);
-  --px-lo: rgba(0, 0, 0, 0.55);
+  /*
+   * Тёмный текст на нашем акценте. Наш акцент — тёмно-красный, белый на нём
+   * даёт около 3.9:1, а почти чёрный — 5.6:1. Акцентная кнопка светлее неба,
+   * поэтому текст на ней тёмный.
+   */
+  --px-on-accent: #14100F;
 
-  /* Цвет заливки рамки: чуть темнее панели, чтобы объём читался. */
-  --px-fill: color-mix(in srgb, var(--color-surface) 84%, #000 16%);
+  /* Готовые наборы граней — чтобы не писать восемь переменных каждый раз. */
+  /* Подложка: тихая, только лёгкий верх и тёмный низ. */
+  --px-plate-t: rgba(255, 255, 255, 0.05);
+  --px-plate-b: rgba(0, 0, 0, 0.34);
+  /* Кнопка: выраженный объём, читается нажатие. */
+  --px-btn-ol: rgba(0, 0, 0, 0.20);
+  --px-btn-t:  rgba(255, 255, 255, 0.32);
+  --px-btn-b:  rgba(0, 0, 0, 0.36);
+  --px-btn-l:  rgba(255, 255, 255, 0.12);
+  --px-btn-r:  rgba(0, 0, 0, 0.16);
+  /* Вдавленное поле: поиск, ввод, дорожка ползунка. */
+  --px-well-ol: color-mix(in srgb, var(--color-text) 10%, transparent);
+  --px-well-t:  rgba(0, 0, 0, 0.30);
 
-  /* Длительность переходов: 300-400 мс — заметно, но не вяло. */
-  --px-dur: 300ms;
-  --px-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Фактура: редкие точки 2px с жёсткими стопами. */
+  --px-dots-size: auto, auto, auto, auto, auto, auto, auto, auto;
+  --px-dots-pos: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+  --px-dots-repeat: repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat;
+  --px-dots-origin: padding-box, padding-box, padding-box, padding-box, padding-box, padding-box, padding-box, padding-box;
+  --px-dots:
+    radial-gradient(circle at 11% 26%, rgba(255, 255, 255, 0.20) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 31% 68%, rgba(255, 255, 255, 0.14) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 57% 22%, rgba(255, 255, 255, 0.18) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 76% 66%, rgba(255, 255, 255, 0.12) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 90% 34%, rgba(255, 255, 255, 0.18) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 21% 80%, rgba(0, 0, 0, 0.14) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 66% 12%, rgba(0, 0, 0, 0.12) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 44% 46%, rgba(0, 0, 0, 0.10) 0 1.5px, transparent 2px);
+
+  /* Тайминги. Движение линейное и быстрое — пиксельный стиль не любит плавных кривых. */
+  --px-t: 140ms;
+  --px-ease: linear;
 }
 
-/* Рамка-контейнер: объёмная коробка с тёмным контуром. */
+/* ===================================================================
+   СЛОИ РАМКИ
+   Список селекторов: элемент попадает в правило, получает рамку, а свои
+   грани задаёт переменными на самом элементе (они НЕ наследуются).
+   =================================================================== */
+.px-frame,
+.px-btn,
+.px-tab,
+.px-tile,
+.px-well {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none !important;
+  background-image:
+    /* --- обводка --- */
+    linear-gradient(var(--px-ol) 0 0),
+    linear-gradient(90deg, var(--px-ol) 0 calc(var(--px-n) + var(--px-ol-w)), #0000 0 calc(100% - var(--px-n) - var(--px-ol-w)), var(--px-ol) 0),
+    linear-gradient(90deg, var(--px-ol) 0 var(--px-ol-w), #0000 0 calc(100% - var(--px-ol-w)), var(--px-ol) 0),
+    linear-gradient(90deg, var(--px-ol) 0 calc(var(--px-n) + var(--px-ol-w)), #0000 0 calc(100% - var(--px-n) - var(--px-ol-w)), var(--px-ol) 0),
+    linear-gradient(var(--px-ol) 0 0),
+    /* --- грани: верх, ступенька, бока, низ --- */
+    linear-gradient(var(--px-ft) 0 0),
+    linear-gradient(90deg, var(--px-ft) 0 calc(var(--px-n) + var(--px-ft-w)), #0000 0 calc(100% - var(--px-n) - var(--px-ft-w)), var(--px-ft) 0),
+    linear-gradient(90deg, var(--px-fl) 0 var(--px-fl-w), #0000 0 calc(100% - var(--px-fr-w)), var(--px-fr) 0),
+    linear-gradient(90deg, var(--px-fb) 0 calc(var(--px-n) + var(--px-fb-w)), #0000 0 calc(100% - var(--px-n) - var(--px-fb-w)), var(--px-fb) 0),
+    linear-gradient(var(--px-fb) 0 0),
+    /* --- своя картинка элемента --- */
+    var(--px-img, none) !important;
+  background-size:
+    100% var(--px-ol-w),
+    100% var(--px-n),
+    100% calc(100% - 2 * var(--px-n) - 2 * var(--px-ol-w)),
+    100% var(--px-n),
+    100% var(--px-ol-w),
+    100% var(--px-ft-w),
+    100% var(--px-n),
+    100% calc(100% - 2 * var(--px-n) - var(--px-ft-w) - var(--px-fb-w)),
+    100% var(--px-n),
+    100% var(--px-fb-w),
+    var(--px-img-size, auto) !important;
+  background-position:
+    0 0,
+    0 var(--px-ol-w),
+    0 calc(var(--px-n) + var(--px-ol-w)),
+    left 0 bottom var(--px-ol-w),
+    0 100%,
+    0 0,
+    0 var(--px-ft-w),
+    0 calc(var(--px-n) + var(--px-ft-w)),
+    left 0 bottom var(--px-fb-w),
+    0 100%,
+    var(--px-img-pos, 0 0) !important;
+  background-repeat:
+    no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+    no-repeat, no-repeat, no-repeat, no-repeat, no-repeat,
+    var(--px-img-repeat, repeat) !important;
+  background-origin:
+    border-box, border-box, border-box, border-box, border-box,
+    border-box, border-box, border-box, border-box, border-box,
+    var(--px-img-origin, padding-box) !important;
+  background-clip: border-box !important;
+}
+
+/* ===================================================================
+   ПОДЛОЖКИ: карточки, модалки, панели — срез 10px
+   =================================================================== */
 .px-frame {
-  position: relative;
-  border: var(--px-border) solid var(--px-outline);
-  border-radius: var(--px-radius);
-  background: var(--px-fill);
-  box-shadow:
-    inset 2px 2px 0 var(--px-hi),
-    inset -2px -2px 0 var(--px-lo),
-    var(--px-depth) var(--px-depth) 0 var(--px-outline);
+  --px-n: 10px;
+  clip-path: var(--px-10);
+  background-color: var(--color-surface);
+  --px-ft: var(--px-plate-t);
+  --px-fb: var(--px-plate-b);
 }
 
-/* Кнопка в объёмной рамке. */
+.px-tile {
+  --px-n: 10px;
+  clip-path: var(--px-10);
+  background-color: var(--color-surface);
+  --px-ft: var(--px-plate-t);
+  --px-fb: var(--px-plate-b);
+  overflow: hidden;
+}
+
+/* ===================================================================
+   ВДАВЛЕННЫЕ ПОЛЯ: поиск, ввод, дорожка
+   =================================================================== */
+.px-well {
+  --px-n: 5px;
+  clip-path: var(--px-5);
+  background-color: var(--color-surface-2);
+  --px-ol: var(--px-well-ol);
+  --px-ol-w: 1px;
+  --px-ft: var(--px-well-t);
+  --px-ft-w: 3px;
+}
+
+/* ===================================================================
+   КНОПКИ — срез 5px, объём по граням
+   =================================================================== */
 .px-btn {
-  position: relative;
+  --px-n: 5px;
+  clip-path: var(--px-5);
+  background-color: var(--color-surface-2);
+  color: var(--color-text);
+  font-weight: 750;
+  letter-spacing: -0.005em;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border: var(--px-border) solid var(--px-outline);
-  border-radius: var(--px-radius);
-  background: var(--color-surface-2);
-  color: var(--color-text);
+  /* Текст по центру ВИДИМОЙ грани, над подошвой: без этого он sits низко. */
+  padding-bottom: 3px;
+  --px-ol: var(--px-btn-ol);
+  --px-ft: var(--px-btn-t);
+  --px-ft-w: 3px;
+  --px-fb: var(--px-btn-b);
+  --px-fb-w: 5px;
+  --px-fl: var(--px-btn-l);
+  --px-fr: var(--px-btn-r);
+  /* Только эти свойства: переход по `background` смешивал бы слои рамки,
+     и на кадре это читается как градиент. */
+  transition-property: transform, background-color, color, filter, opacity;
+  transition-duration: var(--px-t);
+  transition-timing-function: var(--px-ease);
+}
+
+.px-btn-primary {
+  background-color: var(--color-primary);
+  color: var(--px-on-accent);
   font-weight: 800;
-  cursor: pointer;
-  box-shadow:
-    inset 2px 2px 0 var(--px-hi),
-    inset -2px -2px 0 var(--px-lo),
-    var(--px-depth) var(--px-depth) 0 var(--px-outline);
-  transition: transform var(--px-dur) var(--px-ease),
-    box-shadow var(--px-dur) var(--px-ease),
-    background-color var(--px-dur) var(--px-ease);
+  --px-img: var(--px-dots);
+  --px-img-size: var(--px-dots-size);
+  --px-img-pos: var(--px-dots-pos);
+  --px-img-repeat: var(--px-dots-repeat);
+  --px-img-origin: var(--px-dots-origin);
 }
 
-.px-btn:hover:not(:disabled) {
-  transform: translate(-1px, -1px);
-  box-shadow:
-    inset 2px 2px 0 var(--px-hi),
-    inset -2px -2px 0 var(--px-lo),
-    calc(var(--px-depth) + 1px) calc(var(--px-depth) + 1px) 0 var(--px-outline);
+.px-btn-primary svg { color: var(--px-on-accent); }
+
+.px-btn-quiet {
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .px-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.07);
+  }
+  .px-tab:hover { transform: translateY(-2px); }
+  .px-tile:hover { transform: translate(-1px, -1px); }
+}
+
+/* Нажатие УТОПЛЯЕТ кнопку: грани меняются местами. Это главный признак объёма. */
 .px-btn:active:not(:disabled) {
-  /* Нажатие утапливает кнопку внутрь рамки — главный признак объёма. */
-  transform: translate(var(--px-depth), var(--px-depth));
-  box-shadow:
-    inset 2px 2px 0 var(--px-lo),
-    inset -2px -2px 0 var(--px-hi),
-    0 0 0 var(--px-outline);
+  transform: translateY(2px);
+  filter: brightness(0.96);
+  --px-ol: rgba(0, 0, 0, 0.22);
+  --px-ft: rgba(0, 0, 0, 0.24);
+  --px-ft-w: 3px;
+  --px-fb: rgba(0, 0, 0, 0.24);
+  --px-fb-w: 2px;
+  --px-fl: transparent;
+  --px-fr: transparent;
 }
 
 .px-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  box-shadow: inset 2px 2px 0 var(--px-lo);
+  transform: none;
 }
 
-.px-btn:focus-visible {
+.px-btn:focus-visible,
+.px-tab:focus-visible,
+.px-tile:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
-.px-btn-primary {
-  background: var(--color-primary);
-  color: var(--color-primary-text);
-}
-
-.px-btn-quiet {
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-}
-
-/* Вкладки: активная — приподнята, как нажатая вверх плитка. */
+/* ===================================================================
+   ВКЛАДКИ: активная подсвечена, а не залита акцентом — на экране должен
+   быть ровно один «главный» элемент, и это кнопка действия.
+   =================================================================== */
 .px-tabs {
   display: inline-flex;
   gap: 2px;
 }
 
 .px-tab {
-  border: var(--px-border) solid var(--px-outline);
-  border-radius: var(--px-radius);
-  background: var(--color-surface);
+  --px-n: 5px;
+  clip-path: var(--px-5);
+  background-color: var(--color-surface);
   color: var(--color-text-secondary);
   font-weight: 800;
   cursor: pointer;
-  box-shadow: inset 1px 1px 0 var(--px-hi);
-  transition: transform var(--px-dur) var(--px-ease),
-    background-color var(--px-dur) var(--px-ease),
-    color var(--px-dur) var(--px-ease);
+  padding-bottom: 2px;
+  --px-ft: rgba(255, 255, 255, 0.06);
+  --px-fb: rgba(0, 0, 0, 0.28);
+  transition-property: transform, background-color, color;
+  transition-duration: var(--px-t);
+  transition-timing-function: var(--px-ease);
 }
 
-.px-tab:hover {
-  transform: translateY(-2px);
-  color: var(--color-text);
-}
+.px-tab:hover { color: var(--color-text); }
 
 .px-tab[aria-selected='true'] {
-  background: var(--color-primary);
-  color: var(--color-primary-text);
-  transform: translateY(-2px);
-  box-shadow:
-    inset 1px 1px 0 var(--px-hi),
-    var(--px-depth) var(--px-depth) 0 var(--px-outline);
+  background-color: color-mix(in srgb, var(--color-primary) 18%, var(--color-surface));
+  color: var(--color-text);
+  --px-fb: var(--color-primary);
+  --px-fb-w: 3px;
+  --px-ft: rgba(255, 255, 255, 0.10);
 }
 
-/*
- * Иконка сборки: изометрический куб, нарисованный градиентами.
- *
- * Своя отрисовка вместо текстур предметов Minecraft: у нас должен быть свой
- * визуальный язык, иначе это выглядит как чужой лаунчер.
- */
+/* ===================================================================
+   ИКОНКА СБОРКИ — изометрический куб
+   Своя отрисовка, а не текстуры предметов Minecraft: у нас свой визуальный
+   язык. `image-rendering: auto`, а не pixelated — на наклонных гранях
+   pixelated рисует лесенку, и куб «шакалит».
+   =================================================================== */
 .px-block {
   position: relative;
   width: 100%;
   aspect-ratio: 1;
-  image-rendering: pixelated;
+  image-rendering: auto;
+  display: block;
+}
+
+.px-block-top,
+.px-block-left,
+.px-block-right {
+  position: absolute;
+  display: block;
 }
 
 .px-block-top {
-  position: absolute;
-  left: 8%;
-  right: 8%;
-  top: 6%;
-  height: 34%;
+  left: 6%;
+  right: 6%;
+  top: 5%;
+  height: 36%;
   clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
 }
 
 .px-block-left {
-  position: absolute;
-  left: 8%;
+  left: 6%;
   top: 23%;
-  bottom: 6%;
-  width: 42%;
-  clip-path: polygon(0 0, 100% 27%, 100% 100%, 0 73%);
+  bottom: 5%;
+  width: 44%;
+  clip-path: polygon(0 0, 100% 26%, 100% 100%, 0 74%);
 }
 
 .px-block-right {
-  position: absolute;
-  right: 8%;
+  right: 6%;
   top: 23%;
-  bottom: 6%;
-  width: 42%;
-  clip-path: polygon(0 27%, 100% 0, 100% 73%, 0 100%);
+  bottom: 5%;
+  width: 44%;
+  clip-path: polygon(0 26%, 100% 0, 100% 74%, 0 100%);
 }
 
-/* Луч света за 3D-моделью на главном экране. */
+/* ===================================================================
+   ЛУЧ СВЕТА ЗА 3D-МОДЕЛЬЮ
+   Медленный оборот — фон не должен отвлекать от модели.
+   =================================================================== */
 .px-sunburst {
-  background-image:
-    repeating-conic-gradient(
-      from 0deg at 50% 46%,
-      color-mix(in srgb, var(--color-primary) 22%, transparent) 0deg 6deg,
-      transparent 6deg 12deg
-    );
-  mask-image: radial-gradient(ellipse at 50% 46%, #000 12%, transparent 68%);
-  -webkit-mask-image: radial-gradient(ellipse at 50% 46%, #000 12%, transparent 68%);
-  animation: px-sunburst-turn 90s linear infinite;
+  background-image: repeating-conic-gradient(
+    from 0deg at 50% 46%,
+    color-mix(in srgb, var(--color-primary) 20%, transparent) 0deg 5deg,
+    transparent 5deg 10deg
+  );
+  mask-image: radial-gradient(ellipse at 50% 46%, #000 10%, transparent 66%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 46%, #000 10%, transparent 66%);
+  animation: px-sunburst-turn 120s linear infinite;
 }
 
 @keyframes px-sunburst-turn {
   to { transform: rotate(360deg); }
 }
 
-/* Карточка каталога: рамка + подпись снизу, как плитка в меню. */
-.px-tile {
-  position: relative;
-  overflow: hidden;
-  border: var(--px-border) solid var(--px-outline);
-  border-radius: var(--px-radius);
-  background: var(--color-surface);
-  box-shadow:
-    inset 2px 2px 0 var(--px-hi),
-    inset -2px -2px 0 var(--px-lo),
-    var(--px-depth) var(--px-depth) 0 var(--px-outline);
-  transition: transform var(--px-dur) var(--px-ease);
+/* ===================================================================
+   ПАУЗА ВСЕЙ АНИМАЦИИ, КОГДА ОКНО НЕ ВИДНО ИЛИ ИДЁТ ИГРА
+   Жалоба игрока: «месяц назад 100+ FPS, сейчас не больше 50». Окно лаунчера
+   рисовало лобби каждый кадр монитора и тогда, когда поверх шла игра, забирая
+   кадры у встроенной видеокарты. Переключатель ставит класс m-quiet
+   (src/lib/render-gate.ts).
+   =================================================================== */
+html.m-quiet *,
+html.m-quiet *::before,
+html.m-quiet *::after {
+  animation-play-state: paused !important;
 }
 
-.px-tile:hover {
-  transform: translate(-2px, -2px);
+/* Приложение, а не страница: двойной клик по кнопке не выделяет текст.
+   Выделять можно только там, где текст копируют. */
+html.portal-app,
+body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable],
+[contenteditable] *,
+code,
+pre,
+kbd,
+.portal-selectable,
+.portal-selectable * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+img,
+svg,
+canvas {
+  -webkit-user-drag: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -218,13 +431,12 @@
   .px-tile {
     transition: none;
   }
-
   .px-btn:hover:not(:disabled),
   .px-tab:hover,
-  .px-tile:hover {
+  .px-tile:hover,
+  .px-btn:active:not(:disabled) {
     transform: none;
   }
-
   .px-sunburst {
     animation: none;
   }

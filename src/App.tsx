@@ -3,6 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { SplashScreen } from '@/components/splash/SplashScreen';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { initRenderGate } from '@/lib/render-gate';
 import { HomePage } from '@/pages/HomePage';
 import { DiscoverPage } from '@/pages/DiscoverPage';
 import { LibraryPage } from '@/pages/LibraryPage';
@@ -55,6 +56,9 @@ import { initDiscord, setLauncherStatus } from '@/lib/discord';
 const WELCOME_KEY = 'portal-welcome-shown';
 
 function App() {
+  // Пауза всей анимации, когда окно не видно или идёт игра: иначе лаунчер
+  // забирает кадры у Minecraft на встроенной видеокарте.
+  useEffect(() => { initRenderGate(); }, []);
   const [loading, setLoading] = useState(false);
   const layoutMode = useLayoutStore((s) => s.mode);
   const themeId = useThemeStore((state) => state.themeId);

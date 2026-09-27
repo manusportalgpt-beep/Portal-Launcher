@@ -207,6 +207,30 @@ fn enforce_root(root: Root, path: &Path, write: bool) -> Result<PathBuf, String>
         ));
     }
     if write {
+        // Модель иногда приклеивает имя файла к папке («папка/имя/имя.html»).
+        // Видно только здесь, по настоящей файловой системе: если последний
+        // сегмент уже существует как папка — это явная ошибка, говорим прямо.
+        if file.is_dir() {
+            return Err(format!(
+                "Путь «{}» указывает на папку, а нужен файл. Укажи полное имя файла, например {}/index.html.",
+                path.to_string_lossy(),
+                path.to_string_lossy()
+            ));
+        }
+        // Если где-то выше стоит файл, а мы хотели в него подпапку — тоже понятная ошибка.
+        let mut probe = path.parent();
+        while let Some(dir) = probe {
+            if dir.exists() {
+                if dir.is_file() {
+                    return Err(format!(
+                        "Не удалось создать папку: «{}» — это файл, а не папка.",
+                        dir.to_string_lossy()
+                    ));
+                }
+                break;
+            }
+            probe = dir.parent();
+        }
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| {
                 format!("Не удалось создать папку {}: {e}", parent.to_string_lossy())
@@ -989,6 +1013,9 @@ pub fn install_sandbox_archive(
     std::fs::copy(&file, &dest)
         .map_err(|e| format!("Не удалось скопировать файл в сборку: {e}"))?;
 
+    // Emitter нужен для app.emit: метод приходит из трейта, а не из самой
+    // структуры AppHandle, поэтому его надо импортировать.
+    use tauri::Emitter;
     let _ = app.emit(
         "instance-progress",
         serde_json::json!({

@@ -1,5 +1,6 @@
 import { invoke } from '@/lib/invoke-shim';
 import { useOpenCoreStore } from '@/stores/opencoreStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import type {
   ChatMessage,
   ToolCall,
@@ -100,10 +101,20 @@ function coerceBool(v: unknown): boolean {
   return s === 'true' || s === 'yes' || s === '1' || s === 'on';
 }
 
-/** Значение похоже на путь к файлу (есть расширение или слэш). */
-function looksLikePath(v: unknown): boolean {
-  if (typeof v !== 'string' || !v.trim()) return false;
-  return /[\\/]|\\.[a-z0-9]{1,6}$/i.test(v.trim());
+/**
+ * Нормализует аргумент `path`.
+ *
+ * Раньше здесь стояла эвристика по имени файла: она решала, что модель
+ * «задвоила» имя, и отбрасывала последний сегмент. Но она ломала обычные
+ * пути вроде `Projects/2048/index.html`, обрезая их до `Projects/2048`, —
+ * поэтому агент «не умел работать через path». Проверку передвинули в Rust
+ * (`enforce_root`), где видно настоящую файловую систему.
+ */
+function normalizePathArg(value: string): string {
+  let p = String(value ?? '').trim().replace(/^[/\\]+/, '');
+  // Модель иногда присылает путь кавычками или с висящим разделителем.
+  p = p.replace(/^["']|["']$/g, '').replace(/[\\/]+$/, '');
+  return p.replace(/\\/g, '/');
 }
 
 /** Ищет значение по списку синонимов среди уже разобранных аргументов. */
@@ -113,43 +124,6 @@ function pickAlias(args: any, aliases: string[]): unknown {
     if (v !== undefined && v !== null && v !== '') return v;
   }
   return undefined;
-}
-
-/**
- * Убирает задвоенное имя файла: модель часто пишет
- * `Projects/2048/2048.html/2048.html`, потому что уже указала папку с
- * файлом и добавила имя ещё раз. Если последний сегмент существует как
- * папка и содержит точку — значит имя приклеилось к пути дважды.
- */
-function dedupeTrailingFileName(path: string): string {
-  const norm = path.replace(/\\/g, '/');
-  const parts = norm.split('/').filter(Boolean);
-  for (let i = parts.length - 1; i > 0; i--) {
-    const seg = parts[i];
-    if (!seg.includes('.')) continue;
-    if (parts.slice(0, i).join('/') && looksLikeDir(parts.slice(0, i + 1).join('/'))) {
-      return parts.slice(0, i).join('/');
-    }
-  }
-  return path;
-}
-
-function looksLikeDir(relPath: string): boolean {
-  // Проверка без Rust: опираемся на то, что агент работал с этими папками,
-  // и на типичное имя каталога проекта. Точность не критична — при
-  // несовпадении путь просто останется как есть.
-  return !/\.[a-z0-9]{1,6}$/i.test(relPath.split('/').pop() ?? '');
-}
-
-/** Проверяет, что путь не упирается в существующий файл как в папку. */
-function parentLooksLikeFile(path: string): boolean {
-  const parts = path.replace(/\\/g, '/').split('/').filter(Boolean);
-  // Все сегменты до последнего должны быть папками: если где-то попалось
-  // расширение, это точно не папка.
-  for (let i = 0; i < parts.length - 1; i++) {
-    if (/\.[a-z0-9]{1,6}$/i.test(parts[i])) return true;
-  }
-  return false;
 }
 
 export function normalizeToolArgs(tool: string, raw: any): { args: any; error?: string } {
@@ -170,16 +144,11 @@ export function normalizeToolArgs(tool: string, raw: any): { args: any; error?: 
   // 3) content иногда приходит массивом строк — склеиваем.
   if (Array.isArray(args.content)) args.content = args.content.join('\n');
   if (args.root !== undefined) args.root = String(args.root).toLowerCase();
-  // 4) Правка задвоенного имени файла и защита от «файл как папка».
+  // 4) Путь: только чистка кавычек, слэшей и висящих разделителей.
+  // Никаких догадок по расширениям — из-за них нормальные пути вроде
+  // Projects/2048/index.html раньше обрезались, и агент не мог работать с path.
   if (typeof args.path === 'string' && args.path.trim()) {
-    args.path = dedupeTrailingFileName(args.path.trim());
-    if (parentLooksLikeFile(args.path)) {
-      return {
-        args,
-        error: `Неверный путь: «${args.path}». Похоже, в путь попало имя файла, хотя это папка. `
-          + 'Укажи путь к файлу целиком, например Projects/2048/index.html.',
-      };
-    }
+    args.path = normalizePathArg(args.path);
   }
 
   // 5) Проверка обязательных аргументов с понятным текстом вместо сырой
@@ -1980,6 +1949,17 @@ async function searchCurseforgeCards(
   limit: number,
 ): Promise<{ cards: ModCard[]; lines: string[]; note: string }> {
   const classId = projectType === 'resourcepack' ? 12 : projectType === 'shaderpack' ? 6551 : 6;
+  // Ключ берём из настроек лаунчера. Раньше сюда передавался пустой ключ, и
+  // CurseForge отвечал отказом — из-за этого агент «не умел» работать с ним.
+  const apiKey = useSettingsStore.getState().curseforgeApiKey ?? '';
+  if (!apiKey.trim()) {
+    return {
+      cards: [],
+      lines: [],
+      note: 'CurseForge: не задан ключ API. Добавь его в «Настройки → Дополнительно → Ключ CurseForge», '
+        + 'и я смогу искать там моды, ресурс-паки и шейдеры.',
+    };
+  }
   let result: any;
   try {
     result = await invoke<any>('search_curseforge', {
@@ -1987,7 +1967,7 @@ async function searchCurseforgeCards(
       limit,
       classId,
       gameVersion: mcVersion,
-      apiKey: '',
+      apiKey,
       gameId: 432,
     });
   } catch (e) {
@@ -2184,28 +2164,235 @@ async function execModSearch(args: Record<string, unknown>): Promise<ExecResult>
   }
 }
 
+// Моды, которые нельзя ставить молча: они конфликтуют друг с другом и
+// меняют рендеринг. Пользователь должен выбрать сам — поэтому по ним мы
+// всегда спрашиваем, а не ставим автоматически.
+const RENDERER_CONFLICT = new Set([
+  'sodium', 'embeddium', 'rubidium', 'iridium',
+  'optifine', 'oculus', 'magnesium', 'magnesium-extra',
+]);
+
+/** Мод уже стоит в сборке? Сверяемся по slug, имени и имени файла. */
+function modAlreadyInstalled(installed: any[], slug: string, fileName: string): boolean {
+  const s = slug.toLowerCase();
+  const f = fileName.toLowerCase();
+  return installed.some((m) => {
+    const id = String(m?.id ?? '').toLowerCase();
+    const name = String(m?.name ?? '').toLowerCase();
+    const file = String(m?.file_name ?? '').toLowerCase();
+    return (s && (id === s || name === s || file.includes(s))) || (f && file === f);
+  });
+}
+
+/**
+ * Ставит мод и его зависимости.
+ *
+ * Раньше мод ставился «как есть»: без Fabric API и без обязательных
+ * зависимостей — сборка потом падала с ClassNotFound. Теперь:
+ *  1) на Fabric всегда доустанавливается fabric-api;
+ *  2) обязательные зависимости тянутся с Modrinth рекурсивно;
+ *  3) конфликтные рендереры (Sodium и подобные) не ставятся без ответа
+ *     пользователя — возвращаем вопрос.
+ */
+async function installModWithDeps(
+  instanceId: string,
+  opts: {
+    loader?: string;
+    mcVersion?: string;
+    slug?: string;
+    versionId?: string;
+    downloadUrl: string;
+    fileName: string;
+    modId?: string;
+    modName?: string;
+    modVersion?: string;
+    source?: string;
+    modType?: string | null;
+    projectId?: string | null;
+    author?: string | null;
+    iconUrl?: string | null;
+    resolveDeps?: boolean;
+  },
+): Promise<ExecResult> {
+  const notes: string[] = [];
+  const loader = String(opts.loader ?? '').toLowerCase();
+  const mcVersion = String(opts.mcVersion ?? '');
+
+  if (opts.resolveDeps === false) {
+    await invoke<any[]>('install_mod', {
+      instanceId, downloadUrl: opts.downloadUrl, fileName: opts.fileName,
+      modId: opts.modId ?? '', modName: opts.modName ?? opts.fileName,
+      modVersion: opts.modVersion ?? '', versionId: opts.versionId ?? '',
+      source: opts.source ?? 'modrinth', modType: opts.modType ?? null,
+      projectId: opts.projectId ?? null, author: opts.author ?? null, iconUrl: opts.iconUrl ?? null,
+    });
+    return { ok: true, output: `Установлено в сборку ${instanceId}: ${opts.fileName}.` };
+  }
+
+  const installed = await invoke<any[]>('get_instance_mods', { instanceId }).catch(() => [] as any[]);
+
+  // 1) Fabric API — на Fabric он нужен почти всегда.
+  if (loader === 'fabric' && mcVersion) {
+    if (modAlreadyInstalled(installed, 'fabric-api', 'fabric-api')) {
+      notes.push('Fabric API уже установлен.');
+    } else {
+      try {
+        const vers = await invoke<any>('get_modrinth_versions', {
+          projectId: 'fabric-api', gameVersion: mcVersion, loader: 'fabric',
+        });
+        const list: any[] = Array.isArray(vers) ? vers : (vers?.data ?? []);
+        const pick = list[0];
+        if (pick?.files?.[0]?.url) {
+          await invoke<any[]>('install_mod', {
+            instanceId,
+            downloadUrl: pick.files[0].url,
+            fileName: pick.files[0].filename ?? 'fabric-api.jar',
+            modId: 'fabric-api',
+            modName: 'Fabric API',
+            modVersion: pick.version_number ?? '',
+            versionId: pick.id ?? '',
+            source: 'modrinth',
+            modType: 'mod',
+            projectId: 'P7dR8mSH',
+            author: 'FabricMC',
+            iconUrl: pick.icon_url ?? null,
+          });
+          notes.push(`Fabric API ${pick.version_number ?? ''} установлен автоматически.`);
+        } else {
+          notes.push('Fabric API не нашёлся для этой версии Minecraft — поставь вручную.');
+        }
+      } catch (e) {
+        notes.push(`Fabric API не поставился автоматически: ${String(e)}`);
+      }
+    }
+  }
+
+  // 2) Обязательные зависимости с Modrinth.
+  if (opts.slug && opts.versionId) {
+    const seen = new Set<string>([opts.slug]);
+    const queue: Array<{ slug: string; versionId: string; depth: number }> = [
+      { slug: opts.slug, versionId: opts.versionId, depth: 0 },
+    ];
+    while (queue.length) {
+      const cur = queue.shift()!;
+      if (cur.depth >= 2) continue;
+      let vers: any;
+      try {
+        vers = await invoke<any>('get_modrinth_versions', { projectId: cur.slug });
+      } catch { continue; }
+      const vlist: any[] = Array.isArray(vers) ? vers : (vers?.data ?? []);
+      const v = vlist.find((x: any) => x?.id === cur.versionId) ?? vlist[0];
+      const deps: any[] = Array.isArray(v?.dependencies) ? v.dependencies : [];
+      for (const dep of deps) {
+        if (dep?.dependency_type && dep.dependency_type !== 'required') continue;
+        const slug = String(dep?.project_id ?? dep?.slug ?? '').trim();
+        if (!slug || seen.has(slug)) continue;
+        seen.add(slug);
+        if (RENDERER_CONFLICT.has(slug.toLowerCase())) {
+          notes.push(
+            `Зависимость «${slug}» меняет рендеринг и конфликтует с Sodium/OptiFine. `
+            + 'Спроси у пользователя, ставить ли её, и не ставь без ответа.',
+          );
+          continue;
+        }
+        try {
+          const dv = await invoke<any>('get_modrinth_versions', {
+            projectId: slug, gameVersion: mcVersion || null, loader: loader || null,
+          });
+          const dl: any[] = Array.isArray(dv) ? dv : (dv?.data ?? []);
+          const d = dl[0];
+          if (!d?.files?.[0]?.url) continue;
+          if (modAlreadyInstalled(installed, slug, d.files[0].filename ?? '')) continue;
+          await invoke<any[]>('install_mod', {
+            instanceId,
+            downloadUrl: d.files[0].url,
+            fileName: d.files[0].filename ?? `${slug}.jar`,
+            modId: slug,
+            modName: d.title ?? slug,
+            modVersion: d.version_number ?? '',
+            versionId: d.id ?? '',
+            source: 'modrinth',
+            modType: 'mod',
+            projectId: d.project_id ?? slug,
+            author: d.author ?? null,
+            iconUrl: d.icon_url ?? null,
+          });
+          notes.push(`Зависимость «${d.title ?? slug}» ${d.version_number ?? ''} установлена.`);
+          queue.push({ slug, versionId: d.id ?? '', depth: cur.depth + 1 });
+        } catch { /* зависимость не поставилась — просто не добавляем её в очередь */ }
+      }
+    }
+  }
+
+  await invoke<any[]>('install_mod', {
+    instanceId,
+    downloadUrl: opts.downloadUrl,
+    fileName: opts.fileName,
+    modId: opts.modId ?? '',
+    modName: opts.modName ?? opts.fileName,
+    modVersion: opts.modVersion ?? '',
+    versionId: opts.versionId ?? '',
+    source: opts.source ?? 'modrinth',
+    modType: opts.modType ?? null,
+    projectId: opts.projectId ?? null,
+    author: opts.author ?? null,
+    iconUrl: opts.iconUrl ?? null,
+  });
+
+  const tail = notes.length ? `\n\n${notes.join('\n')}` : '';
+  return {
+    ok: true,
+    output: `Установлено в сборку ${instanceId}: ${opts.fileName}.${tail}\n\n`
+      + 'Напомни пользователю пересобрать сборку в лаунчере, чтобы контент проиндексировался.',
+  };
+}
+
 async function execLauncherInstallMod(args: Record<string, unknown>): Promise<ExecResult> {
   try {
     const instanceId = String(args.instance_id ?? '');
     const downloadUrl = String(args.download_url ?? '');
     const fileName = String(args.file_name ?? '');
     if (!instanceId || !downloadUrl || !fileName) return { ok: false, output: 'Нужны instance_id, download_url, file_name.' };
-    const res = await invoke<any[]>('install_mod', {
-      instanceId,
-      downloadUrl,
-      fileName,
+
+    // Loader и версия Minecraft нужны, чтобы понять, нужен ли Fabric API
+    // и какую версию зависимостей тянуть.
+    let loader = '';
+    let mcVersion = '';
+    try {
+      const list = await invoke<any[]>('get_instances').catch(() => [] as any[]);
+      const inst = (Array.isArray(list) ? list : []).find((i: any) => i?.id === instanceId);
+      loader = String(inst?.loader ?? inst?.loaderType ?? '').toLowerCase();
+      mcVersion = String(inst?.mcVersion ?? inst?.minecraftVersion ?? '');
+    } catch { /* не смогли прочитать — поставим без зависимостей */ }
+
+    // Sodium и подобные не ставим молча: сначала спрашиваем пользователя.
+    const modSlug = String(args.slug ?? args.mod_id ?? '').toLowerCase();
+    if (RENDERER_CONFLICT.has(modSlug)) {
+      return {
+        ok: false,
+        output: `«${args.mod_name ?? modSlug}» меняет рендеринг и конфликтует с Sodium/OptiFine/Embeddium. `
+          + 'Спроси пользователя: ставить его вместо уже выбранного или не ставить. '
+          + 'Не вызывай launcher_install_mod, пока не получишь ответ.',
+      };
+    }
+
+    const res = await installModWithDeps(instanceId, {
+      loader, mcVersion,
+      slug: String(args.slug ?? '') || undefined,
+      versionId: String(args.version_id ?? '') || undefined,
+      downloadUrl, fileName,
       modId: String(args.mod_id ?? ''),
       modName: String(args.mod_name ?? fileName),
       modVersion: String(args.mod_version ?? ''),
-      versionId: String(args.version_id ?? ''),
       source: String(args.source ?? 'modrinth'),
       modType: args.mod_type != null ? String(args.mod_type) : null,
       projectId: args.project_id != null ? String(args.project_id) : null,
       author: args.author != null ? String(args.author) : null,
       iconUrl: args.icon_url != null ? String(args.icon_url) : null,
+      resolveDeps: args.resolve_deps === false ? false : true,
     });
     const count = Array.isArray(res) ? res.length : 0;
-    return { ok: true, output: `Установлено в сборку ${instanceId}: ${count} файл(а). Напомни пользователю пересобрать сборку в лаунчере, чтобы контент проиндексировался.` };
+    return res;
   } catch (e) {
     return { ok: false, output: String(e) };
   }

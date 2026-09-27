@@ -1982,24 +1982,40 @@ async function searchCurseforgeCards(
   const lines: string[] = [];
   for (const it of items.slice(0, limit)) {
     const id = Number(it.id ?? 0);
-    const logo = it.logo?.url ?? it.logo?.thumbnailUrl ?? null;
+    // Rust отдаёт логотип как `logo.thumbnail_url` (snake_case, без
+    // rename_all). Раньше читались `logo.url` и `logo.thumbnailUrl` — оба
+    // пустые, поэтому в карточке была заглушка «MO» вместо картинки.
+    const logo = it.logo?.thumbnail_url ?? it.logo?.thumbnailUrl ?? it.logo?.url ?? null;
     const title = String(it.name ?? '');
     const author = Array.isArray(it.authors) ? it.authors.map((a: any) => String(a.name ?? '')).filter(Boolean).join(', ') : '';
     const description = String(it.summary ?? '');
-    // Файл для установки: последний подходящий по версии игры.
+    // Файл для установки. У CurseForge в списке файлов НЕТ поля downloadUrl:
+    // прямой адрес отдаёт отдельный запрос по id файла. Раньше брали
+    // `pick.downloadUrl`, которого там нет, поэтому карточка оставалась без
+    // файла и кнопка «Установить» писала «не найден файл».
     let fileUrl = '';
     let fileName = '';
     let versionNumber = '';
+    let fileId = 0;
     try {
-      const files = await invoke<any[]>('get_curseforge_mod_files', { modId: id, gameVersion: mcVersion });
-      const list: any[] = Array.isArray(files) ? files : [];
-      const pick = list.find((f: any) => f?.downloadUrl) ?? list[0];
+      const files = await invoke<any>('get_curseforge_mod_files', { modId: id, gameVersion: mcVersion });
+      const list: any[] = Array.isArray(files)
+        ? files
+        : Array.isArray(files?.data) ? files.data : [];
+      // Сначала файл под выбранную версию игры, иначе — самый свежий.
+      const pick = (mcVersion
+        ? list.find((f: any) => Array.isArray(f?.gameVersions) && f.gameVersions.includes(mcVersion))
+        : null) ?? list[0];
       if (pick) {
-        fileUrl = String(pick.downloadUrl ?? '');
+        fileId = Number(pick.id ?? 0);
         fileName = String(pick.fileName ?? '');
         versionNumber = String(pick.displayName ?? pick.fileName ?? '');
+        if (fileId) {
+          fileUrl = await invoke<string>('get_curseforge_file_download_url', { modId: id, fileId })
+            .catch(() => '');
+        }
       }
-    } catch { /* остаёмся с метаданными без файла */ }
+    } catch { /* сети нет — карточка покажется без файла */ }
     cards.push({
       projectId: String(id),
       slug: String(it.slug ?? id),
@@ -4534,12 +4550,25 @@ export function buildSystemPrompt(opts: {
     `- 4) Регистрация: ModInitializer или ClientModInitializer из fabric-loader — класс, который точно существует, до импорта.`,
     `- 5) Смешины (mixins) только если действительно нужно, в fabric.mod.json -> mixins, каждый класс должен существовать.`,
     `- 6) Собери: build_jar, затем decompile_jar/jar_list для проверки, что классы на месте.`,
-    `ШЕЙДЕР (OptiFine/Iris/Complementary, GLSL):`,
-    `- 1) Минимум: shaders/program.fsh, shaders/program.vsh, shaders/shaders.properties, текстуры noise.png/composite.png.`,
-    `- 2) properties описывает uniform'ы и раскладку: screen=0, vertex=compatibility, fragment=compatibility.`,
-    `- 3) GLSL соблюдай: uniform во всех стадиях, #version 120, никаких динамических циклов по массиву без константы.`,
-    `- 4) Проверь, что каждый uniform, объявленный в .properties, реально используется в .fsh/.vsh.`,
-    `- 5) Текстуры шума рисуй через generate_image с output_path в shaders/.`,
+    `ШЕЙДЕР (OptiFine/Iris/Complementary, GLSL) — делай по полному шаблону:`,
+    `- 1) Состав пакета: shaders/program.fsh, shaders/program.vsh, shaders/shaders.properties, shaders/lib/*.glsl (общие функции), текстуры noise.png, composite.png, geometry.png, WaterNormals.png.`,
+    `- 2) shaders.properties — основа пака, без него Minecraft не подхватит пак:`,
+    `    screen=0  ·  vertex=compatibility  ·  fragment=compatibility  ·  pack.format=1  ·  profile=<имя>`,
+    `    uniform.<имя>.<тип> <значение по умолчанию>   — например uniform.wetness.float 1.0, uniform.rain.intensity.float 1.0`,
+    `    texture.<имя> <путь>   — например texture.noise /textures/noise.png`,
+    `- 3) Вершинная стадия (.vsh) всегда начинается так, иначе игра не передаст матрицы:`,
+    `    #version 120`,
+    `    uniform mat4 gbufferModelView, gbufferProjection;`,
+    `    uniform vec3 sunPosition, sunColor, moonPosition, moonColor, cameraPosition;`,
+    `    in vec3 position; in vec2 mc_texcoord; in int vertexId; in vec4 color;`,
+    `    out vec4 vPosition; out vec2 vTexCoord; out vec3 vSunDir;`,
+    `- 4) Фрагментная стадия (.fsh): #version 120, uniform во всех стадиях, in/out через varying.`,
+    `    Выход — gl_FragColor = vec4(color, 1.0). Никаких #version 150 и массивов с динамическим индексом.`,
+    `- 5) Свет и погода: небо через raymarch по sphere(r, 0.0, 0.0, 1.0) с mix() по rain, время суток берётся из sunPosition/moonPosition, отражения зеркально с шумом, вода — отдельная функция с нормалями и преломлением.`,
+    `- 6) Общие функции выноси в shaders/lib/common.glsl и подключай через #include. Дублировать код в .fsh и .vsh нельзя.`,
+    `- 7) Каждый uniform из .properties обязан использоваться в коде. Объявил в properties — используй в .fsh/.vsh, и наоборот.`,
+    `- 8) Текстуры шума рисуй: generate_image(prompt, size='512x512', output_path='Projects/<Имя>/shaders/textures/noise.png') — бесшовный тайл, нейтральная яркость.`,
+    `- 9) Проверка перед отчётом: есть все файлы из .properties, uniform'ы совпадают, #version 120 в обеих стадиях, gl_FragColor на месте. Пиши отчёт с путями.`,
     `ОБЯЗАТЕЛЬНО: не заканчивай на «структура готова, осталось нарисовать текстуры». Текстуры рисуются инструментом, шейдеры и пакеты упаковываются, моды собираются — и только потом отчёт с путями.`,
     '',
     `ЗАПРЕТ ВЫДУМЫВАНИЯ (самое важное правило). Мод, шейдер или ресурс-пак НЕ заработает, если ты выдумал класс, метод, mixin или файл:`,

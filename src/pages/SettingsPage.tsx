@@ -354,6 +354,16 @@ function AppearanceSection() {
     }
   }
 
+  /** Применяет оформление целиком: сохраняет CSS, обновляет тему и шрифт. */
+  async function applyAllAppearance() {
+    ui.set('customCss', cssDraft);
+    await ui.set('uiScale', ui.uiScale);
+    await ui.set('cornerRadius', ui.cornerRadius);
+    await ui.set('fontFamily', ui.fontFamily);
+    setCssSaved(true);
+    setTimeout(() => setCssSaved(false), 1800);
+  }
+
   async function saveCssToDisk() {
     try {
       const saved = await invoke<{ name: string }>('save_ui_css', { css: cssDraft });
@@ -630,6 +640,24 @@ function AppearanceSection() {
           <Toggle value={ui.backgroundVideoMuted} onChange={v => ui.set('backgroundVideoMuted', v)} />
         </Row>
       </>}
+
+      {/* Кнопка применения. Раньше изменения из оформления применялись сразу
+          по клику, но общая кнопка применения отсутствовала — из-за этого
+          непонятно, что настройки уже в силе. */}
+      <div className="mb-3 flex items-center gap-2 rounded-xl px-3 py-2.5"
+        style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-black" style={{ color: 'var(--color-text)' }}>Применение оформления</p>
+          <p className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+            Изменения применяются сразу. Кнопка нужна, чтобы применить всё разом и перепроверить CSS.
+          </p>
+        </div>
+        <button onClick={() => void applyAllAppearance()}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-[11px] font-bold"
+          style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+          <Check className="w-3.5 h-3.5" /> Применить
+        </button>
+      </div>
 
       {/* ===================== CSS / .prtheme ===================== */}
       <div className="minimal-section-title">

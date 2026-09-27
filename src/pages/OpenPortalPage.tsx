@@ -482,6 +482,13 @@ function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (te
           </div>
           {card.description && <p className="mt-0.5 line-clamp-2 text-[11px] leading-4" style={{ color: 'var(--color-text-secondary)' }}>{card.description}</p>}
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            {card.author && (
+              <span className="max-w-[45%] truncate rounded px-1.5 py-0.5 text-[9px] font-semibold"
+                style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}
+                title={`Автор: ${card.author}`}>
+                {card.author}
+              </span>
+            )}
             <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)' }}>{source.label}</span>
             <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>{type.label}</span>
             <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>{card.platform}</span>
@@ -1779,12 +1786,28 @@ export function OpenPortalPage() {
   const lastSlash = input.lastIndexOf('/');
   const cmdQuery = (lastSlash >= 0 ? input.slice(lastSlash + 1) : input).toLowerCase();
   const typedSegments = (input.match(/\//g) ?? []).length;
-  const allCommands = [
-    ...COMMANDS,
-    ...store.skills.filter(s => s.name).map(s => ({ cmd: `/${s.name}`, desc: s.description || 'Навык', instant: false })),
-  ];
+  const allCommands = (() => {
+    // Навык и команда с одним именем — это одно и то же. Раньше
+    // /skill-installer показывался дважды: как команда и как навык.
+    const seen = new Set<string>();
+    const merged: Array<{ cmd: string; desc: string; instant: boolean }> = [];
+    for (const c of [...COMMANDS, ...store.skills.filter(s => s.name).map(s => ({
+      cmd: `/${s.name}`,
+      desc: s.description || 'Навык',
+      instant: false,
+    }))]) {
+      const key = c.cmd.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(c);
+    }
+    return merged;
+  })();
   const cmdList = cmdOpen ? allCommands.filter(c => c.cmd.slice(1).toLowerCase().includes(cmdQuery))
     : [];
+  // Показываем 6 команд, остальные — прокруткой вниз.
+  const CMD_PAGE = 6;
+  const cmdOverflow = cmdList.length > CMD_PAGE;
   // Подсказка про несколько навыков, когда уже набрано больше одного слэша.
   const multiHint = typedSegments > 1 && cmdQuery.length === 0;
   const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant' && m.content)?.id;
@@ -1945,8 +1968,11 @@ export function OpenPortalPage() {
 
         <div className="ore-plain relative shrink-0 border-t p-3" style={{ borderColor: 'var(--color-border)' }}>
           {cmdOpen && cmdList.length > 0 && (
-            <div className="absolute bottom-full left-0 right-0 z-30 mx-auto mb-2 w-full max-w-3xl overflow-hidden rounded-lg border p-1"
+            <div className="absolute bottom-full left-0 right-0 z-30 mx-auto mb-2 w-full max-w-3xl rounded-lg border p-1"
               style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>
+              {/* Список ограничен по высоте: видно 6 строк, остальные листаются
+                  прокруткой внутри выпадающего списка. */}
+              <div className="overflow-y-auto" style={{ maxHeight: 264 }}>
               {cmdList.map(c => (
                 <button key={c.cmd} onClick={() => {
                   if (c.instant) { setInput(''); if (!runCommandLine(c.cmd)) void send(c.cmd); }
@@ -1958,6 +1984,14 @@ export function OpenPortalPage() {
                   {!c.instant && <span className="ml-auto shrink-0 text-[9px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}>+ описание</span>}
                 </button>
               ))}
+              </div>
+              {cmdOverflow && (
+                <p className="flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-bold"
+                  style={{ color: 'var(--color-text-tertiary)', borderTop: '1px solid var(--color-border)' }}>
+                  <ChevronDown size={11} />
+                  Показано {CMD_PAGE} из {cmdList.length} — прокрутите список вниз
+                </p>
+              )}
               {multiHint && (
                 <p className="px-2 py-1.5 text-[10px] leading-4" style={{ color: 'var(--color-text-tertiary)' }}>
                   Можно указать несколько навыков: <span className="font-mono" style={{ color: 'var(--color-primary)' }}>/навык, /другой</span> — до 5 за раз.

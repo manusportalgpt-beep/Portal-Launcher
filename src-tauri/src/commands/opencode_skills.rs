@@ -8,6 +8,49 @@
 
 const BUILTIN: &[(&str, &str)] = &[
     (
+        "portal-css",
+        r#"---
+name: portal-css
+description: Оформление Portal Launcher — пользовательский CSS, переменные тем, создание своей темы. Применяй, когда просят изменить внешний вид лаунчера, сделать тему или починить CSS.
+---
+
+# portal-css
+
+Интерфейс лаунчера — Tauri + React + Tailwind. Оформление задаётся CSS-переменными
+на `<html>`, поэтому тема = набор переменных, а не отдельный файл.
+
+## Два разных места правки
+
+1. **Правка самого лаунчера** (для разработки): `write_text(root='launcher',
+   path='src/index.css')`. Файлы стилей: `src/index.css`,
+   `src/components/layout/portal-sidebar.css`, `src/layouts/extended/extended.css`.
+2. **Пользовательский CSS** (то, что игрок применяет сам): «Настройки → Оформление →
+   Пользовательский CSS». Файл `custom.css` в папке лаунчера подхватывается при
+   запуске автоматически.
+
+## Переменные
+- Цвета: `--color-bg`, `--color-surface`, `--color-surface-2`,
+  `--color-surface-hover`, `--color-surface-active`, `--color-border`,
+  `--color-border-strong`, `--color-text`, `--color-text-secondary`,
+  `--color-text-tertiary`.
+- Акцент: `--color-primary`, `--color-primary-hover`, `--color-primary-dim`,
+  `--color-primary-text`.
+- Радиусы: `--radius-button`, `--radius-card`, `--radius-modal`.
+- Слои: `<html data-portal-style="oreui|standard|glass|...">`,
+  `<html data-ui-mode="modern|new|old">`, `<html data-theme="light|dark">`.
+
+## Правила
+- Меняй переменные, а не хардкодь цвета в компонентах.
+- Не переопределяй `:root` целиком: игрок может быть на своей теме.
+- Контраст основного текста не ниже 4.5:1.
+- Перед правкой прочитай файл, после — проверь, что существующие селекторы целы.
+
+## Проверка
+Собери фронтенд, открой лаунчер в обеих темах и на 360px. Правка не должна
+ломать чужие темы.
+"#,
+    ),
+    (
         "init",
         r#"---
 name: init

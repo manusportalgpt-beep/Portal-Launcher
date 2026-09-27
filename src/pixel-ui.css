@@ -368,17 +368,20 @@
 
 /* ===================================================================
    ЛУЧ СВЕТА ЗА 3D-МОДЕЛЬЮ
-   Медленный оборот — фон не должен отвлекать от модели.
+   Медленный оборот и мягкая альфа: фон не должен отвлекать от модели и не
+   должен читаться полосами. Первый вариант был слишком контрастным —
+   лучи резали глаз вместо того, чтобы давать глубину.
    =================================================================== */
 .px-sunburst {
   background-image: repeating-conic-gradient(
-    from 0deg at 50% 46%,
-    color-mix(in srgb, var(--color-primary) 20%, transparent) 0deg 5deg,
-    transparent 5deg 10deg
+    from 0deg at 50% 44%,
+    color-mix(in srgb, var(--color-primary) 9%, transparent) 0deg 9deg,
+    transparent 9deg 18deg
   );
-  mask-image: radial-gradient(ellipse at 50% 46%, #000 10%, transparent 66%);
-  -webkit-mask-image: radial-gradient(ellipse at 50% 46%, #000 10%, transparent 66%);
-  animation: px-sunburst-turn 120s linear infinite;
+  mask-image: radial-gradient(ellipse 62% 58% at 50% 44%, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 82%);
+  -webkit-mask-image: radial-gradient(ellipse 62% 58% at 50% 44%, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 82%);
+  opacity: 0.75;
+  animation: px-sunburst-turn 150s linear infinite;
 }
 
 @keyframes px-sunburst-turn {

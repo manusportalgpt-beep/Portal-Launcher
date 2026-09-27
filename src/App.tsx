@@ -48,7 +48,7 @@ import { useInstanceStore } from '@/stores/instanceStore';
 import { useAuthStore } from '@/stores/authStore';
 import { pruneLocalStorageCaches } from '@/lib/prune-storage';
 import { useLaunchStore } from '@/stores/launchStore';
-import { invoke } from '@/lib/invoke-shim';
+import { invoke, isTauri } from '@/lib/invoke-shim';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { initDiscord, setLauncherStatus } from '@/lib/discord';
@@ -93,6 +93,8 @@ function App() {
   useEffect(() => {
     let disposed = false;
     let shortcutLaunch = false;
+    // Вне Tauri (браузер, предпросмотр) окна нет — эффект просто не нужен.
+    if (!isTauri()) return;
     const win = getCurrentWindow();
     const unlistenPromise = listen('game-exited', async () => {
       if (shortcutLaunch && !disposed) {

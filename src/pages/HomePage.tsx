@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight, Compass, FolderPlus, Gamepad2, Library as LibraryIcon, Palette, Rocket,
@@ -11,6 +11,26 @@ import { useLaunchStore } from '@/stores/launchStore';
 import { invoke } from '@/lib/invoke-shim';
 import { toIconSrc } from '@/lib/icon-src';
 import { BlockIcon } from '@/components/ui/Pixel';
+import { SkinStand3D } from '@/components/skin/SkinStand3D';
+
+/**
+ * Текстура скина для 3D-модели в центре.
+ *
+ * Тянем из аккаунта игрока; без аккаунта и без сети показываем заглушку —
+ * пустой центр выглядит сломанным, а модель без скина рисовать нечем.
+ */
+function useSkinTexture(accessToken?: string) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (!accessToken) { setUrl(null); return; }
+    invoke<{ url: string } | null>('get_current_skin', { access_token: accessToken })
+      .then(info => { if (alive) setUrl(info?.url ?? null); })
+      .catch(() => { if (alive) setUrl(null); });
+    return () => { alive = false; };
+  }, [accessToken]);
+  return url;
+}
 
 function relativeDate(value?: string) {
   if (!value) return 'Ещё не запускалась';
@@ -92,6 +112,8 @@ export function HomePage() {
     setStatus(active.id, 'idle');
   };
 
+  const skinUrl = useSkinTexture(user?.accessToken);
+
   const tiles = [
     { icon: Store, title: 'Обзор', text: 'Моды, паки и шейдеры', to: '/discover' },
     { icon: Palette, title: 'Скины', text: 'Свои и из библиотеки', to: '/skins' },
@@ -133,41 +155,72 @@ export function HomePage() {
         </div>
 
         {/* Сцена: крупные плитки слева, статистика справа */}
-        <div className="flex min-h-0 flex-1 items-center gap-4 px-4 py-4 sm:px-6">
-          <div className="flex w-[180px] shrink-0 flex-col gap-3 sm:w-[220px]">
+        <div className="flex min-h-0 flex-1 items-stretch gap-4 px-4 py-3 sm:px-6">
+          {/* Плитки входов. min-h-0 + overflow: колонка не должна вылезать
+              в нижнюю панель на невысоких окнах — раньше обрезалась. */}
+          <div className="flex w-[168px] shrink-0 flex-col gap-2 overflow-y-auto sm:w-[196px]">
             {tiles.map(tile => (
               <button
                 key={tile.title}
                 type="button"
                 onClick={() => navigate(tile.to)}
-                className="px-tile group flex flex-col items-start gap-2 p-3 text-left">
+                className="px-tile group flex shrink-0 items-center gap-2.5 p-2.5 text-left">
                 <span
-                  className="flex h-12 w-12 items-center justify-center"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center"
                   style={{ background: 'color-mix(in srgb, var(--color-primary) 20%, transparent)', color: 'var(--color-primary)' }}>
-                  <tile.icon size={22} />
+                  <tile.icon size={20} />
                 </span>
-                <span className="block text-sm font-black" style={{ color: 'var(--color-text)' }}>
-                  {tile.title}
-                </span>
-                <span className="block text-[10px] leading-4" style={{ color: 'var(--color-text-secondary)' }}>
-                  {tile.text}
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-black leading-tight" style={{ color: 'var(--color-text)' }}>
+                    {tile.title}
+                  </span>
+                  <span className="block truncate text-[10px] leading-4" style={{ color: 'var(--color-text-secondary)' }}>
+                    {tile.text}
+                  </span>
                 </span>
               </button>
             ))}
           </div>
 
-          {/* Зона под 3D-модель: заголовок и имя игрока, сама модель — сюда
-              встаёт нашим SkinStand3D, когда он подключён. */}
-          <div className="flex min-w-0 flex-1 flex-col items-center justify-center">
+          {/* Зона под 3D-модель: заголовок сверху, модель в центре сцены. */}
+          <div className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1">
             <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em]"
               style={{ color: 'var(--color-primary)' }}>
               <Sparkles size={12} /> Portal Launcher
             </span>
-            <h1 className="mt-2 text-center text-2xl font-black sm:text-3xl"
+            <h1 className="text-center text-xl font-black sm:text-2xl"
               style={{ color: 'var(--color-text)' }}>
               {signedIn ? `С возвращением, ${user?.username || 'игрок'}` : 'Minecraft — в вашем ритме'}
             </h1>
-            <p className="mt-2 max-w-xl text-center text-xs leading-relaxed"
+
+            {/* Модель стоит в сцене, а не в отдельной карточке: так она
+                читается частью главного экрана. Без скина — рамка-заглушка,
+                чтобы центр не выглядел пустым. */}
+            <div className="relative mt-1 flex w-full flex-1 items-center justify-center">
+              {skinUrl ? (
+                <SkinStand3D
+                  skinUrl={skinUrl}
+                  model="classic"
+                  height={230}
+                  autoRotate
+                  interactive={false}
+                  className="h-full max-h-[230px] w-auto"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate(signedIn ? '/skins' : '/settings/account')}
+                  className="px-frame flex h-[190px] w-[120px] flex-col items-center justify-center gap-2"
+                  title={signedIn ? 'Открыть скины' : 'Войти, чтобы загрузить скин'}>
+                  <User size={30} style={{ color: 'var(--color-text-tertiary)' }} />
+                  <span className="text-[10px] font-bold leading-4" style={{ color: 'var(--color-text-tertiary)' }}>
+                    {signedIn ? 'Скин не загружен' : 'Войдите в аккаунт'}
+                  </span>
+                </button>
+              )}
+            </div>
+
+            <p className="max-w-xl text-center text-xs leading-relaxed"
               style={{ color: 'var(--color-text-secondary)' }}>
               {instances.length
                 ? 'Выбери сборку и нажми «Играть». Моды, паки и шейдеры ставятся в пару кликов.'
@@ -213,9 +266,10 @@ export function HomePage() {
           </div>
         </div>
 
-        {/* Нижняя панель: активная сборка и «Играть» */}
+        {/* Нижняя панель: активная сборка и «Играть». Левый отступ совпадает с
+            колонкой плиток, иначе панель наезжала на них. */}
         <div className="px-4 pb-4 sm:px-6">
-          <div className="mx-auto flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-stretch">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
             {active ? (
               <div className="px-frame flex min-w-0 flex-1 items-center gap-3 px-3 py-3">
                 <span
@@ -287,7 +341,7 @@ export function HomePage() {
           </div>
 
           {/* Быстрые переходы */}
-          <div className="mx-auto mt-3 flex max-w-5xl flex-wrap justify-center gap-2">
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
             <button type="button" onClick={() => navigate('/discover')}
               className="px-btn px-btn-quiet px-3 py-1.5 text-[11px]">
               <Compass size={13} /> Найти проект

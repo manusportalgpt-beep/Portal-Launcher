@@ -17,7 +17,6 @@ import { contextWindow, BROWSER_LINKS } from '@/lib/opencore/providers';
 import { Markdown, PortalImage } from '@/components/openportal/Markdown';
 import { ModelManager } from '@/components/openportal/ModelManager';
 import { PermissionModal } from '@/components/openportal/PermissionModal';
-import { SkillsPanel } from '@/components/openportal/SkillsPanel';
 import type { ChatMessage, SessionData, SessionMeta, PermissionRequest, Attachment, ProjectContext, PermissionPreset, ModCard, FileChange } from '@/lib/opencore/types';
 
 /** Русская форма множественного числа: plural(5, 'чат', 'чата', 'чатов') → 'чатов'. */
@@ -1892,7 +1891,6 @@ export function OpenPortalPage() {
             <p className="px-2.5 py-3 text-[11px] leading-5" style={{ color: 'var(--color-text-tertiary)' }}>Ничего не найдено по запросу «{sessionFilter}».</p>
           )}
         </div>
-        <SkillsPanel />
         <div className="border-t p-2" style={{ borderColor: 'var(--color-border)' }}>
           <button onClick={() => navigate('/home')}
             className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-[12px] font-bold transition-colors hover:bg-[var(--color-surface-2)]"

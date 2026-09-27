@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { OP_PROVIDERS, customProviderId, modelsListUrl, BROWSER_LINKS, contextWindow, type ProviderDef, type BrowserLink } from '@/lib/opencore/providers';
 import { copilotJwt } from '@/lib/opencore/agent';
 import { useOpenCoreStore, activeProviders, isProviderEnabled, isModelEnabled } from '@/stores/opencoreStore';
+import { SkillsSection } from '@/components/openportal/SkillsSection';
 
 /** Маска для встроенного публичного ключа: видно только начало и конец. */
 function maskKey(k: string): string {
@@ -514,6 +515,9 @@ export function ModelManager() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            {/* Навыки переехали сюда из боковой панели: управление моделями и
+                навыками — одно место, а не два разных угла интерфейса. */}
+            <SkillsSection />
             <ImageGenSection />
             {connected.length > 0 && (
               <>

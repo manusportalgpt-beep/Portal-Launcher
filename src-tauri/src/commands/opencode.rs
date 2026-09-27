@@ -582,6 +582,32 @@ pub fn op_save_image(b64: String) -> Result<String, String> {
     Ok(name)
 }
 
+/// Копирует сгенерированную картинку из кеша в проект по указанному пути.
+///
+/// Без этого текстура, нарисованная агентом, оставалась в кеше чата и не
+/// попадала в ресурс-пак — поэтому «ИИ не рисует текстуры» на практике.
+#[tauri::command]
+pub fn op_image_write(name: String, dest: String, root: String) -> Result<String, String> {
+    if !is_safe_image_file(&name) {
+        return Err("Некорректное имя файла изображения.".into());
+    }
+    let src = images_dir().join(&name);
+    if !src.is_file() {
+        return Err(format!("Картинка {name} не найдена в кеше."));
+    }
+    let r = root_from_name(&root)?;
+    // Имя файла задаёт вызов: путь может быть относительным к корню зоны.
+    let requested = resolve_agent_path(r, Path::new(&dest));
+    let target = enforce_root(r, &requested, true)?;
+    if target.extension().is_none() {
+        return Err(format!(
+            "У пути «{dest}» нет расширения. Текстура должна быть .png, например assets/мод/textures/block/grass_top.png"
+        ));
+    }
+    std::fs::copy(&src, &target).map_err(|e| format!("Копирование текстуры: {e}"))?;
+    Ok(target.to_string_lossy().to_string())
+}
+
 /// Читает изображение из кеша как data URL для отображения/скачивания в чате.
 #[tauri::command]
 pub fn op_image_read(file: String) -> Result<String, String> {

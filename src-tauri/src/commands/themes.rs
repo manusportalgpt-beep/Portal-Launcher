@@ -139,3 +139,83 @@ pub fn open_themes_folder() -> Result<(), String> {
     crate::utils::create_hidden_command("xdg-open").arg(&dir).spawn().map_err(|e| e.to_string())?;
     Ok(())
 }
+
+/// Готовый CSS пользователя, который лежит файлом на диске.
+///
+/// Раньше CSS жил только в localStorage: файл, который пользователь положил
+/// в папку (в том числе оставшийся от первой версии лаунчера), никто не
+/// читал, и после переустановки оформление пропадало. Теперь файл читается
+/// при запуске и его можно сохранить обратно.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UiCssFile {
+    pub css: String,
+    pub name: String,
+    pub path: String,
+    /// Откуда нашёлся файл: `data` — в корне данных, `themes` — в папке тем.
+    pub origin: String,
+}
+
+/// Ищет файл оформления: сначала `custom.css`/`portal.css` в корне данных,
+/// затем первый `.prtheme`/`.css` в папке тем.
+#[tauri::command]
+pub fn load_ui_css() -> Result<Option<UiCssFile>, String> {
+    let base = crate::commands::version_manager::mc_base_dir();
+    for name in ["custom.css", "portal.css", "ui.css"] {
+        let p = base.join(name);
+        if p.is_file() {
+            if let Ok(css) = std::fs::read_to_string(&p) {
+                return Ok(Some(UiCssFile {
+                    css,
+                    name: name.to_string(),
+                    path: p.to_string_lossy().to_string(),
+                    origin: "data".to_string(),
+                }));
+            }
+        }
+    }
+    // В папке тем берём самый свежий по времени изменения.
+    let mut best: Option<(std::time::SystemTime, PathBuf)> = None;
+    for entry in std::fs::read_dir(themes_dir()).map_err(|e| e.to_string())?.flatten() {
+        let p = entry.path();
+        let ext = p
+            .extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+        if ext != "prtheme" && ext != "css" {
+            continue;
+        }
+        let modified = entry
+            .metadata()
+            .and_then(|m| m.modified())
+            .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+        if best.as_ref().map(|(t, _)| modified > *t).unwrap_or(true) {
+            best = Some((modified, p));
+        }
+    }
+    let Some((_, path)) = best else { return Ok(None) };
+    let css = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "custom.css".to_string());
+    Ok(Some(UiCssFile {
+        css,
+        name,
+        path: path.to_string_lossy().to_string(),
+        origin: "themes".to_string(),
+    }))
+}
+
+/// Сохраняет CSS пользователя файлом в корень данных лаунчера, чтобы правки
+/// не потерялись и файл можно было положить рядом вручную.
+#[tauri::command]
+pub fn save_ui_css(css: String) -> Result<UiCssFile, String> {
+    let path = crate::commands::version_manager::mc_base_dir().join("custom.css");
+    std::fs::write(&path, css).map_err(|e| e.to_string())?;
+    Ok(UiCssFile {
+        css: std::fs::read_to_string(&path).unwrap_or_default(),
+        name: "custom.css".to_string(),
+        path: path.to_string_lossy().to_string(),
+        origin: "data".to_string(),
+    })
+}

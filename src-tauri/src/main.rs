@@ -237,6 +237,8 @@ fn main() {
             commands::themes::delete_prtheme,
             commands::themes::get_prtheme,
             commands::themes::open_themes_folder,
+            commands::themes::load_ui_css,
+            commands::themes::save_ui_css,
             // Авторы модов
             commands::authors::get_modrinth_author,
             commands::authors::get_curseforge_author,
@@ -407,6 +409,7 @@ fn main() {
             commands::opencode::op_list_skills,
             commands::opencode::op_skill_sources,
             commands::opencode::op_save_image,
+            commands::opencode::op_image_write,
             commands::opencode::op_image_read,
             commands::opencode::op_save_to_downloads,
             commands::opencode::op_copy_to_downloads,

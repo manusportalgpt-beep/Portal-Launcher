@@ -14,6 +14,7 @@ import type {
   FileChange,
 } from '@/lib/opencore/types';
 import { diffLines } from '@/lib/opencore/diff';
+import { uiCssGuide } from '@/lib/ui-css-vars';
 
 // ---------------------------------------------------------------------------
 // Надёжность агента: нормализация аргументов инструментов и повторы запросов
@@ -648,6 +649,7 @@ export const TOOLS: ToolDef[] = [
         prompt: { type: 'string', description: 'Подробное описание изображения (лучше по-английски: стиль, детали, свет, композиция)' },
         size: { type: 'string', enum: ['512x512', '1024x1024', '2048x2048'], description: 'Размер изображения (по умолчанию 1024x1024)' },
         provider: { type: 'string', enum: ['auto', 'stable_horde', 'novita', 'provider', 'magnific', 'pollinations'], description: 'Источник: auto (выбранный в настройках провайдер), stable_horde (бесплатно, без ключа), novita (по ключу api.novita.ai), provider (активный провайдер), magnific (по ключу), pollinations (запасной бесплатный)' },
+        output_path: { type: 'string', description: 'Куда сохранить PNG, например Projects/Шейдеры/текстуры/grass_block_top.png. Используй это для текстур ресурс-пака — иначе картинка останется просто в чате и в пак не попадёт.' },
       },
       required: ['prompt'],
     },
@@ -1105,6 +1107,8 @@ export interface ExecResult {
   cards?: ModCard[];
   /** Изменённые файлы с диффом (write_text / edit_file). */
   changes?: FileChange[];
+  /** Имя файла сгенерированной картинки в кэше — нужно для output_path. */
+  imageName?: string;
 }
 
 /** HTTP-запрос через Rust (нет CORS, есть сеть бэкенда). Нужен инструментам и фолбэку провайдеров. */
@@ -2744,7 +2748,7 @@ async function saveImageBlob(blob: Blob, source: string): Promise<ExecResult> {
   try {
     const b64 = await blobToBase64(blob);
     const name = await invoke<string>('op_save_image', { b64 });
-    return { ok: true, output: `Изображение (${source}): /op-image/${name}` };
+    return { ok: true, output: `Изображение (${source}): /op-image/${name}`, imageName: name };
   } catch (e) {
     return { ok: false, output: `Не удалось сохранить картинку: ${String(e)}` };
   }
@@ -2976,7 +2980,35 @@ async function generateViaProvider(ep: ResolvedEndpoint, prompt: string, size?: 
  * novita (по ключу). `provider` позволяет форсировать источник:
  * auto | stable_horde | novita | provider | magnific | pollinations.
  */
-async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; size?: string; provider?: string }): Promise<ExecResult> {
+async function execGenerateImage(ep: ResolvedEndpoint, args: { prompt: string; size?: string; provider?: string; output_path?: string }): Promise<ExecResult> {
+  const result = await runImageGen(ep, args);
+  if (!result.ok) return result;
+
+  // output_path: текстура должна попасть в проект, а не остаться в чате.
+  const outputPath = typeof args?.output_path === 'string' ? args.output_path.trim() : '';
+  if (!outputPath || !result.imageName) return result;
+
+  try {
+    await invoke<boolean>('op_image_write', {
+      name: result.imageName,
+      dest: outputPath,
+      root: 'portal',
+    });
+    return {
+      ...result,
+      output: `${result.output}\n\nТекстура сохранена в проект: ${outputPath}`,
+    };
+  } catch (e) {
+    return {
+      ...result,
+      output: `${result.output}\n\nНе удалось сохранить в ${outputPath}: ${String(e)}. `
+        + 'Картинка осталась в кэше — открой её через «Перейти» и сохрани вручную.',
+    };
+  }
+}
+
+/** Выбирает провайдер генерации и возвращает результат с именем файла в кэше. */
+async function runImageGen(ep: ResolvedEndpoint, args: { prompt: string; size?: string; provider?: string }): Promise<ExecResult> {
   const prompt = String(args?.prompt ?? '').trim();
   if (!prompt) return { ok: false, output: 'Укажи prompt — описание изображения.' };
   const size = typeof args?.size === 'string' ? args.size : undefined;
@@ -4455,9 +4487,34 @@ export function buildSystemPrompt(opts: {
     `- Акцент: --color-primary, --color-primary-hover, --color-primary-dim, --color-primary-text.`,
     `- Радиусы: --radius-xs/sm/md/lg/xl, --radius-button, --radius-card, --radius-modal.`,
     `- Тени: --shadow-sm/md/lg. Шрифт: --font-ui. Скругление кнопок задаётся --radius-button.`,
+    `Пользовательский CSS: игрок может применить свой файл (Настройки -> Оформление -> Пользовательский CSS, файл custom.css в папке лаунчера подхватывается сам). Если просят поменять оформление — пиши CSS на этих переменных, а не правиль интерфейс хардкодом, и не переопределяй :root целиком.`,
+    `Полный список переменных с примерами (тот же, что видит игрок в Настройках):\n${uiCssGuide()}`,
     `Слои стилей: пресет оформления выбирается атрибутом <html data-portal-style="..."> (oreui, standard, glass, quadral, falloff, abouts); режим интерфейса — <html data-ui-mode="modern|new|old">; светлая/тёмная тема — <html data-theme="light|dark">. Файлы: src/index.css (общие стили и слой oreui), src/components/layout/portal-sidebar.css (сайдбар), src/lib/style-presets.ts (токены пресетов), src/lib/theme-engine.ts (темы).`,
     `Как создать тему по запросу игрока: добавь блок вида \`html[data-theme="<id>"] { --color-bg: ...; --color-surface: ...; ... }\` в src/index.css (или переопредели токены существующей схемы) и скажи игроку, как её включить. Соблюдай контраст текста к фону, не используй чистый белый/чёрный для текста (глаза) — лучше приглушённые оттенки. Правь CSS через write_text(root='launcher', path='src/index.css'), сначала прочитав файл read_text, и не ломай существующие селекторы.`,
     '',
+    '',
+    `СОЗДАНИЕ МОДА, ШЕЙДЕРА И РЕСУРС-ПАКА — ДО MINIMUM, ПОШАГОВО. Не ограничивайся «вот структура, доделай сам»: доведи до готового, проверяемого содержимого.`,
+    `РЕСУРС-ПАК (zip с pack.mcmeta):`,
+    `- 1) pack.mcmeta в корне: pack_format под текущую версию игры, description обязателен.`,
+    `- 2) assets/<пространство_имён>/ — с пространством, совпадающим с id мода/пака. Внутри models/item, models/block, textures/block, textures/item, lang/en_us.json.`,
+    `- 3) lang/en_us.json обязателен, иначе имена предметов показываются ключами.`,
+    `- 4) ТЕКСТУРЫ РИСУЙ, а не оставляй заглушками: generate_image(prompt, size='512x512', output_path='Projects/<Имя>/assets/<ns>/textures/block/<файл>.png'). Без output_path картинка останется в чате и в пак не попадёт.`,
+    `- 5) Модели в models/item и models/block в формате JSON: parent, textures, элементы. Не выдумывай имена моделей, которых нет в pack.`,
+    `- 6) В конце упакуй архив и установи: install_sandbox_archive / launcher_install_project, затем проверь path_exists.`,
+    `МОД (Java, Fabric):`,
+    `- 1) Определи версии: launcher_build_info (версия игры и загрузчика сборки) и mod_search для совместимых зависимостей.`,
+    `- 2) Минимум проекта: build.gradle, settings.gradle, gradle.properties, fabric.mod.json, src/main/resources/fabric.mod.json, класс мода в src/main/java/<группа>/<id>/.`,
+    `- 3) fabric.mod.json: schemaVersion, id, version, name, environment, entrypoints (main/client), depends (fabricloader, minecraft, java, fabric-api).`,
+    `- 4) Регистрация: ModInitializer или ClientModInitializer из fabric-loader — класс, который точно существует, до импорта.`,
+    `- 5) Смешины (mixins) только если действительно нужно, в fabric.mod.json -> mixins, каждый класс должен существовать.`,
+    `- 6) Собери: build_jar, затем decompile_jar/jar_list для проверки, что классы на месте.`,
+    `ШЕЙДЕР (OptiFine/Iris/Complementary, GLSL):`,
+    `- 1) Минимум: shaders/program.fsh, shaders/program.vsh, shaders/shaders.properties, текстуры noise.png/composite.png.`,
+    `- 2) properties описывает uniform'ы и раскладку: screen=0, vertex=compatibility, fragment=compatibility.`,
+    `- 3) GLSL соблюдай: uniform во всех стадиях, #version 120, никаких динамических циклов по массиву без константы.`,
+    `- 4) Проверь, что каждый uniform, объявленный в .properties, реально используется в .fsh/.vsh.`,
+    `- 5) Текстуры шума рисуй через generate_image с output_path в shaders/.`,
+    `ОБЯЗАТЕЛЬНО: не заканчивай на «структура готова, осталось нарисовать текстуры». Текстуры рисуются инструментом, шейдеры и пакеты упаковываются, моды собираются — и только потом отчёт с путями.`,
     '',
     `ЗАПРЕТ ВЫДУМЫВАНИЯ (самое важное правило). Мод, шейдер или ресурс-пак НЕ заработает, если ты выдумал класс, метод, mixin или файл:`,
     `- Никогда не пиши класс, метод, поле, mixin-класс, конфиг-ключ или файл, который ты не видел. Никаких «наверное есть», «должно называться», «по моему опыту».`,

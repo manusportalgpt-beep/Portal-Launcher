@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { invoke } from '@/lib/invoke-shim';
 import { useUiStore } from '@/stores/uiStore';
 
 const STYLE_ID = 'portal-prtheme';
@@ -22,6 +23,37 @@ export function readThemeFile(file: File): Promise<string> {
     r.onerror = () => reject(new Error('Не удалось прочитать файл темы'));
     r.readAsText(file);
   });
+}
+
+/** CSS-файл пользователя, найденный на диске. */
+export interface UiCssFile {
+  css: string;
+  name: string;
+  path: string;
+  origin: string;
+}
+
+/**
+ * Подхватывает CSS-файл с диска, если в настройках его ещё нет.
+ *
+ * Раньше оформление лежало только в localStorage, и файл, положенный
+ * пользователем (в том числе оставшийся от первой версии лаунчера), просто
+ * игнорировался — отсюда «наш CSS файл не работает».
+ */
+export async function adoptUiCssFileFromDisk(): Promise<boolean> {
+  const ui = useUiStore.getState();
+  // Пользовательский выбор важнее файла на диске: если CSS уже есть, не трогаем.
+  if (ui.customCss.trim()) return false;
+  try {
+    const found = await invoke<UiCssFile | null>('load_ui_css');
+    if (!found || !found.css.trim()) return false;
+    ui.set('customCss', found.css);
+    ui.set('customCssName', found.name);
+    ui.set('customCssEnabled', true);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Глобальные визуальные настройки: масштаб, радиусы, фон, анимации, custom CSS. */
@@ -83,4 +115,8 @@ export function useUiEffects() {
   useEffect(() => {
     applyCustomCss(s.customCss, s.customCssEnabled);
   }, [s.customCss, s.customCssEnabled]);
+
+  useEffect(() => {
+    void adoptUiCssFileFromDisk();
+  }, []);
 }

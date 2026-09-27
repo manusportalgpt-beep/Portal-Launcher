@@ -6,6 +6,7 @@ import {
   User, Cpu, Palette,
   LogIn, RefreshCw, Trash2, Check, X,
   Volume2, Code, Shield, Save, Layout, Upload, Gamepad2, Globe, Github, ExternalLink, Search, SlidersHorizontal,
+  FolderOpen,
   Rocket, Download, Clock,
 } from 'lucide-react';
 import { invoke } from '@/lib/invoke-shim';
@@ -21,6 +22,7 @@ import { ONBOARDING_BACKGROUNDS } from '@/lib/onboarding-backgrounds';
 import { useUiStore } from '@/stores/uiStore';
 import { useLayoutStore, type LayoutMode } from '@/stores/layoutStore';
 import { readThemeFile } from '@/lib/ui-engine';
+import { UI_CSS_VARS } from '@/lib/ui-css-vars';
 import { removeBackgroundMedia, saveBackgroundMedia } from '@/lib/background-media';
 import { openBrowserWindow } from '@/lib/browser';
 import { tauriUpdate, type UpdateInfo } from '@/lib/tauri-bridge';
@@ -352,6 +354,18 @@ function AppearanceSection() {
     }
   }
 
+  async function saveCssToDisk() {
+    try {
+      const saved = await invoke<{ name: string }>('save_ui_css', { css: cssDraft });
+      ui.set('customCss', cssDraft);
+      ui.set('customCssName', saved.name);
+      setCssSaved(true);
+      setTimeout(() => setCssSaved(false), 1800);
+    } catch (e) {
+      console.warn('save_ui_css failed', e);
+    }
+  }
+
   async function importTheme(f?: File | null) {
     if (!f) return;
     const text = await readThemeFile(f);
@@ -626,7 +640,7 @@ function AppearanceSection() {
         Импортируйте файл <span style={{ color: 'var(--color-primary)' }}>.prtheme</span> (обычный CSS), чтобы изменить цвета, отступы и расположение элементов интерфейса.
       </p>
 
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         <input ref={fileRef} type="file" accept=".prtheme,.css,text/css" hidden
           onChange={e => importTheme(e.target.files?.[0])} />
         <button onClick={() => fileRef.current?.click()}
@@ -638,8 +652,49 @@ function AppearanceSection() {
           <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{ui.customCssName}</span>
         )}
         <div className="flex-1" />
+        <button onClick={() => void saveCssToDisk()} title="Сохранить CSS файлом custom.css в папку лаунчера"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold"
+          style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+          <Save className="w-3.5 h-3.5" />Сохранить файлом
+        </button>
+        <button onClick={() => void invoke('open_themes_folder')} title="Открыть папку с файлами оформления"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold"
+          style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+          <FolderOpen className="w-3.5 h-3.5" />Папка
+        </button>
         <Toggle value={ui.customCssEnabled} onChange={v => ui.set('customCssEnabled', v)} />
       </div>
+      <p className="text-[10px] mb-3 leading-4" style={{ color: 'var(--color-text-tertiary)' }}>
+        Файл <span style={{ color: 'var(--color-primary)' }}>custom.css</span> в папке лаунчера (или
+        последний <span style={{ color: 'var(--color-primary)' }}>.prtheme</span> в папке тем) подхватывается
+        при запуске автоматически, если в настройках CSS ещё нет.
+      </p>
+
+      {/* Справочник переменных лаунчера: что именно можно переопределить в CSS. */}
+      <details className="mb-3">
+        <summary className="cursor-pointer select-none text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>
+          Какие переменные можно менять в CSS
+        </summary>
+        <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+          {UI_CSS_VARS.map(group => (
+            <div key={group.title} className="rounded-xl px-2.5 py-2"
+              style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+              <p className="mb-1 text-[10px] font-black uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>
+                {group.title}
+              </p>
+              {group.vars.map(v => (
+                <button key={v.name} title="Вставить в редактор"
+                  onClick={() => { setCssDraft(d => `${d}${d.endsWith('\n') || !d ? '' : '\n'}${v.name}: ${v.example};\n`); setCssSaved(false); }}
+                  className="block w-full text-left font-mono text-[10px] leading-5 hover:underline"
+                  style={{ color: 'var(--color-text-secondary)' }}>
+                  <span style={{ color: 'var(--color-primary)' }}>{v.name}</span>
+                  <span>: {v.example}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      </details>
 
       <textarea value={cssDraft} onChange={e => { setCssDraft(e.target.value); setCssSaved(false); }}
         spellCheck={false} rows={10}

@@ -5,9 +5,9 @@
 **Лаунчер Minecraft, в котором ИИ-агент реально работает с твоими сборками**
 
 [![CI](https://github.com/manusportalgpt-beep/Portal-Launcher/actions/workflows/main.yml/badge.svg)](https://github.com/manusportalgpt-beep/Portal-Launcher/actions/workflows/main.yml)
-[![Версия](https://img.shields.io/badge/version-1.0.3-blue)](https://github.com/manusportalgpt-beep/Portal-Launcher/releases)
-[![Платформа](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-informational)](https://github.com/manusportalgpt-beep/Portal-Launcher/releases)
-[![Лицензия](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Версия](https://img.shields.io/badge/version-1.0.4-blue)](https://github.com/manusportalgpt-beep/Portal-Launcher/releases)
+[![Платформа](https://img.shields.io/badge/platform-Windows%20%7C%20)](https://github.com/manusportalgpt-beep/Portal-Launcher/releases)
+[![Лицензия](https://img.shields.io/badge/license-GPL-green)](LICENSE)
 
 Моды, шейдеры, ресурс-паки, сборки на 100+ модов, настройка конфигов и разбор крашей — всё это делает встроенный агент **OpenPortal**.
 

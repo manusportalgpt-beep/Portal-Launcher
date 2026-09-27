@@ -1548,12 +1548,36 @@ export function OpenPortalPage() {
           text = `Команда /skill-installer: найди подходящий навык «${arg}», установи его SKILL.md в папку навыков и кратко объясни, что он делает.`;
         }
       } else {
-        const skill = store.skills.find(s => s.name && `/${s.name.toLowerCase()}` === cmd);
-        if (skill) {
-          taskDirective = `Ты запущен навыком «${skill.name}». Обязательно сначала прочитай его инструкции (read_text root=portal, путь Skills/${skill.name}/SKILL.md) и строго следуй им: ${arg || 'выполни задачу по описанию навыка'}.`;
-          text = arg ? `Выполни задачу навыка «${skill.name}»: ${arg}` : `Выполни задачу согласно навыку «${skill.name}».`;
+        // Несколько навыков за раз: /shader-creator, /ui-ux-pro-max
+        // Запятая и следующий слэш начинают новый навык. Максимум 5.
+        const MAX_SKILLS = 5;
+        const segments = text.split(/,(?=\s*\S)/);
+        const picked: string[] = [];
+        let arg = '';
+        for (const seg of segments) {
+          const trimmed = seg.trim();
+          if (!trimmed.startsWith('/')) continue;
+          const [rawName, ...rest] = trimmed.slice(1).split(/\s+/);
+          const name = rawName.toLowerCase();
+          if (picked.includes(name) || picked.length >= MAX_SKILLS) continue;
+          const skill = store.skills.find(s => s.name && s.name.toLowerCase() === name);
+          if (skill) {
+            picked.push(skill.name);
+            if (rest.length) arg += (arg ? ' ' : '') + rest.join(' ');
+          }
+        }
+        if (picked.length > 0) {
+          const list = picked
+            .map(n => `«${n}» (Skills/${n}/SKILL.md)`)
+            .join(', ');
+          taskDirective = `Ты запущен навыками: ${list}. `
+            + 'Обязательно сначала прочитай инструкции каждого навыка (read_text root=portal, путь Skills/<имя>/SKILL.md) '
+            + `и следуй им всем: ${arg || 'выполни задачу по описанию навыков'}.`;
+          text = arg
+            ? `Выполни задачу навыками ${picked.map(n => `«${n}»`).join(', ')}: ${arg}`
+            : `Выполни задачу согласно навыкам ${picked.map(n => `«${n}»`).join(', ')}.`;
         } else {
-          const unknown: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: `Неизвестная команда **${cmd}**. Набери /help`, timestamp: Date.now() };
+          const unknown: ChatMessage = { id: `sys-${Date.now()}`, role: 'assistant', content: `Неизвестная команда **${cmd}**. Набери /`, timestamp: Date.now() };
           useOpenCoreStore.getState().appendMessages([unknown]);
           return;
         }
@@ -1748,13 +1772,20 @@ export function OpenPortalPage() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); }
   };
 
-  const cmdOpen = !running && input.startsWith('/');
-  const cmdQuery = input.slice(1).toLowerCase();
+  const cmdOpen = !running && /^\s*\//.test(input);
+  // Фильтруем по текущему сегменту: при «/shader, /ui» показываем навыки,
+  // подходящие ко второму сегменту, а не по всей строке сразу.
+  const lastSlash = input.lastIndexOf('/');
+  const cmdQuery = (lastSlash >= 0 ? input.slice(lastSlash + 1) : input).toLowerCase();
+  const typedSegments = (input.match(/\//g) ?? []).length;
   const allCommands = [
     ...COMMANDS,
-    ...store.skills.filter(s => s.name).map(s => ({ cmd: `/${s.name}`, desc: s.description || 'Навык', instant: false as const })),
+    ...store.skills.filter(s => s.name).map(s => ({ cmd: `/${s.name}`, desc: s.description || 'Навык', instant: false })),
   ];
-  const cmdList = cmdOpen ? allCommands.filter(c => c.cmd.slice(1).toLowerCase().includes(cmdQuery)) : [];
+  const cmdList = cmdOpen ? allCommands.filter(c => c.cmd.slice(1).toLowerCase().includes(cmdQuery))
+    : [];
+  // Подсказка про несколько навыков, когда уже набрано больше одного слэша.
+  const multiHint = typedSegments > 1 && cmdQuery.length === 0;
   const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant' && m.content)?.id;
 
   const onFilePicked = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1925,6 +1956,11 @@ export function OpenPortalPage() {
                   {!c.instant && <span className="ml-auto shrink-0 text-[9px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}>+ описание</span>}
                 </button>
               ))}
+              {multiHint && (
+                <p className="px-2 py-1.5 text-[10px] leading-4" style={{ color: 'var(--color-text-tertiary)' }}>
+                  Можно указать несколько навыков: <span className="font-mono" style={{ color: 'var(--color-primary)' }}>/навык, /другой</span> — до 5 за раз.
+                </p>
+              )}
             </div>
           )}
           {/* Композер собран в один контейнер: тулбар, поле ввода и кнопки

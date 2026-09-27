@@ -4087,6 +4087,52 @@ function trimThinking(s: string): string {
 // Сжатие истории/контекста
 // ---------------------------------------------------------------------------
 
+/**
+ * Жёсткое сжатие истории, когда провайдер отверг запрос целиком.
+ *
+ * `compressHistory` умеет только убрать лишние сообщения, а при короткой
+ * переписке не делает ничего — и провайдер продолжал отвергать запрос. Здесь
+ * дополнительно:
+ *  1) длинные выводы инструментов (часто по 20–40 КБ каждый) усекаются,
+ *  2) промежуточные сообщения агента схлопываются,
+ *  3) всё, кроме последних сообщений и выжимок, отбрасывается.
+ *
+ * Смысл в том, чтобы задача продолжилась, а не чтобы пользователь повторял
+ * сообщение и снова получал 400.
+ */
+function hardTrimHistory(messages: ChatMessage[]): ChatMessage[] {
+  const LIMIT = 2000;
+  const CLIP = 1200;
+  const KEEP_TAIL = 8;
+
+  const summaries = messages.filter(m => m.summary === true);
+  const rest = messages.filter(m => m.summary !== true);
+  if (rest.length <= KEEP_TAIL && !rest.some(m => (m.content?.length ?? 0) > CLIP)) {
+    return messages;
+  }
+
+  // Длинные выводы инструментов усекаем с явной пометкой — агент должен
+  // понимать, что данные обрезаны, и при необходимости перечитать файл.
+  const trimmed = rest.map(m => {
+    const len = m.content?.length ?? 0;
+    if (len <= CLIP || m.role !== 'tool') return m;
+    return {
+      ...m,
+      content: `${m.content.slice(0, CLIP)}\n… [вывод инструмента обрезан с ${len} до ${CLIP} символов — полный текст можно перечитать через read_text / fetch_page]`,
+    } as ChatMessage;
+  });
+
+  const head = trimmed.slice(0, Math.max(0, trimmed.length - KEEP_TAIL));
+  const tail = trimmed.slice(Math.max(0, trimmed.length - KEEP_TAIL));
+  const note: ChatMessage = {
+    id: `__hardtrim-${Date.now()}`,
+    role: 'assistant',
+    content: `… [${head.length} старых сообщений убрано из-за отказа провайдера] …`,
+    timestamp: Date.now(),
+  };
+  return [...summaries, ...head, note, ...tail];
+}
+
 export function compressHistory(messages: ChatMessage[], max = 48): ChatMessage[] {
   if (messages.length <= max) return messages;
   // Сжатые выжимки (summary: true) не выбрасываем никогда — иначе накопленный
@@ -4550,27 +4596,29 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
         });
         continue;
       }
-      // Провайдер отверг запрос целиком (обычно HTTP 400 из-за объёма
-      // переписки). Вместо просьбы жать /compress агент сам сжимает историю
-      // и продолжает задачу: суть работы не теряется.
+      // Провайдер отверг запрос целиком (обычно HTTP 400). Агент сам сжимает
+      // переписку и продолжает задачу — пользователю не нужно жать /compress
+      // и повторять сообщение. Даже если сообщений немного, всё равно делаем
+      // один жёсткий срез: длинные выводы инструментов уходят в сводку.
       if (e instanceof ProviderRequestRejected && !autoCompressed) {
         const withoutStubNow = messages.filter(m => m.id !== assistantId);
-        const trimmed = compressHistory(withoutStubNow, 24);
-        if (trimmed.length < withoutStubNow.length) {
-          autoCompressed = true;
-          messages = trimmed;
-          opts.onReplace?.(messages);
-          push({
-            id: `autocompact-${Date.now()}-${iter}`,
-            role: 'assistant',
-            content: 'Провайдер отклонил запрос из-за объёма переписки — сжимаю историю и продолжаю задачу сам. '
-              + 'Ключевые итоги и последние сообщения сохранены, можно просто подождать.',
-            timestamp: Date.now(),
-          });
-          // Набор инструментов мог быть причиной отказа — проверяем заново.
-          resetToolModeCache();
-          continue;
-        }
+        const trimmed = hardTrimHistory(withoutStubNow);
+        autoCompressed = true;
+        messages = trimmed;
+        opts.onReplace?.(messages);
+        push({
+          id: `autocompact-${Date.now()}-${iter}`,
+          role: 'assistant',
+          content: trimmed.length < withoutStubNow.length
+            ? 'Провайдер отклонил запрос из-за объёма переписки — сжимаю историю и продолжаю задачу сам. '
+              + 'Ключевые итоги и последние сообщения сохранены, можно просто подождать.'
+            : 'Провайдер отклонил запрос — убрал длинные выводы инструментов из переписки и продолжаю сам. '
+              + 'Если после этого повторится, поможет /compact.',
+          timestamp: Date.now(),
+        });
+        // Набор инструментов мог быть причиной отказа — проверяем заново.
+        resetToolModeCache();
+        continue;
       }
       const errMsg = e instanceof Error ? e.message : String(e);
       const permanent = e instanceof ProviderRequestRejected;

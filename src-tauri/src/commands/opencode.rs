@@ -128,30 +128,38 @@ fn canonical(p: &Path) -> Option<PathBuf> {
 
 /// Все каталоги, в которые агенту разрешено писать.
 ///
-/// Раньше проверка принимала только один каталог на каждый root, и агент
-/// упирался в «Путь вне разрешённой зоны» на самых обычных задачах — создании
-/// шейдера, ресурс-пака или мода в новой подпапке. Теперь разрешены все
-/// каталоги PortalLauncher: в Roaming (данные лаунчера и сборки), в Local
-/// (если лаунчер их создал), системный Temp и рабочие проекты OpenPortal.
+/// Главное требование: вся папка лаунчера `%APPDATA%\PortalLauncher` доступна
+/// целиком и при ЛЮБом значении root. Раньше mc_base_dir добавлялся только для
+/// root=launcher, поэтому агент, который работал со сборкой, но называл зону
+/// portal или temp, получал «Путь вне разрешённой зоны» на обычных задачах —
+/// положить мод, шейдер или ресурс-пак в папку сборки.
 fn allowed_bases(root: Root) -> Vec<PathBuf> {
     let mut bases: Vec<PathBuf> = Vec::new();
-    match root {
-        Root::Portal => bases.push(openportal_dir()),
-        Root::Temp => bases.push(system_temp_dir()),
-        Root::Launcher => {
-            bases.push(crate::commands::version_manager::mc_base_dir());
-            if let Some(local) = dirs_next::data_local_dir() {
-                bases.push(local.join("PortalLauncher"));
-            }
+    let mut add = |p: PathBuf, bases: &mut Vec<PathBuf>| {
+        if !bases.iter().any(|b| b == &p) {
+            bases.push(p);
         }
+    };
+
+    // 1) Папка лаунчера целиком: данные, сборки, версии, библиотеки, OpenPortal.
+    add(crate::commands::version_manager::mc_base_dir(), &mut bases);
+    if let Some(roaming) = dirs_next::data_dir() {
+        add(roaming.join("PortalLauncher"), &mut bases);
     }
-    // OpenPortal и Temp доступны всегда: без них не собрать шейдер или мод,
-    // который сначала готовится во временной папке.
-    if !matches!(root, Root::Portal) {
-        bases.push(openportal_dir());
+    if let Some(local) = dirs_next::data_local_dir() {
+        add(local.join("PortalLauncher"), &mut bases);
     }
-    if !matches!(root, Root::Temp) {
-        bases.push(system_temp_dir());
+    // 2) Рабочие проекты агента (лежат внутри папки лаунчера, но перечислим
+    //    явно — так правило читается однозначно).
+    add(openportal_dir(), &mut bases);
+    add(projects_dir(), &mut bases);
+    // 3) Системный Temp: шейдеры и паки сначала собираются во временной папке.
+    add(system_temp_dir(), &mut bases);
+    // 4) Зона, соответствующая root, — на случай отдельных каталогов.
+    match root {
+        Root::Portal => add(openportal_dir(), &mut bases),
+        Root::Temp => add(system_temp_dir(), &mut bases),
+        Root::Launcher => add(crate::commands::version_manager::mc_base_dir(), &mut bases),
     }
     bases
 }
@@ -272,38 +280,68 @@ pub struct SkillMeta {
     pub description: String,
 }
 
-/// Список установленных навыков `OpenPortal/Skills/<slug>/SKILL.md`.
+/// Папки, откуда читаются навыки.
+///
+/// Кроме своей папки лаунчера сканируем стандартные каталоги навыков
+/// агентов: `~/.opencode/skills` и `~/.agents/skills`. Раньше читалась только
+/// `OpenPortal/Skills`, поэтому установленные снаружи навыки (в том числе
+/// плагины вроде ui-ux-pro-max) не появлялись в списке `/` вообще.
+fn skill_dirs() -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = vec![skills_dir()];
+    if let Some(home) = dirs_next::home_dir() {
+        dirs.push(home.join(".opencode").join("skills"));
+        dirs.push(home.join(".agents").join("skills"));
+        dirs.push(home.join(".claude").join("skills"));
+    }
+    let mut seen: Vec<PathBuf> = Vec::new();
+    for d in dirs {
+        if !seen.contains(&d) {
+            seen.push(d);
+        }
+    }
+    seen
+}
+
+fn read_skill_dir(dir: &Path, out: &mut Vec<SkillMeta>) {
+    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    for e in rd.flatten() {
+        let path = e.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let slug = path
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
+        if !is_safe_id(&slug) || slug.is_empty() {
+            continue;
+        }
+        // Файл навыка может лежать прямо в корне подпапки или внутри неё.
+        let md = path.join("SKILL.md");
+        if !md.is_file() {
+            continue;
+        }
+        if out.iter().any(|s| s.name.eq_ignore_ascii_case(&slug)) {
+            continue;
+        }
+        let description = std::fs::read_to_string(&md)
+            .ok()
+            .map(|raw| parse_skill_description(&raw))
+            .unwrap_or_default();
+        out.push(SkillMeta {
+            name: slug,
+            path: path.to_string_lossy().to_string(),
+            description,
+        });
+    }
+}
+
 #[tauri::command]
 pub fn op_list_skills() -> Vec<SkillMeta> {
     ensure_all();
-    let mut out = Vec::new();
-    if let Ok(rd) = std::fs::read_dir(skills_dir()) {
-        for e in rd.flatten() {
-            let dir = e.path();
-            if !dir.is_dir() {
-                continue;
-            }
-            let slug = dir
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_default();
-            if !is_safe_id(&slug) || slug.is_empty() {
-                continue;
-            }
-            let md = dir.join("SKILL.md");
-            if !md.is_file() {
-                continue;
-            }
-            let description = std::fs::read_to_string(&md)
-                .ok()
-                .map(|raw| parse_skill_description(&raw))
-                .unwrap_or_default();
-            out.push(SkillMeta {
-                name: slug,
-                path: dir.to_string_lossy().to_string(),
-                description,
-            });
-        }
+    let mut out: Vec<SkillMeta> = Vec::new();
+    for dir in skill_dirs() {
+        read_skill_dir(&dir, &mut out);
     }
     out.sort_by(|a, b| a.name.cmp(&b.name));
     out
@@ -915,7 +953,8 @@ pub fn op_open_sandbox_file(root: String, path: String, reveal: Option<bool>) ->
         return Err(format!("Не найден файл: {}", file.to_string_lossy()));
     }
     if reveal.unwrap_or(false) {
-        open_in_explorer(&file)?;
+        // map_err: io::Error не конвертится в String автоматически через ?.
+        open_in_explorer(&file).map_err(|e| format!("Не удалось открыть проводник: {e}"))?;
         return Ok(file.to_string_lossy().to_string());
     }
     let ext = file

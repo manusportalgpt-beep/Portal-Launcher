@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import './index.css';
+import './pixel-ui.css';
 import './i18n';
 import { playClick, playNav } from './lib/soundEngine';
 import { initRangeFill } from './lib/range-fill';

@@ -1,0 +1,231 @@
+/*
+ * Оформление «объёмные рамки» — собственный слой Portal Launcher.
+ *
+ * Задача слоя: дать всему интерфейсу одинаковую объёмную рамку, как у
+ * пиксельного меню Minecraft, но СВОИМИ средствами (только box-shadow, без
+ * картинок), и не ломать существующую тему: все цвета берутся из переменных
+ * темы, поэтому пользовательский CSS и выбор темы продолжают работать.
+ *
+ * Правила слоя:
+ *   1) Рамка — 3px, углы почти прямые (2px), никаких размытий.
+ *   2) Тень — жёсткая, без blur: смещение, а не размытие.
+ *   3) Наведение сдвигает блок, а не меняет цвет: так ощущается «кнопка».
+ *   4) prefers-reduced-motion отключает сдвиги.
+ */
+
+:root {
+  /* Толщина рамки и глубина */
+  --px-border: 3px;
+  --px-depth: 4px;
+  --px-radius: 2px;
+
+  /* Контур и грани. Контур почти чёрный — держит форму на любом фоне. */
+  --px-outline: #0A0A0E;
+  --px-hi: rgba(255, 255, 255, 0.16);
+  --px-lo: rgba(0, 0, 0, 0.55);
+
+  /* Цвет заливки рамки: чуть темнее панели, чтобы объём читался. */
+  --px-fill: color-mix(in srgb, var(--color-surface) 84%, #000 16%);
+
+  /* Длительность переходов: 300-400 мс — заметно, но не вяло. */
+  --px-dur: 300ms;
+  --px-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Рамка-контейнер: объёмная коробка с тёмным контуром. */
+.px-frame {
+  position: relative;
+  border: var(--px-border) solid var(--px-outline);
+  border-radius: var(--px-radius);
+  background: var(--px-fill);
+  box-shadow:
+    inset 2px 2px 0 var(--px-hi),
+    inset -2px -2px 0 var(--px-lo),
+    var(--px-depth) var(--px-depth) 0 var(--px-outline);
+}
+
+/* Кнопка в объёмной рамке. */
+.px-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: var(--px-border) solid var(--px-outline);
+  border-radius: var(--px-radius);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow:
+    inset 2px 2px 0 var(--px-hi),
+    inset -2px -2px 0 var(--px-lo),
+    var(--px-depth) var(--px-depth) 0 var(--px-outline);
+  transition: transform var(--px-dur) var(--px-ease),
+    box-shadow var(--px-dur) var(--px-ease),
+    background-color var(--px-dur) var(--px-ease);
+}
+
+.px-btn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow:
+    inset 2px 2px 0 var(--px-hi),
+    inset -2px -2px 0 var(--px-lo),
+    calc(var(--px-depth) + 1px) calc(var(--px-depth) + 1px) 0 var(--px-outline);
+}
+
+.px-btn:active:not(:disabled) {
+  /* Нажатие утапливает кнопку внутрь рамки — главный признак объёма. */
+  transform: translate(var(--px-depth), var(--px-depth));
+  box-shadow:
+    inset 2px 2px 0 var(--px-lo),
+    inset -2px -2px 0 var(--px-hi),
+    0 0 0 var(--px-outline);
+}
+
+.px-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: inset 2px 2px 0 var(--px-lo);
+}
+
+.px-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.px-btn-primary {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.px-btn-quiet {
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+/* Вкладки: активная — приподнята, как нажатая вверх плитка. */
+.px-tabs {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.px-tab {
+  border: var(--px-border) solid var(--px-outline);
+  border-radius: var(--px-radius);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: inset 1px 1px 0 var(--px-hi);
+  transition: transform var(--px-dur) var(--px-ease),
+    background-color var(--px-dur) var(--px-ease),
+    color var(--px-dur) var(--px-ease);
+}
+
+.px-tab:hover {
+  transform: translateY(-2px);
+  color: var(--color-text);
+}
+
+.px-tab[aria-selected='true'] {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  transform: translateY(-2px);
+  box-shadow:
+    inset 1px 1px 0 var(--px-hi),
+    var(--px-depth) var(--px-depth) 0 var(--px-outline);
+}
+
+/*
+ * Иконка сборки: изометрический куб, нарисованный градиентами.
+ *
+ * Своя отрисовка вместо текстур предметов Minecraft: у нас должен быть свой
+ * визуальный язык, иначе это выглядит как чужой лаунчер.
+ */
+.px-block {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+}
+
+.px-block-top {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 6%;
+  height: 34%;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.px-block-left {
+  position: absolute;
+  left: 8%;
+  top: 23%;
+  bottom: 6%;
+  width: 42%;
+  clip-path: polygon(0 0, 100% 27%, 100% 100%, 0 73%);
+}
+
+.px-block-right {
+  position: absolute;
+  right: 8%;
+  top: 23%;
+  bottom: 6%;
+  width: 42%;
+  clip-path: polygon(0 27%, 100% 0, 100% 73%, 0 100%);
+}
+
+/* Луч света за 3D-моделью на главном экране. */
+.px-sunburst {
+  background-image:
+    repeating-conic-gradient(
+      from 0deg at 50% 46%,
+      color-mix(in srgb, var(--color-primary) 22%, transparent) 0deg 6deg,
+      transparent 6deg 12deg
+    );
+  mask-image: radial-gradient(ellipse at 50% 46%, #000 12%, transparent 68%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 46%, #000 12%, transparent 68%);
+  animation: px-sunburst-turn 90s linear infinite;
+}
+
+@keyframes px-sunburst-turn {
+  to { transform: rotate(360deg); }
+}
+
+/* Карточка каталога: рамка + подпись снизу, как плитка в меню. */
+.px-tile {
+  position: relative;
+  overflow: hidden;
+  border: var(--px-border) solid var(--px-outline);
+  border-radius: var(--px-radius);
+  background: var(--color-surface);
+  box-shadow:
+    inset 2px 2px 0 var(--px-hi),
+    inset -2px -2px 0 var(--px-lo),
+    var(--px-depth) var(--px-depth) 0 var(--px-outline);
+  transition: transform var(--px-dur) var(--px-ease);
+}
+
+.px-tile:hover {
+  transform: translate(-2px, -2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .px-btn,
+  .px-tab,
+  .px-tile {
+    transition: none;
+  }
+
+  .px-btn:hover:not(:disabled),
+  .px-tab:hover,
+  .px-tile:hover {
+    transform: none;
+  }
+
+  .px-sunburst {
+    animation: none;
+  }
+}

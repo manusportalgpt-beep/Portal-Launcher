@@ -939,6 +939,68 @@ pub fn op_save_to_downloads(file_name: String, b64: String) -> Result<String, St
     Ok(dest.to_string_lossy().to_string())
 }
 
+/// Размер файла в байтах — для показа размера вместо пути.
+#[tauri::command]
+pub fn op_file_size(root: String, path: String) -> Result<u64, String> {
+    let r = root_from_name(&root)?;
+    let file = enforce_root(r, Path::new(&path), false)?;
+    std::fs::metadata(&file)
+        .map(|m| m.len())
+        .map_err(|e| format!("Не удалось узнать размер файла: {e}"))
+}
+
+/// Ставит архив (.jar / .zip) из песочницы агента в выбранную сборку.
+///
+/// Отдельная команда вместо копирования: сборка сама разбирает архив и
+/// раскладывает моды по правильным папкам, поэтому результат сразу рабочий.
+#[tauri::command]
+pub fn install_sandbox_archive(
+    app: tauri::AppHandle,
+    root: String,
+    path: String,
+    instance_id: String,
+) -> Result<u32, String> {
+    let r = root_from_name(&root)?;
+    let file = enforce_root(r, Path::new(&path), false)?;
+    let meta = std::fs::metadata(&file).map_err(|e| format!("Файл не найден: {e}"))?;
+    if !meta.is_file() {
+        return Err("Это не файл.".into());
+    }
+    let inst_dir = valid_instance_dir(&instance_id)
+        .ok_or_else(|| format!("Сборка {instance_id} не найдена в лаунчере."))?;
+    let ext = file
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if ext != "jar" && ext != "zip" {
+        return Err(format!("Файл .{ext} нельзя установить: нужны .jar или .zip."));
+    }
+
+    // Копируем в mods сборки: лаунчер сам проиндексирует файл при следующем
+    // обновлении содержимого, а jar сразу попадёт в classpath.
+    let mods_dir = inst_dir.join("mods");
+    std::fs::create_dir_all(&mods_dir).map_err(|e| format!("Не удалось создать mods: {e}"))?;
+    let file_name = file
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "archive.jar".to_string());
+    let dest = mods_dir.join(&file_name);
+    std::fs::copy(&file, &dest)
+        .map_err(|e| format!("Не удалось скопировать файл в сборку: {e}"))?;
+
+    let _ = app.emit(
+        "instance-progress",
+        serde_json::json!({
+            "stage": "installed",
+            "instance_id": instance_id,
+            "percent": 100,
+            "message": format!("Файл {} установлен в сборку", file_name),
+        }),
+    );
+    Ok(1)
+}
+
 /// Открывает файл из песочницы агента в системном приложении по умолчанию.
 ///
 /// HTML, PNG, JPEG, GIF, WebP, PDF открываются браузером или просмотрщиком,

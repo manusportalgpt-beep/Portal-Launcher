@@ -1,6 +1,8 @@
 import { memo, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { invoke } from '@/lib/invoke-shim';
 import { normalizeLang, tokenizeLine, type TokenKind } from '@/lib/opencore/highlight';
+import { useInstanceStore } from '@/stores/instanceStore';
+import { useOpenCoreStore } from '@/stores/opencoreStore';
 
 /** Кеш data-URL изображений, чтобы не перечитывать файл на каждый рендер. */
 const imageCache = new Map<string, Promise<string> | string>();
@@ -89,16 +91,52 @@ export function PortalImage({ name }: { name: string }) {
   );
 }
 
-/** Карточка артефакта: файл агента в песочнице, который можно скачать в «Загрузки». */
+/** Размер файла в байтах: 976 Б, 12,4 КБ, 3,1 МБ. */
+function humanSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '';
+  if (bytes < 1024) return `${bytes} Б`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1).replace('.', ',')} КБ`;
+  return `${(bytes / 1048576).toFixed(1).replace('.', ',')} МБ`;
+}
+
+/** Расширение в нижнем регистре, без точки. */
+function fileExt(name: string): string {
+  const m = /\.([A-Za-z0-9]+)$/.exec(name);
+  return m ? m[1].toLowerCase() : '';
+}
+
+/**
+ * Карточка файла, который агент положил в песочницу.
+ *
+ * Пользователю показываем имя файла и размер — путь ему не нужен и только
+ * шумит, его видит агент. Кнопка называется «Перейти»: она открывает файл
+ * (HTML — в браузере) и кладёт копию в «Загрузки» с открытым проводником.
+ * Для `.jar` и `.zip` вместо этого предлагается установка в сборку, а если
+ * сборка не выбрана в тулбаре — пользователь выбирает её сам.
+ */
 function PortalArtifact({ path, name }: { path: string; name: string }) {
   const [state, setState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const [err, setErr] = useState('');
-  const save = async () => {
+  const [size, setSize] = useState('');
+  const [pickBuild, setPickBuild] = useState(false);
+  const [installing, setInstalling] = useState('');
+  const ext = fileExt(name);
+
+  // Размер спрашиваем отдельно: он не часть ссылки, а факт о файле.
+  useEffect(() => {
+    let alive = true;
+    invoke<number>('op_file_size', { root: 'portal', path })
+      .then(bytes => { if (alive) setSize(humanSize(Number(bytes))); })
+      .catch(() => { if (alive) setSize(''); });
+    return () => { alive = false; };
+  }, [path]);
+
+  const openIt = async () => {
     if (state === 'saving') return;
     setState('saving');
     setErr('');
     try {
-      await invoke('op_copy_to_downloads', { root: 'portal', path, name });
+      await invoke('op_open_sandbox_file', { root: 'portal', path, reveal: false });
       setState('done');
       setTimeout(() => setState('idle'), 1800);
     } catch (e) {
@@ -106,21 +144,99 @@ function PortalArtifact({ path, name }: { path: string; name: string }) {
       setErr(String(e));
     }
   };
+
+  const installInto = async (instanceId: string) => {
+    setInstalling(instanceId);
+    try {
+      await invoke('install_sandbox_archive', { root: 'portal', path, instanceId });
+      setPickBuild(false);
+      setState('done');
+      setTimeout(() => setState('idle'), 1800);
+    } catch (e) {
+      setState('error');
+      setErr(String(e));
+    } finally {
+      setInstalling('');
+    }
+  };
+
+  const isArchive = ext === 'jar' || ext === 'zip';
+
   return (
-    <div className="op-fade-in my-2 flex items-center gap-2 rounded-lg px-3 py-2"
+    <div className="op-fade-in my-2 overflow-hidden rounded-lg"
       style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(127,127,127,0.2)' }}>
-      <div className="min-w-0 flex-1">
-        <span className="block truncate text-[12.5px] font-semibold" style={{ color: 'var(--color-text)' }}>{name}</span>
-        <span className="block truncate text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>{path}</span>
+      <div className="flex items-center gap-2 px-3 py-2">
+        <div className="min-w-0 flex-1">
+          {/* Сверху имя — то, что агент назвал файлом. Путь скрыт от пользователя. */}
+          <span className="block truncate text-[12.5px] font-semibold" style={{ color: 'var(--color-text)' }}>{name}</span>
+          {/* Снизу размер, а не путь: путь в чате только шумит. */}
+          <span className="block truncate text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+            {size || 'размер неизвестен'}
+          </span>
+        </div>
+        {isArchive ? (
+          <button onClick={() => setPickBuild(v => !v)} disabled={state === 'saving'}
+            className="shrink-0 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors hover:opacity-85 disabled:opacity-60"
+            style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+            {state === 'done' ? 'Готово' : 'Установить на сборку'}
+          </button>
+        ) : (
+          <button onClick={() => void openIt()} disabled={state === 'saving'}
+            title="Открыть файл и показать его в «Загрузках»"
+            className="shrink-0 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors hover:opacity-85 disabled:opacity-60"
+            style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+            {state === 'done' ? 'Открыто' : state === 'saving' ? 'Открываю…' : 'Перейти'}
+          </button>
+        )}
+        {state === 'error' && (
+          <span className="shrink-0 text-[11px]" style={{ color: 'var(--color-error)' }} title={err}>Ошибка</span>
+        )}
       </div>
-      <button onClick={() => void save()} disabled={state === 'saving'}
-        className="shrink-0 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors hover:opacity-85 disabled:opacity-60"
-        style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
-        {state === 'done' ? 'Готово' : state === 'saving' ? 'Копирую…' : 'Скачать'}
-      </button>
-      {state === 'error' && (
-        <span className="shrink-0 text-[11px]" style={{ color: 'var(--color-error)' }} title={err}>Ошибка</span>
+
+      {pickBuild && isArchive && (
+        <BuildPickerInline
+          onPick={installInto}
+          busyId={installing}
+          onCancel={() => setPickBuild(false)}
+        />
       )}
+    </div>
+  );
+}
+
+/** Выбор сборки для установки архива: подсказывает выбранную в тулбаре. */
+function BuildPickerInline({ onPick, busyId, onCancel }: {
+  onPick: (instanceId: string) => void;
+  busyId: string;
+  onCancel: () => void;
+}) {
+  const instances = useInstanceStore(s => s.instances);
+  const project = useOpenCoreStore(s => s.config.project);
+  const activeId = project && project.kind === 'build' ? project.instanceId : '';
+  const activeName = instances.find(i => i.id === activeId)?.name;
+
+  return (
+    <div className="border-t px-2 py-1.5" style={{ borderColor: 'rgba(127,127,127,0.2)' }}>
+      <p className="px-1 pb-1 text-[10px] font-bold" style={{ color: 'var(--color-text-secondary)' }}>
+        {activeName ? `Выбрана сборка «${activeName}» — можно поставить сразу` : 'Сборка не выбрана — выбери вручную'}
+      </p>
+      <div className="max-h-44 overflow-y-auto">
+        {instances.length === 0 && <p className="px-1 py-1 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>Сборок пока нет.</p>}
+        {instances.map(inst => (
+          <button key={inst.id} onClick={() => onPick(inst.id)} disabled={busyId === inst.id}
+            className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-[11px] transition-colors hover:bg-white/5 disabled:opacity-60"
+            style={{ color: inst.id === activeId ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
+            <span className="min-w-0 flex-1 truncate font-semibold">{inst.name}</span>
+            <span className="shrink-0 font-mono text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>
+              {inst.minecraftVersion} · {inst.modLoader}
+            </span>
+            {busyId === inst.id && <span className="h-2.5 w-2.5 shrink-0 animate-spin rounded-full border border-current border-t-transparent" />}
+          </button>
+        ))}
+      </div>
+      <button onClick={onCancel} className="mt-1 px-1 text-[10px] font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>
+        Отмена
+      </button>
     </div>
   );
 }

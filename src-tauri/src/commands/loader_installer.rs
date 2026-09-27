@@ -954,7 +954,34 @@ pub async fn get_quilt_versions(mc_version: String) -> Result<Vec<serde_json::Va
         .map_err(|e| format!("Quilt metadata body: {e}"))?;
     let data: serde_json::Value = serde_json::from_str(&body)
         .map_err(|e| format!("Quilt metadata JSON: {e} (получено {} байт)", body.len()))?;
-    Ok(data.as_array().cloned().unwrap_or_default())
+    let list = data.as_array().cloned().unwrap_or_default();
+    if !list.is_empty() {
+        return Ok(list);
+    }
+
+    // Для этой версии Minecraft у Quilt нет сборок. Не оставляем список пустым:
+    // отдаём общий список загрузчиков, иначе в поле выбора нечего выбрать и
+    // пользователь не может указать версию вручную.
+    log::warn!("[Quilt] Нет сборок loader для Minecraft {mc_version}, отдаю общий список");
+    let all: String = client
+        .get("https://meta.quiltmc.org/v3/versions/loader")
+        .header(reqwest::header::ACCEPT_ENCODING, "identity")
+        .send()
+        .await
+        .map_err(|e| format!("Quilt loader list: {e}"))?
+        .text()
+        .await
+        .map_err(|e| format!("Quilt loader list body: {e}"))?;
+    let all_data: serde_json::Value = serde_json::from_str(&all)
+        .map_err(|e| format!("Quilt loader list JSON: {e} (получено {} байт)", all.len()))?;
+    let fallback = all_data
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .take(40)
+        .collect();
+    Ok(fallback)
 }
 
 /// Get available Fabric loader versions for a given MC version.

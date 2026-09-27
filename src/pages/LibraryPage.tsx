@@ -501,6 +501,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
   const [localPreview, setLocalPreview] = useState<{ preview: ModpackPreview; dataUrl: string; fileName: string } | null>(null);
   const [loaderVersions, setLoaderVersions] = useState<LoaderVersionOption[]>([]);
   const [loaderVersionsLoading, setLoaderVersionsLoading] = useState(false);
+  const [loaderVersionsError, setLoaderVersionsError] = useState('');
   const mcVersions = useAvailableVersions(showSnapshots);
   const [form, setForm] = useState({
     name: '', loader: 'fabric' as typeof LOADERS[number], mcVersion: '',
@@ -557,19 +558,25 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
       const loader = form.loader;
       if (!form.mcVersion || !['fabric', 'forge', 'neoforge', 'quilt'].includes(loader)) {
         setLoaderVersions([]);
+        setLoaderVersionsError('');
         return;
       }
       setLoaderVersionsLoading(true);
+      setLoaderVersionsError('');
       try {
         const raw = await invoke<any>(
         loader === 'fabric' ? 'get_fabric_versions' : loader === 'neoforge' ? 'get_neoforge_versions' : loader === 'quilt' ? 'get_quilt_versions' : 'get_forge_versions',
         { mcVersion: form.mcVersion },
       );
-      const values: LoaderVersionOption[] = loader === 'fabric' || loader === 'quilt'
+        const values: LoaderVersionOption[] = loader === 'fabric' || loader === 'quilt'
           ? (Array.isArray(raw) ? raw.map((v: any) => {
               const value = v?.loader?.version ?? v?.version;
-              const stable = !!v?.loader?.stable;
-              return value ? { value, recommended: stable, unreliable: !stable || /(?:alpha|beta|rc|pre|snapshot)/i.test(value) } : null;
+              // У Quilt в meta нет поля stable, поэтому рекомендуемой считаем
+              // первую сборку без beta/pre. Раньше рекомендуемая не выбиралась
+              // никогда, и выбор версии выглядел пустым.
+              const prerelease = /(?:alpha|beta|rc|pre|snapshot|-m\d)/i.test(String(value ?? ''));
+              const stable = v?.loader?.stable === undefined ? !prerelease : Boolean(v?.loader?.stable);
+              return value ? { value, recommended: stable && !prerelease, unreliable: prerelease } : null;
             }).filter(Boolean) as LoaderVersionOption[] : [])
           : (Array.isArray(raw) ? raw.filter(Boolean).map((value: string, index: number) => ({
               value,
@@ -577,8 +584,10 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
               unreliable: /(?:alpha|beta|rc|pre|snapshot)/i.test(value),
             })) : []);
         if (alive) setLoaderVersions(values.slice(0, 80));
-      } catch {
-        if (alive) setLoaderVersions([]);
+      } catch (e) {
+        // Раньше ошибка молча превращалась в пустой список, и выбрать версию
+        // было невозможно. Показываем причину и разрешаем ввод вручную.
+        if (alive) { setLoaderVersions([]); setLoaderVersionsError(String(e)); }
       } finally {
         if (alive) setLoaderVersionsLoading(false);
       }
@@ -846,6 +855,24 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                             <option value="">{loaderVersionsLoading ? 'Загрузка версий…' : `Рекомендуемая · ${recommendedLoaderVersion?.value ?? 'автоматически'}`}</option>
                             {loaderVersions.map(version => <option key={version.value} value={version.value}>{version.value}{version.recommended ? ' · рекомендуемая' : version.unreliable ? ' · возможна нестабильность' : ''}</option>)}
                           </select>
+                        )}
+                        {form.loaderVersionType==='stable' && loaderVersions.length === 0 && !loaderVersionsLoading && (
+                          /* Список не пришёл — не оставляем пользователя без выбора:
+                             показываем причину и даём вписать версию вручную. */
+                          <div className="mt-2">
+                            {loaderVersionsError && (
+                              <p className="mb-1.5 text-[10px] leading-4" style={{ color: 'var(--color-text-tertiary)' }}>
+                                Не удалось получить список версий: {loaderVersionsError}
+                              </p>
+                            )}
+                            <input
+                              value={form.customLoaderVersion}
+                              onChange={e => setForm(f => ({ ...f, customLoaderVersion: e.target.value }))}
+                              placeholder="Версия загрузчика вручную, например 0.24.0"
+                              className="w-full rounded-xl px-3 py-2.5 text-sm"
+                              style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+                            />
+                          </div>
                         )}
                         {loaderVersions.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">

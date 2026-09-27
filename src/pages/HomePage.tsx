@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowRight, Compass, FolderPlus, Gamepad2, Library as LibraryIcon, Palette, Rocket,
+  ArrowRight, Bot, Compass, FolderPlus, Gamepad2, Library as LibraryIcon, Palette, Rocket,
   Settings2, ShieldCheck, Sparkles, Square, Store, User, Wand2,
 } from 'lucide-react';
 import { useCurrentUser, useIsAuthenticated } from '@/stores/authStore';
@@ -12,6 +12,7 @@ import { invoke } from '@/lib/invoke-shim';
 import { toIconSrc } from '@/lib/icon-src';
 import { BlockIcon } from '@/components/ui/Pixel';
 import { SkinStand3D } from '@/components/skin/SkinStand3D';
+import { StageBackdrop } from '@/components/ui/StageBackdrop';
 
 /**
  * Текстура скина для 3D-модели в центре.
@@ -122,12 +123,23 @@ export function HomePage() {
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
-      {/* Сцена: луч света за 3D-моделью. Модель по центру, панели поверх. */}
-      <div aria-hidden className="px-sunburst pointer-events-none absolute inset-0" />
+      {/* Живая сцена: лучи, пиксельные волны и частицы. Встаёт на паузу,
+          когда окно скрыто или идёт игра. */}
+      <StageBackdrop />
 
       <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-        {/* Верхний ряд служебных кнопок */}
+        {/* Верхний ряд служебных кнопок. ИИ — отдельный вход, как и у них:
+            главная про игры, ИИ живёт своим разделом. */}
         <div className="flex items-start justify-end gap-2 px-4 pt-4 sm:px-6">
+          <button
+            type="button"
+            onClick={() => navigate('/openportal')}
+            title="ИИ-агент OpenPortal"
+            className="px-btn px-btn-primary h-11 px-3"
+            aria-label="ИИ-агент OpenPortal">
+            <Bot size={16} />
+            <span className="text-[11px] font-black uppercase tracking-wide">ИИ</span>
+          </button>
           <button
             type="button"
             onClick={() => navigate('/library')}
@@ -194,18 +206,24 @@ export function HomePage() {
             </h1>
 
             {/* Модель стоит в сцене, а не в отдельной карточке: так она
-                читается частью главного экрана. Без скина — рамка-заглушка,
-                чтобы центр не выглядел пустым. */}
+                читается частью главного экрана. Клик по модели ведёт в скины —
+                это самый частый переход с главной. */}
             <div className="relative mt-1 flex w-full flex-1 items-center justify-center">
               {skinUrl ? (
-                <SkinStand3D
-                  skinUrl={skinUrl}
-                  model="classic"
-                  height={230}
-                  autoRotate
-                  interactive={false}
-                  className="h-full max-h-[230px] w-auto"
-                />
+                <button
+                  type="button"
+                  onClick={() => navigate('/skins')}
+                  title="Открыть скины"
+                  className="px-skin-stage">
+                  <SkinStand3D
+                    skinUrl={skinUrl}
+                    model="classic"
+                    height={230}
+                    autoRotate
+                    interactive={false}
+                    className="h-full max-h-[230px] w-auto"
+                  />
+                </button>
               ) : (
                 <button
                   type="button"

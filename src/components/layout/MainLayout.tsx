@@ -38,6 +38,11 @@ export function MainLayout({ children, extendedAccent, extendedCompact, extended
         transform: 'scale(var(--custom-bg-scale, 1))',
       }} />
       <div aria-hidden className="portal-background-scrim pointer-events-none absolute inset-0" style={{ background:'rgba(4, 6, 12, var(--custom-bg-readability, 0.48))' }} />
+      {/* Пиксельная фактура и виньетка. Обе — pointer-events: none и под
+          контентом: они должны читаться как материал окна, а не мешать
+          кликам. Стоят выше фона, ниже содержимого (z-10 у <main>). */}
+      <div aria-hidden className="px-grid-overlay" />
+      <div aria-hidden className="px-vignette" />
       {navMode === 'sidebar' && <TopNav extendedAccent={extendedAccent} extendedCompact={extendedCompact} extendedIcons={extendedIcons} extendedOrder={extendedOrder} />}
       <main className="flex-1 min-w-0 min-h-0 overflow-hidden relative z-10">
         <div className="h-full min-h-0 w-full">

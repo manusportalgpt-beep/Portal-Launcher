@@ -74,9 +74,11 @@
   --px-on-accent: #14100F;
 
   /* Готовые наборы граней — чтобы не писать восемь переменных каждый раз. */
-  /* Подложка: тихая, только лёгкий верх и тёмный низ. */
-  --px-plate-t: rgba(255, 255, 255, 0.05);
-  --px-plate-b: rgba(0, 0, 0, 0.34);
+  /* Подложка: лёгкий верх и плотный низ. Первый вариант был почти плоским
+     (0.05 / 0.34 при ширине 2-3px) — подложки не читались как плиты.
+     Теперь верх шире и светлее, низ плотнее: объём виден на тёмном фоне. */
+  --px-plate-t: rgba(255, 255, 255, 0.11);
+  --px-plate-b: rgba(0, 0, 0, 0.52);
   /* Кнопка: выраженный объём, читается нажатие. */
   --px-btn-ol: rgba(0, 0, 0, 0.20);
   --px-btn-t:  rgba(255, 255, 255, 0.32);
@@ -178,7 +180,9 @@
   clip-path: var(--px-10);
   background-color: var(--color-surface);
   --px-ft: var(--px-plate-t);
+  --px-ft-w: 3px;
   --px-fb: var(--px-plate-b);
+  --px-fb-w: 4px;
 }
 
 .px-tile {
@@ -186,7 +190,9 @@
   clip-path: var(--px-10);
   background-color: var(--color-surface);
   --px-ft: var(--px-plate-t);
+  --px-ft-w: 3px;
   --px-fb: var(--px-plate-b);
+  --px-fb-w: 4px;
   overflow: hidden;
 }
 
@@ -367,10 +373,46 @@
 }
 
 /* ===================================================================
-   ЛУЧ СВЕТА ЗА 3D-МОДЕЛЬЮ
-   Медленный оборот и мягкая альфа: фон не должен отвлекать от модели и не
-   должен читаться полосами. Первый вариант был слишком контрастным —
-   лучи резали глаз вместо того, чтобы давать глубину.
+   СЦЕНА С МОДЕЛЬЮ
+   Модель должна читаться частью сцены, а не картинкой в рамке: под ней
+   мягкая тень, сам блок реагирует на наведение и ведёт дальше.
+   =================================================================== */
+.px-skin-stage {
+  display: block;
+  padding: 4px 10px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  transition: transform var(--px-dur) var(--px-ease);
+  animation: px-breathe 5.5s ease-in-out infinite;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .px-skin-stage:hover {
+    transform: translateY(-4px) scale(1.015);
+  }
+}
+
+.px-skin-stage:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+}
+
+@keyframes px-breathe {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .px-skin-stage {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* ===================================================================
+   ЛУЧ СВЕТА ЗА 3D-МОДЕЛЬЮ (запасной слой для мест без StageBackdrop)
+   Мягче, чем первая версия: лучи не должны резать глаз.
    =================================================================== */
 .px-sunburst {
   background-image: repeating-conic-gradient(

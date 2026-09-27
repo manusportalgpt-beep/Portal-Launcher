@@ -1,0 +1,143 @@
+/*
+ * ПИКСЕЛЬНЫЕ ЭФФЕКТЫ И ПЕРЕХОДЫ.
+ * ------------------------------------------------------------------
+ * Три вещи, которых не хватало окнам:
+ *   1) переход между экранами — вход/выход, а не мгновенная подмена;
+ *   2) появление подложек каскадом — страница «собирается» при открытии;
+ *   3) пиксельная фактура и виньетка, которые связывают окна в один образ.
+ *
+ * Все эффекты уважают prefers-reduced-motion и встают на паузу вместе со
+ * всем остальным, когда окно скрыто или идёт игра (html.m-quiet).
+ */
+
+/* ---------------- Переход между экранами ---------------- */
+@keyframes pxScreenIn {
+  from { opacity: 0; transform: translate3d(0, 10px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes pxScreenOut {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to   { opacity: 0; transform: translate3d(0, -6px, 0); }
+}
+
+.px-screen-in {
+  animation: pxScreenIn 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.px-screen-out {
+  animation: pxScreenOut 160ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+/* ---------------- Появление подложек каскадом ----------------
+   Каждая карточка получает смещение через --i (индекс). Индекс ставит
+   нормализатор оформления, поэтому каскад работает на всех страницах. */
+@keyframes pxCardIn {
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.px-card {
+  animation: pxCardIn 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+/* ---------------- Пиксельная фактура ----------------
+   Редкая сетка точек поверх интерфейса. Держится на двух слоях с
+   жёсткими стопами (steps), поэтому не «мылится» и не ловит размытие. */
+.px-grid-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--px-grid-line) 0 0),
+    linear-gradient(90deg, var(--px-grid-line) 0 0);
+  background-size: var(--px-grid-step) var(--px-grid-step);
+  opacity: var(--px-grid-opacity, 0.035);
+}
+
+/* Виньетка: собирает взгляд к центру и убирает «плоский» край окна. */
+.px-vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 78% 68% at 50% 46%,
+    transparent 40%,
+    rgba(0, 0, 0, 0.22) 78%,
+    rgba(0, 0, 0, 0.38) 100%
+  );
+}
+
+/* Разделительная «полоса пикселей» под заголовком окна. */
+.px-scanline {
+  height: 2px;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--color-primary) 0 6px,
+    transparent 6px 12px
+  );
+  opacity: 0.5;
+}
+
+:root {
+  --px-grid-step: 4px;
+  --px-grid-line: rgba(255, 255, 255, 0.6);
+  --px-grid-opacity: 0.03;
+}
+
+/* ---------------- Появление содержимого списками ---------------- */
+@keyframes pxItemIn {
+  from { opacity: 0; transform: translate3d(-6px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.px-item-in {
+  animation: pxItemIn 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+/* ---------------- Пульс активной кнопки запуска ---------------- */
+@keyframes pxPulseRing {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 45%, transparent); }
+  70%  { box-shadow: 0 0 0 12px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.px-pulse {
+  animation: pxPulseRing 2.4s ease-out infinite;
+}
+
+/* ---------------- Внимание: короткая вспышка рамки ---------------- */
+@keyframes pxFlash {
+  0%   { --px-fl: var(--color-primary); --px-fl-w: 4px; }
+  100% { --px-fl: transparent; --px-fl-w: 4px; }
+}
+
+.px-flash {
+  animation: pxFlash 700ms ease-out both;
+}
+
+/* ---------------- Уважение к настройкам ---------------- */
+@media (prefers-reduced-motion: reduce) {
+  .px-screen-in,
+  .px-screen-out,
+  .px-card,
+  .px-item-in {
+    animation: none !important;
+  }
+
+  .px-pulse {
+    animation: none;
+  }
+}
+
+html.m-quiet .px-screen-in,
+html.m-quiet .px-screen-out,
+html.m-quiet .px-card,
+html.m-quiet .px-item-in,
+html.m-quiet .px-pulse {
+  animation: none !important;
+}

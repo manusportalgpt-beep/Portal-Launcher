@@ -4288,36 +4288,68 @@ function trimThinking(s: string): string {
  * сообщение и снова получал 400.
  */
 function hardTrimHistory(messages: ChatMessage[]): ChatMessage[] {
-  const LIMIT = 2000;
-  const CLIP = 1200;
-  const KEEP_TAIL = 8;
+  const MAX_TOOL = 900;   // отдача инструмента
+  const MAX_MSG = 1500;   // обычная реплика
+  const BUDGET = 48_000;  // общий лимит символов на старые сообщения
+  const KEEP_TAIL = 10;   // последние сообщения остаются нетронутыми
 
   const summaries = messages.filter(m => m.summary === true);
   const rest = messages.filter(m => m.summary !== true);
-  if (rest.length <= KEEP_TAIL && !rest.some(m => (m.content?.length ?? 0) > CLIP)) {
-    return messages;
-  }
+  if (rest.length === 0) return messages;
 
-  // Длинные выводы инструментов усекаем с явной пометкой — агент должен
-  // понимать, что данные обрезаны, и при необходимости перечитать файл.
-  const trimmed = rest.map(m => {
-    const len = m.content?.length ?? 0;
-    if (len <= CLIP || m.role !== 'tool') return m;
-    return {
-      ...m,
-      content: `${m.content.slice(0, CLIP)}\n… [вывод инструмента обрезан с ${len} до ${CLIP} символов — полный текст можно перечитать через read_text / fetch_page]`,
-    } as ChatMessage;
+  const tail = rest.slice(-KEEP_TAIL);
+  const oldCount = Math.max(0, rest.length - KEEP_TAIL);
+  let old = rest.slice(0, oldCount);
+
+  // Первая реплика пользователя — это сама задача. Её не сокращаем никогда,
+  // иначе агент забудет, что вообще делал.
+  const taskIndex = old.findIndex(m => m.role === 'user');
+
+  // 1) Режем длинные выводы инструментов и длинные реплики у ВСЕХ ролей.
+  //    Раньше обрезался только role === 'tool', поэтому длинные размышления
+  //    модели и большие сообщения пользователя оставались как есть.
+  old = old.map((m, i) => {
+    const limit = m.role === 'tool' ? MAX_TOOL : MAX_MSG;
+    const content = m.content ?? '';
+    const next: ChatMessage = { ...m };
+    let changed = false;
+    if (i !== taskIndex && content.length > limit) {
+      next.content = `${content.slice(0, limit)}\n[старое сообщение сокращено: было ${content.length} символов]`;
+      changed = true;
+    }
+    // Размышления модели тоже тратят токены — у старых сообщений срезаем.
+    if (i !== taskIndex && next.thinking && next.thinking.length > 600) {
+      next.thinking = `${next.thinking.slice(0, 600)}...`;
+      changed = true;
+    }
+    return changed ? next : m;
   });
 
-  const head = trimmed.slice(0, Math.max(0, trimmed.length - KEEP_TAIL));
-  const tail = trimmed.slice(Math.max(0, trimmed.length - KEEP_TAIL));
+  // 2) Если старые сообщения всё ещё не влезают в бюджет, заменяем их
+  //    содержимое короткой заглушкой. Сами объекты сообщений НЕ удаляем:
+  //    иначе разорвётся пара assistant(tool_calls) -> tool(result), и провайдер
+  //    отвергнет запрос с 400 — то есть ровно та ошибка, которую мы чиним.
+  let total = old.reduce((n, m) => n + (m.content?.length ?? 0) + (m.thinking?.length ?? 0), 0);
+  if (total > BUDGET) {
+    old = old.map((m, i) => {
+      if (i === taskIndex) return m;
+      const len = (m.content?.length ?? 0) + (m.thinking?.length ?? 0);
+      if (len <= 200) return m;
+      return {
+        ...m,
+        content: `[старое сообщение (${m.role === 'tool' ? (m.toolName ?? 'инструмента') : m.role}) убрано: ${len} символов]`,
+        thinking: undefined,
+      } as ChatMessage;
+    });
+  }
+
   const note: ChatMessage = {
     id: `__hardtrim-${Date.now()}`,
     role: 'assistant',
-    content: `… [${head.length} старых сообщений убрано из-за отказа провайдера] …`,
+    content: `[авто-сжатие: сокращено ${oldCount} старых сообщений, работа продолжена]`,
     timestamp: Date.now(),
   };
-  return [...summaries, ...head, note, ...tail];
+  return [...summaries, ...old, note, ...tail];
 }
 
 export function compressHistory(messages: ChatMessage[], max = 48): ChatMessage[] {
@@ -4800,7 +4832,7 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
             ? 'Провайдер отклонил запрос из-за объёма переписки — сжимаю историю и продолжаю задачу сам. '
               + 'Ключевые итоги и последние сообщения сохранены, можно просто подождать.'
             : 'Провайдер отклонил запрос — убрал длинные выводы инструментов из переписки и продолжаю сам. '
-              + 'Если после этого повторится, поможет /compact.',
+              + 'Если после этого повторится, поможет /compress.',
           timestamp: Date.now(),
         });
         // Набор инструментов мог быть причиной отказа — проверяем заново.
@@ -4818,7 +4850,7 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
         id: `fail-${Date.now()}-${iter}`,
         role: 'assistant',
         content: permanent
-          ? `${errMsg}\n\nТвоё сообщение осталось в чате — просто отправь его ещё раз, повторы не помогут. Если повторяется: попробуй другую модель в «Управление моделями» или уменьши объём переписки (команда /compact).`
+          ? `${errMsg}\n\nТвоё сообщение осталось в чате — просто отправь его ещё раз, повторы не помогут. Если повторяется: попробуй другую модель в «Управление моделями» или уменьши объём переписки (команда /compress).`
           : `Не удалось получить ответ модели (после ${PROVIDER_MAX_ATTEMPTS} попыток): ${errMsg}\n\nТвоё сообщение осталось в чате — отправь его ещё раз, и я продолжу с того же места.`,
         error: true,
         timestamp: Date.now(),

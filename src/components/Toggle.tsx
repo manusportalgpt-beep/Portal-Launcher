@@ -1,20 +1,25 @@
 // Переключатель в едином стиле OreUI: прямые углы, серый квадратный бегунок.
 // Раньше каждая страница рисовала свой вариант — выглядело по-разному и бегунок
 // вылезал за рамку. Один компонент = один вид во всём лаунчере.
-export function Toggle({ value, onChange, title, className = '' }: {
+//
+// decorative: переключатель не кликает сам, а рисуется как картинка.
+// Нужен, когда ползунок лежит ВНУТРИ кнопки ("Snapshot-версии"): вложенный
+// <button> браузер не считает кликабельным, и нажатие на бегунок не срабатывало.
+export function Toggle({ value, onChange, title, className = '', decorative = false }: {
   value: boolean;
   onChange: (v: boolean) => void;
   title?: string;
   className?: string;
+  decorative?: boolean;
 }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={value}
-      title={title}
-      onClick={() => onChange(!value)}
-      className={`relative shrink-0 transition-colors ${className}`}
+  const body = (
+    <span
+      role={decorative ? undefined : 'switch'}
+      aria-checked={decorative ? undefined : value}
+      aria-hidden={decorative ? 'true' : undefined}
+      title={decorative ? undefined : title}
+      onClick={decorative ? undefined : () => onChange(!value)}
+      className={`relative block shrink-0 transition-colors ${className}`}
       style={{
         width: 38,
         height: 20,
@@ -37,6 +42,13 @@ export function Toggle({ value, onChange, title, className = '' }: {
           boxShadow: 'none',
         }}
       />
+    </span>
+  );
+
+  if (decorative) return body;
+  return (
+    <button type="button" title={title} onClick={() => onChange(!value)} className="shrink-0">
+      {body}
     </button>
   );
 }

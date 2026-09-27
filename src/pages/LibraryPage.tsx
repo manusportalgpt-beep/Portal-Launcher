@@ -820,7 +820,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                         <button type="button" onClick={() => setShowSnapshots(v => !v)}
                           className="flex items-center gap-2 text-[10px] font-bold"
                           style={{ color: showSnapshots ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
-                          <Toggle value={showSnapshots} onChange={setShowSnapshots} title="Показывать снимки (snapshot) версий" />
+                          <Toggle value={showSnapshots} onChange={setShowSnapshots} title="Показывать снимки (snapshot) версий" decorative />
                           Snapshot-версии
                         </button>
                       </div>

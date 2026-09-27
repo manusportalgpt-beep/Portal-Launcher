@@ -2667,12 +2667,38 @@ async function execPathExists(args: { path: string }): Promise<ExecResult> {
           : `НЕ существует или пусто: ${path}` };
       }
     }
-    const entries = await invoke<any[]>('op_list_dir', { root: 'launcher', path }).catch(() => null);
+    // ВАЖНО: ошибку зоны нельзя глотать. Раньше здесь стоял
+    // .catch(() => null), и при отказе песочницы агент получал «не
+    // существует» — то есть прямо врал о причине и пытался чинить не то.
+    let listEntries = async (root: string, dir: string) => {
+      try {
+        return await invoke<any[]>('op_list_dir', { root, path: dir });
+      } catch (e) {
+        const message = String(e);
+        // Отказ песочницы — это не «нет такого файла», а запрет доступа.
+        if (/вне разрешённой зоны|Неизвестная зона/i.test(message)) {
+          return { denied: true, message };
+        }
+        // Остальное (нет папки, нет доступа) означает «не найдено».
+        return null;
+      }
+    };
+
     const base = parts[parts.length - 1] ?? path;
+    const parentDir = parts.slice(0, -1).join('/') || '.';
+    const listed = await listEntries('launcher', parentDir);
+    if (listed && !Array.isArray(listed)) {
+      return {
+        ok: false,
+        output: `Не удалось проверить путь — доступ запрещён песочницей: ${listed.message}\n`
+          + `Путь: ${path}`,
+      };
+    }
+    const entries = listed as any[] | null;
     const hit = Array.isArray(entries) ? entries.find((e: any) => String(e?.name ?? '') === base) : null;
     return { ok: true, output: hit
       ? `Существует: ${path}${hit?.size ? ` (${(Number(hit.size) / 1024).toFixed(1)} КБ)` : ''}`
-      : `НЕ существует: ${path}` };
+      : `Не существует: ${path}` };
   } catch (e) {
     return { ok: false, output: String(e) };
   }

@@ -180,15 +180,32 @@ fn nearest_existing(path: &Path) -> Option<PathBuf> {
     }
 }
 
+/// Снимает префикс `\\?\`, который `canonicalize` добавляет на Windows.
+///
+/// Без этого целевой путь и база сравниваются в разных написаниях
+/// (`\\?\C:\...` против `C:\...`), `starts_with` возвращает false, и файл
+/// внутри разрешённой папки получал «Путь вне разрешённой зоны».
+fn comparable(p: &Path) -> PathBuf {
+    let text = p.to_string_lossy();
+    match text.strip_prefix(r"\\?\") {
+        Some(rest) => PathBuf::from(rest),
+        None => p.to_path_buf(),
+    }
+}
+
 fn is_inside(path: &Path, base: &Path) -> bool {
+    let path = comparable(path);
+    let base = comparable(base);
     path == base || path.starts_with(base)
 }
 
 /// Проверяет, что `path` находится внутри одной из разрешённых зон агента.
 fn enforce_root(root: Root, path: &Path, write: bool) -> Result<PathBuf, String> {
-    let bases: Vec<PathBuf> = allowed_bases(root)
+    let raw_bases = allowed_bases(root);
+    let bases: Vec<PathBuf> = raw_bases
         .iter()
-        .map(|b| canonical(b).unwrap_or_else(|| b.clone()))
+        .filter_map(|b| canonical(b))
+        .chain(raw_bases.iter().cloned())
         .collect();
 
     // Для записи файл может ещё не существовать — проверяем ближайшего
@@ -198,12 +215,20 @@ fn enforce_root(root: Root, path: &Path, write: bool) -> Result<PathBuf, String>
     } else {
         canonical(path)
     };
-    let ok = target
-        .map(|p| bases.iter().any(|b| is_inside(&p, b)))
+    // 1) По разыменованному пути: честная проверка, что агент не выходит наружу.
+    let resolved_ok = target
+        .as_ref()
+        .map(|p| bases.iter().any(|b| is_inside(p, b)))
         .unwrap_or(false);
-    if !ok {
+    // 2) По буквальному пути. Нужна для папки навыков: если пользователь положил
+    //    туда ссылку (junction) на навык из ~/.opencode/skills, разыменование
+    //    уводит путь наружу, и агент получал «Путь вне разрешённой зоны» на
+    //    файле, который физически лежит в OpenPortal/Skills.
+    let literal_ok = raw_bases.iter().any(|b| is_inside(path, b));
+    if !resolved_ok && !literal_ok {
         return Err(format!(
-            "Путь вне разрешённой зоны: {}. Разрешены папки PortalLauncher (Roaming и Local), системный Temp и OpenPortal\\Projects.",
+            "Путь вне разрешённой зоны: {}. Разрешены папки PortalLauncher (Roaming и Local), \
+             системный Temp и OpenPortal\\Projects.",
             path.to_string_lossy()
         ));
     }

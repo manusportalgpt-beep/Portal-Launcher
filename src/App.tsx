@@ -4,7 +4,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { SplashScreen } from '@/components/splash/SplashScreen';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { initRenderGate } from '@/lib/render-gate';
-import { initStyleNormalizer } from '@/lib/style-normalizer';
+import { initStyleNormalizer, setPixelUi } from '@/lib/style-normalizer';
 import { HomePage } from '@/pages/HomePage';
 import { DiscoverPage } from '@/pages/DiscoverPage';
 import { LibraryPage } from '@/pages/LibraryPage';
@@ -62,7 +62,12 @@ function App() {
   useEffect(() => { initRenderGate(); }, []);
   // Нормализатор оформления: переодевает подложки на всех страницах в
   // пиксельный стиль. Без него пришлось бы править каждую страницу руками.
-  useEffect(() => { initStyleNormalizer(); }, []);
+  // Выключается в настройках — тогда возвращается прежний вид интерфейса.
+  const pixelUi = useUiStore(s => s.pixelUi);
+  useEffect(() => {
+    if (pixelUi) initStyleNormalizer();
+    else setPixelUi(false);
+  }, [pixelUi]);
   const [loading, setLoading] = useState(false);
   const layoutMode = useLayoutStore((s) => s.mode);
   const themeId = useThemeStore((state) => state.themeId);

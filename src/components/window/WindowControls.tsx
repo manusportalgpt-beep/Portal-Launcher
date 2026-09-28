@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Minus, Square, Copy, X } from 'lucide-react';
+import { Minus, Square, Copy, X, PanelsTopLeft } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { isTauri } from '@/lib/invoke-shim';
 import { useUiStore } from '@/stores/uiStore';
@@ -60,6 +60,39 @@ export function WindowControls() {
   );
 }
 
+/**
+ * Кнопка «в лобби» — переключает режим панели на лету.
+ *
+ * Нужна, потому что настройки — это лишний поход в Настройки, чтобы просто
+ * убрать панель на широком экране или вернуть её обратно. Порядок:
+ * «без панели» → Notch → боковая → снова «без панели».
+ */
+function LobbyButton() {
+  const navMode = useUiStore(s => s.navMode);
+  const set = useUiStore(s => s.set);
+  const next: Record<string, typeof navMode> = {
+    none: 'notch',
+    notch: 'sidebar',
+    sidebar: 'none',
+  };
+  const label: Record<string, string> = {
+    none: 'Панели нет — вернуть',
+    notch: 'Notch-панель → боковая',
+    sidebar: 'Боковая панель → без панели',
+  };
+  return (
+    <button
+      type="button"
+      onClick={() => set('navMode', next[navMode] ?? 'notch')}
+      title={label[navMode] ?? 'Переключить панель'}
+      className="flex h-5 items-center gap-1 px-1.5 text-[10px] font-bold transition-colors hover:bg-white/10"
+      style={{ color: 'var(--color-text-secondary)' }}>
+      <PanelsTopLeft size={11} />
+      в лобби
+    </button>
+  );
+}
+
 /** Тонкая полоса заголовка: drag только в компактной области рядом с брендом. */
 export function TitleBar({ title = 'Portal Launcher' }: { title?: string }) {
   const titlebarHeight = useUiStore(state => state.titlebarHeight);
@@ -88,7 +121,10 @@ export function TitleBar({ title = 'Portal Launcher' }: { title?: string }) {
         <img src={portalIcon} width={16} height={16} draggable={false} className="block shrink-0 rounded-[4px] object-cover" alt="" />
         <span className="truncate">{title}</span>
       </div>
-      <WindowControls />
+        <div className="flex h-full items-center gap-2 pr-2">
+          <LobbyButton />
+          <WindowControls />
+        </div>
     </div>
   );
 }

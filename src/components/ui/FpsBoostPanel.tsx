@@ -58,44 +58,57 @@ export function FpsBoostPanel({ instanceId, loader, mcVersion, onDone }: {
     for (const mod of targets) {
       try {
         setLog(prev => [...prev, `Ищу ${mod.title}…`]);
-        // Поиск с фильтром по загрузчику и версии: несовместимый файл
-        // в список не попадёт, и поставить его не получится.
+        // Поиск с фильтрами по версии и загрузчику передаётся ОТДЕЛЬНЫМИ
+        // аргументами (versions / loaders), а не одной строкой filters.
+        // Строгий фильтр здесь и есть гарантия, что Sodium не уедет в Forge.
         const found = await invoke<any>('search_modrinth', {
           query: mod.slug,
           limit: 5,
-          index: 0,
-          filters: JSON.stringify({
-            versions: mcVersion ? [mcVersion] : undefined,
-            loaders: [loader.toLowerCase()],
-            project_type: 'mod',
-          }),
+          offset: 0,
+          versions: mcVersion ? [mcVersion] : null,
+          loaders: [loader.toLowerCase()],
+          projectType: 'mod',
         });
         const hit = (found?.hits ?? []).find(
           (h: any) => h?.project_id === mod.slug || h?.slug === mod.slug,
         ) ?? (found?.hits ?? [])[0];
-        const file = hit?.files?.[0];
-        if (!hit || !file?.url) {
+        if (!hit?.project_id) {
           lines.push(`${mod.title} — не найден для ${mcVersion ?? 'этой версии'} / ${loader}`);
           continue;
         }
-        setLog(prev => [...prev, `Ставлю ${mod.title} ${hit.version_number ?? ''}…`]);
+        // Файла в ответе ПОИСКА нет — он лежит в списке версий проекта.
+        // Раньше читался hit.files[0], которого там не бывает, и панель писала
+        // «не найден» про каждый мод, включая заведомо существующий Sodium.
+        const versions = await invoke<any>('get_modrinth_versions', {
+          projectId: hit.project_id,
+          gameVersion: mcVersion ?? null,
+          loader: loader.toLowerCase(),
+        });
+        const vlist: any[] = Array.isArray(versions) ? versions : (versions?.data ?? []);
+        const version = vlist[0];
+        const file = version?.files?.[0];
+        if (!file?.url) {
+          lines.push(`${mod.title} — нет файла для ${mcVersion ?? 'этой версии'} / ${loader}`);
+          continue;
+        }
+        setLog(prev => [...prev, `Ставлю ${mod.title} ${version.version_number ?? ''}…`]);
         await invoke('install_mod', {
           instanceId,
           downloadUrl: file.url,
-          fileName: file.filename,
-          modId: hit.project_id ?? mod.slug,
+          fileName: file.filename ?? `${mod.slug}.jar`,
+          modId: hit.project_id,
           modName: hit.title ?? mod.title,
-          modVersion: hit.version_number ?? '',
-          versionId: hit.id ?? '',
+          modVersion: version.version_number ?? '',
+          versionId: version.id ?? '',
           source: 'modrinth',
           modType: 'mod',
-          projectId: hit.project_id ?? mod.slug,
+          projectId: hit.project_id,
           author: hit.author ?? null,
           iconUrl: hit.icon_url ?? null,
         });
-        lines.push(`${mod.title} ${hit.version_number ?? ''} — установлен`);
+        lines.push(`${mod.title} ${version.version_number ?? ''} — установлен`);
       } catch (e) {
-        lines.push(`${mod.title} — ошибка: ${String(e).slice(0, 120)}`);
+        lines.push(`${mod.title} — ошибка: ${String(e).slice(0, 140)}`);
       }
     }
     setLog(lines);

@@ -21,14 +21,14 @@
  */
 
 const DONE = 'px-card';
+/** Метка «здесь уже пройдено» — по ней отсекаем целые поддеревья. */
+const WALKED = 'data-px-walked';
 const SKIP_TAGS = new Set(['IMG', 'INPUT', 'TEXTAREA', 'SELECT', 'SVG', 'PATH', 'CANVAS', 'BR', 'I', 'B']);
 /** Элементы, у которых рамка — часть смысла, а не подложка. */
 const NEVER = new Set(['BUTTON', 'A']);
 
 /** Площадь, ниже которой элемент считается мелочью, а не подложкой. */
 const MIN_AREA = 8000;
-
-const seen = new WeakSet<Element>();
 
 function looksLikePanel(el: HTMLElement): boolean {
   if (NEVER.has(el.tagName)) return false;
@@ -40,20 +40,14 @@ function looksLikePanel(el: HTMLElement): boolean {
   if (rect.width * rect.height < MIN_AREA) return false;
 
   const style = getComputedStyle(el);
-  // Только видимые и не схлопнутые в невидимость слои.
   if (style.display === 'none' || style.visibility === 'hidden') return false;
   if (style.opacity === '0' || style.position === 'absolute') return false;
 
-  const bw = parseFloat(style.borderTopWidth) || 0;
-  const hasBorder = bw >= 1;
-  const hasBg = style.backgroundColor !== 'rgba(0, 0, 0, 0)'
-    && style.backgroundColor !== 'transparent';
   // Фон подложки задаётся инлайном; проверяем именно его, иначе под правило
-  // попадёт любой про прозрачный фон, у которого цвет есть.
+  // попадёт любой прозрачный фон, у которого цвет есть.
   const inlineBg = el.style.background || el.style.backgroundColor;
-  const hasInlinePanelBg = Boolean(inlineBg) && inlineBg !== 'transparent' && inlineBg !== 'none';
-
-  return hasBorder || hasInlinePanelBg;
+  if (inlineBg && inlineBg !== 'transparent' && inlineBg !== 'none') return true;
+  return (parseFloat(style.borderTopWidth) || 0) >= 1;
 }
 
 function walk(root: ParentNode) {
@@ -61,14 +55,16 @@ function walk(root: ParentNode) {
   // Счётчик каскада: панели появляются друг за другом, а не разом.
   let cardIndex = 0;
   for (const el of nodes) {
-    if (seen.has(el) || SKIP_TAGS.has(el.tagName)) continue;
-    seen.add(el);
+    if (SKIP_TAGS.has(el.tagName)) continue;
+    // Уже размеченное поддерево пропускаем целиком: это главная причина
+    // прошлого моргания — каждый проход заново трогал сотни узлов.
+    if (el.hasAttribute(WALKED)) continue;
+    el.setAttribute(WALKED, '');
     if (!looksLikePanel(el)) continue;
     el.classList.add(DONE);
-    // Больше 12 ступенек — задержка перестаёт читаться как «появление»
+    // Больше 12 ступеней — задержка перестаёт читаться как «появление»
     // и начинает ощущаться как тормоз, поэтому дальше смещение не растёт.
-    const step = Math.min(cardIndex, 12);
-    el.style.setProperty('--i', String(step));
+    el.style.setProperty('--i', String(Math.min(cardIndex, 12)));
     el.classList.add('px-item-in');
     cardIndex += 1;
   }
@@ -80,10 +76,33 @@ function schedule() {
   scheduled = window.setTimeout(() => {
     scheduled = 0;
     walk(document.body);
-  }, 120);
+  }, 260);
 }
 
 let observer: MutationObserver | null = null;
+
+/**
+ * Включает или выключает пиксельное оформление.
+ *
+ * Метка `data-px-ui` на <html> — единый выключатель для всего слоя:
+ * pixel-global.css смотрит на неё, поэтому при выключении возвращаются
+ * скругления темы и обычные поля ввода, а не «полупиксель».
+ */
+export function setPixelUi(on: boolean) {
+  const html = document.documentElement;
+  if (on) {
+    html.setAttribute('data-px-ui', 'on');
+    // Метка на раскладку уже должна быть готова — иначе пришлось бы
+    // снимать классы с сотен узлов.
+    if (!html.hasAttribute(WALKED)) initStyleNormalizer();
+  } else {
+    html.removeAttribute('data-px-ui');
+    for (const el of document.querySelectorAll(`.${DONE}`)) {
+      el.classList.remove(DONE, 'px-item-in');
+      el.removeAttribute(WALKED);
+    }
+  }
+}
 
 /**
  * Запускает нормализатор. Вызывается один раз при старте окна лаунчера.
@@ -91,6 +110,9 @@ let observer: MutationObserver | null = null;
  */
 export function initStyleNormalizer() {
   if (typeof document === 'undefined' || observer) return;
+  // Метка на <html>: по ней видно, что слой вообще включился. Заодно ею
+  // пользуется переключатель старого интерфейса в настройках.
+  document.documentElement.setAttribute('data-px-ui', 'on');
   schedule();
   observer = new MutationObserver(schedule);
   observer.observe(document.body, {

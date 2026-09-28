@@ -3,7 +3,13 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { safeLocalStorage } from '@/lib/safe-storage';
 import type { StylePreset } from '@/lib/style-presets';
 
-export type NavMode = 'notch' | 'sidebar';
+/**
+ * Режим навигации.
+ * `none` — без панели совсем: страница занимает всё окно, переключается
+ * кнопкой «в лобби» в заголовке. Нужен, чтобы развернуть контент на всю
+ * ширину и убрать панель на экранах, где она мешает (например, на скинах).
+ */
+export type NavMode = 'none' | 'notch' | 'sidebar';
 export type NotchSide = 'top' | 'bottom' | 'left' | 'right';
 export type FontFamily = 'theme' | 'inter' | 'space-grotesk' | 'manrope' | 'montserrat' | 'outfit' | 'play' | 'comfortaa' | 'oswald' | 'jetbrains-mono' | 'pixel';
 export type InstallEffect = 'icon-drop' | 'zoom-bounce' | 'orbit' | 'shimmer' | 'none';
@@ -39,7 +45,12 @@ export interface UiState {
   stylePreset: StylePreset;
   /** Тип навигации: выезжающая Notch-панель или боковая панель */
   navMode: NavMode;
-  /** Сторона экрана, к которой прикреплена Notch-панель */
+  /**
+   * Пиксельное оформление (срезанные углы, объёмные плиты). Выключается, чтобы
+   * вернуть прежний вид интерфейса: значения радиусов и элементов формы снова
+   * берутся из темы, а нормализатор перестаёт размечать подложки.
+   */
+  pixelUi: boolean;
   notchSide: NotchSide;
   /** Размер зоны наведения (px), открывающей Notch-панель */
   notchHotzone: number;
@@ -164,6 +175,12 @@ const defaults = {
   stylePreset: 'standard' as StylePreset,
   accentColor: null as string | null,
   navMode: 'notch' as NavMode,
+  /**
+   * Пиксельное оформление (срезанные углы, объёмные плиты). Выключается, чтобы
+   * вернуть прежний вид интерфейса: значения радиусов и элементов формы снова
+   * берутся из темы, а нормализатор перестает размечать подложки.
+   */
+  pixelUi: true,
   notchSide: 'top' as NotchSide,
   notchHotzone: 46,
   notchPinned: false,

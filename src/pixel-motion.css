@@ -31,13 +31,17 @@
 
 /* ---------------- Появление подложек каскадом ----------------
    Каждая карточка получает смещение через --i (индекс). Индекс ставит
-   нормализатор оформления, поэтому каскад работает на всех страницах. */
+   нормализатор оформления, поэтому каскад работает на всех страницах.
+
+   Анимация живёт ТОЛЬКО здесь. Раньше она была ещё и в .px-card, из-за чего
+   на одном элементе конкурировали два animation с fill-mode both: любой
+   ререндер React перезапускал их, и панели моргали. */
 @keyframes pxCardIn {
   from { opacity: 0; transform: translate3d(0, 12px, 0); }
   to   { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
-.px-card {
+.px-item-in {
   animation: pxCardIn 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   animation-delay: calc(var(--i, 0) * 45ms);
 }
@@ -88,13 +92,13 @@
   --px-grid-opacity: 0.03;
 }
 
-/* ---------------- Появление содержимого списками ---------------- */
 @keyframes pxItemIn {
   from { opacity: 0; transform: translate3d(-6px, 0, 0); }
   to   { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
-.px-item-in {
+/* ---------------- Появление содержимого списками ---------------- */
+.px-stagger-in {
   animation: pxItemIn 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   animation-delay: calc(var(--i, 0) * 30ms);
 }

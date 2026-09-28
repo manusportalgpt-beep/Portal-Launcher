@@ -25,7 +25,7 @@
    !important здесь и глушим ВСЕ скругления разом, в том числе инлайновые.
    Круглые элементы (borderRadius: 50%, rounded-full) не затрагиваются.
    ================================================================ */
-:root {
+:root[data-px-ui='on'] {
   --radius-xs: 0 !important;
   --radius-sm: 0 !important;
   --radius-md: 0 !important;
@@ -41,7 +41,7 @@
    Пиксельный стиль держится на прямых углах. Круглые элементы
    (аватары, бейджи-точки) оставляем круглыми — иначе ломаются.
    ================================================================ */
-.rounded,
+html[data-px-ui='on'] .rounded,
 .rounded-sm,
 .rounded-md,
 .rounded-lg,
@@ -59,7 +59,7 @@
   border-radius: 0 !important;
 }
 
-.rounded-full {
+html[data-px-ui='on'] .rounded-full {
   border-radius: 9999px !important;
 }
 
@@ -68,9 +68,9 @@
    Их не трогают инлайн-стили почти нигде, поэтому эффект виден сразу
    на всех окна��: настройки, поиск, фильтры, формы сборок.
    ================================================================ */
-input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+html[data-px-ui='on'] input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
 select,
-textarea {
+html[data-px-ui='on'] textarea {
   border: 0 !important;
   border-radius: 0 !important;
   background-color: var(--color-surface-2) !important;
@@ -114,19 +114,19 @@ textarea {
   padding-bottom: calc(0.25rem + 2px);
 }
 
-input::placeholder,
+html[data-px-ui='on'] input::placeholder,
 textarea::placeholder {
   color: var(--color-text-tertiary) !important;
 }
 
 /* Фокус — акцентом по контуру, без мягкого свечения. */
-input:focus,
+html[data-px-ui='on'] input:focus,
 select:focus,
 textarea:focus {
   background-color: var(--color-surface) !important;
 }
 
-input:focus-visible,
+html[data-px-ui='on'] input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline: 2px solid var(--color-primary) !important;
@@ -134,24 +134,24 @@ textarea:focus-visible {
 }
 
 /* Флажки и переключатели — в тот же срез. */
-input[type='checkbox'],
-input[type='radio'] {
+html[data-px-ui='on'] input[type='checkbox'],
+html[data-px-ui='on'] input[type='radio'] {
   border-radius: 0 !important;
   accent-color: var(--color-primary);
 }
 
 /* Ползунок: квадратная дорожка и квадратная ручка. */
-input[type='range'] {
+html[data-px-ui='on'] input[type='range'] {
   accent-color: var(--color-primary);
 }
 
-input[type='range']::-webkit-slider-runnable-track {
+html[data-px-ui='on'] input[type='range']::-webkit-slider-runnable-track {
   border-radius: 0;
   background: var(--color-surface-2);
   height: 6px;
 }
 
-input[type='range']::-webkit-slider-thumb {
+html[data-px-ui='on'] input[type='range']::-webkit-slider-thumb {
   border-radius: 0;
   border: 2px solid var(--color-outline, #0a0a0e);
   background: var(--color-primary);
@@ -163,11 +163,11 @@ input[type='range']::-webkit-slider-thumb {
 }
 
 /* Выпадающий список ОС тоже должен быть угловатым. */
-select {
+html[data-px-ui='on'] select {
   appearance: none;
 }
 
-select option {
+html[data-px-ui='on'] select option {
   background: var(--color-surface);
   color: var(--color-text);
   border-radius: 0;
@@ -178,7 +178,7 @@ select option {
    Многие кнопки в разметке без инлайн-стилей — они получают объём.
    Кнопки с инлайн-фоном не трогаем: их переводят вручную.
    ================================================================ */
-button {
+html[data-px-ui='on'] button {
   border-radius: 0 !important;
 }
 

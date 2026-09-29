@@ -3,8 +3,6 @@ import { AnimatePresence } from 'framer-motion';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { SplashScreen } from '@/components/splash/SplashScreen';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { initRenderGate } from '@/lib/render-gate';
-import { initStyleNormalizer, setPixelUi } from '@/lib/style-normalizer';
 import { HomePage } from '@/pages/HomePage';
 import { DiscoverPage } from '@/pages/DiscoverPage';
 import { LibraryPage } from '@/pages/LibraryPage';
@@ -49,7 +47,7 @@ import { useInstanceStore } from '@/stores/instanceStore';
 import { useAuthStore } from '@/stores/authStore';
 import { pruneLocalStorageCaches } from '@/lib/prune-storage';
 import { useLaunchStore } from '@/stores/launchStore';
-import { invoke, isTauri } from '@/lib/invoke-shim';
+import { invoke } from '@/lib/invoke-shim';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { initDiscord, setLauncherStatus } from '@/lib/discord';
@@ -57,17 +55,6 @@ import { initDiscord, setLauncherStatus } from '@/lib/discord';
 const WELCOME_KEY = 'portal-welcome-shown';
 
 function App() {
-  // Пауза всей анимации, когда окно не видно или идёт игра: иначе лаунчер
-  // забирает кадры у Minecraft на встроенной видеокарте.
-  useEffect(() => { initRenderGate(); }, []);
-  // Нормализатор оформления: переодевает подложки на всех страницах в
-  // пиксельный стиль. Без него пришлось бы править каждую страницу руками.
-  // Выключается в настройках — тогда возвращается прежний вид интерфейса.
-  const pixelUi = useUiStore(s => s.pixelUi);
-  useEffect(() => {
-    if (pixelUi) initStyleNormalizer();
-    else setPixelUi(false);
-  }, [pixelUi]);
   const [loading, setLoading] = useState(false);
   const layoutMode = useLayoutStore((s) => s.mode);
   const themeId = useThemeStore((state) => state.themeId);
@@ -102,8 +89,6 @@ function App() {
   useEffect(() => {
     let disposed = false;
     let shortcutLaunch = false;
-    // Вне Tauri (браузер, предпросмотр) окна нет — эффект просто не нужен.
-    if (!isTauri()) return;
     const win = getCurrentWindow();
     const unlistenPromise = listen('game-exited', async () => {
       if (shortcutLaunch && !disposed) {

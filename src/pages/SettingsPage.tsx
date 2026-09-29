@@ -418,22 +418,6 @@ function AppearanceSection() {
       </div>
       <CustomThemeBuilder />
 
-      {/* Переключатель вида интерфейса стоит первым в разделе, а не в
-          «Дополнительно»: откат на прежний вид нужен сразу и искать его
-          глубоко в подразделе незачем. */}
-      <div className="px-frame mb-3 flex items-center gap-3 px-3 py-2.5">
-        <div className="min-w-0 flex-1">
-          <p className="text-[12px] font-black" style={{ color: 'var(--color-text)' }}>
-            Новый пиксельный интерфейс
-          </p>
-          <p className="mt-0.5 text-[10px] leading-4" style={{ color: 'var(--color-text-secondary)' }}>
-            Срезанные углы, объёмные плиты и живая сцена на главной. Выключи — вернётся
-            прежний вид: скругления темы, обычные поля и без плит.
-          </p>
-        </div>
-        <Toggle value={ui.pixelUi} onChange={v => ui.set('pixelUi', v)} />
-      </div>
-
       {/* ===================== Typography ===================== */}
       <div className="minimal-section-title">
         <Palette className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
@@ -489,13 +473,9 @@ function AppearanceSection() {
         {t('settings.appearanceUi.moreDescription')}
       </p>
 
-      <SegRow label="Навигация" desc="Боковая панель, плавающая Notch-панель или совсем без панели — тогда страница занимает всё окно. Текущий режим переключается кнопкой «в лобби» в заголовке окна."
+      <SegRow label="Навигация" desc="Постоянная боковая панель или плавающая Notch-панель"
         value={ui.navMode}
-        options={[
-          { id: 'none', label: 'Без панели' },
-          { id: 'notch', label: 'Notch-панель' },
-          { id: 'sidebar', label: 'Боковая панель' },
-        ]}
+        options={[{ id: 'sidebar', label: 'Боковая панель' }, { id: 'notch', label: 'Notch-панель' }]}
         onChange={v => ui.set('navMode', v as any)} />
       <SegRow label="Стиль интерфейса" desc="Классический сохраняет более строгие поверхности, новый использует мягкие акценты и расширенные скругления — для Notch и Sidebar одинаково"
         value={ui.uiMode}

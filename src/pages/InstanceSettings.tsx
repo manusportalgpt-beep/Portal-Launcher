@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Save, Cpu, Folder, Play, Wrench, ShieldCheck, Database, Package, Settings2, History, RefreshCw, RotateCcw, ImagePlus, Trash2, Layers, Box, Sparkles, Check, Info, Zap } from 'lucide-react';
+import { ChevronLeft, Save, Cpu, Folder, Play, Wrench, ShieldCheck, Database, Package, Settings2, History, RefreshCw, RotateCcw, ImagePlus, Trash2, Layers, Box, Sparkles, Check, Info } from 'lucide-react';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,6 @@ import { fetchMcVersionIds, MC_VERSIONS_FALLBACK } from '@/lib/mc-versions';
 import { toIconSrc } from '@/lib/icon-src';
 import { VersionPicker } from '@/components/VersionPicker';
 import { Toggle } from '@/components/Toggle';
-import { FpsBoostPanel } from '@/components/ui/FpsBoostPanel';
 import { dialog } from '@/stores/dialogStore';
 
 const LOADERS = ['vanilla','fabric','forge','quilt','neoforge'] as const;
@@ -27,7 +26,6 @@ const LOADER_META: Record<string, { label: string; description: string; Icon: an
 const tabs = [
   { id:'general', labelKey:'instanceUi.tabs.general', descKey:'instanceUi.tabs.generalDesc', icon:Settings2 },
   { id:'java', labelKey:'instanceUi.tabs.java', descKey:'instanceUi.tabs.javaDesc', icon:Cpu },
-  { id:'boost', labelKey:'instanceUi.tabs.boost', descKey:'instanceUi.tabs.boostDesc', icon:Zap },
   { id:'content', labelKey:'instanceUi.tabs.content', descKey:'instanceUi.tabs.contentDesc', icon:Package },
   { id:'maintenance', labelKey:'instanceUi.tabs.maintenance', descKey:'instanceUi.tabs.maintenanceDesc', icon:Wrench },
 ];
@@ -355,17 +353,6 @@ export function InstanceSettings() {
               </>}
 
               {tab==='java' && <><section className="p-4" style={{ background:'transparent', border:'1px solid var(--color-border)', borderRadius:'var(--radius-card)' }}><div className="flex items-center gap-2"><Cpu className="h-5 w-5" style={{ color:'var(--color-primary)' }} /><div><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Автоматически рекомендуется Java {recommendedJava}</p><p className="text-[11px]" style={{ color:'var(--color-text-secondary)' }}>Лаунчер сначала проверяет выбранную Java, затем управляемую Java и скачивает совместимую среду только при необходимости.</p></div></div></section><Field label="Путь Java для этой сборки" desc="Оставьте пустым, чтобы использовать автоматический выбор из Настройки → Minecraft."><input value={form.javaPath} onChange={event=>setForm(current=>({...current,javaPath:event.target.value}))} placeholder={`Автоматическая Java ${recommendedJava}`} className="w-full px-3 py-2.5 text-sm outline-none" style={{background:'var(--color-bg)',border:'1px solid var(--color-border)',color:'var(--color-text)',borderRadius:'var(--radius-button)'}} /></Field><Field label="Аргументы JVM" desc="Необязательные аргументы, используемые только этой сборкой."><input value={form.jvmArgs} onChange={event=>setForm(current=>({...current,jvmArgs:event.target.value}))} placeholder="-XX:+UseG1GC" className="w-full px-3 py-2.5 text-sm outline-none" style={{background:'var(--color-bg)',border:'1px solid var(--color-border)',color:'var(--color-text)',borderRadius:'var(--radius-button)'}} /></Field><div className="grid grid-cols-2 gap-4"><Field label="Минимальная память"><input type="number" value={form.minRam} onChange={event=>setForm(current=>({...current,minRam:Number(event.target.value)}))} className="w-full px-3 py-2.5 text-sm outline-none" style={{background:'var(--color-bg)',border:'1px solid var(--color-border)',color:'var(--color-text)',borderRadius:'var(--radius-button)'}} /></Field><Field label="Максимальная память"><input type="number" value={form.maxRam} onChange={event=>setForm(current=>({...current,maxRam:Number(event.target.value)}))} className="w-full px-3 py-2.5 text-sm outline-none" style={{background:'var(--color-bg)',border:'1px solid var(--color-border)',color:'var(--color-text)',borderRadius:'var(--radius-button)'}} /></Field></div><div className="flex items-center justify-between gap-2 rounded-xl px-3 py-2" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}><span className="text-[11px]" style={{ color:'var(--color-text-secondary)' }}>В настройках лаунчера: {launcherMinRam} / {launcherMaxRam} МБ</span><button type="button" onClick={() => setForm(current => ({ ...current, minRam: launcherMinRam, maxRam: launcherMaxRam }))} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition-colors" style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}><Check className="w-3.5 h-3.5" />Взять из настроек</button></div></>}
-
-              {tab==='boost' && <div className="space-y-3">
-                <section>
-                  <h3 className="mb-2 text-sm font-black" style={{ color:'var(--color-text)' }}>Буст FPS</h3>
-                  <FpsBoostPanel
-                    instanceId={inst.id}
-                    loader={form.modLoader}
-                    mcVersion={form.minecraftVersion}
-                  />
-                </section>
-              </div>}
 
               {tab==='content' && <DeletedContentPanel instanceId={inst.id} />}
               {tab==='maintenance' && <div className="space-y-3"><section className="p-4" style={{ background:'transparent', border:'1px solid var(--color-border)', borderRadius:'var(--radius-card)' }}><div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Безопасный режим</p></div><p className="mt-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>Временно отключает Java-моды, не затрагивая миры, конфиги, ресурс-паки и шейдеры. Используйте его только для диагностики сбоя запуска.</p></section><UpdateRollbackPanel instanceId={inst.id} /><section className="p-4" style={{ background:'transparent', border:'1px solid var(--color-border)', borderRadius:'var(--radius-card)' }}><div className="flex items-center gap-2"><Database className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Резервная копия вручную</p></div><p className="mt-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>Создайте полную резервную копию перед сменой версии Minecraft, загрузчика, миров или конфигов. Откат обновления восстанавливает только файлы, изменённые зафиксированным обновлением мода.</p></section><button onClick={() => navigate(`/library/${inst.id}`)} className="rounded-xl px-4 py-2 text-xs font-black" style={{ background:'transparent', color:'var(--color-primary)', border:'1px solid var(--color-primary)' }}>Открыть инструменты обслуживания</button></div>}

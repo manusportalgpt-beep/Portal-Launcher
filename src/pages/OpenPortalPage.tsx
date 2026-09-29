@@ -1827,8 +1827,7 @@ export function OpenPortalPage() {
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
       {/* Sidebar */}
-      {/* Сайдбар в срезе: правый край срезан под 10px, как подложки. */}
-      <aside className="flex w-64 shrink-0 flex-col" style={{ background: 'var(--color-surface)', clipPath: 'var(--px-10)' }}>
+      <aside className="flex w-64 shrink-0 flex-col border-r" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
         <div className="flex items-center gap-2.5 px-3.5 pt-3.5 pb-2.5">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-[11px] font-black"
             style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>OP</div>
@@ -1967,8 +1966,8 @@ export function OpenPortalPage() {
 
         <div className="ore-plain relative shrink-0 border-t p-3" style={{ borderColor: 'var(--color-border)' }}>
           {cmdOpen && cmdList.length > 0 && (
-            <div className="px-frame absolute bottom-full left-0 right-0 z-30 mx-auto mb-2 w-full max-w-3xl p-1"
-              style={{ background: 'var(--color-surface)' }}>
+            <div className="absolute bottom-full left-0 right-0 z-30 mx-auto mb-2 w-full max-w-3xl rounded-lg border p-1"
+              style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>
               {/* Список ограничен по высоте: видно 6 строк, остальные листаются
                   прокруткой внутри выпадающего списка. */}
               <div className="overflow-y-auto" style={{ maxHeight: 264 }}>
@@ -1977,7 +1976,7 @@ export function OpenPortalPage() {
                   if (c.instant) { setInput(''); if (!runCommandLine(c.cmd)) void send(c.cmd); }
                   else setInput(`${c.cmd} `);
                 }}
-                  className="px-tab mb-0.5 flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left last:mb-0">
+                  className="flex w-full items-center gap-2.5 rounded px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--color-surface-2)]">
                   <span className="shrink-0 font-mono text-[11px] font-bold" style={{ color: 'var(--color-primary)' }}>{c.cmd}</span>
                   <span className="truncate text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>{c.desc}</span>
                   {!c.instant && <span className="ml-auto shrink-0 text-[9px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}>+ описание</span>}
@@ -2002,8 +2001,8 @@ export function OpenPortalPage() {
               больше не висят тремя отдельными плавающими рядами. */}
           {/* Без overflow-hidden: контейнер обрезал выпадающий список модели и
               панель управления моделями, из-за чего они не открывались. */}
-          <div className="px-frame mx-auto w-full max-w-3xl"
-            style={{ background: 'var(--color-surface-2)' }}>
+          <div className="mx-auto w-full max-w-3xl rounded-lg"
+            style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
             {attachments.length > 0 && (
               <div className="flex flex-wrap gap-1.5 border-b p-2" style={{ borderColor: 'var(--color-border)' }}>
                 {attachments.map((a, i) => (

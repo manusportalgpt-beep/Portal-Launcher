@@ -1816,8 +1816,8 @@ pub async fn op_run_command(
     match tokio::time::timeout(std::time::Duration::from_millis(timeout), finished).await {
         Ok(Ok(Ok(output))) => Ok(CmdResult {
             exit_code: output.status.code().unwrap_or(-1),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            stdout: decode_output(&output.stdout),
+            stderr: decode_output(&output.stderr),
             timed_out: false,
         }),
         Ok(Ok(Err(e))) => Err(format!("Выполнение команды: {e}")),
@@ -1869,6 +1869,17 @@ fn apply_cache_env(command: &str) -> Vec<(String, String)> {
     let lower = command.to_lowercase();
     let deps = deps_cache_dir();
     let mut env: Vec<(String, String)> = Vec::new();
+    // Node не всегда лежит в PATH лаунчера: ярлык запускает его из Проводника,
+    // и переменные пользователя в окружение процесса не попадают. Без этого
+    // `node`/`npm` для агента просто не находятся. Добавляем найденные
+    // каталоги в начало PATH - тем же приёмом пользуемся и мы сами.
+    if let Some(dir) = node_bin_dir() {
+        let path = std::env::var("PATH").unwrap_or_default();
+        let sep = if cfg!(target_os = "windows") { ';' } else { ':' };
+        if !path.split(sep).any(|p| p.eq_ignore_ascii_case(&dir)) {
+            env.push(("PATH".into(), format!("{dir}{sep}{path}")));
+        }
+    }
     if lower.contains("npm") {
         let d = deps.join("npm");
         std::fs::create_dir_all(&d).ok();
@@ -1886,6 +1897,147 @@ fn apply_cache_env(command: &str) -> Vec<(String, String)> {
         env.push(("YARN_CACHE_FOLDER".into(), d.to_string_lossy().into_owned()));
     }
     env
+}
+
+/// Каталог с `node.exe`, если Node установлен в типовом месте или есть в PATH.
+/// Проверяем именно существование файла: в системах без Node `where node`
+/// ничего не печатает, а на Windows может вернуть заглушку из WindowsApps.
+fn node_bin_dir() -> Option<String> {
+    let exe = if cfg!(target_os = "windows") { "node.exe" } else { "node" };
+    let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+    for var in ["ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"] {
+        if let Ok(base) = std::env::var(var) {
+            if !base.is_empty() {
+                if var == "LOCALAPPDATA" {
+                    candidates.push(std::path::PathBuf::from(&base).join("Programs/nodejs"));
+                    candidates.push(std::path::PathBuf::from(&base).join("nodejs"));
+                } else {
+                    candidates.push(std::path::PathBuf::from(&base).join("nodejs"));
+                }
+            }
+        }
+    }
+    // nvm/n: версии лежат глубже, берём верхний каталог, где есть node.exe.
+    if let Ok(local) = std::env::var("LOCALAPPDATA") {
+        candidates.push(std::path::PathBuf::from(&local).join("nvm"));
+        candidates.push(std::path::PathBuf::from(&local).join("n"));
+    }
+    if let Ok(path) = std::env::var("PATH") {
+        let sep = if cfg!(target_os = "windows") { ';' } else { ':' };
+        for p in path.split(sep).filter(|p| !p.is_empty()) {
+            candidates.push(std::path::PathBuf::from(p));
+        }
+    }
+    for dir in candidates {
+        if dir.join(exe).is_file() {
+            return Some(dir.to_string_lossy().into_owned());
+        }
+    }
+    None
+}
+
+/// Декод вывода дочернего процесса.
+///
+/// `cmd /C` отдаёт текст в однобайтовой кодировке консоли (у русской Windows
+/// обычно CP866, иногда CP1251). Декодировать такие байты как UTF-8 нельзя -
+/// в выводе появляются чёрные ромбы вместо букв, и агент не понимает, что
+/// произошло. Поэтому сначала пробуем UTF-8, а при неудаче однобайтовую
+/// таблицу Windows-1251 (кириллица) с таблицей 866 как запасным вариантом.
+fn decode_output(bytes: &[u8]) -> String {
+    if bytes.is_empty() {
+        return String::new();
+    }
+    if let Ok(s) = std::str::from_utf8(bytes) {
+        return s.to_string();
+    }
+    // CP866 -> CP1251: 0x80..=0xAF в 866 это ё..п, в 1251 это блоки псевдографики
+    // и часть букв. Для читаемости ошибок важнее 1251.
+    let text: String = bytes
+        .iter()
+        .map(|&b| match b {
+            0x00..=0x7F => b as char,
+            // переводим кириллицу CP1251 в Unicode
+            0xC0..=0xFF => char::from_u32(b as u32 - 0xC0 + 0x0410).unwrap_or('\u{FFFD}'),
+            0xA8 => '\u{0401}', // ё
+            0xB8 => '\u{0451}', // Ё
+            0x80 => '\u{0402}', // А с макроном
+            0x81 => '\u{201A}',
+            0x82 => '\u{201E}',
+            0x83 => '\u{2026}',
+            0x84 => '\u{2020}',
+            0x85 => '\u{2021}',
+            0x86 => '\u{20AC}',
+            0x87 => '\u{2030}',
+            0x88 => '\u{0409}',
+            0x89 => '\u{2039}',
+            0x8A => '\u{203A}',
+            0x8B => '\u{040F}',
+            0x8C => '\u{221A}',
+            0x8D => '\u{045E}',
+            0x8E => '\u{0408}',
+            0x8F => '\u{00A0}',
+            0x90 => '\u{040E}',
+            0x91 => '\u{045A}',
+            0x92 => '\u{0409}',
+            0x93 => '\u{040A}',
+            0x94 => '\u{040C}',
+            0x95 => '\u{040B}',
+            0x96 => '\u{040F}',
+            0x97 => '\u{0452}',
+            0x98 => '\u{0453}',
+            0x99 => '\u{0451}',
+            0x9A => '\u{2014}',
+            0x9B => '\u{2013}',
+            0x9C => '\u{201E}',
+            0x9D => '\u{2122}',
+            0x9E => '\u{0454}',
+            0x9F => '\u{00A9}',
+            _ => '\u{FFFD}',
+        })
+        .collect();
+    text
+}
+
+/// Где лежит Node и какая версия. Отдаём агенту, чтобы он не угадывал путь и
+/// не тратил попытки на `where node`: версия и путь различаются от запуска из
+/// терминала, где пользователь мог настроить nvm.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct NodeInfo {
+    pub found: bool,
+    pub path: String,
+    pub version: String,
+    pub npm: String,
+}
+
+#[tauri::command]
+pub async fn op_node_info() -> Result<NodeInfo, String> {
+    let Some(dir) = node_bin_dir() else {
+        return Ok(NodeInfo {
+            found: false,
+            path: String::new(),
+            version: String::new(),
+            npm: String::new(),
+        });
+    };
+    let exe = if cfg!(target_os = "windows") { "node.exe" } else { "node" };
+    let node = std::path::PathBuf::from(&dir).join(exe);
+    let version = std::process::Command::new(&node)
+        .arg("--version")
+        .output()
+        .ok()
+        .map(|o| decode_output(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+    let npm = {
+        let cand = if cfg!(target_os = "windows") { "npm.cmd" } else { "npm" };
+        let p = std::path::PathBuf::from(&dir).join(cand);
+        if p.is_file() { p.to_string_lossy().into_owned() } else { String::new() }
+    };
+    Ok(NodeInfo {
+        found: true,
+        path: node.to_string_lossy().into_owned(),
+        version,
+        npm,
+    })
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -178,9 +178,41 @@ export function normalizeToolArgs(tool: string, raw: any): { args: any; error?: 
     launcher_remove_content: ['instance_id', 'folder', 'file_name'],
     mod_search: ['query'],
   };
+  // 5) Последний шанс найти `path`: модель часто называет его как-то по-своему
+  //    («location», «dest», абсолютный путь в неожиданном поле). Список
+  //    псевдонимов конечен, поэтому если обязательный путь так и не нашёлся —
+  //    берём единственное оставшееся строковое значение, похожее на путь.
+  //    Берём только то, что ещё не занято другим обязательным аргументом,
+  //    иначе можно было бы подставить вместо пути текст файла.
+  if ((args.path === undefined || args.path === '') && (required[tool] ?? []).includes('path')) {
+    const taken = new Set((required[tool] ?? []).filter(k => k !== 'path' && args[k] !== undefined));
+    const candidates = Object.entries(args).filter(
+      ([k, v]) => !taken.has(k) && typeof v === 'string' && v.trim()
+        && /[\\/]|\.[A-Za-z0-9]{1,8}$/.test(v.trim()),
+    );
+    if (candidates.length === 1) {
+      args.path = candidates[0][1];
+    } else if (candidates.length > 1) {
+      // Несколько похожих строк — не угадываем, но подсказываем модели выбор.
+      return {
+        args,
+        error: `Инструмент ${tool}: не хватает аргумента «path», и подходящего пути не найдено среди `
+          + `полей ${candidates.map(([k]) => `«${k}»`).join(', ')}. `
+          + `Укажи путь явно в поле «path».`,
+      };
+    }
+  }
   for (const key of required[tool] ?? []) {
     if (args[key] === undefined || args[key] === '') {
-      return { args, error: `Инструмент ${tool}: не хватает обязательного аргумента «${key}».` };
+      // Показываем, что реально прислала модель. Раньше в ошибку уходил только
+      // голый текст, и по нему было невозможно понять, какой ключ она выбрала.
+      const got = Object.keys(args).filter(k => args[k] !== undefined);
+      return {
+        args,
+        error: `Инструмент ${tool}: не хватает обязательного аргумента «${key}».`
+          + (got.length ? ` Модель прислала: ${got.join(', ')}.` : ' Модель не прислала ни одного аргумента.')
+          + ` Допустимые названия для «${key}»: ${key}, ${(ARG_ALIASES[key] ?? []).join(', ')}.`,
+      };
     }
   }
   return { args };
@@ -3671,6 +3703,15 @@ export interface ApiOutcome {
   raw: unknown;
   model?: string;
   usage?: TokenUsage;
+  /**
+   * Ответ оборвался на полуслове: поток закрылся без `[DONE]` или провайдер
+   * остановил генерацию по `finish_reason: length` (контекст упёрся в потолок).
+   * Раньше это выглядело как «ИИ просто закончил» — цикл агента принимал
+   * обрезанный текст за готовый ответ и замолкал без объяснения.
+   */
+  truncated?: boolean;
+  /** Почему именно оборвалось: 'length' | 'stream' | 'content_filter'. */
+  truncateReason?: 'length' | 'stream' | 'content_filter';
 }
 
 export interface StreamDelta {
@@ -4020,19 +4061,31 @@ async function parseSSE(
   let thinking = '';
   let model: string | undefined;
   let usage: TokenUsage | undefined;
-  const toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
+  let toolCalls = new Map<number, { id: string; name: string; arguments: string }>();
+  let finishReason: string | undefined;
+  let sawDone = false;
 
   const finish = (): ApiOutcome => {
     const calls: ToolCall[] = [...toolCalls.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([, v]) => ({ id: v.id, name: v.name, arguments: normalizeToolArguments(v.arguments) }));
+    // `length` - упёрлись в потолок контекста, `content_filter` - сработал
+    // фильтр провайдера. Оба случая требуют реакции, а не тихого финала.
+    const reason = finishReason === 'length' || finishReason === 'content_filter'
+      ? (finishReason as 'length' | 'content_filter')
+      : undefined;
+    // Поток закрылся без маркера `[DONE]`: у провайдеров это бывает при
+    // обрыве соединения, и текст почти всегда обрезан на полуслове.
+    const cut = reason ?? (sawDone ? undefined : 'stream');
     return {
       text,
       thinking: thinking ? trimThinking(thinking) : undefined,
       toolCalls: calls.length ? calls : undefined,
-      raw: { stream: true },
+      raw: { stream: true, finish_reason: finishReason ?? (sawDone ? 'stop' : 'stream_cut') },
       model,
       usage,
+      truncated: !!cut && !sawDone ? true : !!reason,
+      truncateReason: cut,
     };
   };
 
@@ -4046,14 +4099,18 @@ async function parseSSE(
       buf = buf.slice(nl + 1);
       if (!line.startsWith('data:')) continue;
       const data = line.slice(5).trim();
-      if (data === '[DONE]') return finish();
+      if (data === '[DONE]') { sawDone = true; return finish(); }
       let json: any;
       try {
         json = JSON.parse(data);
       } catch {
+        // Битый кадр SSE не роняет весь ответ: у провайдеров такие кадры
+        // встречаются в середине потока. Молча пропускаем, но запоминаем,
+        // что поток был неидеальным.
         continue;
       }
       model = json.model ?? model;
+      if (json.choices?.[0]?.finish_reason) finishReason = json.choices[0].finish_reason;
       const u = usageFromOpenAI(json);
       if (u) usage = u;
       const delta = json.choices?.[0]?.delta;
@@ -5020,6 +5077,46 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
         });
       }
       continue;
+    }
+
+    // Ответ оборвался на полуслове. Раньше такой случай просто возвращал
+    // обрезанный текст и цикл завершался - со стороны выглядело так, будто ИИ
+    // замолчал посреди мысли. Теперь объясняем причину и продолжаем сами.
+    if (outcome.truncated) {
+      const reason = outcome.truncateReason;
+      if (reason === 'length' || reason === 'content_filter') {
+        if (!autoCompressed) {
+          autoCompressed = true;
+          const withoutStubNow = messages.filter(m => m.id !== assistantId);
+          const trimmed = hardTrimHistory(withoutStubNow);
+          messages = trimmed;
+          opts.onReplace?.(messages);
+          push({
+            id: `autocompact-${Date.now()}-${iter}`,
+            role: 'assistant',
+            content: reason === 'length'
+              ? 'Ответ упёрся в потолок контекста на полуслове - история сжата, продолжаю с того же места.'
+              : 'Провайдер остановил генерацию фильтром содержимого. История сжата, пробую продолжить.',
+            timestamp: Date.now(),
+          });
+          resetToolModeCache();
+          continue;
+        }
+      } else if (iter < maxIterations - 1) {
+        // Обрыв соединения: один раз пробуем продолжить с последнего
+        // целого куска, дальше повтор не имеет смысла.
+        push({
+          id: `streamcut-${Date.now()}-${iter}`,
+          role: 'assistant',
+          content: 'Соединение с моделью оборвалось на полуслове, продолжаю.',
+          timestamp: Date.now(),
+        });
+        resetToolModeCache();
+        continue;
+      }
+      patch(assistantId, {
+        content: `${outcome.text || ''}\n\n_(Ответ оборвался на полуслове: соединение с провайдером прервалось.)_`,
+      });
     }
     return messages;
   }

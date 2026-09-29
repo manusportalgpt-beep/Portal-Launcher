@@ -2344,12 +2344,11 @@ html[data-portal-style="quadral"] svg.lucide {
   stroke-linejoin: miter;
   stroke-width: 2.4;
 }
-html[data-portal-style="quadral"] svg {
-  image-rendering: crisp-edges;
-}
-html[data-portal-style="quadral"] img {
-  image-rendering: pixelated;
-}
+/* Растрировать ВСЕ картинки приложения нельзя: под quadral этим попадали под
+   общий стиль сгенерированные ИИ изображения, аватары и фото — они
+   растягивались квадратами. Пиксельный вид нужен только блочным текстурам
+   (лица игроков, иконки модов, превью миров, скины), и там image-rendering
+   уже задан точечно в самих компонентах. */
 
 /* ═══════════════════════════════════════════════════════════════════════
    ORE-UI: палитра и компонентные токены реальной дизайн-системы OreUI.

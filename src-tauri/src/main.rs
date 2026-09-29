@@ -413,6 +413,7 @@ fn main() {
             commands::opencode::op_app_installed,
             commands::opencode::op_node_info,
             commands::opencode_browser::op_browser_status,
+            commands::opencode_browser::op_browser_check,
             commands::opencode_browser::op_browser_open,
             commands::opencode_browser::op_browser_navigate,
             commands::opencode_browser::op_browser_read_text,

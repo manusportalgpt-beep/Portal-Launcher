@@ -55,6 +55,8 @@ pub struct BrowserFrame {
     pub cursor_visible: bool,
     pub url: String,
     pub title: String,
+    /// Проверка домена: официальный сайт, подделка или просто неизвестный.
+    pub verdict: Option<HostVerdict>,
     /// Файл, который сейчас скачивается, если идёт загрузка.
     pub downloading: Option<String>,
 }
@@ -80,14 +82,7 @@ fn browser_profile() -> PathBuf {
 }
 
 /// Папка загрузок. Единственное место на диске, куда браузер вообще пишет.
-fn download_dir() -> PathBuf {
-    let p = portal_root()
-        .join("OpenPortal")
-        .join("Cache")
-        .join("downloads");
-    std::fs::create_dir_all(&p).ok();
-    p
-}
+/// Объявлена в самом низу файла рядом с проверкой домена.
 
 fn find_browser() -> Option<(PathBuf, String)> {
     let mut c: Vec<PathBuf> = Vec::new();
@@ -157,13 +152,25 @@ struct Browser {
     child: Option<Child>,
 }
 
+/// Состояние страницы: адрес, заголовок и вердикт по домену.
+#[derive(Default)]
+struct Meta {
+    url: String,
+    title: String,
+    verdict: Option<HostVerdict>,
+}
+
 lazy_static! {
     static ref STATE: Mutex<Option<Browser>> = Mutex::new(None);
     static ref SEQ: AtomicU64 = AtomicU64::new(0);
     /// Позиция курсора ИИ: (x, y, видно ли). Её рисует фронт поверх кадра.
     static ref CURSOR: Mutex<(f64, f64, bool)> = Mutex::new((0.0, 0.0, false));
-    /// Адрес и заголовок страницы - едут в каждый кадр.
-    static ref META: Mutex<(String, String)> = Mutex::new((String::new(), String::new()));
+    /// Адрес, заголовок и вердикт по домену - едут в каждый кадр.
+    static ref META: Mutex<Meta> = Mutex::new(Meta {
+        url: String::new(),
+        title: String::new(),
+        verdict: None,
+    });
 }
 
 /// Клонируем Arc и отпускаем блокировку, чтобы во время `await` мьютекс
@@ -185,10 +192,10 @@ fn set_cursor(x: f64, y: f64) {
 fn set_meta(url: &str, title: &str) {
     if let Ok(mut m) = META.lock() {
         if !url.is_empty() {
-            m.0 = url.to_string();
+            m.url = url.to_string();
         }
         if !title.is_empty() {
-            m.1 = title.to_string();
+            m.title = title.to_string();
         }
     }
 }
@@ -229,6 +236,333 @@ fn check_url(url: &str) -> Result<(), String> {
         return Err("Нужен полный адрес, например https://example.com".into());
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Проверка домена: настоящий официальный сайт или подделка
+// ---------------------------------------------------------------------------
+
+/// Известные бренды и их официальные домены.
+///
+/// Это не «список разрешённых сайтов»: попадание в него даёт метку
+/// «официальный», а несовпадение с ним при похожем имени — жёсткий отказ.
+/// Всё остальное в интернете по-прежнему доступно, но помечается как
+/// непроверенное, и пользователь видит предупреждение в карточке.
+const KNOWN_BRANDS: &[(&str, &[&str])] = &[
+    ("discord", &["discord.com", "discordapp.com"]),
+    (
+        "github",
+        &["github.com", "githubusercontent.com", "githubassets.com"],
+    ),
+    ("mojang", &["mojang.com", "minecraft.net"]),
+    (
+        "microsoft",
+        &[
+            "microsoft.com",
+            "microsoftonline.com",
+            "live.com",
+            "msftconnecttest.com",
+        ],
+    ),
+    (
+        "windows",
+        &["windows.com", "windowsupdate.com", "microsoft.com"],
+    ),
+    ("openai", &["openai.com", "chatgpt.com"]),
+    ("anthropic", &["anthropic.com", "claude.ai"]),
+    (
+        "google",
+        &[
+            "google.com",
+            "googleapis.com",
+            "gstatic.com",
+            "youtube.com",
+            "goo.gl",
+        ],
+    ),
+    ("mozilla", &["mozilla.org", "firefox.com"]),
+    ("apple", &["apple.com", "icloud.com"]),
+    ("amazon", &["amazon.com", "aws.amazon.com"]),
+    ("spotify", &["spotify.com", "spotifycdn.com"]),
+    (
+        "steam",
+        &[
+            "steamcommunity.com",
+            "steampowered.com",
+            "valvesoftware.com",
+        ],
+    ),
+    ("epicgames", &["epicgames.com", "fortnite.com"]),
+    ("riotgames", &["riotgames.com"]),
+    ("blizzard", &["blizzard.com", "battle.net"]),
+    ("gog", &["gog.com", "gogalaxy.com"]),
+    ("ubisoft", &["ubisoft.com"]),
+    ("origin", &["origin.com", "ea.com"]),
+    ("itch", &["itch.io"]),
+    ("curseforge", &["curseforge.com", "curseforgecdn.com"]),
+    ("modrinth", &["modrinth.com", "modrinthcdn.com"]),
+    ("fabricmc", &["fabricmc.net"]),
+    ("neoforged", &["neoforged.net"]),
+    ("quiltmc", &["quiltmc.org"]),
+    ("openjdk", &["openjdk.org", "java.com", "oracle.com"]),
+    ("adoptium", &["adoptium.net", "eclipse.org"]),
+    ("oracle", &["oracle.com", "java.net"]),
+    ("nodejs", &["nodejs.org"]),
+    ("python", &["python.org"]),
+    ("rust", &["rust-lang.org"]),
+    ("docker", &["docker.com"]),
+    ("gitlab", &["gitlab.com"]),
+    ("npm", &["npmjs.com", "npmjs.org"]),
+    ("nvidia", &["nvidia.com", "geforce.com"]),
+    ("amd", &["amd.com", "radeon.com"]),
+    ("intel", &["intel.com"]),
+    ("realtek", &["realtek.com"]),
+    ("telegram", &["telegram.org", "t.me"]),
+    ("notion", &["notion.so", "notion.site"]),
+    ("figma", &["figma.com"]),
+    ("obs", &["obsproject.com"]),
+    ("anydesk", &["anydesk.com"]),
+    ("teamviewer", &["teamviewer.com"]),
+    ("unity", &["unity.com", "unity3d.com"]),
+    ("godotengine", &["godotengine.org"]),
+    ("jetbrains", &["jetbrains.com"]),
+    ("yandex", &["yandex.ru", "yandex.com"]),
+    ("mailru", &["mail.ru"]),
+    ("vk", &["vk.com", "vk.ru"]),
+    ("skype", &["skype.com"]),
+];
+
+/// Суффиксы из двух частей: без их учёта `example.co.uk` считался бы
+/// доменом `uk` и сверка с брендами работала бы неверно.
+const COMPOUND_SUFFIXES: &[&str] = &[
+    "co.uk",
+    "org.uk",
+    "me.uk",
+    "ac.uk",
+    "gov.uk",
+    "co.jp",
+    "or.jp",
+    "ne.jp",
+    "com.br",
+    "net.br",
+    "org.br",
+    "com.au",
+    "net.au",
+    "org.au",
+    "co.nz",
+    "com.cn",
+    "com.mx",
+    "com.ar",
+    "co.in",
+    "com.tr",
+    "com.ua",
+    "co.za",
+    "com.sg",
+    "com.hk",
+    "com.tw",
+    "co.kr",
+    "com.pl",
+    "com.es",
+    "com.it",
+    "com.fr",
+    "com.de",
+    "com.ru",
+    "co.il",
+    "co.id",
+    "co.th",
+    "com.my",
+    "com.ph",
+    "com.vn",
+    "com.pk",
+    "com.sa",
+    "com.eg",
+    "com.ng",
+    "com.pe",
+    "com.co",
+    "github.io",
+];
+
+/// Домен, который зарегистрирован на конкретного человека: `example.co.uk`
+/// целиком, а не `uk`. Пригодится и для отлова `discord-com.net`.
+fn registrable_domain(host: &str) -> String {
+    let labels: Vec<&str> = host.split('.').filter(|l| !l.is_empty()).collect();
+    if labels.len() <= 2 {
+        return host.to_string();
+    }
+    let last_two = format!("{}.{}", labels[labels.len() - 2], labels[labels.len() - 1]);
+    let take = if COMPOUND_SUFFIXES.contains(&last_two.as_str()) {
+        3
+    } else {
+        2
+    };
+    let start = labels.len().saturating_sub(take);
+    labels[start..].join(".")
+}
+
+/// Имя без разделителей: `discord-com` и `discord.com` станут `discordcom`.
+/// Так сравнение не зависит от того, как именно подделали домен.
+fn squash(s: &str) -> String {
+    s.chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect::<String>()
+        .to_lowercase()
+}
+
+/// Что удалось выяснить про адрес.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HostVerdict {
+    pub host: String,
+    /// Домен, зарегистрированный на конкретного человека.
+    pub domain: String,
+    /// Бренд, если домен официальный.
+    pub official_brand: Option<String>,
+    /// Бренд, который этот домен изображает, если официальным не является.
+    pub impersonates: Option<String>,
+    /// Официальный домой этого бренда - что показать пользователю.
+    pub official_domain: Option<String>,
+    /// Человеческий вердикт для ИИ и для интерфейса.
+    pub verdict: String,
+    /// true - домен в белом списке, false - просто не проверен.
+    pub verified: bool,
+    /// Настоящая причина отказа, если домен не пройден.
+    pub blocked_reason: Option<String>,
+}
+
+/// Разбирает адрес и решает, можно ли на него идти.
+///
+/// Проверки идут от дешёвых к дорогим: сперва форма хоста (тут ловятся
+/// подмена букв и IP вместо имени), потом сверка с известными брендами.
+fn analyze_host(url: &str) -> Result<HostVerdict, String> {
+    let rest = url.split_once("://").map(|(_, r)| r).unwrap_or(url).trim();
+    // Отрезаем путь, запрос и якорь.
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("").trim();
+    if authority.is_empty() {
+        return Err("В адресе нет домена".into());
+    }
+    // `юзер@хост` - классический способ спрятать настоящий домен.
+    if authority.contains('@') {
+        return Err(format!(
+            "Адрес «{url}» отклонён: в нём есть «@» — так настоящий домен прячут в ссылках."
+        ));
+    }
+    let host = authority
+        .rsplit_once(':')
+        .map(|(h, port)| {
+            if port.chars().all(|c| c.is_ascii_digit()) {
+                h
+            } else {
+                authority
+            }
+        })
+        .unwrap_or(authority)
+        .to_lowercase();
+
+    if host.is_empty() {
+        return Err("В адресе нет домена".into());
+    }
+    // Буквы вне ASCII - почти всегда подмена одной буквы на похожую:
+    // кириллическая «с» в «disсord.com» выглядит так же.
+    if !host.is_ascii() {
+        return Err(format!(
+            "Адрес «{url}» отклонён: в домене есть нелатинские буквы. Это подмена символов \
+             под известный сайт."
+        ));
+    }
+    // Punycode выглядит безобидно, но скрывает иероглифы.
+    if host.contains("xn--") {
+        return Err(format!(
+            "Адрес «{url}» отклонён: домен в punycode (xn--) - так прячут подменённые символы."
+        ));
+    }
+    // Голый IP вместо имени.
+    let is_ip = host
+        .split('.')
+        .all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()));
+    if is_ip {
+        return Err(format!(
+            "Адрес «{url}» отклонён: вместо домена указан числовой IP. Официальные сайты \
+             работают по именам."
+        ));
+    }
+    if host.ends_with('.') {
+        return Err(format!(
+            "Адрес «{url}» отклонён: домен не может оканчиваться точкой."
+        ));
+    }
+
+    let domain = registrable_domain(&host);
+
+    // 1) Домен в белом списке - официальный.
+    for (brand, domains) in KNOWN_BRANDS {
+        if domains.iter().any(|d| host == *d || domain == *d) {
+            return Ok(HostVerdict {
+                host,
+                domain,
+                official_brand: Some(brand.to_string()),
+                impersonates: None,
+                official_domain: Some(domains[0].to_string()),
+                verdict: format!("официальный сайт {brand} ({})", domains[0]),
+                verified: true,
+                blocked_reason: None,
+            });
+        }
+    }
+    // 2) Домен незнакомый, но притворяется известным: отказ.
+    //    Проверяем и сам домен, и хвост перед ним: в `steamcommunity.com.evil.io`
+    //    регистрируемый домен - `evil.io`, а бренд спрятан в поддомене. Такой
+    //    адрес выглядит в строке браузера как настоящий Steam.
+    let squashed = squash(&domain);
+    let prefix = host
+        .strip_suffix(&domain)
+        .map(|p| squash(p))
+        .unwrap_or_default();
+    for (brand, domains) in KNOWN_BRANDS {
+        let key = squash(brand);
+        if key.len() < 4 {
+            // Слишком короткие имена дают ложные срабатывания.
+            continue;
+        }
+        if squashed.contains(&key) || (!prefix.is_empty() && prefix.contains(&key)) {
+            return Err(format!(
+                "Адрес «{url}» отклонён: это не официальный {brand}. Официальный домен — {}. \
+                 Похожие адреса ({domain}) используют для кражи данных.",
+                domains[0]
+            ));
+        }
+    }
+    // 3) Ничего не сработало: сайт просто не из списка. Идти можно, но
+    //    пользователь должен видеть, что официальность не подтверждена.
+    Ok(HostVerdict {
+        host,
+        domain,
+        official_brand: None,
+        impersonates: None,
+        official_domain: None,
+        verdict: "домен не в списке проверенных - официальность не подтверждена".into(),
+        verified: false,
+        blocked_reason: None,
+    })
+}
+
+/// Папка загрузок. Публична, потому что `op_run_command` обязан запрещать
+/// запуск скачанного - иначе подсунутый «обновлятор» выполнится.
+pub(crate) fn download_dir() -> PathBuf {
+    let p = portal_root()
+        .join("OpenPortal")
+        .join("Cache")
+        .join("downloads");
+    std::fs::create_dir_all(&p).ok();
+    p
+}
+
+/// Собирает проверку целиком: схема плюс домен.
+fn check_url_verified(url: &str) -> Result<HostVerdict, String> {
+    check_url(url)?;
+    let verdict = analyze_host(url)?;
+    if let Ok(mut m) = META.lock() {
+        m.verdict = Some(verdict.clone());
+    }
+    Ok(verdict)
 }
 
 // ---------------------------------------------------------------------------
@@ -398,7 +732,10 @@ async fn connect(app: tauri::AppHandle, start_url: &str) -> Result<(), String> {
                 continue;
             }
             let (cx, cy, vis) = CURSOR.lock().map(|c| *c).unwrap_or((0.0, 0.0, false));
-            let (url, title) = META.lock().map(|m| m.clone()).unwrap_or_default();
+            let (url, title, verdict) = META
+                .lock()
+                .map(|m| (m.url.clone(), m.title.clone(), m.verdict.clone()))
+                .unwrap_or_default();
             let seq = SEQ.fetch_add(1, Ordering::SeqCst);
             let _ = app_r.emit(
                 "browser://frame",
@@ -410,6 +747,7 @@ async fn connect(app: tauri::AppHandle, start_url: &str) -> Result<(), String> {
                     cursor_visible: vis,
                     url,
                     title,
+                    verdict,
                     downloading: None,
                 },
             );
@@ -625,6 +963,8 @@ pub async fn op_browser_open(app: tauri::AppHandle, url: Option<String>) -> Resu
     if cdp().is_ok() {
         let c = cdp()?;
         c.call("Page.navigate", json!({ "url": start })).await?;
+        // Повторная проверка: адрес мог прийти из вкладки, а не от ИИ.
+        let _ = check_url_verified(&start);
     } else {
         connect(app, &start).await?;
     }
@@ -637,13 +977,16 @@ pub async fn op_browser_status() -> Result<Value, String> {
         return Ok(json!({
             "open": false,
             "closed_by_user": false,
-            "url": "", "title": "",
+            "url": "", "title": "", "verdict": Value::Null,
             "downloads": [],
             "download_dir": download_dir().to_string_lossy(),
             "note": "Окно браузера не открыто",
         }));
     };
-    let (url, title) = META.lock().map(|m| m.clone()).unwrap_or_default();
+    let (url, title, verdict) = META
+        .lock()
+        .map(|m| (m.url.clone(), m.title.clone(), m.verdict.clone()))
+        .unwrap_or_default();
     // Страховка: если вкладку закрыли изнутри - вкладка исчезла из списка.
     let alive = list_targets(DEBUG_PORT)
         .await
@@ -653,7 +996,7 @@ pub async fn op_browser_status() -> Result<Value, String> {
         return Ok(json!({
             "open": false,
             "closed_by_user": true,
-            "url": "", "title": "",
+            "url": "", "title": "", "verdict": Value::Null,
             "downloads": [],
             "download_dir": download_dir().to_string_lossy(),
             "note": "Браузер остановлен",
@@ -665,6 +1008,7 @@ pub async fn op_browser_status() -> Result<Value, String> {
         "closed_by_user": false,
         "url": url,
         "title": title,
+        "verdict": verdict,
         "downloads": downloads_list(),
         "download_dir": download_dir().to_string_lossy(),
         "note": "Браузер работает, картинка в чате",
@@ -673,11 +1017,18 @@ pub async fn op_browser_status() -> Result<Value, String> {
 
 #[tauri::command]
 pub async fn op_browser_navigate(url: String) -> Result<String, String> {
-    check_url(&url)?;
+    // Здесь домен проверяется по-настоящему: подделка не пройдёт.
+    let verdict = check_url_verified(&url)?;
     let c = cdp()?;
     c.call("Page.navigate", json!({ "url": url })).await?;
     set_meta(&url, "");
-    Ok(format!("Перешёл на {url}"))
+    Ok(format!("Перешёл на {url}. {}", verdict.verdict))
+}
+
+/// Проверка адреса без перехода: агент спрашивает заранее, можно ли идти.
+#[tauri::command]
+pub fn op_browser_check(url: String) -> Result<HostVerdict, String> {
+    check_url_verified(&url)
 }
 
 #[tauri::command]

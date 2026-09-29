@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@/lib/invoke-shim';
 import { listen } from '@tauri-apps/api/event';
-import { Download, Globe, MousePointer2, X } from 'lucide-react';
+import { Download, Globe, MousePointer2, ShieldAlert, ShieldCheck, X } from 'lucide-react';
 import type { BrowserCard as BrowserCardData } from '@/lib/opencore/types';
 
 /** Прозрачный пиксель: заглушка src до первого кадра. */
 const BLANK =
   'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-
-interface Frame {  data: string;
+interface Frame {
+  data: string;
   seq: number;
   cursor_x: number;
   cursor_y: number;
@@ -16,6 +16,19 @@ interface Frame {  data: string;
   url: string;
   title: string;
   downloading: string | null;
+  verdict: HostVerdict | null;
+}
+
+/** Что удалось выяснить про домен: официальный, подделка или неизвестный. */
+interface HostVerdict {
+  host: string;
+  domain: string;
+  official_brand: string | null;
+  impersonates: string | null;
+  official_domain: string | null;
+  verdict: string;
+  verified: boolean;
+  blocked_reason: string | null;
 }
 
 /**
@@ -38,6 +51,7 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [url, setUrl] = useState(card.url);
   const [title, setTitle] = useState(card.title);
+  const [domain, setDomain] = useState<HostVerdict | null>(null);
   const [closed, setClosed] = useState(!card.active);
 
   // Слушаем кадры. Один слушатель на карточку, и он снимается при уходе.
@@ -60,6 +74,7 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
       }
       if (f.url) setUrl(f.url);
       if (f.title) setTitle(f.title);
+      if (f.verdict) setDomain(f.verdict);
     });
     return () => {
       alive = false;
@@ -91,8 +106,27 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
           {title || 'Браузер ИИ'}
         </span>
         <span className="truncate" style={{ color: 'var(--color-text-tertiary)' }}>{url}</span>
+        {/* Метка проверки домена: официальный / не подтверждён / подделка. */}
+        {domain && !closed && (
+          <span
+            title={domain.impersonates
+              ? `Это не ${domain.impersonates}. Официальный: ${domain.official_domain}`
+              : domain.verdict}
+            className="ml-auto flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold"
+            style={{
+              background: domain.verified ? 'rgba(34,197,94,0.15)' : 'rgba(234,179,8,0.18)',
+              color: domain.verified ? '#22c55e' : '#eab308',
+            }}>
+            {domain.verified ? <ShieldCheck size={10} /> : <ShieldAlert size={10} />}
+            {domain.verified
+              ? `официальный${domain.official_brand ? ` · ${domain.official_brand}` : ''}`
+              : domain.impersonates
+                ? 'НЕ официальный'
+                : 'не проверен'}
+          </span>
+        )}
         {card.downloads.length > 0 && (
-          <span className="ml-auto flex items-center gap-1" style={{ color: 'var(--color-text-tertiary)' }}
+          <span className="flex items-center gap-1" style={{ color: 'var(--color-text-tertiary)' }}
             title={`Скачано в кеш лаунчера: ${card.downloads.join(', ')}`}>
             <Download size={11} />
             {card.downloads.length}
@@ -106,6 +140,23 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
           </button>
         )}
       </div>
+
+      {/* Предупреждение о неподтверждённом домене - то, что должен видеть человек. */}
+      {domain && !domain.verified && !closed && (
+        <div className="flex items-start gap-2 border-b px-2.5 py-1.5 text-[11px] leading-4"
+          style={{
+            borderColor: 'var(--color-border)',
+            background: 'rgba(234,179,8,0.10)',
+            color: '#eab308',
+          }}>
+          <ShieldAlert size={12} className="mt-0.5 shrink-0" />
+          <span>
+            {domain.impersonates
+              ? `Похоже на подделку. Настоящий ${domain.impersonates} — ${domain.official_domain}, а не ${domain.domain}.`
+              : `Домен ${domain.domain} не в списке проверенных. Официальность не подтверждена — не вводи сюда личные данные.`}
+          </span>
+        </div>
+      )}
 
       <div className="relative bg-black" style={{ aspectRatio: `${ratio}` }}>
         <img

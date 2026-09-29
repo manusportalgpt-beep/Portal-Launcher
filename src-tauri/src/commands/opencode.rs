@@ -1907,10 +1907,12 @@ pub async fn op_run_command(
     }
     if is_dangerous_command(&command) {
         return Err(
-            "Команда заблокирована защитой OpenPortal: похоже на действие, опасное для системы."
-                .into(),
+            "Опасная команда отклонена OpenPortal: у тебя нет прав на это, не обходи блок.".into(),
         );
     }
+    // Скачанное из интернета не запускаем - даже если в команде нет ни одного
+    // опасного слова (обычная атака: «обновление.exe» из кеша).
+    reject_downloaded_exec(&command)?;
     let use_powershell = shell.as_deref() == Some("powershell");
 
     let cwd_path_for_block = cwd_path.clone();
@@ -2366,6 +2368,34 @@ fn is_program_allowed(program: &str) -> bool {
         .any(|p| *p == name || p.trim_end_matches(".exe") == name.trim_end_matches(".exe"))
 }
 
+/// Запрет запуска того, что скачал браузер.
+///
+/// Пока этого не было, цепочка была очевидной: ИИ открывает страницу, сайт
+/// отдаёт «обновление.exe», файл ложится в кеш, и `run_command` его
+/// запускает. Блоклист по подстрокам такой путь не ловил, потому что в
+/// команде нет ни одного опасного слова. Теперь любой путь в папку
+/// загрузок отклоняется - независимо от программы и расширения.
+fn reject_downloaded_exec(text: &str) -> Result<(), String> {
+    let low = text.to_lowercase().replace('/', "\\");
+    let dl = super::opencode_browser::download_dir()
+        .to_string_lossy()
+        .to_lowercase()
+        .replace('/', "\\");
+    let hits = low.contains(&dl)
+        // На случай относительного пути вида Cache\downloads\setup.exe
+        || low.contains("\\openportal\\cache\\downloads")
+        || low.contains("cache/downloads");
+    if hits {
+        return Err(
+            "Запуск файлов, скачанных браузером, запрещён. ИИ не может выполнять то, что \
+             пришло из интернета: скачанное может оказаться вредоносным. Если файл нужен \
+             для задачи — попроси пользователя запустить его сам."
+                .into(),
+        );
+    }
+    Ok(())
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProgramRun {
     pub exit_code: i32,
@@ -2399,6 +2429,12 @@ pub async fn op_run_program(
     }
     if args.iter().any(|a| a.contains('\0')) {
         return Err("Аргумент содержит недопустимый символ".into());
+    }
+    // Сначала проверка путей: запрещённое должно отсеиваться до всего.
+    {
+        let mut all = vec![program.clone()];
+        all.extend(args.iter().cloned());
+        reject_downloaded_exec(&all.join(" "))?;
     }
     // Рабочая папка - только внутри разрешённой зоны.
     let cwd_path = if cwd.trim().is_empty() {

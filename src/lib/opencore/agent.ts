@@ -544,6 +544,23 @@ export const TOOLS: ToolDef[] = [
     requiresPermission: false,
   },
   {
+    name: 'browser_check',
+    description:
+      'Проверяет адрес ДО перехода: настоящий это официальный сайт или подделка. ' +
+      'Возвращает вердикт: verified=true — официальный домен известного бренда; ' +
+      'impersonates заполнен — домен подделывается под известный бренд; ' +
+      'verified=false без impersonates — просто неизвестный сайт. ' +
+      'На подделку инструмент отказывает: browser_navigate не сработает. ' +
+      'Не определяй сам по памяти, какой домен настоящий - спрашивай тут.',
+    parameters: {
+      type: 'object',
+      properties: { url: { type: 'string', description: 'Полный адрес для проверки' } },
+      required: ['url'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
     name: 'browser_downloads',
     description:
       'Список файлов, которые браузер скачал. Всё лежит в кеше лаунчера ' +
@@ -2118,6 +2135,34 @@ async function execBrowser(tool: string, args: any, signal?: AbortSignal): Promi
       const url = String(args?.url ?? '');
       if (!/^https?:\/\//i.test(url)) return { ok: false, output: 'Нужен полный адрес вида https://example.com' };
       return { ok: true, output: await invoke<string>('op_browser_navigate', { url }) };
+    }
+
+    if (tool === 'browser_check') {
+      const url = String(args?.url ?? '');
+      const v = await invoke<{
+        host: string; domain: string; official_brand: string | null;
+        impersonates: string | null; official_domain: string | null;
+        verdict: string; verified: boolean; blocked_reason: string | null;
+      }>('op_browser_check', { url });
+      if (v.impersonates) {
+        return {
+          ok: false,
+          output: `СТОП. ${v.domain} — это НЕ официальный ${v.impersonates}. `
+            + `Настоящий домен: ${v.official_domain}. `
+            + `Скажи пользователю, что по этому адресу вход и данные вводить нельзя, `
+            + `и предложи перейти на ${v.official_domain}. Не пытайся обойти проверку.`,
+          browser: { active: true, url: v.host, title: '', downloads: [] },
+        };
+      }
+      return {
+        ok: true,
+        output: v.verified
+          ? `${v.domain} — ${v.verdict}. Можно работать.`
+          : `${v.domain} — ${v.verdict}. Домен не опознан как официальный: `
+            + `не вводи сюда личные данные, пароли и коды, а если это вход в аккаунт — `
+            + `предупреди пользователя и спроси, стоит ли продолжать.`,
+        browser: { active: true, url: v.host, title: '', downloads: [] },
+      };
     }
 
     if (tool === 'browser_scroll') {

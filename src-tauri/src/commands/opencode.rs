@@ -9,12 +9,12 @@
 //! Файловые операции и запуск команд — строго в разрешённых корнях
 //! (песочница, Temp, каталог лаунчера), без возможности выйти за их пределы.
 
+use base64::Engine as _;
+use image::GenericImageView as _;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::path::{Path, PathBuf};
-use base64::Engine as _;
 use std::io::{Read, Write};
-use image::GenericImageView as _;
+use std::path::{Path, PathBuf};
 
 const MAX_TEXT_READ: usize = 512 * 1024;
 const MAX_FETCH_BYTES: usize = 2 * 1024 * 1024;
@@ -96,7 +96,9 @@ pub fn op_layout() -> PortalLayout {
         cache: cache_dir().to_string_lossy().to_string(),
         config: config_dir().to_string_lossy().to_string(),
         temp: system_temp_dir().to_string_lossy().to_string(),
-        launcher: crate::commands::version_manager::mc_base_dir().to_string_lossy().to_string(),
+        launcher: crate::commands::version_manager::mc_base_dir()
+            .to_string_lossy()
+            .to_string(),
     }
 }
 
@@ -289,7 +291,9 @@ fn active_build_id() -> Option<String> {
     let p = config_dir().join("active_build.json");
     let raw = std::fs::read_to_string(&p).ok()?;
     let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
-    v.get("instance_id").and_then(|x| x.as_str()).map(|s| s.to_string())
+    v.get("instance_id")
+        .and_then(|x| x.as_str())
+        .map(|s| s.to_string())
 }
 
 /// Задаёт активную сборку для OpenPortal (`None` — «без сборки»).
@@ -377,7 +381,9 @@ fn source_dirs(source: &str) -> Vec<PathBuf> {
         _ => return Vec::new(),
     };
     let Some(home) = home else { return Vec::new() };
-    rel.iter().map(|r| home.join(r.trim_start_matches('/'))).collect()
+    rel.iter()
+        .map(|r| home.join(r.trim_start_matches('/')))
+        .collect()
 }
 
 /// Папки, откуда читаются навыки для набора включённых источников.
@@ -405,7 +411,9 @@ fn skill_dirs(sources: &[String]) -> Vec<PathBuf> {
 }
 
 fn read_skill_dir(dir: &Path, source: &str, out: &mut Vec<SkillMeta>) {
-    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
     for e in rd.flatten() {
         let path = e.path();
         if !path.is_dir() {
@@ -592,7 +600,11 @@ pub fn op_save_image(b64: String) -> Result<String, String> {
     let (bytes, converted) = normalize_to_png(bytes);
     // Что удалось перекодировать «по пикселям» — сохраняем как PNG, и превью
     // в чате гарантированно отрисуется. Остальное — с настоящим расширением.
-    let (ext, _) = if converted { ("png", "") } else { detect_image_ext(&bytes) };
+    let (ext, _) = if converted {
+        ("png", "")
+    } else {
+        detect_image_ext(&bytes)
+    };
     let name = format!(
         "img-{}-{}.{}",
         std::time::SystemTime::now()
@@ -647,7 +659,11 @@ pub fn op_image_read(file: String) -> Result<String, String> {
     // Лечим и старые файлы кеша: что декодер понимает — отдаём как валидный PNG,
     // остальное — с корректным типом контента, чтобы браузер сам его открыл.
     let (bytes, converted) = normalize_to_png(bytes);
-    let (_, mime) = if converted { ("png", "image/png") } else { detect_image_ext(&bytes) };
+    let (_, mime) = if converted {
+        ("png", "image/png")
+    } else {
+        detect_image_ext(&bytes)
+    };
     let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
     Ok(format!("data:{mime};base64,{b64}"))
 }
@@ -694,7 +710,10 @@ pub fn op_image_inspect(root: String, path: String) -> Result<ImageInspect, Stri
     }
 
     let decoded = image::open(&file);
-    let (width, height) = decoded.as_ref().map(|d| (d.width(), d.height())).unwrap_or((0, 0));
+    let (width, height) = decoded
+        .as_ref()
+        .map(|d| (d.width(), d.height()))
+        .unwrap_or((0, 0));
     let mut counts: std::collections::HashMap<(u8, u8, u8), u64> = std::collections::HashMap::new();
     let mut total: u64 = 0;
     let mut alpha = false;
@@ -716,7 +735,11 @@ pub fn op_image_inspect(root: String, path: String) -> Result<ImageInspect, Stri
                 alpha = true;
             }
             // Квантуем к 6 битам на канал (+1 — середина ячейки), чтобы не считать дубли.
-            let (qr, qg, qb) = (((cr >> 2) << 2) + 1, ((cg >> 2) << 2) + 1, ((cb >> 2) << 2) + 1);
+            let (qr, qg, qb) = (
+                ((cr >> 2) << 2) + 1,
+                ((cg >> 2) << 2) + 1,
+                ((cb >> 2) << 2) + 1,
+            );
             *counts.entry((qr, qg, qb)).or_insert(0) += 1;
             total += 1;
             sr += cr as u64;
@@ -731,17 +754,30 @@ pub fn op_image_inspect(root: String, path: String) -> Result<ImageInspect, Stri
             let brightness = ((r as u32 * 299 + g as u32 * 587 + b as u32 * 114) / 1000) as u8;
             ImageColor {
                 hex: format!("#{:02x}{:02x}{:02x}", r, g, b),
-                share: if total > 0 { (n as f64 / total as f64) * 100.0 } else { 0.0 },
+                share: if total > 0 {
+                    (n as f64 / total as f64) * 100.0
+                } else {
+                    0.0
+                },
                 brightness,
             }
         })
         .collect();
-    colors.sort_by(|a, b| b.share.partial_cmp(&a.share).unwrap_or(std::cmp::Ordering::Equal));
+    colors.sort_by(|a, b| {
+        b.share
+            .partial_cmp(&a.share)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     colors.truncate(12);
 
     let dominant = colors.first().map(|c| c.hex.clone()).unwrap_or_default();
     let average = if total > 0 {
-        format!("#{:02x}{:02x}{:02x}", (sr / total) as u8, (sg / total) as u8, (sb / total) as u8)
+        format!(
+            "#{:02x}{:02x}{:02x}",
+            (sr / total) as u8,
+            (sg / total) as u8,
+            (sb / total) as u8
+        )
     } else {
         String::new()
     };
@@ -776,7 +812,16 @@ pub fn op_image_inspect(root: String, path: String) -> Result<ImageInspect, Stri
         Err(_) => (String::new(), String::new()),
     };
 
-    Ok(ImageInspect { width, height, alpha, colors, dominant, average, mime, b64 })
+    Ok(ImageInspect {
+        width,
+        height,
+        alpha,
+        colors,
+        dominant,
+        average,
+        mime,
+        b64,
+    })
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -789,7 +834,11 @@ pub struct HexLine {
 /// Показывает бинарный файл как hexdump (по 16 байт на строку) — чтобы модель
 /// могла изучить неизвестные форматы без возможности открыть их.
 #[tauri::command]
-pub fn op_hexdump(root: String, path: String, max_bytes: Option<u64>) -> Result<Vec<HexLine>, String> {
+pub fn op_hexdump(
+    root: String,
+    path: String,
+    max_bytes: Option<u64>,
+) -> Result<Vec<HexLine>, String> {
     let r = root_from_name(&root)?;
     let file = enforce_root(r, Path::new(&path), false)?;
     let meta = std::fs::metadata(&file).map_err(|e| format!("Метаданные файла: {e}"))?;
@@ -798,7 +847,11 @@ pub fn op_hexdump(root: String, path: String, max_bytes: Option<u64>) -> Result<
     }
     let cap = max_bytes.unwrap_or(4096).clamp(256, 65_536);
     if meta.len() > cap {
-        return Err(format!("Файл больше лимита показа ({} байт > {} байт).", meta.len(), cap));
+        return Err(format!(
+            "Файл больше лимита показа ({} байт > {} байт).",
+            meta.len(),
+            cap
+        ));
     }
     let bytes = std::fs::read(&file).map_err(|e| format!("Чтение файла: {e}"))?;
     let mut out = Vec::with_capacity(bytes.len() / 16 + 1);
@@ -810,9 +863,19 @@ pub fn op_hexdump(root: String, path: String, max_bytes: Option<u64>) -> Result<
             .join(" ");
         let ascii: String = chunk
             .iter()
-            .map(|b| if b.is_ascii_graphic() || *b == b' ' { *b as char } else { '.' })
+            .map(|b| {
+                if b.is_ascii_graphic() || *b == b' ' {
+                    *b as char
+                } else {
+                    '.'
+                }
+            })
             .collect();
-        out.push(HexLine { offset: (i * 16) as u32, hex, ascii });
+        out.push(HexLine {
+            offset: (i * 16) as u32,
+            hex,
+            ascii,
+        });
     }
     Ok(out)
 }
@@ -839,7 +902,10 @@ enum ArchiveKind {
 }
 
 fn archive_kind(p: &Path) -> Result<ArchiveKind, String> {
-    let name = p.file_name().map(|s| s.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let name = p
+        .file_name()
+        .map(|s| s.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
     if name.ends_with(".zip") {
         return Ok(ArchiveKind::Zip);
     }
@@ -899,7 +965,8 @@ pub fn op_archive_list(root: String, path: String) -> Result<Vec<ArchiveEntry>, 
     match kind {
         ArchiveKind::Zip => {
             let f = std::fs::File::open(&file).map_err(|e| format!("Открытие архива: {e}"))?;
-            let mut archive = zip::ZipArchive::new(f).map_err(|e| format!("Не удалось открыть ZIP: {e}"))?;
+            let mut archive =
+                zip::ZipArchive::new(f).map_err(|e| format!("Не удалось открыть ZIP: {e}"))?;
             for i in 0..archive.len() {
                 let e = archive.by_index(i).map_err(|err| err.to_string())?;
                 out.push(ArchiveEntry {
@@ -925,7 +992,10 @@ pub fn op_archive_list(root: String, path: String) -> Result<Vec<ArchiveEntry>, 
             let mut archive = tar::Archive::new(rdr);
             for entry in archive.entries().map_err(|e| e.to_string())? {
                 let entry = entry.map_err(|e| e.to_string())?;
-                let name = entry.path().map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
+                let name = entry
+                    .path()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_default();
                 out.push(ArchiveEntry {
                     name,
                     is_dir: entry.header().entry_type().is_dir(),
@@ -963,7 +1033,11 @@ fn extract_tar(rdr: Box<dyn Read>, dest: &Path) -> Result<(), String> {
 /// Распаковывает архив. `dest_path` (необязателен) — папка внутри той же зоны;
 /// по умолчанию — `OpenPortal/Cache/extracted/<имя архива>`.
 #[tauri::command]
-pub fn op_archive_extract(root: String, path: String, dest_path: Option<String>) -> Result<String, String> {
+pub fn op_archive_extract(
+    root: String,
+    path: String,
+    dest_path: Option<String>,
+) -> Result<String, String> {
     let r = root_from_name(&root)?;
     let file = enforce_root(r, Path::new(&path), false)?;
     let meta = std::fs::metadata(&file).map_err(|e| format!("Метаданные файла: {e}"))?;
@@ -986,7 +1060,11 @@ pub fn op_archive_extract(root: String, path: String, dest_path: Option<String>)
                 .chars()
                 .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '.')
                 .collect();
-            let stem = if stem.is_empty() { "archive".to_string() } else { stem };
+            let stem = if stem.is_empty() {
+                "archive".to_string()
+            } else {
+                stem
+            };
             unique_dest_path(&cache_dir().join("extracted"), &stem)
         }
     };
@@ -995,8 +1073,11 @@ pub fn op_archive_extract(root: String, path: String, dest_path: Option<String>)
     match kind {
         ArchiveKind::Zip => {
             let f = std::fs::File::open(&file).map_err(|e| format!("Открытие архива: {e}"))?;
-            let mut archive = zip::ZipArchive::new(f).map_err(|e| format!("Не удалось открыть ZIP: {e}"))?;
-            archive.extract(&dest).map_err(|e| format!("Распаковка ZIP: {e}"))?;
+            let mut archive =
+                zip::ZipArchive::new(f).map_err(|e| format!("Не удалось открыть ZIP: {e}"))?;
+            archive
+                .extract(&dest)
+                .map_err(|e| format!("Распаковка ZIP: {e}"))?;
         }
         ArchiveKind::SevenZip => {
             sevenz_rust::decompress_file(&file, &dest)
@@ -1024,7 +1105,9 @@ fn add_to_zip(
             .map(|p| p.to_string_lossy().replace('\\', "/"))
             .unwrap_or_default();
         if !rel.is_empty() {
-            writer.add_directory(format!("{rel}/"), *options).map_err(|e| e.to_string())?;
+            writer
+                .add_directory(format!("{rel}/"), *options)
+                .map_err(|e| e.to_string())?;
         }
         for e in std::fs::read_dir(cur).map_err(|e| e.to_string())? {
             let e = e.map_err(|e| e.to_string())?;
@@ -1036,7 +1119,9 @@ fn add_to_zip(
             .ok()
             .map(|p| p.to_string_lossy().replace('\\', "/"))
             .unwrap_or_default();
-        writer.start_file(rel, *options).map_err(|e| e.to_string())?;
+        writer
+            .start_file(rel, *options)
+            .map_err(|e| e.to_string())?;
         let bytes = std::fs::read(cur).map_err(|e| e.to_string())?;
         writer.write_all(&bytes).map_err(|e| e.to_string())?;
     }
@@ -1071,10 +1156,11 @@ pub fn op_archive_create(root: String, path: String, name: String) -> Result<Str
             src.parent().map(Path::to_path_buf).unwrap_or_default()
         };
         add_to_zip(&mut writer, &base, &src, &options)?;
-        writer.finish().map_err(|e| format!("Завершение архива: {e}"))?;
+        writer
+            .finish()
+            .map_err(|e| format!("Завершение архива: {e}"))?;
     } else {
-        sevenz_rust::compress_to_path(&src, &out)
-            .map_err(|e| format!("Создание 7z: {e}"))?;
+        sevenz_rust::compress_to_path(&src, &out).map_err(|e| format!("Создание 7z: {e}"))?;
     }
 
     Ok(out.to_string_lossy().to_string())
@@ -1139,7 +1225,9 @@ pub fn install_sandbox_archive(
         .unwrap_or("")
         .to_ascii_lowercase();
     if ext != "jar" && ext != "zip" {
-        return Err(format!("Файл .{ext} нельзя установить: нужны .jar или .zip."));
+        return Err(format!(
+            "Файл .{ext} нельзя установить: нужны .jar или .zip."
+        ));
     }
 
     // Копируем в mods сборки: лаунчер сам проиндексирует файл при следующем
@@ -1175,7 +1263,11 @@ pub fn install_sandbox_archive(
 /// остальное — приложением, которое назначено в системе. `reveal` открывает
 /// проводник с выделенным файлом — это нужно после копирования в «Загрузки».
 #[tauri::command]
-pub fn op_open_sandbox_file(root: String, path: String, reveal: Option<bool>) -> Result<String, String> {
+pub fn op_open_sandbox_file(
+    root: String,
+    path: String,
+    reveal: Option<bool>,
+) -> Result<String, String> {
     let r = root_from_name(&root)?;
     let p = Path::new(&path);
     let file = enforce_root(r, p, false)?;
@@ -1220,9 +1312,15 @@ fn open_in_explorer(file: &Path) -> Result<(), std::io::Error> {
 fn open_in_explorer(file: &Path) -> Result<(), std::io::Error> {
     // На других системах проводника с выделением нет — открываем папку.
     if let Some(parent) = file.parent() {
-        return std::process::Command::new("xdg-open").arg(parent).spawn().map(|_| ());
+        return std::process::Command::new("xdg-open")
+            .arg(parent)
+            .spawn()
+            .map(|_| ());
     }
-    std::process::Command::new("xdg-open").arg(file).spawn().map(|_| ())
+    std::process::Command::new("xdg-open")
+        .arg(file)
+        .spawn()
+        .map(|_| ())
 }
 
 fn downloads_dir() -> Option<PathBuf> {
@@ -1245,7 +1343,12 @@ fn sanitize_download_name(name: &str) -> String {
         .unwrap_or("file.bin")
         .trim()
         .chars()
-        .filter(|c| !matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' | '\0'))
+        .filter(|c| {
+            !matches!(
+                c,
+                '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' | '\0'
+            )
+        })
         .collect();
     let base = base.trim().trim_matches('.').to_string();
     if base.is_empty() {
@@ -1257,7 +1360,11 @@ fn sanitize_download_name(name: &str) -> String {
             .map(|e| e.to_string_lossy().to_string())
             .unwrap_or_default();
         let trimmed: String = base.chars().take(110).collect();
-        return if ext.is_empty() { trimmed } else { format!("{trimmed}.{ext}") };
+        return if ext.is_empty() {
+            trimmed
+        } else {
+            format!("{trimmed}.{ext}")
+        };
     }
     base
 }
@@ -1288,7 +1395,11 @@ fn unique_dest_path(dir: &Path, name: &str) -> PathBuf {
 /// Копирует файл из песочницы (portal|temp) в системную папку «Загрузки».
 /// `path` — путь относительно корня зоны, `name` (необязательно) — имя файла-результата.
 #[tauri::command]
-pub fn op_copy_to_downloads(root: String, path: String, name: Option<String>) -> Result<String, String> {
+pub fn op_copy_to_downloads(
+    root: String,
+    path: String,
+    name: Option<String>,
+) -> Result<String, String> {
     let r = root_from_name(&root)?;
     let p = Path::new(&path);
     let file = enforce_root(r, p, false)?;
@@ -1330,7 +1441,10 @@ fn session_file(id: &str) -> PathBuf {
 }
 
 fn is_safe_id(id: &str) -> bool {
-    !id.is_empty() && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    !id.is_empty()
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
 fn check_id(id: &str) -> Result<(), String> {
@@ -1383,7 +1497,9 @@ pub fn op_session_archive_count(session_id: String) -> usize {
     if !is_safe_id(&session_id) {
         return 0;
     }
-    let path = sessions_dir().join("history").join(format!("{session_id}.json"));
+    let path = sessions_dir()
+        .join("history")
+        .join(format!("{session_id}.json"));
     std::fs::read_to_string(&path)
         .ok()
         .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
@@ -1404,9 +1520,10 @@ pub fn op_session_archive_page(
     if !is_safe_id(&session_id) {
         return Err("Некорректный идентификатор сессии.".into());
     }
-    let path = sessions_dir().join("history").join(format!("{session_id}.json"));
-    let raw = std::fs::read_to_string(&path)
-        .map_err(|_| "Архив истории не найден.".to_string())?;
+    let path = sessions_dir()
+        .join("history")
+        .join(format!("{session_id}.json"));
+    let raw = std::fs::read_to_string(&path).map_err(|_| "Архив истории не найден.".to_string())?;
     let all: Vec<Value> = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
     let before = before.unwrap_or(all.len()).min(all.len());
     let limit = limit.unwrap_or(40).clamp(1, 200);
@@ -1529,7 +1646,8 @@ pub fn op_list_dir(root: String, path: String) -> Result<Vec<FsEntry>, String> {
     let p = resolve_agent_path(r, Path::new(&path));
     let dir = enforce_root(r, &p, false)?;
     let mut out = Vec::new();
-    for e in std::fs::read_dir(&dir).map_err(|err| format!("Чтение каталога: {err}"))? {
+    for e in std::fs::read_dir(&dir).map_err(|err| format!("Чтение каталога: {err}"))?
+    {
         let e = e.map_err(|err| err.to_string())?;
         let ft = e.file_type().ok();
         let meta = e.metadata().ok();
@@ -1632,7 +1750,10 @@ pub fn op_search_code(
     let pattern = glob.as_deref().unwrap_or("").trim().to_string();
 
     let re = if use_regex {
-        Some(regex::Regex::new(&query).map_err(|e| format!("Некорректное регулярное выражение: {e}"))?)
+        Some(
+            regex::Regex::new(&query)
+                .map_err(|e| format!("Некорректное регулярное выражение: {e}"))?,
+        )
     } else {
         None
     };
@@ -1642,31 +1763,51 @@ pub fn op_search_code(
     let mut stack: Vec<PathBuf> = vec![base];
 
     while let Some(dir) = stack.pop() {
-        if visited >= SEARCH_MAX_FILES || matches.len() >= limit { break; }
-        let entries = match std::fs::read_dir(&dir) { Ok(e) => e, Err(_) => continue };
+        if visited >= SEARCH_MAX_FILES || matches.len() >= limit {
+            break;
+        }
+        let entries = match std::fs::read_dir(&dir) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
         for entry in entries.flatten() {
             let path = entry.path();
-            let meta = match entry.metadata() { Ok(m) => m, Err(_) => continue };
+            let meta = match entry.metadata() {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
             let name = entry.file_name().to_string_lossy().to_string();
 
             if meta.is_dir() {
                 // Пропускаем служебные каталоги, чтобы не упираться в лимит.
-                if matches!(name.as_str(), "node_modules" | "target" | ".git" | "dist" | "build" | ".gradle") {
+                if matches!(
+                    name.as_str(),
+                    "node_modules" | "target" | ".git" | "dist" | "build" | ".gradle"
+                ) {
                     continue;
                 }
                 stack.push(path);
                 continue;
             }
-            if !meta.is_file() || meta.len() > SEARCH_MAX_FILE_BYTES { continue; }
+            if !meta.is_file() || meta.len() > SEARCH_MAX_FILE_BYTES {
+                continue;
+            }
             if !pattern.is_empty() && !glob_matches(&pattern, &name, &path.to_string_lossy()) {
                 continue;
             }
             visited += 1;
-            if visited > SEARCH_MAX_FILES { break; }
+            if visited > SEARCH_MAX_FILES {
+                break;
+            }
 
-            let text = match std::fs::read_to_string(&path) { Ok(t) => t, Err(_) => continue };
+            let text = match std::fs::read_to_string(&path) {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
             for (idx, line) in text.lines().enumerate() {
-                if line.len() > 2000 { continue; }
+                if line.len() > 2000 {
+                    continue;
+                }
                 let hit = match &re {
                     Some(re) => re.is_match(line),
                     None => line.contains(&query),
@@ -1677,10 +1818,14 @@ pub fn op_search_code(
                         line: idx + 1,
                         text: line.trim().to_string(),
                     });
-                    if matches.len() >= limit { break; }
+                    if matches.len() >= limit {
+                        break;
+                    }
                 }
             }
-            if matches.len() >= limit { break; }
+            if matches.len() >= limit {
+                break;
+            }
         }
     }
 
@@ -1741,7 +1886,11 @@ pub async fn op_run_command(
     let r = root_from_name(&root)?;
     // Рабочая папка команды: если агент передал относительный путь или пустой —
     // работаем в песочнице (Projects для portal), а не в произвольном месте.
-    let requested = if cwd.trim().is_empty() { PathBuf::new() } else { PathBuf::from(&cwd) };
+    let requested = if cwd.trim().is_empty() {
+        PathBuf::new()
+    } else {
+        PathBuf::from(&cwd)
+    };
     let cwd_candidate = if requested.as_os_str().is_empty() {
         root_path(r)
     } else {
@@ -1789,7 +1938,12 @@ pub async fn op_run_command(
             let mut c = crate::utils::create_hidden_command("powershell");
             c.current_dir(&cwd_path_for_block);
             c.envs(cache_env.iter().map(|(k, v)| (k, v)));
-            c.args(["-NoProfile", "-NonInteractive", "-Command", &command_for_block]);
+            c.args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                &command_for_block,
+            ]);
             c.stdout(std::process::Stdio::piped());
             c.stderr(std::process::Stdio::piped());
             c.output()
@@ -1875,7 +2029,11 @@ fn apply_cache_env(command: &str) -> Vec<(String, String)> {
     // каталоги в начало PATH - тем же приёмом пользуемся и мы сами.
     if let Some(dir) = node_bin_dir() {
         let path = std::env::var("PATH").unwrap_or_default();
-        let sep = if cfg!(target_os = "windows") { ';' } else { ':' };
+        let sep = if cfg!(target_os = "windows") {
+            ';'
+        } else {
+            ':'
+        };
         if !path.split(sep).any(|p| p.eq_ignore_ascii_case(&dir)) {
             env.push(("PATH".into(), format!("{dir}{sep}{path}")));
         }
@@ -1889,7 +2047,10 @@ fn apply_cache_env(command: &str) -> Vec<(String, String)> {
         let d = deps.join("pnpm");
         std::fs::create_dir_all(&d).ok();
         env.push(("PNPM_STORE_DIR".into(), d.to_string_lossy().into_owned()));
-        env.push(("npm_config_store_dir".into(), d.to_string_lossy().into_owned()));
+        env.push((
+            "npm_config_store_dir".into(),
+            d.to_string_lossy().into_owned(),
+        ));
     }
     if lower.contains("yarn") {
         let d = deps.join("yarn");
@@ -1903,7 +2064,11 @@ fn apply_cache_env(command: &str) -> Vec<(String, String)> {
 /// Проверяем именно существование файла: в системах без Node `where node`
 /// ничего не печатает, а на Windows может вернуть заглушку из WindowsApps.
 fn node_bin_dir() -> Option<String> {
-    let exe = if cfg!(target_os = "windows") { "node.exe" } else { "node" };
+    let exe = if cfg!(target_os = "windows") {
+        "node.exe"
+    } else {
+        "node"
+    };
     let mut candidates: Vec<std::path::PathBuf> = Vec::new();
     for var in ["ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"] {
         if let Ok(base) = std::env::var(var) {
@@ -1923,7 +2088,11 @@ fn node_bin_dir() -> Option<String> {
         candidates.push(std::path::PathBuf::from(&local).join("n"));
     }
     if let Ok(path) = std::env::var("PATH") {
-        let sep = if cfg!(target_os = "windows") { ';' } else { ':' };
+        let sep = if cfg!(target_os = "windows") {
+            ';'
+        } else {
+            ':'
+        };
         for p in path.split(sep).filter(|p| !p.is_empty()) {
             candidates.push(std::path::PathBuf::from(p));
         }
@@ -2019,7 +2188,11 @@ pub async fn op_node_info() -> Result<NodeInfo, String> {
             npm: String::new(),
         });
     };
-    let exe = if cfg!(target_os = "windows") { "node.exe" } else { "node" };
+    let exe = if cfg!(target_os = "windows") {
+        "node.exe"
+    } else {
+        "node"
+    };
     let node = std::path::PathBuf::from(&dir).join(exe);
     let version = std::process::Command::new(&node)
         .arg("--version")
@@ -2028,9 +2201,17 @@ pub async fn op_node_info() -> Result<NodeInfo, String> {
         .map(|o| decode_output(&o.stdout).trim().to_string())
         .unwrap_or_default();
     let npm = {
-        let cand = if cfg!(target_os = "windows") { "npm.cmd" } else { "npm" };
+        let cand = if cfg!(target_os = "windows") {
+            "npm.cmd"
+        } else {
+            "npm"
+        };
         let p = std::path::PathBuf::from(&dir).join(cand);
-        if p.is_file() { p.to_string_lossy().into_owned() } else { String::new() }
+        if p.is_file() {
+            p.to_string_lossy().into_owned()
+        } else {
+            String::new()
+        }
     };
     Ok(NodeInfo {
         found: true,
@@ -2084,11 +2265,23 @@ pub fn op_cache_info() -> Result<CacheInfo, String> {
     let mut deps = Vec::new();
     for name in ["npm", "pnpm", "yarn", "corepack"] {
         let d = root.join(name);
-        let size = if d.exists() { dir_size_rec(&d, &mut budget) } else { 0 };
-        deps.push(CacheDirInfo { name: name.to_string(), path: d.to_string_lossy().to_string(), size });
+        let size = if d.exists() {
+            dir_size_rec(&d, &mut budget)
+        } else {
+            0
+        };
+        deps.push(CacheDirInfo {
+            name: name.to_string(),
+            path: d.to_string_lossy().to_string(),
+            size,
+        });
     }
     let total_size = deps.iter().map(|d| d.size).sum();
-    Ok(CacheInfo { root: root.to_string_lossy().to_string(), deps, total_size })
+    Ok(CacheInfo {
+        root: root.to_string_lossy().to_string(),
+        deps,
+        total_size,
+    })
 }
 
 /// Очищает кеш зависимостей песочницы. `what`: npm|pnpm|yarn|corepack|all (по умолчанию всё).
@@ -2100,12 +2293,18 @@ pub fn op_clear_cache(what: Option<String>) -> Result<CacheInfo, String> {
         Some(w) => {
             let w = w.to_lowercase();
             if w == "all" {
-                vec!["npm", "pnpm", "yarn", "corepack"].into_iter().map(String::from).collect()
+                vec!["npm", "pnpm", "yarn", "corepack"]
+                    .into_iter()
+                    .map(String::from)
+                    .collect()
             } else {
                 vec![w.to_string()]
             }
         }
-        None => vec!["npm", "pnpm", "yarn", "corepack"].into_iter().map(String::from).collect(),
+        None => vec!["npm", "pnpm", "yarn", "corepack"]
+            .into_iter()
+            .map(String::from)
+            .collect(),
     };
     for name in &targets {
         let d = root.join(name);
@@ -2184,7 +2383,10 @@ pub async fn op_web_fetch(url: String, headers: Option<Vec<(String, String)>>) -
     let mut req = client.get(&url);
     if let Some(hs) = headers {
         for (k, v) in hs {
-            if let (Ok(k), Ok(v)) = (reqwest::header::HeaderName::from_bytes(k.as_bytes()), reqwest::header::HeaderValue::from_str(&v)) {
+            if let (Ok(k), Ok(v)) = (
+                reqwest::header::HeaderName::from_bytes(k.as_bytes()),
+                reqwest::header::HeaderValue::from_str(&v),
+            ) {
                 req = req.header(k, v);
             }
         }
@@ -2211,7 +2413,11 @@ pub async fn op_web_fetch(url: String, headers: Option<Vec<(String, String)>>) -
                 }
             };
             let truncated = bytes.len() > MAX_FETCH_BYTES;
-            let sliced = bytes.iter().take(MAX_FETCH_BYTES).copied().collect::<Vec<u8>>();
+            let sliced = bytes
+                .iter()
+                .take(MAX_FETCH_BYTES)
+                .copied()
+                .collect::<Vec<u8>>();
             FetchResult {
                 ok: status < 400,
                 status,
@@ -2450,7 +2656,10 @@ pub struct ListedModel {
 /// список моделей в OpenAI-совместимом виде: `{ data: [ { id, name? } ] }`.
 /// Используется как для OpenAI-совместимых, так и для Anthropic (`/v1/models`).
 #[tauri::command]
-pub async fn op_list_models(url: String, api_key: Option<String>) -> Result<Vec<ListedModel>, String> {
+pub async fn op_list_models(
+    url: String,
+    api_key: Option<String>,
+) -> Result<Vec<ListedModel>, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .user_agent("Mozilla/5.0 (Portal-Launcher OpenPortal; like Gecko)")
@@ -2472,10 +2681,14 @@ pub async fn op_list_models(url: String, api_key: Option<String>) -> Result<Vec<
     if let Some(arr) = value.get("data").and_then(|d| d.as_array()) {
         for item in arr {
             if let Some(id) = item.get("id").and_then(|x| x.as_str()) {
-                let name = item.get("name").and_then(|x| x.as_str()).map(|s| s.to_string());
+                let name = item
+                    .get("name")
+                    .and_then(|x| x.as_str())
+                    .map(|s| s.to_string());
                 // context_length: у OpenRouter-совместимых провайдеров, включая
                 // модели с 1M+ контекста. Ещё встречается context_window/max_context.
-                let context_length = item.get("context_length")
+                let context_length = item
+                    .get("context_length")
                     .or_else(|| item.get("context_window"))
                     .or_else(|| item.get("max_context_tokens"))
                     .and_then(|x| x.as_u64());
@@ -2483,13 +2696,19 @@ pub async fn op_list_models(url: String, api_key: Option<String>) -> Result<Vec<
                     .get("max_completion_tokens")
                     .or_else(|| item.get("max_output_tokens"))
                     .and_then(|x| x.as_u64());
-                out.push(ListedModel { id: id.to_string(), name, context_length, max_output_tokens });
+                out.push(ListedModel {
+                    id: id.to_string(),
+                    name,
+                    context_length,
+                    max_output_tokens,
+                });
             }
         }
     } else if let Some(arr) = value.as_array() {
         for item in arr {
             if let Some(id) = item.get("id").and_then(|x| x.as_str()) {
-                let context_length = item.get("context_length")
+                let context_length = item
+                    .get("context_length")
                     .or_else(|| item.get("context_window"))
                     .or_else(|| item.get("max_context_tokens"))
                     .and_then(|x| x.as_u64());
@@ -2497,7 +2716,12 @@ pub async fn op_list_models(url: String, api_key: Option<String>) -> Result<Vec<
                     .get("max_completion_tokens")
                     .or_else(|| item.get("max_output_tokens"))
                     .and_then(|x| x.as_u64());
-                out.push(ListedModel { id: id.to_string(), name: None, context_length, max_output_tokens });
+                out.push(ListedModel {
+                    id: id.to_string(),
+                    name: None,
+                    context_length,
+                    max_output_tokens,
+                });
             }
         }
     }

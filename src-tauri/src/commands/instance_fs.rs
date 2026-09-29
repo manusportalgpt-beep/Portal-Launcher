@@ -24,7 +24,8 @@ pub struct CrashDiagnosis {
 }
 
 fn first_evidence(lines: &[&str], needles: &[&str]) -> Vec<String> {
-    lines.iter()
+    lines
+        .iter()
         .filter(|line| {
             let lower = line.to_ascii_lowercase();
             needles.iter().any(|needle| lower.contains(needle))
@@ -37,11 +38,25 @@ fn first_evidence(lines: &[&str], needles: &[&str]) -> Vec<String> {
 
 fn conflict_pair(line: &str) -> Option<(String, String)> {
     let lower = line.to_ascii_lowercase();
-    for marker in [" conflicts with ", " is incompatible with ", " incompatible with "] {
+    for marker in [
+        " conflicts with ",
+        " is incompatible with ",
+        " incompatible with ",
+    ] {
         if let Some(index) = lower.find(marker) {
-            let left = line[..index].split_whitespace().last()?.trim_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '-').to_string();
-            let right = line[index + marker.len()..].split_whitespace().next()?.trim_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '-').to_string();
-            if left.len() > 1 && right.len() > 1 { return Some((left, right)); }
+            let left = line[..index]
+                .split_whitespace()
+                .last()?
+                .trim_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '-')
+                .to_string();
+            let right = line[index + marker.len()..]
+                .split_whitespace()
+                .next()?
+                .trim_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '-')
+                .to_string();
+            if left.len() > 1 && right.len() > 1 {
+                return Some((left, right));
+            }
         }
     }
     None
@@ -49,48 +64,157 @@ fn conflict_pair(line: &str) -> Option<(String, String)> {
 
 pub fn diagnose_crash_log(content: &str) -> Option<CrashDiagnosis> {
     let lines: Vec<&str> = content.lines().collect();
-    if lines.is_empty() { return None; }
+    if lines.is_empty() {
+        return None;
+    }
 
     if let Some(line) = lines.iter().find(|line| {
         let lower = line.to_ascii_lowercase();
-        lower.contains(" conflicts with ") || lower.contains(" is incompatible with ") || lower.contains(" incompatible with ")
+        lower.contains(" conflicts with ")
+            || lower.contains(" is incompatible with ")
+            || lower.contains(" incompatible with ")
     }) {
-        let pair = conflict_pair(line).map(|(a, b)| format!("Мод «{a}» конфликтует с модом «{b}».")).unwrap_or_else(|| "Лог сообщает о несовместимых модификациях.".to_string());
+        let pair = conflict_pair(line)
+            .map(|(a, b)| format!("Мод «{a}» конфликтует с модом «{b}»."))
+            .unwrap_or_else(|| "Лог сообщает о несовместимых модификациях.".to_string());
         return Some(CrashDiagnosis {
-            category: "mod_conflict".into(), title: "Обнаружен конфликт модификаций".into(), summary: pair,
+            category: "mod_conflict".into(),
+            title: "Обнаружен конфликт модификаций".into(),
+            summary: pair,
             evidence: vec![line.trim().chars().take(360).collect()],
-            suggestions: vec!["Отключите один из указанных модов или установите совместимые версии.".into(), "Проверьте зависимости в настройках сборки.".into()], confidence: "high".into(),
+            suggestions: vec![
+                "Отключите один из указанных модов или установите совместимые версии.".into(),
+                "Проверьте зависимости в настройках сборки.".into(),
+            ],
+            confidence: "high".into(),
         });
     }
 
-    let dependency_evidence = first_evidence(&lines, &["missing required mod", "requires version", "could not find required mod", "depends on", "mod resolution failed"]);
+    let dependency_evidence = first_evidence(
+        &lines,
+        &[
+            "missing required mod",
+            "requires version",
+            "could not find required mod",
+            "depends on",
+            "mod resolution failed",
+        ],
+    );
     if !dependency_evidence.is_empty() {
         return Some(CrashDiagnosis { category: "missing_dependency".into(), title: "Не хватает зависимости или несовместима её версия".into(), summary: "Загрузчик не смог собрать список модификаций из-за требования зависимости.".into(), evidence: dependency_evidence, suggestions: vec!["Установите требуемую зависимость той версии Minecraft и loader, которые используются сборкой.".into(), "Проверьте, не отключён ли обязательный мод.".into()], confidence: "high".into() });
     }
 
-    let java_evidence = first_evidence(&lines, &["unsupportedclassversionerror", "unsupported class file major version", "class file version", "java runtime environment", "could not create the java virtual machine", "a fatal exception has occurred"]);
+    let java_evidence = first_evidence(
+        &lines,
+        &[
+            "unsupportedclassversionerror",
+            "unsupported class file major version",
+            "class file version",
+            "java runtime environment",
+            "could not create the java virtual machine",
+            "a fatal exception has occurred",
+        ],
+    );
     if !java_evidence.is_empty() {
         return Some(CrashDiagnosis { category: "java".into(), title: "Несовместимая версия Java или ошибка JVM".into(), summary: "В логе обнаружена ошибка Java/JVM, поэтому Minecraft не смог запуститься.".into(), evidence: java_evidence, suggestions: vec!["Выберите Java, рекомендованную для версии Minecraft, и перезапустите подготовку сборки.".into(), "Для Minecraft 1.20.5+ обычно нужна Java 21, а для Minecraft 26.x — Java 25.".into()], confidence: "high".into() });
     }
 
-    let memory_evidence = first_evidence(&lines, &["outofmemoryerror", "java heap space", "unable to create native thread", "native memory allocation"]);
+    let memory_evidence = first_evidence(
+        &lines,
+        &[
+            "outofmemoryerror",
+            "java heap space",
+            "unable to create native thread",
+            "native memory allocation",
+        ],
+    );
     if !memory_evidence.is_empty() {
-        return Some(CrashDiagnosis { category: "memory".into(), title: "Недостаточно памяти".into(), summary: "JVM не смогла выделить необходимую оперативную или native-память.".into(), evidence: memory_evidence, suggestions: vec!["Уменьшите максимальную память сборки или закройте другие тяжёлые приложения.".into(), "Проверьте, что установлена 64-битная Java.".into()], confidence: "high".into() });
+        return Some(CrashDiagnosis {
+            category: "memory".into(),
+            title: "Недостаточно памяти".into(),
+            summary: "JVM не смогла выделить необходимую оперативную или native-память.".into(),
+            evidence: memory_evidence,
+            suggestions: vec![
+                "Уменьшите максимальную память сборки или закройте другие тяжёлые приложения."
+                    .into(),
+                "Проверьте, что установлена 64-битная Java.".into(),
+            ],
+            confidence: "high".into(),
+        });
     }
 
-    let native_evidence = first_evidence(&lines, &["could not load", "failed to load", "no lwjgl", "glfw error", "opengl", "native library"]);
+    let native_evidence = first_evidence(
+        &lines,
+        &[
+            "could not load",
+            "failed to load",
+            "no lwjgl",
+            "glfw error",
+            "opengl",
+            "native library",
+        ],
+    );
     if !native_evidence.is_empty() {
-        return Some(CrashDiagnosis { category: "native_or_graphics".into(), title: "Ошибка native-библиотеки или графики".into(), summary: "Minecraft не смог загрузить native-компонент или графический backend.".into(), evidence: native_evidence, suggestions: vec!["Повторите проверку установки Minecraft и библиотек natives.".into(), "Обновите драйвер видеокарты и отключите несовместимые графические моды.".into()], confidence: "medium".into() });
+        return Some(CrashDiagnosis {
+            category: "native_or_graphics".into(),
+            title: "Ошибка native-библиотеки или графики".into(),
+            summary: "Minecraft не смог загрузить native-компонент или графический backend.".into(),
+            evidence: native_evidence,
+            suggestions: vec![
+                "Повторите проверку установки Minecraft и библиотек natives.".into(),
+                "Обновите драйвер видеокарты и отключите несовместимые графические моды.".into(),
+            ],
+            confidence: "medium".into(),
+        });
     }
 
-    let auth_evidence = first_evidence(&lines, &["authentication servers are down", "invalid session", "failed to verify username", "authentication failed", "not authenticated"]);
+    let auth_evidence = first_evidence(
+        &lines,
+        &[
+            "authentication servers are down",
+            "invalid session",
+            "failed to verify username",
+            "authentication failed",
+            "not authenticated",
+        ],
+    );
     if !auth_evidence.is_empty() {
-        return Some(CrashDiagnosis { category: "authentication".into(), title: "Ошибка авторизации Minecraft".into(), summary: "Сессия игрока недействительна или серверы авторизации недоступны.".into(), evidence: auth_evidence, suggestions: vec!["Выйдите из аккаунта и войдите снова, затем повторите запуск.".into(), "Проверьте подключение к интернету и статус серверов авторизации.".into()], confidence: "high".into() });
+        return Some(CrashDiagnosis {
+            category: "authentication".into(),
+            title: "Ошибка авторизации Minecraft".into(),
+            summary: "Сессия игрока недействительна или серверы авторизации недоступны.".into(),
+            evidence: auth_evidence,
+            suggestions: vec![
+                "Выйдите из аккаунта и войдите снова, затем повторите запуск.".into(),
+                "Проверьте подключение к интернету и статус серверов авторизации.".into(),
+            ],
+            confidence: "high".into(),
+        });
     }
 
-    let network_evidence = first_evidence(&lines, &["failed to download", "connection refused", "connection timed out", "unknownhostexception", "could not resolve host", "error downloading"]);
+    let network_evidence = first_evidence(
+        &lines,
+        &[
+            "failed to download",
+            "connection refused",
+            "connection timed out",
+            "unknownhostexception",
+            "could not resolve host",
+            "error downloading",
+        ],
+    );
     if !network_evidence.is_empty() {
-        return Some(CrashDiagnosis { category: "network".into(), title: "Ошибка загрузки или подключения".into(), summary: "Minecraft или загрузчик не смогли получить нужный файл по сети.".into(), evidence: network_evidence, suggestions: vec!["Проверьте интернет, VPN/прокси и повторите установку файла.".into(), "Запустите проверку целостности сборки.".into()], confidence: "high".into() });
+        return Some(CrashDiagnosis {
+            category: "network".into(),
+            title: "Ошибка загрузки или подключения".into(),
+            summary: "Minecraft или загрузчик не смогли получить нужный файл по сети.".into(),
+            evidence: network_evidence,
+            suggestions: vec![
+                "Проверьте интернет, VPN/прокси и повторите установку файла.".into(),
+                "Запустите проверку целостности сборки.".into(),
+            ],
+            confidence: "high".into(),
+        });
     }
 
     None
@@ -135,7 +259,8 @@ struct ActiveLanRelay {
     task: JoinHandle<()>,
 }
 
-static LAN_RELAY: once_cell::sync::Lazy<Mutex<Option<ActiveLanRelay>>> = once_cell::sync::Lazy::new(|| Mutex::new(None));
+static LAN_RELAY: once_cell::sync::Lazy<Mutex<Option<ActiveLanRelay>>> =
+    once_cell::sync::Lazy::new(|| Mutex::new(None));
 
 fn lan_port_from_log(instance_id: &str) -> Option<u16> {
     let logs_dir = instance_game_dir(instance_id).join("logs");
@@ -143,42 +268,78 @@ fn lan_port_from_log(instance_id: &str) -> Option<u16> {
     if let Ok(entries) = std::fs::read_dir(&logs_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.extension().and_then(|ext| ext.to_str()).map(|ext| ext.eq_ignore_ascii_case("log")).unwrap_or(false) {
+            if path
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(|ext| ext.eq_ignore_ascii_case("log"))
+                .unwrap_or(false)
+            {
                 paths.push(path);
             }
         }
     }
-    paths.sort_by_key(|path| std::fs::metadata(path).and_then(|meta| meta.modified()).ok());
+    paths.sort_by_key(|path| {
+        std::fs::metadata(path)
+            .and_then(|meta| meta.modified())
+            .ok()
+    });
     let mut text = String::new();
     for path in paths.into_iter().rev().take(3) {
-        if let Ok(contents) = std::fs::read_to_string(path) { text.push_str(&contents); text.push('\n'); }
+        if let Ok(contents) = std::fs::read_to_string(path) {
+            text.push_str(&contents);
+            text.push('\n');
+        }
     }
-    if text.is_empty() { return None; }
+    if text.is_empty() {
+        return None;
+    }
     // Ваниль и моды пишут порт по-разному: английские и русские маркеры,
     // любой регистр ("PORT", "Порт", "порт"). Для русских строк используем
     // Unicode-lowercase (ASCII-lowercase не трогает кириллицу).
     let patterns: &[&str] = &[
-        "published lan", "local game hosted", "started serving", "hosting on port",
-        "open to lan", "open to the lan", "lan server", "lan world",
-        "now hosting", "hosted lan", "started lan", "listening on port",
-        "порт", "порту", "открыт lan",
+        "published lan",
+        "local game hosted",
+        "started serving",
+        "hosting on port",
+        "open to lan",
+        "open to the lan",
+        "lan server",
+        "lan world",
+        "now hosting",
+        "hosted lan",
+        "started lan",
+        "listening on port",
+        "порт",
+        "порту",
+        "открыт lan",
     ];
     for line in text.lines().rev() {
         let lower = line.to_lowercase();
-        let Some(marker) = patterns.iter().find(|marker| lower.contains(**marker)) else { continue };
+        let Some(marker) = patterns.iter().find(|marker| lower.contains(**marker)) else {
+            continue;
+        };
         // Число сразу после маркера: "on port 25565", "на порту 25565"
         let marker_pos = lower.find(*marker).unwrap_or(0);
         let tail = &line[marker_pos + marker.len()..];
-        if let Some(port) = tail.split(|c: char| !c.is_ascii_digit())
+        if let Some(port) = tail
+            .split(|c: char| !c.is_ascii_digit())
             .filter_map(|part| part.parse::<u16>().ok())
-            .find(|port| (1024..=65535).contains(port) && *port > 0) {
+            .find(|port| (1024..=65535).contains(port) && *port > 0)
+        {
             return Some(port);
         }
-        let candidates: Vec<u16> = line.split(|c: char| !c.is_ascii_digit())
+        let candidates: Vec<u16> = line
+            .split(|c: char| !c.is_ascii_digit())
             .filter_map(|part| part.parse::<u16>().ok())
             .filter(|port| (1024..=65535).contains(port))
             .collect();
-        if let Some(port) = candidates.first().copied().or_else(|| candidates.last().copied()) { return Some(port); }
+        if let Some(port) = candidates
+            .first()
+            .copied()
+            .or_else(|| candidates.last().copied())
+        {
+            return Some(port);
+        }
     }
     None
 }
@@ -191,24 +352,59 @@ async fn relay_json(
     method: reqwest::Method,
     body: Option<serde_json::Value>,
 ) -> Result<serde_json::Value, String> {
-    let mut request = client.request(method, format!("{base}/client/api/relay{path}"))
+    let mut request = client
+        .request(method, format!("{base}/client/api/relay{path}"))
         .bearer_auth(token)
         .header("User-Agent", "Undefined-Client")
         .header("Accept", "application/json");
-    if let Some(body) = body { request = request.json(&body); }
-    let response = request.send().await.map_err(|e| format!("Relay network: {e}"))?;
+    if let Some(body) = body {
+        request = request.json(&body);
+    }
+    let response = request
+        .send()
+        .await
+        .map_err(|e| format!("Relay network: {e}"))?;
     let status = response.status();
-    let value = response.json::<serde_json::Value>().await.unwrap_or_default();
-    if !status.is_success() { return Err(value["error"].as_str().unwrap_or("Relay request failed").to_string()); }
+    let value = response
+        .json::<serde_json::Value>()
+        .await
+        .unwrap_or_default();
+    if !status.is_success() {
+        return Err(value["error"]
+            .as_str()
+            .unwrap_or("Relay request failed")
+            .to_string());
+    }
     Ok(value)
 }
 
-async fn run_lan_relay(session_id: String, tunnel_token: String, tunnel_host: String, tunnel_port: u16, local_port: u16) {
-    let Ok(mut control) = TcpStream::connect((tunnel_host.as_str(), tunnel_port)).await else { return; };
-    if control.write_all(format!("HOST {session_id} {tunnel_token}\n").as_bytes()).await.is_err() { return; }
+async fn run_lan_relay(
+    session_id: String,
+    tunnel_token: String,
+    tunnel_host: String,
+    tunnel_port: u16,
+    local_port: u16,
+) {
+    let Ok(mut control) = TcpStream::connect((tunnel_host.as_str(), tunnel_port)).await else {
+        return;
+    };
+    if control
+        .write_all(format!("HOST {session_id} {tunnel_token}\n").as_bytes())
+        .await
+        .is_err()
+    {
+        return;
+    }
     let mut lines = tokio::io::BufReader::new(control);
     let mut line = String::new();
-    if lines.read_line(&mut line).await.is_err() || !line.trim_start().to_ascii_uppercase().starts_with("OK HOST") { return; }
+    if lines.read_line(&mut line).await.is_err()
+        || !line
+            .trim_start()
+            .to_ascii_uppercase()
+            .starts_with("OK HOST")
+    {
+        return;
+    }
     let control = lines.into_inner();
     let (reader, _writer) = control.into_split();
     let mut control_lines = tokio::io::BufReader::new(reader).lines();
@@ -220,27 +416,59 @@ async fn run_lan_relay(session_id: String, tunnel_token: String, tunnel_host: St
             let token = tunnel_token.clone();
             let connection_id = parts[1].to_string();
             tokio::spawn(async move {
-                let Ok(mut remote) = TcpStream::connect((host.as_str(), tunnel_port)).await else { return; };
-                if remote.write_all(format!("DATA {sid} {token} {connection_id}\n").as_bytes()).await.is_err() { return; }
+                let Ok(mut remote) = TcpStream::connect((host.as_str(), tunnel_port)).await else {
+                    return;
+                };
+                if remote
+                    .write_all(format!("DATA {sid} {token} {connection_id}\n").as_bytes())
+                    .await
+                    .is_err()
+                {
+                    return;
+                }
                 let mut response = String::new();
                 let mut buffered = tokio::io::BufReader::new(remote);
-                if buffered.read_line(&mut response).await.is_err() || !response.trim_start().to_ascii_uppercase().starts_with("OK DATA") { return; }
+                if buffered.read_line(&mut response).await.is_err()
+                    || !response
+                        .trim_start()
+                        .to_ascii_uppercase()
+                        .starts_with("OK DATA")
+                {
+                    return;
+                }
                 let mut remote = buffered.into_inner();
-                let Ok(mut local) = TcpStream::connect(("127.0.0.1", local_port)).await else { return; };
+                let Ok(mut local) = TcpStream::connect(("127.0.0.1", local_port)).await else {
+                    return;
+                };
                 let _ = tokio::io::copy_bidirectional(&mut remote, &mut local).await;
             });
-        } else if parts.len() >= 1 && parts[0].eq_ignore_ascii_case("CLOSE") { break; }
+        } else if parts.len() >= 1 && parts[0].eq_ignore_ascii_case("CLOSE") {
+            break;
+        }
     }
 }
 
 #[tauri::command]
 pub async fn get_lan_relay_status(instance_id: String) -> Result<LanRelayInfo, String> {
     let port = lan_port_from_log(&instance_id);
-    let active = LAN_RELAY.lock().ok().and_then(|state| state.as_ref().map(|relay| LanRelayInfo {
-        active: true, public_host: Some(relay.public_host.clone()), public_port: Some(relay.public_port),
-        local_port: Some(relay.local_port), session_id: Some(relay.session_id.clone()), error: None,
-    }));
-    Ok(active.unwrap_or(LanRelayInfo { active: false, public_host: None, public_port: None, local_port: port, session_id: None, error: None }))
+    let active = LAN_RELAY.lock().ok().and_then(|state| {
+        state.as_ref().map(|relay| LanRelayInfo {
+            active: true,
+            public_host: Some(relay.public_host.clone()),
+            public_port: Some(relay.public_port),
+            local_port: Some(relay.local_port),
+            session_id: Some(relay.session_id.clone()),
+            error: None,
+        })
+    });
+    Ok(active.unwrap_or(LanRelayInfo {
+        active: false,
+        public_host: None,
+        public_port: None,
+        local_port: port,
+        session_id: None,
+        error: None,
+    }))
 }
 
 #[tauri::command]
@@ -250,12 +478,15 @@ pub async fn start_lan_relay(
     token: String,
     account_uuid: Option<String>,
 ) -> Result<LanRelayInfo, String> {
-    let local_port = lan_port_from_log(&instance_id).ok_or("Minecraft LAN-порт не найден. Сначала откройте мир для сети в игре.")?;
+    let local_port = lan_port_from_log(&instance_id)
+        .ok_or("Minecraft LAN-порт не найден. Сначала откройте мир для сети в игре.")?;
     if TcpStream::connect(("127.0.0.1", local_port)).await.is_err() {
         return Err("LAN-порт найден в логе, но Minecraft больше его не слушает. Откройте мир для сети заново.".into());
     }
     if let Ok(mut state) = LAN_RELAY.lock() {
-        if let Some(previous) = state.take() { previous.task.abort(); }
+        if let Some(previous) = state.take() {
+            previous.task.abort();
+        }
     }
     fn relay_auth_error(error: &str) -> String {
         let lower = error.to_lowercase();
@@ -275,29 +506,78 @@ pub async fn start_lan_relay(
     };
     let client = reqwest::Client::new();
     // Создаём relay-сессию, передавая messenger-токен.
-    let data = match relay_json(&client, "https://uprojects.site", "/sessions", &resolved_token, reqwest::Method::POST, Some(serde_json::json!({ "localPort": local_port }))).await {
+    let data = match relay_json(
+        &client,
+        "https://uprojects.site",
+        "/sessions",
+        &resolved_token,
+        reqwest::Method::POST,
+        Some(serde_json::json!({ "localPort": local_port })),
+    )
+    .await
+    {
         Ok(data) => data,
         Err(error) => {
             // Пробуем заново получить messenger-токен (мог устареть).
             match resolve_messenger_token(&app, "", requested_uuid).await {
-                Ok(fresh_token) if fresh_token != resolved_token => {
-                    relay_json(&client, "https://uprojects.site", "/sessions", &fresh_token, reqwest::Method::POST, Some(serde_json::json!({ "localPort": local_port })))
-                        .await
-                        .map_err(|retry_error| relay_auth_error(&retry_error))?
-                }
+                Ok(fresh_token) if fresh_token != resolved_token => relay_json(
+                    &client,
+                    "https://uprojects.site",
+                    "/sessions",
+                    &fresh_token,
+                    reqwest::Method::POST,
+                    Some(serde_json::json!({ "localPort": local_port })),
+                )
+                .await
+                .map_err(|retry_error| relay_auth_error(&retry_error))?,
                 _ => return Err(relay_auth_error(&error)),
             }
         }
     };
-    let session_id = data["sessionId"].as_str().ok_or("Relay не вернул sessionId")?.to_string();
-    let tunnel_token = data["tunnelToken"].as_str().ok_or("Relay не вернул tunnelToken")?.to_string();
-    let public_host = data["publicHost"].as_str().ok_or("Relay не вернул publicHost")?.to_string();
-    let public_port = data["publicPort"].as_u64().ok_or("Relay не вернул publicPort")? as u16;
-    let tunnel_host = data["tunnelHost"].as_str().unwrap_or("uprojects.site").to_string();
+    let session_id = data["sessionId"]
+        .as_str()
+        .ok_or("Relay не вернул sessionId")?
+        .to_string();
+    let tunnel_token = data["tunnelToken"]
+        .as_str()
+        .ok_or("Relay не вернул tunnelToken")?
+        .to_string();
+    let public_host = data["publicHost"]
+        .as_str()
+        .ok_or("Relay не вернул publicHost")?
+        .to_string();
+    let public_port = data["publicPort"]
+        .as_u64()
+        .ok_or("Relay не вернул publicPort")? as u16;
+    let tunnel_host = data["tunnelHost"]
+        .as_str()
+        .unwrap_or("uprojects.site")
+        .to_string();
     let tunnel_port = data["tunnelPort"].as_u64().unwrap_or(25570) as u16;
-    let task = tokio::spawn(run_lan_relay(session_id.clone(), tunnel_token, tunnel_host, tunnel_port, local_port));
-    if let Ok(mut state) = LAN_RELAY.lock() { *state = Some(ActiveLanRelay { session_id: session_id.clone(), public_host: public_host.clone(), public_port, local_port, task }); }
-    Ok(LanRelayInfo { active: true, public_host: Some(public_host), public_port: Some(public_port), local_port: Some(local_port), session_id: Some(session_id), error: None })
+    let task = tokio::spawn(run_lan_relay(
+        session_id.clone(),
+        tunnel_token,
+        tunnel_host,
+        tunnel_port,
+        local_port,
+    ));
+    if let Ok(mut state) = LAN_RELAY.lock() {
+        *state = Some(ActiveLanRelay {
+            session_id: session_id.clone(),
+            public_host: public_host.clone(),
+            public_port,
+            local_port,
+            task,
+        });
+    }
+    Ok(LanRelayInfo {
+        active: true,
+        public_host: Some(public_host),
+        public_port: Some(public_port),
+        local_port: Some(local_port),
+        session_id: Some(session_id),
+        error: None,
+    })
 }
 
 /// Получить токен мессенджера uprojects.site (нужен для relay-сессий).
@@ -324,13 +604,24 @@ async fn get_messenger_token(
         .await
         .map_err(|e| format!("Messenger network: {e}"))?;
     let status = response.status();
-    let data = response.json::<serde_json::Value>().await.unwrap_or_default();
+    let data = response
+        .json::<serde_json::Value>()
+        .await
+        .unwrap_or_default();
     if !status.is_success() {
         let code = data["code"].as_str().unwrap_or("");
         return Err(match code {
-            "ely_token_invalid" => "Ely.by токен недействителен. Обновите вход в Ely.by и попробуйте снова.".into(),
-            "msa_token_invalid" | "microsoft_token_invalid" => "Microsoft токен недействителен. Обновите вход в Microsoft и попробуйте снова.".into(),
-            _ => format!("Мессенджер отклонил токен: {}", data["error"].as_str().unwrap_or("unknown")),
+            "ely_token_invalid" => {
+                "Ely.by токен недействителен. Обновите вход в Ely.by и попробуйте снова.".into()
+            }
+            "msa_token_invalid" | "microsoft_token_invalid" => {
+                "Microsoft токен недействителен. Обновите вход в Microsoft и попробуйте снова."
+                    .into()
+            }
+            _ => format!(
+                "Мессенджер отклонил токен: {}",
+                data["error"].as_str().unwrap_or("unknown")
+            ),
         });
     }
     data["token"]
@@ -365,7 +656,9 @@ async fn resolve_messenger_token(
                     provider,
                     &acc.access_token,
                     acc.skin_url.as_deref(),
-                ).await {
+                )
+                .await
+                {
                     return Ok(token);
                 }
             }
@@ -390,7 +683,15 @@ pub async fn stop_lan_relay(app: tauri::AppHandle, token: String) -> Result<(), 
     if let Some(relay) = relay {
         relay.task.abort();
         let resolved = resolve_messenger_token(&app, "", None).await?;
-        let _ = relay_json(&reqwest::Client::new(), "https://uprojects.site", &format!("/sessions/{}", urlencoding::encode(&relay.session_id)), &resolved, reqwest::Method::DELETE, None).await;
+        let _ = relay_json(
+            &reqwest::Client::new(),
+            "https://uprojects.site",
+            &format!("/sessions/{}", urlencoding::encode(&relay.session_id)),
+            &resolved,
+            reqwest::Method::DELETE,
+            None,
+        )
+        .await;
     }
     Ok(())
 }
@@ -408,7 +709,13 @@ pub async fn get_relay_health(app: tauri::AppHandle) -> Result<String, String> {
         return Err("Токен пуст".into());
     }
     let client = reqwest::Client::new();
-    get_messenger_token(&client, provider, &account.access_token, account.skin_url.as_deref()).await
+    get_messenger_token(
+        &client,
+        provider,
+        &account.access_token,
+        account.skin_url.as_deref(),
+    )
+    .await
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -484,12 +791,18 @@ fn dir_size(path: &Path) -> u64 {
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub fn instance_list_dir(instance_id: String, path: Option<String>) -> Result<Vec<FsEntry>, String> {
+pub fn instance_list_dir(
+    instance_id: String,
+    path: Option<String>,
+) -> Result<Vec<FsEntry>, String> {
     let rel = path.unwrap_or_default();
     let dir = safe_join(&instance_id, &rel)?;
     std::fs::create_dir_all(&dir).ok();
     let mut out = Vec::new();
-    for entry in std::fs::read_dir(&dir).map_err(|e| e.to_string())?.flatten() {
+    for entry in std::fs::read_dir(&dir)
+        .map_err(|e| e.to_string())?
+        .flatten()
+    {
         let p = entry.path();
         let meta = entry.metadata().ok();
         let modified = meta
@@ -516,7 +829,11 @@ pub fn instance_list_dir(instance_id: String, path: Option<String>) -> Result<Ve
             kind: kind_of(&p),
         });
     }
-    out.sort_by(|a, b| b.is_dir.cmp(&a.is_dir).then(a.name.to_lowercase().cmp(&b.name.to_lowercase())));
+    out.sort_by(|a, b| {
+        b.is_dir
+            .cmp(&a.is_dir)
+            .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
     Ok(out)
 }
 
@@ -534,7 +851,9 @@ pub fn instance_search_files(instance_id: String, query: String) -> Result<Vec<F
         if *scanned >= 80_000 || out.len() >= 300 {
             return;
         }
-        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
         for entry in entries.flatten() {
             if *scanned >= 80_000 || out.len() >= 300 {
                 return;
@@ -580,14 +899,21 @@ pub fn instance_search_files(instance_id: String, query: String) -> Result<Vec<F
 #[tauri::command]
 pub fn instance_read_text(instance_id: String, path: String) -> Result<String, String> {
     let p = safe_join(&instance_id, &path)?;
-    let bytes = std::fs::read(&p).map_err(|e| format!("Не удалось прочитать {}: {e}", p.display()))?;
+    let bytes =
+        std::fs::read(&p).map_err(|e| format!("Не удалось прочитать {}: {e}", p.display()))?;
     // Minecraft-конфиги встречаются с BOM/неидеальным UTF-8. Lossy decoding
     // позволяет открыть и отредактировать их, не ломая файловый менеджер.
-    Ok(String::from_utf8_lossy(&bytes).trim_start_matches('\u{feff}').to_string())
+    Ok(String::from_utf8_lossy(&bytes)
+        .trim_start_matches('\u{feff}')
+        .to_string())
 }
 
 #[tauri::command]
-pub fn instance_write_text(instance_id: String, path: String, content: String) -> Result<(), String> {
+pub fn instance_write_text(
+    instance_id: String,
+    path: String,
+    content: String,
+) -> Result<(), String> {
     let p = safe_join(&instance_id, &path)?;
     if let Some(dir) = p.parent() {
         std::fs::create_dir_all(dir).ok();
@@ -607,8 +933,20 @@ pub fn instance_delete_path(instance_id: String, path: String) -> Result<(), Str
     if p == instance_game_dir(&instance_id) {
         return Err("Нельзя удалить корень сборки".into());
     }
-    let first_segment = path.replace('\\', "/").split('/').next().unwrap_or("").to_ascii_lowercase();
-    let content_type = match first_segment.as_str() { "mods" => Some("mod"), "resourcepacks" => Some("resourcepack"), "shaderpacks" => Some("shaderpack"), "datapacks" => Some("datapack"), "saves" => Some("saves"), _ => None };
+    let first_segment = path
+        .replace('\\', "/")
+        .split('/')
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let content_type = match first_segment.as_str() {
+        "mods" => Some("mod"),
+        "resourcepacks" => Some("resourcepack"),
+        "shaderpacks" => Some("shaderpack"),
+        "datapacks" => Some("datapack"),
+        "saves" => Some("saves"),
+        _ => None,
+    };
     if let Some(mod_type) = content_type {
         crate::commands::mods::move_instance_content_to_recovery(&instance_id, p, mod_type, false)?;
         return Ok(());
@@ -628,7 +966,12 @@ pub fn instance_rename_path(
 ) -> Result<(), String> {
     let p = safe_join(&instance_id, &path)?;
     let clean_name = new_name.trim();
-    if clean_name.is_empty() || clean_name == "." || clean_name == ".." || clean_name.contains('/') || clean_name.contains('\\') {
+    if clean_name.is_empty()
+        || clean_name == "."
+        || clean_name == ".."
+        || clean_name.contains('/')
+        || clean_name.contains('\\')
+    {
         return Err("Некорректное имя файла или папки".into());
     }
     let parent = p.parent().ok_or("нет родительской папки")?;
@@ -641,11 +984,7 @@ pub fn instance_rename_path(
 
 /// Перемещение (используется drag&drop внутри файлового менеджера).
 #[tauri::command]
-pub fn instance_move_path(
-    instance_id: String,
-    from: String,
-    to_dir: String,
-) -> Result<(), String> {
+pub fn instance_move_path(instance_id: String, from: String, to_dir: String) -> Result<(), String> {
     let src = safe_join(&instance_id, &from)?;
     let dir = safe_join(&instance_id, &to_dir)?;
     if !src.exists() {
@@ -704,7 +1043,9 @@ pub fn instance_drop_files(
         } else if lower.ends_with(".prtheme") || lower.ends_with(".css") {
             crate::commands::version_manager::mc_base_dir().join("themes")
         } else {
-            return Err(format!("{name}: поддерживаются только .jar, .zip и .mrpack файлы Minecraft"));
+            return Err(format!(
+                "{name}: поддерживаются только .jar, .zip и .mrpack файлы Minecraft"
+            ));
         };
 
         std::fs::create_dir_all(&dest_dir).ok();
@@ -763,7 +1104,10 @@ fn classify_zip(src: &Path, root: &Path) -> PathBuf {
 
 fn copy_dir(from: &Path, to: &Path) -> Result<(), String> {
     std::fs::create_dir_all(to).map_err(|e| e.to_string())?;
-    for entry in std::fs::read_dir(from).map_err(|e| e.to_string())?.flatten() {
+    for entry in std::fs::read_dir(from)
+        .map_err(|e| e.to_string())?
+        .flatten()
+    {
         let p = entry.path();
         let dest = to.join(entry.file_name());
         if p.is_dir() {
@@ -784,7 +1128,10 @@ pub fn instance_list_worlds(instance_id: String) -> Result<Vec<WorldInfo>, Strin
     let saves = instance_game_dir(&instance_id).join("saves");
     std::fs::create_dir_all(&saves).ok();
     let mut out = Vec::new();
-    for entry in std::fs::read_dir(&saves).map_err(|e| e.to_string())?.flatten() {
+    for entry in std::fs::read_dir(&saves)
+        .map_err(|e| e.to_string())?
+        .flatten()
+    {
         let dir = entry.path();
         if !dir.is_dir() {
             continue;
@@ -799,10 +1146,12 @@ pub fn instance_list_worlds(instance_id: String) -> Result<Vec<WorldInfo>, Strin
             last_played = nbt::find_long(&data, "LastPlayed");
         }
         let icon_path = dir.join("icon.png");
-        let icon = std::fs::read(&icon_path).ok().map(|bytes| format!(
-            "data:image/png;base64,{}",
-            base64::engine::general_purpose::STANDARD.encode(bytes),
-        ));
+        let icon = std::fs::read(&icon_path).ok().map(|bytes| {
+            format!(
+                "data:image/png;base64,{}",
+                base64::engine::general_purpose::STANDARD.encode(bytes),
+            )
+        });
         out.push(WorldInfo {
             folder,
             name,
@@ -840,7 +1189,8 @@ pub fn instance_list_servers(instance_id: String) -> Result<Vec<ServerInfo>, Str
 #[tauri::command]
 pub fn instance_delete_world(instance_id: String, folder: String) -> Result<(), String> {
     let dir = safe_join(&instance_id, &format!("saves/{folder}"))?;
-    crate::commands::mods::move_instance_content_to_recovery(&instance_id, dir, "saves", false).map(|_| ())
+    crate::commands::mods::move_instance_content_to_recovery(&instance_id, dir, "saves", false)
+        .map(|_| ())
 }
 
 /// Добавляет сервер в servers.dat сборки (простая запись NBT).
@@ -920,7 +1270,8 @@ pub async fn publish_log_mclogs(
 
     let mut metadata = Vec::new();
     if let Some(value) = instance_id.filter(|v| !v.trim().is_empty()) {
-        metadata.push(serde_json::json!({ "key": "instance_id", "value": value, "visible": false }));
+        metadata
+            .push(serde_json::json!({ "key": "instance_id", "value": value, "visible": false }));
     }
     if let Some(value) = minecraft_version.filter(|v| !v.trim().is_empty()) {
         metadata.push(serde_json::json!({ "key": "minecraft_version", "value": value, "label": "Minecraft", "visible": true }));
@@ -946,12 +1297,21 @@ pub async fn publish_log_mclogs(
         .await
         .map_err(|e| format!("mclo.gs upload: {e}"))?;
     let status = response.status();
-    let created: serde_json::Value = response.json().await.map_err(|e| format!("mclo.gs response: {e}"))?;
+    let created: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("mclo.gs response: {e}"))?;
     if !status.is_success() || created["success"].as_bool() != Some(true) {
-        return Err(created["error"].as_str().unwrap_or("mclo.gs не принял лог").to_string());
+        return Err(created["error"]
+            .as_str()
+            .unwrap_or("mclo.gs не принял лог")
+            .to_string());
     }
 
-    let id = created["id"].as_str().ok_or("mclo.gs не вернул ID лога")?.to_string();
+    let id = created["id"]
+        .as_str()
+        .ok_or("mclo.gs не вернул ID лога")?
+        .to_string();
     let insights = match client
         .get(format!("https://api.mclo.gs/1/log/{id}?insights=true"))
         .send()
@@ -961,7 +1321,12 @@ pub async fn publish_log_mclogs(
             .json::<serde_json::Value>()
             .await
             .ok()
-            .and_then(|value| value.get("content").and_then(|content| content.get("insights")).cloned()),
+            .and_then(|value| {
+                value
+                    .get("content")
+                    .and_then(|content| content.get("insights"))
+                    .cloned()
+            }),
         Err(_) => None,
     };
 
@@ -982,11 +1347,20 @@ pub fn instance_open_dir(instance_id: String, path: Option<String>) -> Result<()
     std::fs::create_dir_all(&target).ok();
     let target = target.to_string_lossy().to_string();
     #[cfg(target_os = "windows")]
-    crate::utils::create_hidden_command("explorer").arg(&target).spawn().map_err(|e| e.to_string())?;
+    crate::utils::create_hidden_command("explorer")
+        .arg(&target)
+        .spawn()
+        .map_err(|e| e.to_string())?;
     #[cfg(target_os = "macos")]
-    crate::utils::create_hidden_command("open").arg(&target).spawn().map_err(|e| e.to_string())?;
+    crate::utils::create_hidden_command("open")
+        .arg(&target)
+        .spawn()
+        .map_err(|e| e.to_string())?;
     #[cfg(all(unix, not(target_os = "macos")))]
-    crate::utils::create_hidden_command("xdg-open").arg(&target).spawn().map_err(|e| e.to_string())?;
+    crate::utils::create_hidden_command("xdg-open")
+        .arg(&target)
+        .spawn()
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 

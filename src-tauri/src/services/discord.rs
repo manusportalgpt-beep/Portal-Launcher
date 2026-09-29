@@ -1,8 +1,8 @@
+use discord_rich_presence::activity::{Activity, Assets, Button, Party};
 use discord_rich_presence::DiscordIpc;
 use discord_rich_presence::DiscordIpcClient;
-use discord_rich_presence::activity::{Activity, Assets, Button, Party};
-use std::sync::Mutex;
 use once_cell::sync::Lazy;
+use std::sync::Mutex;
 use tauri::State;
 
 const GITHUB_URL: &str = "https://github.com/manusportalgpt-beep/Portal-Launcher";
@@ -25,16 +25,17 @@ impl DiscordState {
     // Инициализация подключения к Discord
     pub fn connect(&self) -> Result<(), String> {
         let mut client_opt = self.client.lock().map_err(|e| e.to_string())?;
-        
+
         if client_opt.is_some() {
             return Ok(()); // Уже подключено
         }
 
         let mut client = DiscordIpcClient::new(&self.application_id);
-        
-        client.connect()
+
+        client
+            .connect()
             .map_err(|e| format!("Failed to connect to Discord: {}", e))?;
-        
+
         *client_opt = Some(client);
         log::info!("Discord Rich Presence connected");
         Ok(())
@@ -43,9 +44,10 @@ impl DiscordState {
     // Обновление статуса
     pub fn update_presence(&self, presence: Activity) -> Result<(), String> {
         let mut client_opt = self.client.lock().map_err(|e| e.to_string())?;
-        
+
         if let Some(client) = client_opt.as_mut() {
-            client.set_activity(presence)
+            client
+                .set_activity(presence)
                 .map_err(|e| format!("Failed to update Discord presence: {}", e))?;
             Ok(())
         } else {
@@ -56,9 +58,10 @@ impl DiscordState {
     // Очистка статуса
     pub fn clear_presence(&self) -> Result<(), String> {
         let mut client_opt = self.client.lock().map_err(|e| e.to_string())?;
-        
+
         if let Some(client) = client_opt.as_mut() {
-            client.clear_activity()
+            client
+                .clear_activity()
                 .map_err(|e| format!("Failed to clear Discord presence: {}", e))?;
             Ok(())
         } else {
@@ -94,8 +97,7 @@ pub fn set_launcher_status(
         return Ok(()); // Discord не запущен, просто игнорируем
     }
 
-    let mut presence = Activity::new()
-        .state(&page);
+    let mut presence = Activity::new().state(&page);
 
     if let Some(d) = details {
         presence = presence.details(d);
@@ -106,11 +108,10 @@ pub fn set_launcher_status(
         .large_image("launcher_icon") // Имя картинки из Discord Developer Portal
         .large_text("Portal Launcher");
 
-    presence = presence.assets(assets)
-        .buttons(vec![
-            Button::new("Скачать лаунчер", GITHUB_URL),
-            Button::new("Присоединиться", LAUNCHER_PROTOCOL),
-        ]);
+    presence = presence.assets(assets).buttons(vec![
+        Button::new("Скачать лаунчер", GITHUB_URL),
+        Button::new("Присоединиться", LAUNCHER_PROTOCOL),
+    ]);
 
     state.update_presence(presence)
 }
@@ -147,9 +148,7 @@ pub fn set_game_status(
         format!("Minecraft {}", version)
     };
 
-    let mut presence = Activity::new()
-        .state(&state_text)
-        .details(&details_text);
+    let mut presence = Activity::new().state(&state_text).details(&details_text);
 
     // Добавляем изображения
     let mut assets = Assets::new()
@@ -158,7 +157,9 @@ pub fn set_game_status(
 
     // Маленькая иконка для режима
     if mode == "multiplayer" {
-        assets = assets.small_image("multiplayer_icon").small_text("Multiplayer");
+        assets = assets
+            .small_image("multiplayer_icon")
+            .small_text("Multiplayer");
     } else {
         assets = assets.small_image("solo_icon").small_text("Singleplayer");
     }
@@ -169,8 +170,10 @@ pub fn set_game_status(
     if let (Some(current), Some(max)) = (players_online, max_players) {
         presence = presence.party(
             Party::new()
-                .id(instance_name.clone().unwrap_or_else(|| "default".to_string()))
-                .size([current as i32, max as i32])
+                .id(instance_name
+                    .clone()
+                    .unwrap_or_else(|| "default".to_string()))
+                .size([current as i32, max as i32]),
         );
     }
 

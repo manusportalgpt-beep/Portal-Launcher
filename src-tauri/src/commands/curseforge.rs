@@ -1,16 +1,31 @@
 use super::settings::read_curseforge_api_key;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CfAuthor { pub name: String, pub id: Option<u64>, pub avatar_url: Option<String> }
+pub struct CfAuthor {
+    pub name: String,
+    pub id: Option<u64>,
+    pub avatar_url: Option<String>,
+}
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CfLogo { pub thumbnail_url: String }
+pub struct CfLogo {
+    pub thumbnail_url: String,
+}
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CfCategory { pub name: String }
+pub struct CfCategory {
+    pub name: String,
+}
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CfScreenshot { pub url: String, pub title: Option<String>, pub description: Option<String> }
+pub struct CfScreenshot {
+    pub url: String,
+    pub title: Option<String>,
+    pub description: Option<String>,
+}
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CfFileIndex { pub game_version: String, pub mod_loader_type: u32 }
+pub struct CfFileIndex {
+    pub game_version: String,
+    pub mod_loader_type: u32,
+}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CurseforgeMod {
     pub id: u64,
@@ -30,7 +45,9 @@ pub struct CurseforgeMod {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct CfPagination { pub total_count: u64 }
+pub struct CfPagination {
+    pub total_count: u64,
+}
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CurseforgeSearchResult {
     pub data: Vec<CurseforgeMod>,
@@ -50,27 +67,71 @@ fn parse_mod(m: &serde_json::Value) -> CurseforgeMod {
     CurseforgeMod {
         id: m["id"].as_u64().unwrap_or(0),
         name: m["name"].as_str().unwrap_or("").to_string(),
-        class_id: m["classId"].as_u64().or_else(|| m["class_id"].as_u64()).unwrap_or(0),
+        class_id: m["classId"]
+            .as_u64()
+            .or_else(|| m["class_id"].as_u64())
+            .unwrap_or(0),
         summary: m["summary"].as_str().unwrap_or("").to_string(),
-        authors: m["authors"].as_array().map(|a| a.iter().map(|au| CfAuthor {
-            name: au["name"].as_str().unwrap_or("").to_string(),
-            id: au["id"].as_u64(),
-            avatar_url: au["avatarUrl"].as_str().or_else(|| au["avatar_url"].as_str()).map(String::from),
-        }).collect()).unwrap_or_default(),
+        authors: m["authors"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .map(|au| CfAuthor {
+                        name: au["name"].as_str().unwrap_or("").to_string(),
+                        id: au["id"].as_u64(),
+                        avatar_url: au["avatarUrl"]
+                            .as_str()
+                            .or_else(|| au["avatar_url"].as_str())
+                            .map(String::from),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default(),
         download_count: m["downloadCount"].as_u64().unwrap_or(0),
         thumbs_up_count: m["thumbsUpCount"].as_u64().unwrap_or(0),
-        logo: m["logo"]["thumbnailUrl"].as_str().map(|u| CfLogo { thumbnail_url: u.to_string() }),
-        categories: m["categories"].as_array().map(|a| a.iter().map(|c| CfCategory {
-            name: c["name"].as_str().unwrap_or("").to_string()
-        }).collect()).unwrap_or_default(),
-        screenshots: m["screenshots"].as_array().map(|items| items.iter().filter_map(|item| {
-            let url = item["url"].as_str().or_else(|| item["thumbnailUrl"].as_str())?.to_string();
-            Some(CfScreenshot { url, title: item["title"].as_str().map(String::from), description: item["description"].as_str().map(String::from) })
-        }).collect()).unwrap_or_default(),
-        latest_files_indexes: m["latestFilesIndexes"].as_array().map(|a| a.iter().map(|f| CfFileIndex {
-            game_version: f["gameVersion"].as_str().unwrap_or("").to_string(),
-            mod_loader_type: f["modLoaderType"].as_u64().unwrap_or(0) as u32,
-        }).collect()).unwrap_or_default(),
+        logo: m["logo"]["thumbnailUrl"].as_str().map(|u| CfLogo {
+            thumbnail_url: u.to_string(),
+        }),
+        categories: m["categories"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .map(|c| CfCategory {
+                        name: c["name"].as_str().unwrap_or("").to_string(),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default(),
+        screenshots: m["screenshots"]
+            .as_array()
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| {
+                        let url = item["url"]
+                            .as_str()
+                            .or_else(|| item["thumbnailUrl"].as_str())?
+                            .to_string();
+                        Some(CfScreenshot {
+                            url,
+                            title: item["title"].as_str().map(String::from),
+                            description: item["description"].as_str().map(String::from),
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default(),
+        latest_files_indexes: m["latestFilesIndexes"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .map(|f| CfFileIndex {
+                        game_version: f["gameVersion"].as_str().unwrap_or("").to_string(),
+                        mod_loader_type: f["modLoaderType"].as_u64().unwrap_or(0) as u32,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default(),
         date_modified: m["dateModified"].as_str().unwrap_or("").to_string(),
         slug: m["slug"].as_str().unwrap_or("").to_string(),
     }
@@ -78,7 +139,10 @@ fn parse_mod(m: &serde_json::Value) -> CurseforgeMod {
 
 fn cf_client(api_key: &str) -> Result<reqwest::Client, String> {
     let mut h = reqwest::header::HeaderMap::new();
-    h.insert(reqwest::header::ACCEPT_ENCODING, reqwest::header::HeaderValue::from_static("identity"));
+    h.insert(
+        reqwest::header::ACCEPT_ENCODING,
+        reqwest::header::HeaderValue::from_static("identity"),
+    );
     if !api_key.trim().is_empty() {
         if let Ok(val) = reqwest::header::HeaderValue::from_str(api_key) {
             h.insert("x-api-key", val);
@@ -87,19 +151,35 @@ fn cf_client(api_key: &str) -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .user_agent("PortalLauncher/1.0.0")
         .default_headers(h)
-        .build().map_err(|e| e.to_string())
+        .build()
+        .map_err(|e| e.to_string())
 }
 
 /// CurseForge can return an HTML/proxy failure instead of JSON. Read the body
 /// only once so the launcher reports the actual status and short explanation.
-async fn cf_json_response(req: reqwest::RequestBuilder, operation: &str) -> Result<serde_json::Value, String> {
-    let response = req.send().await.map_err(|e| format!("CurseForge {operation} request failed: {e}"))?;
+async fn cf_json_response(
+    req: reqwest::RequestBuilder,
+    operation: &str,
+) -> Result<serde_json::Value, String> {
+    let response = req
+        .send()
+        .await
+        .map_err(|e| format!("CurseForge {operation} request failed: {e}"))?;
     let status = response.status();
-    let body = response.text().await.map_err(|e| format!("CurseForge {operation} response body could not be read: {e}"))?;
+    let body = response
+        .text()
+        .await
+        .map_err(|e| format!("CurseForge {operation} response body could not be read: {e}"))?;
     if !status.is_success() {
-        let detail = serde_json::from_str::<serde_json::Value>(&body).ok()
+        let detail = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
             .and_then(|value| value["error"].as_str().map(str::to_owned))
-            .unwrap_or_else(|| body.chars().filter(|character| !character.is_control()).take(220).collect());
+            .unwrap_or_else(|| {
+                body.chars()
+                    .filter(|character| !character.is_control())
+                    .take(220)
+                    .collect()
+            });
         return Err(if detail.is_empty() {
             format!("CurseForge {operation} failed: HTTP {status}")
         } else {
@@ -107,21 +187,34 @@ async fn cf_json_response(req: reqwest::RequestBuilder, operation: &str) -> Resu
         });
     }
     serde_json::from_str(&body).map_err(|e| {
-        let preview: String = body.chars().filter(|character| !character.is_control()).take(160).collect();
+        let preview: String = body
+            .chars()
+            .filter(|character| !character.is_control())
+            .take(160)
+            .collect();
         format!("CurseForge {operation} returned invalid JSON: {e}. {preview}")
     })
 }
 
 #[tauri::command]
 pub async fn get_curseforge_mod(project_id: u64, api_key: String) -> Result<CurseforgeMod, String> {
-    let api_key = if api_key.is_empty() { read_curseforge_api_key() } else { api_key };
-    if api_key.is_empty() { return Err("CurseForge API key not configured".into()); }
+    let api_key = if api_key.is_empty() {
+        read_curseforge_api_key()
+    } else {
+        api_key
+    };
+    if api_key.is_empty() {
+        return Err("CurseForge API key not configured".into());
+    }
     let client = cf_client(&api_key)?;
     let value = cf_json_response(
         client.get(format!("https://api.curseforge.com/v1/mods/{}", project_id)),
         "project lookup",
-    ).await?;
-    if let Some(error) = value["error"].as_str() { return Err(format!("CurseForge API error: {}", error)); }
+    )
+    .await?;
+    if let Some(error) = value["error"].as_str() {
+        return Err(format!("CurseForge API error: {}", error));
+    }
     Ok(parse_mod(&value["data"]))
 }
 
@@ -138,7 +231,11 @@ pub async fn search_curseforge(
     api_key: String,
     game_id: Option<u64>,
 ) -> Result<CurseforgeSearchResult, String> {
-    let api_key = if api_key.is_empty() { read_curseforge_api_key() } else { api_key };
+    let api_key = if api_key.is_empty() {
+        read_curseforge_api_key()
+    } else {
+        api_key
+    };
     if api_key.is_empty() {
         return Err("CurseForge API key not configured. Add it in Settings → Advanced.".into());
     }
@@ -164,21 +261,30 @@ pub async fn search_curseforge(
                 ("sortField", &sort_field),
                 ("sortOrder", &order.to_string()),
             ]);
-        if let Some(cat) = category_id { req = req.query(&[("categoryId", cat.to_string())]); }
-        if let Some(ver) = &game_version { req = req.query(&[("gameVersion", ver.as_str())]); }
-        if let Some(ldr) = mod_loader_type { req = req.query(&[("modLoaderType", ldr.to_string())]); }
+        if let Some(cat) = category_id {
+            req = req.query(&[("categoryId", cat.to_string())]);
+        }
+        if let Some(ver) = &game_version {
+            req = req.query(&[("gameVersion", ver.as_str())]);
+        }
+        if let Some(ldr) = mod_loader_type {
+            req = req.query(&[("modLoaderType", ldr.to_string())]);
+        }
         req
     };
-
 
     async fn run(req: reqwest::RequestBuilder) -> Result<(Vec<CurseforgeMod>, u64), String> {
         let resp = cf_json_response(req, "search").await?;
         if let Some(error) = resp["error"].as_str() {
             return Err(format!("CurseForge API error: {}", error));
         }
-        let data: Vec<CurseforgeMod> = resp["data"].as_array()
-            .map(|a| a.iter().map(parse_mod).collect()).unwrap_or_default();
-        let total = resp["pagination"]["totalCount"].as_u64().unwrap_or(data.len() as u64);
+        let data: Vec<CurseforgeMod> = resp["data"]
+            .as_array()
+            .map(|a| a.iter().map(parse_mod).collect())
+            .unwrap_or_default();
+        let total = resp["pagination"]["totalCount"]
+            .as_u64()
+            .unwrap_or(data.len() as u64);
         Ok((data, total))
     }
 
@@ -237,22 +343,34 @@ pub async fn get_curseforge_mod_files(
     mod_loader_type: Option<u32>,
     api_key: String,
 ) -> Result<serde_json::Value, String> {
-    let api_key = if api_key.is_empty() { read_curseforge_api_key() } else { api_key };
+    let api_key = if api_key.is_empty() {
+        read_curseforge_api_key()
+    } else {
+        api_key
+    };
     if api_key.is_empty() {
         return Err("CurseForge API key not configured.".into());
     }
     let client = cf_client(&api_key)?;
-    let mut req = client.get(&format!("https://api.curseforge.com/v1/mods/{}/files", mod_id))
+    let mut req = client
+        .get(&format!(
+            "https://api.curseforge.com/v1/mods/{}/files",
+            mod_id
+        ))
         .query(&[("pageSize", "50"), ("sortOrder", "desc")]);
-    if let Some(v) = &game_version { req = req.query(&[("gameVersion", v.as_str())]); }
-    if let Some(l) = mod_loader_type { req = req.query(&[("modLoaderType", l.to_string())]); }
+    if let Some(v) = &game_version {
+        req = req.query(&[("gameVersion", v.as_str())]);
+    }
+    if let Some(l) = mod_loader_type {
+        req = req.query(&[("modLoaderType", l.to_string())]);
+    }
     let resp = cf_json_response(req, "file lookup").await?;
     Ok(resp)
 }
 
 /// Get the direct download URL for a specific CurseForge file
 pub fn curseforge_download_url_candidates(url: &str) -> Vec<String> {
-        const PRIMARY: &str = "edge.curseforgecdn.com";
+    const PRIMARY: &str = "edge.curseforgecdn.com";
     const LEGACY: &str = "edge.forgecdn.net";
     const FALLBACK: &str = "mediafilez.forgecdn.net";
     let primary = url
@@ -261,7 +379,11 @@ pub fn curseforge_download_url_candidates(url: &str) -> Vec<String> {
         .replace(FALLBACK, PRIMARY);
     let legacy = primary.replace(PRIMARY, LEGACY);
     let fallback = primary.replace(PRIMARY, FALLBACK);
-    if fallback == primary { vec![primary] } else { vec![primary, fallback, legacy] }
+    if fallback == primary {
+        vec![primary]
+    } else {
+        vec![primary, fallback, legacy]
+    }
 }
 
 #[tauri::command]
@@ -271,7 +393,11 @@ pub async fn get_curseforge_file_download_url(
     api_key: String,
     prefer_resource_pack_cdn: Option<bool>,
 ) -> Result<String, String> {
-    let api_key = if api_key.is_empty() { read_curseforge_api_key() } else { api_key };
+    let api_key = if api_key.is_empty() {
+        read_curseforge_api_key()
+    } else {
+        api_key
+    };
     if api_key.is_empty() {
         return Err("CurseForge API key not configured.".into());
     }
@@ -281,13 +407,25 @@ pub async fn get_curseforge_file_download_url(
     // (CurseForge иногда блокирует этот endpoint для контент-паков)
     // — fallback на file metadata + constructed CDN URL.
     let resp_result = cf_json_response(
-        client.get(&format!("https://api.curseforge.com/v1/mods/{}/files/{}/download-url", mod_id, file_id)),
+        client.get(&format!(
+            "https://api.curseforge.com/v1/mods/{}/files/{}/download-url",
+            mod_id, file_id
+        )),
         "download URL lookup",
-    ).await;
+    )
+    .await;
 
     let id_str = file_id.to_string();
-    let part1 = if id_str.len() >= 4 { &id_str[..4] } else { &id_str };
-    let part2 = if id_str.len() > 4 { id_str[4..].trim_start_matches('0') } else { "" };
+    let part1 = if id_str.len() >= 4 {
+        &id_str[..4]
+    } else {
+        &id_str
+    };
+    let part2 = if id_str.len() > 4 {
+        id_str[4..].trim_start_matches('0')
+    } else {
+        ""
+    };
 
     let url = match resp_result {
         Ok(resp) => {
@@ -298,27 +436,46 @@ pub async fn get_curseforge_file_download_url(
             }
             // API вернул 200, но data пуст — строим вручную
             let file_resp = cf_json_response(
-                client.get(&format!("https://api.curseforge.com/v1/mods/{}/files/{}", mod_id, file_id)),
+                client.get(&format!(
+                    "https://api.curseforge.com/v1/mods/{}/files/{}",
+                    mod_id, file_id
+                )),
                 "file metadata lookup",
-            ).await;
+            )
+            .await;
             match file_resp {
                 Ok(fr) => {
                     let fname = fr["data"]["fileName"].as_str().unwrap_or("mod.jar");
-                    format!("https://edge.curseforgecdn.com/files/{}/{}/{}", part1, part2, fname)
+                    format!(
+                        "https://edge.curseforgecdn.com/files/{}/{}/{}",
+                        part1, part2, fname
+                    )
                 }
-                Err(_) => format!("https://edge.curseforgecdn.com/files/{}/{}/{}", part1, part2, format!("{}-{}.zip", mod_id, file_id))
+                Err(_) => format!(
+                    "https://edge.curseforgecdn.com/files/{}/{}/{}",
+                    part1,
+                    part2,
+                    format!("{}-{}.zip", mod_id, file_id)
+                ),
             }
         }
         Err(download_err) => {
             // download-url endpoint failed — пробуем получить fileName из /files/{id}
             let file_resp = cf_json_response(
-                client.get(&format!("https://api.curseforge.com/v1/mods/{}/files/{}", mod_id, file_id)),
+                client.get(&format!(
+                    "https://api.curseforge.com/v1/mods/{}/files/{}",
+                    mod_id, file_id
+                )),
                 "file metadata lookup",
-            ).await;
+            )
+            .await;
             match file_resp {
                 Ok(fr) => {
                     let fname = fr["data"]["fileName"].as_str().unwrap_or("mod.jar");
-                    format!("https://edge.curseforgecdn.com/files/{}/{}/{}", part1, part2, fname)
+                    format!(
+                        "https://edge.curseforgecdn.com/files/{}/{}/{}",
+                        part1, part2, fname
+                    )
                 }
                 Err(meta_err) => {
                     return Err(format!("Не удалось получить ссылку на скачивание (modId={mod_id}, fileId={file_id}): {download_err}; metadata: {meta_err}"));
@@ -330,7 +487,6 @@ pub async fn get_curseforge_file_download_url(
     let _ = prefer_cdn;
     Ok(url)
 }
-
 
 // ── Bedrock: игру и классы (Addons/Texture Packs/Scripts/Skins/Maps) ──────
 // ВАЖНО: numeric gameId и classId для Minecraft Bedrock на CurseForge нигде
@@ -348,7 +504,11 @@ pub struct BedrockTaxonomy {
 
 #[tauri::command]
 pub async fn get_bedrock_curseforge_taxonomy(api_key: String) -> Result<BedrockTaxonomy, String> {
-    let api_key = if api_key.is_empty() { read_curseforge_api_key() } else { api_key };
+    let api_key = if api_key.is_empty() {
+        read_curseforge_api_key()
+    } else {
+        api_key
+    };
     if api_key.is_empty() {
         return Err("CurseForge API key not configured. Add it in Settings → Advanced.".into());
     }
@@ -357,8 +517,12 @@ pub async fn get_bedrock_curseforge_taxonomy(api_key: String) -> Result<BedrockT
     let games: serde_json::Value = client
         .get("https://api.curseforge.com/v1/games")
         .query(&[("pageSize", "50")])
-        .send().await.map_err(|e| format!("CurseForge games request: {e}"))?
-        .json().await.map_err(|e| format!("CurseForge games parse: {e}"))?;
+        .send()
+        .await
+        .map_err(|e| format!("CurseForge games request: {e}"))?
+        .json()
+        .await
+        .map_err(|e| format!("CurseForge games parse: {e}"))?;
 
     let game_id = games["data"].as_array()
         .and_then(|arr| arr.iter().find(|g| {
@@ -368,9 +532,15 @@ pub async fn get_bedrock_curseforge_taxonomy(api_key: String) -> Result<BedrockT
         .ok_or("CurseForge: игра 'Minecraft Bedrock' не найдена в /v1/games — возможно, API-ключ не даёт к ней доступа.")?;
 
     let cats: serde_json::Value = client
-        .get(&format!("https://api.curseforge.com/v1/games/{game_id}/categories"))
-        .send().await.map_err(|e| format!("CurseForge categories request: {e}"))?
-        .json().await.map_err(|e| format!("CurseForge categories parse: {e}"))?;
+        .get(&format!(
+            "https://api.curseforge.com/v1/games/{game_id}/categories"
+        ))
+        .send()
+        .await
+        .map_err(|e| format!("CurseForge categories request: {e}"))?
+        .json()
+        .await
+        .map_err(|e| format!("CurseForge categories parse: {e}"))?;
 
     let mut classes = std::collections::HashMap::new();
     if let Some(arr) = cats["data"].as_array() {
@@ -383,7 +553,9 @@ pub async fn get_bedrock_curseforge_taxonomy(api_key: String) -> Result<BedrockT
         }
     }
     if classes.is_empty() {
-        return Err("CurseForge: не удалось получить категории Bedrock (пустой список classId).".into());
+        return Err(
+            "CurseForge: не удалось получить категории Bedrock (пустой список classId).".into(),
+        );
     }
 
     Ok(BedrockTaxonomy { game_id, classes })

@@ -42,11 +42,19 @@ pub async fn get_developer_mode() -> Result<DeveloperModeState, String> {
         const KEY: &str = r"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock";
         let enabled = read_dword(KEY, "AllowDevelopmentWithoutDevLicense").unwrap_or(0) == 1;
         let sideload = read_dword(KEY, "AllowAllTrustedApps").unwrap_or(0) == 1;
-        return Ok(DeveloperModeState { enabled, sideload, windows: true });
+        return Ok(DeveloperModeState {
+            enabled,
+            sideload,
+            windows: true,
+        });
     }
     #[cfg(not(target_os = "windows"))]
     {
-        Ok(DeveloperModeState { enabled: false, sideload: false, windows: false })
+        Ok(DeveloperModeState {
+            enabled: false,
+            sideload: false,
+            windows: false,
+        })
     }
 }
 
@@ -85,7 +93,9 @@ pub async fn enable_developer_mode() -> Result<DeveloperModeState, String> {
             .status()
             .map_err(|e| format!("Не удалось запросить права администратора: {e}"))?;
         if !status.success() {
-            return Err("Включение Developer Mode отменено, либо не хватило прав администратора.".into());
+            return Err(
+                "Включение Developer Mode отменено, либо не хватило прав администратора.".into(),
+            );
         }
         std::thread::sleep(std::time::Duration::from_millis(400));
         return get_developer_mode().await;
@@ -122,11 +132,18 @@ pub async fn list_bedrock_versions() -> Result<Vec<BedrockPackage>, String> {
         let mut list = vec![];
         for line in text.lines() {
             let parts: Vec<&str> = line.trim().split('|').collect();
-            if parts.len() < 4 || parts[0].is_empty() { continue; }
+            if parts.len() < 4 || parts[0].is_empty() {
+                continue;
+            }
             let name = parts[0].to_string();
-            let preview = name.to_lowercase().contains("beta") || name.to_lowercase().contains("preview");
+            let preview =
+                name.to_lowercase().contains("beta") || name.to_lowercase().contains("preview");
             list.push(BedrockPackage {
-                display_name: if preview { "Minecraft Preview".into() } else { "Minecraft Bedrock".into() },
+                display_name: if preview {
+                    "Minecraft Preview".into()
+                } else {
+                    "Minecraft Bedrock".into()
+                },
                 name,
                 version: parts[2].to_string(),
                 family: parts[3].to_string(), // теперь это полный AUMID, не просто family name

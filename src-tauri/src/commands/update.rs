@@ -29,7 +29,10 @@ fn build_update_info_from_tag(
         body: body.to_string(),
         published_at: published_at.to_string(),
         html_url: if html_url.is_empty() {
-            format!("https://github.com/{}/{}/releases/tag/v{}", REPO_OWNER, REPO_NAME, tag)
+            format!(
+                "https://github.com/{}/{}/releases/tag/v{}",
+                REPO_OWNER, REPO_NAME, tag
+            )
         } else {
             html_url.to_string()
         },
@@ -90,8 +93,12 @@ fn is_newer(remote: &str, local: &str) -> bool {
     for i in 0..rv.len().max(lv.len()) {
         let r = rv.get(i).copied().unwrap_or(0);
         let l = lv.get(i).copied().unwrap_or(0);
-        if r > l { return true; }
-        if r < l { return false; }
+        if r > l {
+            return true;
+        }
+        if r < l {
+            return false;
+        }
     }
     false
 }
@@ -122,7 +129,10 @@ pub struct UpdateInfo {
 fn github_headers() -> (String, String, String) {
     let version = CURRENT_VERSION;
     (
-        format!("PortalLauncher/{version} (+https://github.com/{}/{}/releases)", REPO_OWNER, REPO_NAME),
+        format!(
+            "PortalLauncher/{version} (+https://github.com/{}/{}/releases)",
+            REPO_OWNER, REPO_NAME
+        ),
         "application/vnd.github+json".to_string(),
         "2022-11-28".to_string(),
     )
@@ -155,11 +165,15 @@ async fn github_error_message(res: reqwest::Response) -> String {
                 .to_string();
         }
         if !api_message.is_empty() {
-            return format!("GitHub API отклонил запрос: {api_message} (HTTP {}).", status.as_u16());
+            return format!(
+                "GitHub API отклонил запрос: {api_message} (HTTP {}).",
+                status.as_u16()
+            );
         }
     }
     if status.as_u16() == 404 {
-        return "Релизы не найдены. Проверьте, что у репозитория есть опубликованный релиз.".to_string();
+        return "Релизы не найдены. Проверьте, что у репозитория есть опубликованный релиз."
+            .to_string();
     }
     if status.as_u16() == 401 {
         return "GitHub требует авторизацию для чтения релизов. Опубликуйте релиз публично или проверьте доступ.".to_string();
@@ -176,7 +190,10 @@ async fn github_error_message(res: reqwest::Response) -> String {
 /// `/releases/latest` отдаёт 302 на тег, поэтому версию можно достать из
 /// адреса. Этот путь не ограничен лимитом API и работает, когда API закрыт.
 async fn fetch_latest_tag_via_page(client: &reqwest::Client) -> Option<String> {
-    let url = format!("https://github.com/{}/{}/releases/latest", REPO_OWNER, REPO_NAME);
+    let url = format!(
+        "https://github.com/{}/{}/releases/latest",
+        REPO_OWNER, REPO_NAME
+    );
     let res = client
         .get(&url)
         .header("User-Agent", github_headers().0)
@@ -195,7 +212,11 @@ async fn fetch_latest_tag_via_page(client: &reqwest::Client) -> Option<String> {
         .next()?
         .trim_start_matches('v')
         .to_string();
-    if tag.is_empty() { None } else { Some(tag) }
+    if tag.is_empty() {
+        None
+    } else {
+        Some(tag)
+    }
 }
 
 #[tauri::command]
@@ -223,7 +244,9 @@ pub async fn check_for_update() -> Result<Option<UpdateInfo>, String> {
         let message = github_error_message(res).await;
         // API может быть закрыт или лимит исчерпан — проверяем через страницу.
         if let Some(tag) = fetch_latest_tag_via_page(&client).await {
-            log::info!("[update] GitHub API недоступен ({message}), версия получена через страницу: {tag}");
+            log::info!(
+                "[update] GitHub API недоступен ({message}), версия получена через страницу: {tag}"
+            );
             return Ok(build_update_info_from_tag(&tag, "", "", ""));
         }
         return Err(message);
@@ -259,10 +282,7 @@ pub async fn check_for_update() -> Result<Option<UpdateInfo>, String> {
 
     let (download_url, file_name) = match exe_asset {
         Some(a) => (
-            a["browser_download_url"]
-                .as_str()
-                .unwrap_or("")
-                .to_string(),
+            a["browser_download_url"].as_str().unwrap_or("").to_string(),
             a["name"].as_str().unwrap_or("update.exe").to_string(),
         ),
         None => {

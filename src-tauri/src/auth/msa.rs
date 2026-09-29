@@ -115,8 +115,8 @@ fn pkce_pair() -> (String, String) {
         out
     };
     let verifier = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw);
-    let challenge =
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()));
+    let challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .encode(Sha256::digest(verifier.as_bytes()));
     (verifier, challenge)
 }
 
@@ -167,8 +167,11 @@ pub fn load_account() -> Option<Account> {
         // Старые файлы не содержали provider: до Ely.by единственным
         // лицензированным потоком был Microsoft, поэтому сохраняем совместимость.
         provider: v["provider"].as_str().map(String::from).or_else(|| {
-            if v["demo"].as_bool().unwrap_or(false) { Some("offline".to_string()) }
-            else { Some("microsoft".to_string()) }
+            if v["demo"].as_bool().unwrap_or(false) {
+                Some("offline".to_string())
+            } else {
+                Some("microsoft".to_string())
+            }
         }),
     })
 }
@@ -207,7 +210,10 @@ fn used_client_id() -> (String, bool) {
         .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
     {
         if let Some(cid) = v["client_id"].as_str() {
-            return (cid.to_string(), v["aad"].as_bool().unwrap_or(cid != LEGACY_CLIENT_ID));
+            return (
+                cid.to_string(),
+                v["aad"].as_bool().unwrap_or(cid != LEGACY_CLIENT_ID),
+            );
         }
     }
     if let Some(custom) = custom_client_id() {
@@ -388,7 +394,10 @@ async fn exchange_code(
         .send()
         .await
         .map_err(|e| format!("Сеть (token): {e}"))?;
-    let text = resp.text().await.map_err(|e| format!("Ответ (token): {e}"))?;
+    let text = resp
+        .text()
+        .await
+        .map_err(|e| format!("Ответ (token): {e}"))?;
     let v: serde_json::Value =
         serde_json::from_str(&text).map_err(|e| format!("Разбор токена: {e} — {text}"))?;
 
@@ -490,7 +499,10 @@ async fn xbox_authenticate(
     }
     let v: serde_json::Value =
         serde_json::from_str(&text).map_err(|e| format!("Разбор Xbox Live: {e}"))?;
-    let token = v["Token"].as_str().ok_or("Xbox Live не вернул Token")?.to_string();
+    let token = v["Token"]
+        .as_str()
+        .ok_or("Xbox Live не вернул Token")?
+        .to_string();
     let uhs = v["DisplayClaims"]["xui"][0]["uhs"]
         .as_str()
         .unwrap_or("")
@@ -534,7 +546,10 @@ async fn xsts_authorize(
     }
     let v: serde_json::Value =
         serde_json::from_str(&text).map_err(|e| format!("Разбор XSTS: {e}"))?;
-    let token = v["Token"].as_str().ok_or("XSTS не вернул Token")?.to_string();
+    let token = v["Token"]
+        .as_str()
+        .ok_or("XSTS не вернул Token")?
+        .to_string();
     let uhs = v["DisplayClaims"]["xui"][0]["uhs"]
         .as_str()
         .ok_or("XSTS не вернул uhs")?
@@ -586,8 +601,10 @@ async fn check_entitlements(http: &reqwest::Client, mc_token: &str) -> Result<bo
     let owns = items.iter().any(|i| {
         matches!(
             i["name"].as_str(),
-            Some("product_minecraft") | Some("game_minecraft")
-                | Some("product_minecraft_bedrock") | Some("game_minecraft_bedrock")
+            Some("product_minecraft")
+                | Some("game_minecraft")
+                | Some("product_minecraft_bedrock")
+                | Some("game_minecraft_bedrock")
         )
     });
     Ok(owns)
@@ -629,7 +646,11 @@ async fn minecraft_profile(
     let username = v["name"].as_str().unwrap_or("Player").to_string();
     let skin_url = v["skins"]
         .as_array()
-        .and_then(|s| s.iter().find(|x| x["state"].as_str() == Some("ACTIVE")).or(s.first()))
+        .and_then(|s| {
+            s.iter()
+                .find(|x| x["state"].as_str() == Some("ACTIVE"))
+                .or(s.first())
+        })
         .and_then(|s| s["url"].as_str())
         .map(String::from);
     let cape_url = v["capes"]
@@ -651,7 +672,11 @@ pub async fn msa_refresh(app: tauri::AppHandle) -> Result<Account, String> {
         return Err("Нет refresh_token — требуется повторный вход.".into());
     }
     let (client_id, use_aad) = used_client_id();
-    let redirect = if use_aad { NATIVE_REDIRECT } else { DESKTOP_REDIRECT };
+    let redirect = if use_aad {
+        NATIVE_REDIRECT
+    } else {
+        DESKTOP_REDIRECT
+    };
     let http = client()?;
 
     let mut form: Vec<(&str, &str)> = vec![
@@ -677,10 +702,15 @@ pub async fn msa_refresh(app: tauri::AppHandle) -> Result<Account, String> {
         serde_json::from_str(&text).map_err(|e| format!("Разбор refresh: {e}"))?;
     if let Some(err) = v["error"].as_str() {
         let desc = v["error_description"].as_str().unwrap_or(err);
-        return Err(format!("Не удалось обновить сессию: {desc}. Войдите заново."));
+        return Err(format!(
+            "Не удалось обновить сессию: {desc}. Войдите заново."
+        ));
     }
     let tokens = MsTokens {
-        access_token: v["access_token"].as_str().ok_or("нет access_token")?.to_string(),
+        access_token: v["access_token"]
+            .as_str()
+            .ok_or("нет access_token")?
+            .to_string(),
         refresh_token: v["refresh_token"]
             .as_str()
             .unwrap_or(&stored.refresh_token)
@@ -755,7 +785,8 @@ pub fn save_frontend_account(
         Some("offline") => "offline",
         Some("nickname") => "nickname",
         _ => "microsoft",
-    }.to_string();
+    }
+    .to_string();
     let acc = Account {
         uuid,
         username,

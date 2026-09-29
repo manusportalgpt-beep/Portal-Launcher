@@ -180,8 +180,9 @@ pub async fn ensure_version_json(
                     || std::path::Path::new(
                         &crate::commands::version_manager::versions_dir()
                             .join(version_id)
-                            .join(format!("{version_id}.jar"))
-                    ).exists();
+                            .join(format!("{version_id}.jar")),
+                    )
+                    .exists();
                 let is_requested_vanilla = v["id"].as_str() == Some(version_id) && has_client;
                 if is_requested_vanilla {
                     return Ok(v);
@@ -241,8 +242,16 @@ pub fn merge_inherited(child: &serde_json::Value, parent: &serde_json::Value) ->
 
     // arguments
     for key in ["game", "jvm"] {
-        let mut merged = parent["arguments"][key].as_array().cloned().unwrap_or_default();
-        merged.extend(child["arguments"][key].as_array().cloned().unwrap_or_default());
+        let mut merged = parent["arguments"][key]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        merged.extend(
+            child["arguments"][key]
+                .as_array()
+                .cloned()
+                .unwrap_or_default(),
+        );
         if !merged.is_empty() {
             out["arguments"][key] = serde_json::Value::Array(merged);
         }
@@ -284,8 +293,11 @@ fn extract_neoforge_version_from_id(profile_id: &str) -> Option<String> {
             // dash is the trusted NeoForge coordinate. Only treat the prefix
             // as MC when it starts with a familiar MC major (1.x or 20+).
             let looks_like_mc_prefix = mc_parts.len() >= 2
-                && mc_parts.iter().all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
-                && (mc_parts[0] == "1" || mc_parts[0].parse::<u32>().map(|m| m >= 20).unwrap_or(false));
+                && mc_parts
+                    .iter()
+                    .all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
+                && (mc_parts[0] == "1"
+                    || mc_parts[0].parse::<u32>().map(|m| m >= 20).unwrap_or(false));
             if looks_like_mc_prefix {
                 let nf_version = &rest[idx + 1..];
                 if !nf_version.trim().is_empty() {
@@ -298,7 +310,11 @@ fn extract_neoforge_version_from_id(profile_id: &str) -> Option<String> {
     // 2. Bare version: "21.1.77" (no neoforge- prefix)
     let trimmed = profile_id.trim();
     let parts: Vec<&str> = trimmed.split('.').collect();
-    if parts.len() >= 2 && parts.iter().all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit())) {
+    if parts.len() >= 2
+        && parts
+            .iter()
+            .all(|p| !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()))
+    {
         return Some(trimmed.to_string());
     }
     None
@@ -325,7 +341,10 @@ fn include_neoforge_runtime(profile: &mut serde_json::Value) {
         .as_str()
         .and_then(extract_neoforge_version_from_id)
     else {
-        log::debug!("[NeoForge] include_neoforge_runtime: profile id {:?} is not a NeoForge profile", profile["id"].as_str());
+        log::debug!(
+            "[NeoForge] include_neoforge_runtime: profile id {:?} is not a NeoForge profile",
+            profile["id"].as_str()
+        );
         return;
     };
 
@@ -337,7 +356,10 @@ fn include_neoforge_runtime(profile: &mut serde_json::Value) {
     };
 
     let neoforge_base = crate::commands::version_manager::libraries_dir()
-        .join("net").join("neoforged").join("neoforge").join(&version);
+        .join("net")
+        .join("neoforged")
+        .join("neoforge")
+        .join(&version);
 
     // В новой модели (патченная игра отдельным артефактом) universal на
     // classpath НЕ добавляем: попадание universal.jar в java.class.path
@@ -368,7 +390,9 @@ fn include_neoforge_runtime(profile: &mut serde_json::Value) {
                         "size": std::fs::metadata(&universal_jar).map(|m| m.len()).unwrap_or(0),
                     }
                 }))
-            } else { None };
+            } else {
+                None
+            };
             let mut entry = serde_json::json!({
                 "name": universal,
                 "url": "https://maven.neoforged.net/releases/"
@@ -421,7 +445,11 @@ pub async fn resolve_version(
     // An OptiFine setup created by Portal Launcher is technically a Forge
     // instance with the official OptiFine JAR in mods. Resolve the Forge
     // profile, not a fictional optifine-loader profile.
-    let loader = if requested_loader == "optifine" { "forge".to_string() } else { requested_loader };
+    let loader = if requested_loader == "optifine" {
+        "forge".to_string()
+    } else {
+        requested_loader
+    };
     if loader.is_empty() || loader == "vanilla" {
         return Ok((vanilla, version_id.to_string()));
     }
@@ -458,7 +486,11 @@ pub async fn resolve_version(
 
     // 2. Fabric / Quilt — получаем профиль из meta API
     if loader == "fabric" || loader == "quilt" {
-        let base = if loader == "fabric" { FABRIC_META } else { QUILT_META };
+        let base = if loader == "fabric" {
+            FABRIC_META
+        } else {
+            QUILT_META
+        };
         let lv = if loader_version.trim().is_empty() {
             fetch_latest_loader(client, base, version_id).await?
         } else {
@@ -498,14 +530,29 @@ pub async fn resolve_version(
     // reporting a launch error. This leaves worlds, mods and instance files
     // untouched.
     if loader == "forge" || loader == "neoforge" {
-        let target_dir = crate::commands::version_manager::mc_base_dir().to_string_lossy().to_string();
+        let target_dir = crate::commands::version_manager::mc_base_dir()
+            .to_string_lossy()
+            .to_string();
         let result = if loader == "forge" {
-            crate::commands::loader_installer::install_forge(version_id.to_string(), loader_version.to_string(), target_dir).await?
+            crate::commands::loader_installer::install_forge(
+                version_id.to_string(),
+                loader_version.to_string(),
+                target_dir,
+            )
+            .await?
         } else {
-            crate::commands::loader_installer::install_neoforge(version_id.to_string(), loader_version.to_string(), target_dir).await?
+            crate::commands::loader_installer::install_neoforge(
+                version_id.to_string(),
+                loader_version.to_string(),
+                target_dir,
+            )
+            .await?
         };
         if !result.success {
-            return Err(format!("Не удалось автоматически установить {loader} для {version_id}: {}", result.message));
+            return Err(format!(
+                "Не удалось автоматически установить {loader} для {version_id}: {}",
+                result.message
+            ));
         }
         // Re-open precisely the profile produced by this installer run. A blank
         // lookup can otherwise select an older Forge/NeoForge profile with the
@@ -519,11 +566,13 @@ pub async fn resolve_version(
         } else {
             result.version.as_str()
         };
-        if let Some(profile_id) = find_local_loader_profile(&loader, version_id, installed_loader_version) {
+        if let Some(profile_id) =
+            find_local_loader_profile(&loader, version_id, installed_loader_version)
+        {
             let raw = std::fs::read_to_string(version_json_path(&profile_id))
                 .map_err(|e| format!("Профиль {profile_id}: {e}"))?;
-            let mut child: serde_json::Value = serde_json::from_str(&raw)
-                .map_err(|e| format!("Разбор {profile_id}: {e}"))?;
+            let mut child: serde_json::Value =
+                serde_json::from_str(&raw).map_err(|e| format!("Разбор {profile_id}: {e}"))?;
             if loader == "neoforge" {
                 include_neoforge_runtime(&mut child);
             }
@@ -574,7 +623,9 @@ fn find_local_loader_profile(loader: &str, mc: &str, loader_version: &str) -> Op
     for e in entries.flatten() {
         let name = e.file_name().to_string_lossy().to_string();
         let lower = name.to_lowercase();
-        if !lower.contains(loader) || (!loader_version.trim().is_empty() && !name.contains(loader_version)) {
+        if !lower.contains(loader)
+            || (!loader_version.trim().is_empty() && !name.contains(loader_version))
+        {
             continue;
         }
         let path = version_json_path(&name);
@@ -624,7 +675,9 @@ mod loader_profile_tests {
             "inheritsFrom": "1.21.10"
         });
 
-        assert!(!loader_profile_matches(&profile, "fabric", "1.21.1", "0.19.3"));
+        assert!(!loader_profile_matches(
+            &profile, "fabric", "1.21.1", "0.19.3"
+        ));
     }
 
     #[test]
@@ -634,7 +687,9 @@ mod loader_profile_tests {
             "inheritsFrom": "1.21.1"
         });
 
-        assert!(loader_profile_matches(&profile, "fabric", "1.21.1", "0.19.3"));
+        assert!(loader_profile_matches(
+            &profile, "fabric", "1.21.1", "0.19.3"
+        ));
     }
 
     #[test]
@@ -830,9 +885,9 @@ pub fn collect_libraries(version: &serde_json::Value) -> Vec<LibraryTarget> {
         // URL base/<artifact>-<version>.jar (HTTP 404 на libraries.minecraft.net),
         // из-за чего версии ниже 1.13 навсегда застревали на "докачиваю файлы".
         // Правильный источник таких библиотек — ветка classifiers ниже.
-        let native_key = lib["natives"][os_name()].as_str().map(|k| {
-            k.replace("${arch}", if os_arch() == "x86" { "32" } else { "64" })
-        });
+        let native_key = lib["natives"][os_name()]
+            .as_str()
+            .map(|k| k.replace("${arch}", if os_arch() == "x86" { "32" } else { "64" }));
 
         // Классический artifact
         if let Some(artifact) = lib["downloads"]["artifact"].as_object() {
@@ -843,13 +898,19 @@ pub fn collect_libraries(version: &serde_json::Value) -> Vec<LibraryTarget> {
                 .or_else(|| maven_path(&name));
             if let (Some(path), Some(url)) = (
                 rel,
-                artifact.get("url").and_then(|u| u.as_str()).map(String::from),
+                artifact
+                    .get("url")
+                    .and_then(|u| u.as_str())
+                    .map(String::from),
             ) {
                 out.push(LibraryTarget {
                     coordinate: name.clone(),
                     path,
                     url,
-                    sha1: artifact.get("sha1").and_then(|s| s.as_str()).map(String::from),
+                    sha1: artifact
+                        .get("sha1")
+                        .and_then(|s| s.as_str())
+                        .map(String::from),
                     native: is_modern_native,
                 });
             }
@@ -878,13 +939,19 @@ pub fn collect_libraries(version: &serde_json::Value) -> Vec<LibraryTarget> {
                     .map(|p| libraries_dir().join(p));
                 if let (Some(path), Some(url)) = (
                     path,
-                    classifier.get("url").and_then(|u| u.as_str()).map(String::from),
+                    classifier
+                        .get("url")
+                        .and_then(|u| u.as_str())
+                        .map(String::from),
                 ) {
                     out.push(LibraryTarget {
                         coordinate: format!("{name}:{key}"),
                         path,
                         url,
-                        sha1: classifier.get("sha1").and_then(|s| s.as_str()).map(String::from),
+                        sha1: classifier
+                            .get("sha1")
+                            .and_then(|s| s.as_str())
+                            .map(String::from),
                         native: true,
                     });
                 }
@@ -901,7 +968,10 @@ mod collect_libraries_tests {
 
     fn natives_for_os() -> Map<String, Value> {
         let mut map = Map::new();
-        map.insert(os_name().to_string(), Value::String("natives-windows".to_string()));
+        map.insert(
+            os_name().to_string(),
+            Value::String("natives-windows".to_string()),
+        );
         map
     }
 
@@ -955,7 +1025,10 @@ mod collect_libraries_tests {
 
         assert_eq!(
             targets(&version),
-            vec![("org.lwjgl.lwjgl:lwjgl:2.9.2-nightly-20140822".to_string(), false)]
+            vec![(
+                "org.lwjgl.lwjgl:lwjgl:2.9.2-nightly-20140822".to_string(),
+                false
+            )]
         );
     }
 
@@ -986,7 +1059,10 @@ mod collect_libraries_tests {
         let list = targets(&version);
         assert_eq!(list.len(), 2);
         assert!(list.contains(&("com.mojang:text2speech:1.10.3".to_string(), false)));
-        assert!(list.contains(&("com.mojang:text2speech:1.10.3:natives-windows".to_string(), true)));
+        assert!(list.contains(&(
+            "com.mojang:text2speech:1.10.3:natives-windows".to_string(),
+            true
+        )));
     }
 }
 
@@ -1049,7 +1125,9 @@ pub async fn install_version(
     let jar_url = version["downloads"]["client"]["url"]
         .as_str()
         .map(String::from);
-    let jar_sha = version["downloads"]["client"]["sha1"].as_str().map(String::from);
+    let jar_sha = version["downloads"]["client"]["sha1"]
+        .as_str()
+        .map(String::from);
     let jar_path = version_jar_path(&mc_id);
     if let Some(url) = jar_url {
         download_file(&client, &url, &jar_path, jar_sha.as_deref()).await?;
@@ -1121,7 +1199,14 @@ pub async fn install_version(
             file.get("id").and_then(|i| i.as_str()),
         ) {
             let dest = assets_dir().join("log_configs").join(id);
-            download_file(&client, url, &dest, file.get("sha1").and_then(|s| s.as_str())).await.ok();
+            download_file(
+                &client,
+                url,
+                &dest,
+                file.get("sha1").and_then(|s| s.as_str()),
+            )
+            .await
+            .ok();
         }
     }
 
@@ -1142,7 +1227,9 @@ pub async fn install_assets(
         return Ok(());
     };
     let index_id = version["assetIndex"]["id"].as_str().unwrap_or("legacy");
-    let index_path = assets_dir().join("indexes").join(format!("{index_id}.json"));
+    let index_path = assets_dir()
+        .join("indexes")
+        .join(format!("{index_id}.json"));
     emit(app, "assets", "Скачиваю индекс ассетов…", 0, 1);
     download_file(
         client,

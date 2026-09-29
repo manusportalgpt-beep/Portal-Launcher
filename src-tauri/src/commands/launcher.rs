@@ -31,7 +31,10 @@ pub async fn launch_with_lighty(req: LaunchRequest) -> Result<String, String> {
     if status.success() {
         Ok("launched".to_string())
     } else {
-        Err(format!("lighty-launcher exited with code: {}", status.code().unwrap_or(-1)))
+        Err(format!(
+            "lighty-launcher exited with code: {}",
+            status.code().unwrap_or(-1)
+        ))
     }
 }
 

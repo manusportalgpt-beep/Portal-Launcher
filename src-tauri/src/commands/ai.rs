@@ -169,7 +169,9 @@ pub async fn ai_chat(prompt: String, context: Option<String>) -> Result<String, 
     let system = "Ты — встроенный ИИ-помощник Portal Launcher. Помогаешь с Minecraft, \
 модами, производительностью и настройками. Отвечай кратко, по-русски.";
     let user = match context {
-        Some(c) if !c.trim().is_empty() => format!("Контекст:\n{}\n\nВопрос: {prompt}", tail(&c, 8000)),
+        Some(c) if !c.trim().is_empty() => {
+            format!("Контекст:\n{}\n\nВопрос: {prompt}", tail(&c, 8000))
+        }
         _ => prompt,
     };
     grok(system, &user).await

@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Cloud-stored authentication data with encryption support
@@ -47,10 +47,14 @@ impl CloudAuthData {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        
+
         // Generate a simple device ID from hostname + timestamp
-        let device_id = format!("device_{}_{}", 
-            hostname::get().unwrap_or_default().to_string_lossy().replace('-', "_"),
+        let device_id = format!(
+            "device_{}_{}",
+            hostname::get()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .replace('-', "_"),
             now
         );
 
@@ -102,7 +106,7 @@ impl CloudAuthData {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        
+
         self.ms_access_token = ms_access_token;
         self.ms_refresh_token = ms_refresh_token;
         self.mc_access_token = mc_access_token;
@@ -139,7 +143,7 @@ impl EncryptedCloudAuth {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        
+
         Self {
             data,
             nonce,
@@ -194,7 +198,7 @@ pub fn simple_decrypt(data: &[u8], key: &[u8]) -> Vec<u8> {
 
 /// Generate encryption key from device ID and user ID
 pub fn generate_key(user_id: &str, device_id: &str) -> Vec<u8> {
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(user_id.as_bytes());
     hasher.update(device_id.as_bytes());

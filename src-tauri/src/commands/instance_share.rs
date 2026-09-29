@@ -2,11 +2,11 @@
 // Поток: сканирование файлов → SHA1 → поиск на Modrinth/CurseForge →
 // POST манифеста + загрузка хостинг-файлов → получение share URL.
 
-use serde::{Serialize, Deserialize};
-use sha1::{Sha1, Digest};
+use serde::{Deserialize, Serialize};
+use sha1::{Digest, Sha1};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tauri::Emitter;
-use std::collections::HashMap;
 
 const SHARE_API_BASE: &str = "https://uprojects.site/client";
 const SHARE_SCHEMA: u32 = 1;
@@ -94,7 +94,9 @@ fn sha1_hex(bytes: &[u8]) -> String {
 
 fn random_file_id() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let t = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+    let t = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
     format!("{:x}{:x}", t.as_secs(), t.subsec_nanos())
 }
 
@@ -102,10 +104,12 @@ fn display_name_from_filename(filename: &str) -> (String, String) {
     let base = filename.trim_end_matches(".disabled");
     let name = base.rsplit_once('.').map(|(n, _)| n).unwrap_or(base);
     let ver_match = name.rfind('-').and_then(|i| {
-        let rest = &name[i+1..];
+        let rest = &name[i + 1..];
         if rest.chars().all(|c| c.is_ascii_digit() || c == '.') {
             Some(rest.to_string())
-        } else { None }
+        } else {
+            None
+        }
     });
     let clean_name = if let Some(ref v) = ver_match {
         name[..name.rfind('-').unwrap()].trim().to_string()
@@ -131,20 +135,33 @@ fn list_content_files(instance_dir: &Path) -> Vec<(PathBuf, String, String, Stri
     let mut out = Vec::new();
     for dirname in &["mods", "resourcepacks", "shaderpacks", "datapacks"] {
         let dir = instance_dir.join(dirname);
-        if !dir.exists() { continue; }
-        let entries = match std::fs::read_dir(&dir) { Ok(e) => e, Err(_) => continue };
+        if !dir.exists() {
+            continue;
+        }
+        let entries = match std::fs::read_dir(&dir) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
-            if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) { continue; }
+            if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
+                continue;
+            }
             let lower = name.to_lowercase();
-            let base = if lower.ends_with(".disabled") { &lower[..lower.len()-9] } else { &lower };
+            let base = if lower.ends_with(".disabled") {
+                &lower[..lower.len() - 9]
+            } else {
+                &lower
+            };
             let ext = base.rsplit('.').next().unwrap_or("");
             let allowed = match *dirname {
                 "mods" => ext == "jar" || ext == "litemod",
                 "resourcepacks" | "shaderpacks" | "datapacks" => ext == "zip",
                 _ => false,
             };
-            if !allowed { continue; }
+            if !allowed {
+                continue;
+            }
             let ct = content_type_for_dir(dirname).unwrap_or("mod");
             let enabled = !lower.ends_with(".disabled");
             let (display_name, version) = display_name_from_filename(&name);
@@ -155,16 +172,29 @@ fn list_content_files(instance_dir: &Path) -> Vec<(PathBuf, String, String, Stri
 }
 
 /// Ищем файл на Modrinth по SHA1
-async fn lookup_modrinth_by_hash(client: &reqwest::Client, sha1: &str) -> Option<ModrinthFileResult> {
-    let resp = client.get(format!("https://api.modrinth.com/v2/version_file/{sha1}?algorithm=sha1"))
+async fn lookup_modrinth_by_hash(
+    client: &reqwest::Client,
+    sha1: &str,
+) -> Option<ModrinthFileResult> {
+    let resp = client
+        .get(format!(
+            "https://api.modrinth.com/v2/version_file/{sha1}?algorithm=sha1"
+        ))
         .header("User-Agent", USER_AGENT)
         .timeout(std::time::Duration::from_secs(6))
-        .send().await.ok()?;
-    if !resp.status().is_success() { return None; }
+        .send()
+        .await
+        .ok()?;
+    if !resp.status().is_success() {
+        return None;
+    }
     let data: serde_json::Value = resp.json().await.ok()?;
     let project_id = data.get("project_id")?.as_str()?;
     let version_id = data.get("id")?.as_str()?;
-    Some(ModrinthFileResult { project_id: Some(project_id.to_string()), version_id: Some(version_id.to_string()) })
+    Some(ModrinthFileResult {
+        project_id: Some(project_id.to_string()),
+        version_id: Some(version_id.to_string()),
+    })
 }
 
 /// Пакетный поиск по хешам Modrinth с ограниченной параллельностью.
@@ -181,7 +211,9 @@ async fn lookup_modrinth_hashes(
     use futures::stream::StreamExt;
 
     let mut found: HashMap<String, ModrinthFileResult> = HashMap::new();
-    if hashes.is_empty() { return found; }
+    if hashes.is_empty() {
+        return found;
+    }
 
     let work = futures::stream::iter(hashes.into_iter().map(|sha1| {
         let client = client.clone();
@@ -208,26 +240,51 @@ async fn lookup_modrinth_hashes(
 }
 
 /// Пакетный поиск CurseForge fingerprint через our-site proxy
-async fn lookup_curseforge_by_fingerprints(client: &reqwest::Client, fingerprints: &[u64]) -> HashMap<u64, (String, String)> {
+async fn lookup_curseforge_by_fingerprints(
+    client: &reqwest::Client,
+    fingerprints: &[u64],
+) -> HashMap<u64, (String, String)> {
     let mut out = HashMap::new();
-    let unique: Vec<u64> = fingerprints.iter().copied().filter(|&n| n > 0).collect::<std::collections::HashSet<_>>().into_iter().collect();
+    let unique: Vec<u64> = fingerprints
+        .iter()
+        .copied()
+        .filter(|&n| n > 0)
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
     for chunk in unique.chunks(100) {
         let body = serde_json::json!({ "fingerprints": chunk });
-        let resp = match client.post(format!("{SHARE_API_BASE}/api/catalog/fingerprints"))
+        let resp = match client
+            .post(format!("{SHARE_API_BASE}/api/catalog/fingerprints"))
             .header("User-Agent", USER_AGENT)
             .header("Content-Type", "application/json")
             .body(serde_json::to_string(&body).unwrap_or_default())
-            .send().await {
-                Ok(r) => r, Err(_) => continue,
-            };
-        if !resp.status().is_success() { continue; }
-        let data: serde_json::Value = match resp.json().await { Ok(v) => v, Err(_) => continue };
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        if !resp.status().is_success() {
+            continue;
+        }
+        let data: serde_json::Value = match resp.json().await {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
         if let Some(hits) = data.get("hits").and_then(|h| h.as_object()) {
             for (fp_str, hit) in hits {
-                let fp: u64 = match fp_str.parse() { Ok(v) => v, Err(_) => continue };
+                let fp: u64 = match fp_str.parse() {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
                 if let (Some(pid), Some(vid)) = (
-                    hit.get("projectId").or_else(|| hit.get("project_id")).and_then(|v| v.as_str()),
-                    hit.get("versionId").or_else(|| hit.get("version_id")).and_then(|v| v.as_str()),
+                    hit.get("projectId")
+                        .or_else(|| hit.get("project_id"))
+                        .and_then(|v| v.as_str()),
+                    hit.get("versionId")
+                        .or_else(|| hit.get("version_id"))
+                        .and_then(|v| v.as_str()),
                 ) {
                     out.insert(fp, (pid.to_string(), vid.to_string()));
                 }
@@ -253,14 +310,25 @@ pub async fn share_instance(
         None => return Err(format!("Сборка «{id}» не найдена")),
     };
 
-    app.emit("share-progress", serde_json::json!({"phase":"scan","current":0,"total":0})).ok();
+    app.emit(
+        "share-progress",
+        serde_json::json!({"phase":"scan","current":0,"total":0}),
+    )
+    .ok();
 
     // 1. Сканируем файлы контента (.minecraft/)
     let mc_dir = instance_dir.join(".minecraft");
-    let scan_dir = if mc_dir.exists() { &mc_dir } else { &instance_dir };
+    let scan_dir = if mc_dir.exists() {
+        &mc_dir
+    } else {
+        &instance_dir
+    };
     let listed = list_content_files(scan_dir);
     if listed.len() > MAX_FILES {
-        return Err(format!("Слишком много файлов ({} > {MAX_FILES}). Удалите лишнее.", listed.len()));
+        return Err(format!(
+            "Слишком много файлов ({} > {MAX_FILES}). Удалите лишнее.",
+            listed.len()
+        ));
     }
 
     let total = listed.len();
@@ -291,11 +359,18 @@ pub async fn share_instance(
 
     let mut pending: Vec<PendingFile> = Vec::with_capacity(listed.len());
     for (i, (full_path, ct, filename, display_name, version)) in listed.iter().enumerate() {
-        app.emit("share-progress", serde_json::json!({
-            "phase": "hash", "current": i + 1, "total": total, "filename": filename
-        })).ok();
+        app.emit(
+            "share-progress",
+            serde_json::json!({
+                "phase": "hash", "current": i + 1, "total": total, "filename": filename
+            }),
+        )
+        .ok();
 
-        let bytes = match std::fs::read(full_path) { Ok(b) => b, Err(_) => continue };
+        let bytes = match std::fs::read(full_path) {
+            Ok(b) => b,
+            Err(_) => continue,
+        };
         pending.push(PendingFile {
             full_path: full_path.clone(),
             ct: ct.clone(),
@@ -307,23 +382,34 @@ pub async fn share_instance(
         });
     }
 
-    app.emit("share-progress", serde_json::json!({
-        "phase": "lookup", "current": 0, "total": pending.len()
-    })).ok();
+    app.emit(
+        "share-progress",
+        serde_json::json!({
+            "phase": "lookup", "current": 0, "total": pending.len()
+        }),
+    )
+    .ok();
 
     let hashes: Vec<String> = pending.iter().map(|f| f.sha1.clone()).collect();
     let modrinth_hits = lookup_modrinth_hashes(&client, hashes).await;
 
     for file in pending {
-        let project_id: Option<String> = modrinth_hits.get(&file.sha1).and_then(|m| m.project_id.clone());
-        let version_id: Option<String> = modrinth_hits.get(&file.sha1).and_then(|m| m.version_id.clone());
+        let project_id: Option<String> = modrinth_hits
+            .get(&file.sha1)
+            .and_then(|m| m.project_id.clone());
+        let version_id: Option<String> = modrinth_hits
+            .get(&file.sha1)
+            .and_then(|m| m.version_id.clone());
 
         // Нет на Modrinth (или поиск не успел) — файл уходит на сервер как hosted.
         let is_hosted = project_id.is_none();
         if is_hosted {
             hosted_bytes += file.size;
             if hosted_bytes > MAX_HOSTED_BYTES {
-                return Err(format!("Файлы для загрузки на сервер превышают лимит (>{:.0} MB)", MAX_HOSTED_BYTES as f64 / 1_048_576.0));
+                return Err(format!(
+                    "Файлы для загрузки на сервер превышают лимит (>{:.0} MB)",
+                    MAX_HOSTED_BYTES as f64 / 1_048_576.0
+                ));
             }
         }
 
@@ -345,16 +431,35 @@ pub async fn share_instance(
 
     // Подсчёт по типам
     let counts = ShareCounts {
-        mods: share_files.iter().filter(|f| f.content_type == "mod").count() as u32,
-        resource_packs: share_files.iter().filter(|f| f.content_type == "resourcepack").count() as u32,
-        shaders: share_files.iter().filter(|f| f.content_type == "shader").count() as u32,
-        data_packs: share_files.iter().filter(|f| f.content_type == "datapack").count() as u32,
+        mods: share_files
+            .iter()
+            .filter(|f| f.content_type == "mod")
+            .count() as u32,
+        resource_packs: share_files
+            .iter()
+            .filter(|f| f.content_type == "resourcepack")
+            .count() as u32,
+        shaders: share_files
+            .iter()
+            .filter(|f| f.content_type == "shader")
+            .count() as u32,
+        data_packs: share_files
+            .iter()
+            .filter(|f| f.content_type == "datapack")
+            .count() as u32,
     };
 
     // Определяем пути файлов на диске для загрузки (только hosted)
-    let hosted_files: Vec<&ShareFile> = share_files.iter().filter(|f| f.hosted == Some(true)).collect();
+    let hosted_files: Vec<&ShareFile> = share_files
+        .iter()
+        .filter(|f| f.hosted == Some(true))
+        .collect();
 
-    app.emit("share-progress", serde_json::json!({"phase":"upload","current":0,"total":hosted_files.len()})).ok();
+    app.emit(
+        "share-progress",
+        serde_json::json!({"phase":"upload","current":0,"total":hosted_files.len()}),
+    )
+    .ok();
 
     // 2. Формируем multipart/form-data
     let manifest = ShareManifest {
@@ -363,21 +468,31 @@ pub async fn share_instance(
         game_version: inst.mc_version.clone(),
         loader: inst.loader.clone(),
         loader_version: inst.loader_version.clone(),
-        jvm_args: if inst.custom_jvm_args.is_empty() { None } else { Some(inst.custom_jvm_args.clone()) },
+        jvm_args: if inst.custom_jvm_args.is_empty() {
+            None
+        } else {
+            Some(inst.custom_jvm_args.clone())
+        },
         mc_args: None,
-        memory: Some(ShareMemory { min: inst.min_ram, max: inst.max_ram }),
+        memory: Some(ShareMemory {
+            min: inst.min_ram,
+            max: inst.max_ram,
+        }),
         counts,
-        files: share_files.iter().map(|f| ShareFile {
-            full_path: None, // не передаём на сервер
-            ..f.clone()
-        }).collect(),
+        files: share_files
+            .iter()
+            .map(|f| ShareFile {
+                full_path: None, // не передаём на сервер
+                ..f.clone()
+            })
+            .collect(),
         author_name: author_name.or_else(|| Some("Portal Launcher".to_string())),
     };
 
-    let manifest_json = serde_json::to_string(&manifest).map_err(|e| format!("Serialize manifest: {e}"))?;
+    let manifest_json =
+        serde_json::to_string(&manifest).map_err(|e| format!("Serialize manifest: {e}"))?;
 
-    let form = reqwest::multipart::Form::new()
-        .text("manifest", manifest_json);
+    let form = reqwest::multipart::Form::new().text("manifest", manifest_json);
 
     // Добавляем hosted файлы
     let mut form = form;
@@ -412,33 +527,48 @@ pub async fn share_instance(
         .connect_timeout(std::time::Duration::from_secs(15))
         .build()
         .map_err(|e| e.to_string())?;
-    let upload_resp = upload_client.post(&upload_url)
+    let upload_resp = upload_client
+        .post(&upload_url)
         .header("User-Agent", USER_AGENT)
         .multipart(form)
         // 4 минуты вместо 10: при недоступном сервере раньше окно «загрузки»
         // висело десять минут, теперь пользователь получает ошибку и ссылку
         // можно повторить, а не ждать.
         .timeout(std::time::Duration::from_secs(4 * 60))
-        .send().await
+        .send()
+        .await
         .map_err(|e| format!("Upload failed: {e}"))?;
 
     if !upload_resp.status().is_success() {
         let status = upload_resp.status();
         let body = upload_resp.text().await.unwrap_or_default();
-        return Err(format!("Share API error HTTP {status}: {}", body.chars().take(200).collect::<String>()));
+        return Err(format!(
+            "Share API error HTTP {status}: {}",
+            body.chars().take(200).collect::<String>()
+        ));
     }
 
-    let data: serde_json::Value = upload_resp.json().await
+    let data: serde_json::Value = upload_resp
+        .json()
+        .await
         .map_err(|e| format!("Invalid response: {e}"))?;
 
-    let share_id = data.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let share_id = data
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     if share_id.is_empty() {
         return Err("Сервер не вернул ID шара".into());
     }
 
     let share_url = format!("{}/instanceShare/{share_id}", SHARE_API_BASE);
 
-    app.emit("share-progress", serde_json::json!({"phase":"done","id":share_id,"url":share_url})).ok();
+    app.emit(
+        "share-progress",
+        serde_json::json!({"phase":"done","id":share_id,"url":share_url}),
+    )
+    .ok();
 
     Ok(ShareResult {
         ok: true,

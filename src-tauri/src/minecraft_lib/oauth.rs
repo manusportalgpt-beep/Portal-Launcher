@@ -1,10 +1,9 @@
 /// minecraft_lib::oauth — OAuth2 аутентификация для Minecraft Java Edition
 /// Работает через Device Code Flow (без регистрации Azure AD)
 /// Сохраняет auth.json который используется minecraft_lib для запуска игры
-
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 use std::path::PathBuf;
+use std::time::Duration;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. Константы и типы
@@ -56,7 +55,15 @@ pub fn auth_json_path() -> PathBuf {
 // 3. Сохранение и загрузка auth
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub fn save_auth(uuid: &str, username: &str, access_token: &str, refresh_token: &str, expires_in: u64, xuid: Option<&str>, skin_url: Option<&str>) {
+pub fn save_auth(
+    uuid: &str,
+    username: &str,
+    access_token: &str,
+    refresh_token: &str,
+    expires_in: u64,
+    xuid: Option<&str>,
+    skin_url: Option<&str>,
+) {
     let path = auth_json_path();
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).ok();
@@ -89,7 +96,8 @@ pub fn save_auth(uuid: &str, username: &str, access_token: &str, refresh_token: 
 
 pub fn load_auth() -> Option<serde_json::Value> {
     let path = auth_json_path();
-    std::fs::read_to_string(&path).ok()
+    std::fs::read_to_string(&path)
+        .ok()
         .and_then(|d| serde_json::from_str(&d).ok())
 }
 
@@ -109,20 +117,25 @@ fn http_client() -> Result<reqwest::Client, String> {
 pub async fn start_device_code_flow() -> Result<DeviceCodeResponse, String> {
     let client = http_client()?;
 
-    let response = client.post(DEVICE_CODE_URL)
+    let response = client
+        .post(DEVICE_CODE_URL)
         .form(&[("client_id", MS_CLIENT_ID), ("scope", MS_SCOPE)])
         .send()
         .await
         .map_err(|e| format!("Ошибка сети при получении кода: {e}"))?;
 
     let status = response.status();
-    let text = response.text().await.map_err(|e| format!("Ошибка чтения ответа: {e}"))?;
+    let text = response
+        .text()
+        .await
+        .map_err(|e| format!("Ошибка чтения ответа: {e}"))?;
 
-    let raw: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|e| format!("Ошибка парсинга device code: {e}"))?;
+    let raw: serde_json::Value =
+        serde_json::from_str(&text).map_err(|e| format!("Ошибка парсинга device code: {e}"))?;
 
     if !status.is_success() {
-        let desc = raw["error_description"].as_str()
+        let desc = raw["error_description"]
+            .as_str()
             .or(raw["error"].as_str())
             .unwrap_or(&text);
         log::warn!("Device code request failed: {}", desc);
@@ -150,7 +163,11 @@ pub async fn start_device_code_flow() -> Result<DeviceCodeResponse, String> {
         &verification_uri, &user_code
     );
 
-    log::info!("🔑 Device code issued: {} (expires in {}s)", user_code, expires_in);
+    log::info!(
+        "🔑 Device code issued: {} (expires in {}s)",
+        user_code,
+        expires_in
+    );
 
     Ok(DeviceCodeResponse {
         device_code,
@@ -170,7 +187,8 @@ pub async fn start_device_code_flow() -> Result<DeviceCodeResponse, String> {
 pub async fn poll_for_token(device_code: String) -> Result<Option<McProfile>, String> {
     let client = http_client()?;
 
-    let text = client.post(TOKEN_URL)
+    let text = client
+        .post(TOKEN_URL)
         .form(&[
             ("client_id", MS_CLIENT_ID),
             ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
@@ -183,8 +201,8 @@ pub async fn poll_for_token(device_code: String) -> Result<Option<McProfile>, St
         .await
         .map_err(|e| format!("Ошибка чтения токена: {e}"))?;
 
-    let resp: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|e| format!("Ошибка парсинга токена: {e}"))?;
+    let resp: serde_json::Value =
+        serde_json::from_str(&text).map_err(|e| format!("Ошибка парсинга токена: {e}"))?;
 
     if let Some(err) = resp["error"].as_str() {
         // Ещё ждём вход пользователя в браузере — это не ошибка
@@ -207,16 +225,15 @@ pub async fn poll_for_token(device_code: String) -> Result<Option<McProfile>, St
         .ok_or("Нет access_token в ответе")?
         .to_string();
 
-    let ms_refresh = resp["refresh_token"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
+    let ms_refresh = resp["refresh_token"].as_str().unwrap_or("").to_string();
 
     let ms_expires = resp["expires_in"].as_u64().unwrap_or(86400);
 
     log::info!("✅ MSA токен получен, финализирую вход...");
 
-    finalize_msa_login(&client, &ms_token, &ms_refresh, ms_expires).await.map(Some)
+    finalize_msa_login(&client, &ms_token, &ms_refresh, ms_expires)
+        .await
+        .map(Some)
 }
 
 async fn finalize_msa_login(
@@ -226,14 +243,15 @@ async fn finalize_msa_login(
     ms_expires: u64,
 ) -> Result<McProfile, String> {
     log::info!("🔄 Получаю XBL токен...");
-    
+
     // MS → XBL
     // ВАЖНО: RpsTicket должен начинаться с "d=" для современного OAuth-токена
     // (consumers tenant). Префикс "t=" — это формат СТАРОГО live.com-тикета
     // и с текущим access_token Xbox Live отвечает ошибкой с пустым телом,
     // из-за чего JSON-парсер падает с "EOF while parsing a value" — эта
     // невнятная ошибка и была на самом деле "неверный формат RpsTicket".
-    let xbl_resp = client.post(XBL_URL)
+    let xbl_resp = client
+        .post(XBL_URL)
         .json(&serde_json::json!({
             "Properties": {
                 "AuthMethod": "RPS",
@@ -248,12 +266,15 @@ async fn finalize_msa_login(
         .await
         .map_err(|e| format!("XBL запрос: {e}"))?;
     let xbl_status = xbl_resp.status();
-    let xbl_text = xbl_resp.text()
+    let xbl_text = xbl_resp
+        .text()
         .await
         .map_err(|e| format!("XBL чтение: {e}"))?;
 
     if !xbl_status.is_success() {
-        return Err(format!("XBL authentication failed ({xbl_status}): {xbl_text}"));
+        return Err(format!(
+            "XBL authentication failed ({xbl_status}): {xbl_text}"
+        ));
     }
     let xbl: serde_json::Value = serde_json::from_str(&xbl_text)
         .map_err(|e| format!("XBL ответ ({xbl_status}, body: {xbl_text:?}): {e}"))?;
@@ -261,14 +282,17 @@ async fn finalize_msa_login(
     if let Some(x) = xbl.get("XErr") {
         return Err(format!("XBL error code: {}", x.as_u64().unwrap_or(0)));
     }
-    
+
     let xbl_token = xbl["Token"].as_str().ok_or("Нет XBL токена")?;
-    let user_hash = xbl["DisplayClaims"]["xui"][0]["uhs"].as_str().ok_or("Нет user hash")?;
+    let user_hash = xbl["DisplayClaims"]["xui"][0]["uhs"]
+        .as_str()
+        .ok_or("Нет user hash")?;
 
     log::info!("🔄 Получаю XSTS токен...");
-    
+
     // XBL → XSTS
-    let xsts_resp = client.post(XSTS_URL)
+    let xsts_resp = client
+        .post(XSTS_URL)
         .json(&serde_json::json!({
             "Properties": {
                 "SandboxId": "RETAIL",
@@ -282,12 +306,15 @@ async fn finalize_msa_login(
         .await
         .map_err(|e| format!("XSTS запрос: {e}"))?;
     let xsts_status = xsts_resp.status();
-    let xsts_text = xsts_resp.text()
+    let xsts_text = xsts_resp
+        .text()
         .await
         .map_err(|e| format!("XSTS чтение: {e}"))?;
 
     if !xsts_status.is_success() {
-        return Err(format!("XSTS authentication failed ({xsts_status}): {xsts_text}"));
+        return Err(format!(
+            "XSTS authentication failed ({xsts_status}): {xsts_text}"
+        ));
     }
     let xsts: serde_json::Value = serde_json::from_str(&xsts_text)
         .map_err(|e| format!("XSTS ответ ({xsts_status}, body: {xsts_text:?}): {e}"))?;
@@ -295,13 +322,14 @@ async fn finalize_msa_login(
     if let Some(x) = xsts.get("XErr") {
         return Err(format!("XSTS error code: {}", x.as_u64().unwrap_or(0)));
     }
-    
+
     let xsts_token = xsts["Token"].as_str().ok_or("Нет XSTS токена")?;
 
     log::info!("🔄 Получаю Minecraft токен...");
-    
+
     // XSTS → MC
-    let mc_resp = client.post(MC_AUTH_URL)
+    let mc_resp = client
+        .post(MC_AUTH_URL)
         .json(&serde_json::json!({
             "identityToken": format!("XBL3.0 x={user_hash};{xsts_token}")
         }))
@@ -309,23 +337,28 @@ async fn finalize_msa_login(
         .await
         .map_err(|e| format!("MC auth запрос: {e}"))?;
     let mc_status = mc_resp.status();
-    let mc_text = mc_resp.text()
+    let mc_text = mc_resp
+        .text()
         .await
         .map_err(|e| format!("MC auth чтение: {e}"))?;
 
     if !mc_status.is_success() {
-        return Err(format!("Minecraft authentication failed ({mc_status}): {mc_text}"));
+        return Err(format!(
+            "Minecraft authentication failed ({mc_status}): {mc_text}"
+        ));
     }
     let mc: serde_json::Value = serde_json::from_str(&mc_text)
         .map_err(|e| format!("MC auth ответ ({mc_status}, body: {mc_text:?}): {e}"))?;
 
-    let mc_token = mc["access_token"].as_str()
+    let mc_token = mc["access_token"]
+        .as_str()
         .ok_or("Нет Minecraft токена. Убедитесь что у вас Minecraft Java Edition.")?;
 
     log::info!("🔄 Получаю профиль Minecraft...");
-    
+
     // Получаем профиль
-    let profile_text = client.get(MC_PROFILE_URL)
+    let profile_text = client
+        .get(MC_PROFILE_URL)
         .header("Authorization", format!("Bearer {mc_token}"))
         .send()
         .await
@@ -334,29 +367,49 @@ async fn finalize_msa_login(
         .await
         .map_err(|e| format!("Profile чтение: {e}"))?;
 
-    let profile: serde_json::Value = serde_json::from_str(&profile_text)
-        .map_err(|e| format!("Profile ответ: {e}"))?;
+    let profile: serde_json::Value =
+        serde_json::from_str(&profile_text).map_err(|e| format!("Profile ответ: {e}"))?;
 
     if let Some(err) = profile["error"].as_str() {
         if err == "NOT_FOUND" {
-            return Err("Minecraft профиль не найден. Убедитесь что у вас куплен Minecraft Java Edition.".into());
+            return Err(
+                "Minecraft профиль не найден. Убедитесь что у вас куплен Minecraft Java Edition."
+                    .into(),
+            );
         }
         return Err(format!("Profile error: {err}"));
     }
 
-    let uuid = profile["id"].as_str().ok_or("Нет UUID в профиле")?.to_string();
-    let username = profile["name"].as_str().ok_or("Нет имени в профиле")?.to_string();
-    let skin_url = profile["skins"].as_array()
+    let uuid = profile["id"]
+        .as_str()
+        .ok_or("Нет UUID в профиле")?
+        .to_string();
+    let username = profile["name"]
+        .as_str()
+        .ok_or("Нет имени в профиле")?
+        .to_string();
+    let skin_url = profile["skins"]
+        .as_array()
         .and_then(|s| s.iter().find(|s| s["state"] == "ACTIVE"))
         .and_then(|s| s["url"].as_str())
         .map(String::from);
 
-    let xuid = xbl["DisplayClaims"]["xui"][0]["uhs"].as_str().map(String::from);
+    let xuid = xbl["DisplayClaims"]["xui"][0]["uhs"]
+        .as_str()
+        .map(String::from);
 
     log::info!("✅ Аутентификация успешна: {} ({})", username, uuid);
 
     // Сохраняем auth.json
-    save_auth(&uuid, &username, mc_token, refresh_token, ms_expires, xuid.as_deref(), skin_url.as_deref());
+    save_auth(
+        &uuid,
+        &username,
+        mc_token,
+        refresh_token,
+        ms_expires,
+        xuid.as_deref(),
+        skin_url.as_deref(),
+    );
 
     Ok(McProfile {
         uuid,
@@ -380,7 +433,8 @@ pub async fn refresh_token(refresh_token: &str) -> Result<McProfile, String> {
         .build()
         .map_err(|e| format!("HTTP client error: {e}"))?;
 
-    let text = client.post(TOKEN_URL)
+    let text = client
+        .post(TOKEN_URL)
         .form(&[
             ("client_id", MS_CLIENT_ID),
             ("refresh_token", refresh_token),
@@ -394,8 +448,7 @@ pub async fn refresh_token(refresh_token: &str) -> Result<McProfile, String> {
         .await
         .map_err(|e| format!("Read: {e}"))?;
 
-    let resp: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|e| format!("Parse: {e}"))?;
+    let resp: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("Parse: {e}"))?;
 
     if let Some(err) = resp["error"].as_str() {
         let desc = resp["error_description"].as_str().unwrap_or(err);
@@ -406,12 +459,12 @@ pub async fn refresh_token(refresh_token: &str) -> Result<McProfile, String> {
         .as_str()
         .ok_or("No MS access_token after refresh")?
         .to_string();
-    
+
     let new_refresh = resp["refresh_token"]
         .as_str()
         .unwrap_or(refresh_token)
         .to_string();
-    
+
     let ms_expires = resp["expires_in"].as_u64().unwrap_or(86400);
 
     finalize_msa_login(&client, &ms_token, &new_refresh, ms_expires).await
@@ -503,7 +556,7 @@ pub async fn auto_refresh_if_needed() -> Result<Option<McProfile>, String> {
 #[tauri::command]
 pub fn get_cached_profile() -> Option<McProfile> {
     let v = load_auth()?;
-    
+
     let expires_at = v["expires_at"].as_u64().unwrap_or(0);
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -539,7 +592,11 @@ fn offline_uuid(username: &str) -> String {
     let hex: String = bytes.iter().map(|b| format!("{:02x}", b)).collect();
     format!(
         "{}-{}-{}-{}-{}",
-        &hex[0..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..32]
+        &hex[0..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..32]
     )
 }
 
@@ -591,7 +648,10 @@ pub async fn login_elyby(username: String, password: String) -> Result<McProfile
         .map_err(|e| format!("Ely.by запрос: {e}"))?;
 
     let status = resp.status();
-    let text = resp.text().await.map_err(|e| format!("Ely.by чтение: {e}"))?;
+    let text = resp
+        .text()
+        .await
+        .map_err(|e| format!("Ely.by чтение: {e}"))?;
 
     if !status.is_success() {
         // Ely.by возвращает {"error":"...","errorMessage":"человекочитаемое сообщение"}
@@ -605,15 +665,25 @@ pub async fn login_elyby(username: String, password: String) -> Result<McProfile
     let v: serde_json::Value =
         serde_json::from_str(&text).map_err(|e| format!("Ely.by ответ ({status}): {e}"))?;
 
-    let access_token = v["accessToken"].as_str().ok_or("Ely.by: нет accessToken")?.to_string();
+    let access_token = v["accessToken"]
+        .as_str()
+        .ok_or("Ely.by: нет accessToken")?
+        .to_string();
     let profile = &v["selectedProfile"];
-    let raw_id = profile["id"].as_str().ok_or("Ely.by: нет профиля")?.to_string();
+    let raw_id = profile["id"]
+        .as_str()
+        .ok_or("Ely.by: нет профиля")?
+        .to_string();
     let name = profile["name"].as_str().unwrap_or(&username).to_string();
     // Ely.by отдаёт UUID без дефисов — приводим к обычному формату.
     let uuid = if raw_id.len() == 32 && !raw_id.contains('-') {
         format!(
             "{}-{}-{}-{}-{}",
-            &raw_id[0..8], &raw_id[8..12], &raw_id[12..16], &raw_id[16..20], &raw_id[20..32]
+            &raw_id[0..8],
+            &raw_id[8..12],
+            &raw_id[12..16],
+            &raw_id[16..20],
+            &raw_id[20..32]
         )
     } else {
         raw_id

@@ -64,7 +64,10 @@ fn parse(path: &PathBuf) -> Option<PrTheme> {
 pub fn list_prthemes() -> Result<Vec<PrTheme>, String> {
     let dir = themes_dir();
     let mut out = Vec::new();
-    for entry in std::fs::read_dir(&dir).map_err(|e| e.to_string())?.flatten() {
+    for entry in std::fs::read_dir(&dir)
+        .map_err(|e| e.to_string())?
+        .flatten()
+    {
         let p = entry.path();
         let ext = p
             .extension()
@@ -101,7 +104,13 @@ pub fn import_prtheme(source_path: String) -> Result<PrTheme, String> {
 pub fn save_prtheme(name: String, css: String) -> Result<PrTheme, String> {
     let safe: String = name
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect();
     let dest = themes_dir().join(format!("{safe}.prtheme"));
     std::fs::write(&dest, css).map_err(|e| e.to_string())?;
@@ -132,11 +141,20 @@ pub fn get_prtheme(id: String) -> Result<PrTheme, String> {
 pub fn open_themes_folder() -> Result<(), String> {
     let dir = themes_dir().to_string_lossy().to_string();
     #[cfg(target_os = "windows")]
-    crate::utils::create_hidden_command("explorer").arg(&dir).spawn().map_err(|e| e.to_string())?;
+    crate::utils::create_hidden_command("explorer")
+        .arg(&dir)
+        .spawn()
+        .map_err(|e| e.to_string())?;
     #[cfg(target_os = "macos")]
-    crate::utils::create_hidden_command("open").arg(&dir).spawn().map_err(|e| e.to_string())?;
+    crate::utils::create_hidden_command("open")
+        .arg(&dir)
+        .spawn()
+        .map_err(|e| e.to_string())?;
     #[cfg(all(unix, not(target_os = "macos")))]
-    crate::utils::create_hidden_command("xdg-open").arg(&dir).spawn().map_err(|e| e.to_string())?;
+    crate::utils::create_hidden_command("xdg-open")
+        .arg(&dir)
+        .spawn()
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -175,7 +193,10 @@ pub fn load_ui_css() -> Result<Option<UiCssFile>, String> {
     }
     // В папке тем берём самый свежий по времени изменения.
     let mut best: Option<(std::time::SystemTime, PathBuf)> = None;
-    for entry in std::fs::read_dir(themes_dir()).map_err(|e| e.to_string())?.flatten() {
+    for entry in std::fs::read_dir(themes_dir())
+        .map_err(|e| e.to_string())?
+        .flatten()
+    {
         let p = entry.path();
         let ext = p
             .extension()
@@ -192,7 +213,9 @@ pub fn load_ui_css() -> Result<Option<UiCssFile>, String> {
             best = Some((modified, p));
         }
     }
-    let Some((_, path)) = best else { return Ok(None) };
+    let Some((_, path)) = best else {
+        return Ok(None);
+    };
     let css = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
     let name = path
         .file_name()

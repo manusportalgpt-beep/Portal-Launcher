@@ -1,29 +1,32 @@
-#![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
+#![cfg_attr(
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
+)]
 
 pub mod api;
+pub mod auth;
 pub mod commands;
+pub mod mc;
+pub mod minecraft_lib;
 pub mod models;
 pub mod services;
 pub mod utils;
-pub mod minecraft_lib;
-pub mod auth;
-pub mod mc;
 
 pub use services::cloud_sync::CloudSyncService;
 pub use services::discord::DiscordState;
 
-use std::sync::Arc;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use tauri::Manager;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::Manager;
 use tauri::WindowEvent;
 
 pub struct AppState {
-    pub pending_auth:  Arc<RwLock<Option<String>>>,
-    pub auth_results:  Arc<RwLock<HashMap<String, Result<minecraft_lib::AuthMcProfile, String>>>>,
+    pub pending_auth: Arc<RwLock<Option<String>>>,
+    pub auth_results: Arc<RwLock<HashMap<String, Result<minecraft_lib::AuthMcProfile, String>>>>,
 }
 impl AppState {
     pub fn new() -> Self {
@@ -36,26 +39,26 @@ impl AppState {
 
 fn main() {
     env_logger::init();
-    
+
     // Create ALL required directories on startup
     commands::dirs::ensure_all_dirs();
     // Refresh only the launcher-owned desktop link so it moves off a cached
     // old EXE icon when a newer bundled Portal icon is installed.
     commands::shortcuts::refresh_portal_launcher_desktop_shortcut().ok();
-    
+
     let app_state = AppState::new();
-    
+
     // Discord Rich Presence Application ID
     let discord_app_id = "1548634472554037368".to_string();
     let discord_state = DiscordState::new(discord_app_id);
-    
+
     let _polling_handle = std::thread::spawn(move || {
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
             // Polling is handled per-request
         });
     });
-    
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_oauth::init())
@@ -278,7 +281,7 @@ fn main() {
             commands::loader_installer::install_quilt,
             commands::loader_installer::install_neoforge,
             commands::loader_installer::get_fabric_versions,
-    commands::loader_installer::get_quilt_versions,
+            commands::loader_installer::get_quilt_versions,
             commands::loader_installer::get_forge_versions,
             commands::loader_installer::get_neoforge_versions,
             // Mods
@@ -397,13 +400,21 @@ fn main() {
             commands::opencode::op_load_permissions,
             commands::opencode::op_save_permissions,
             commands::opencode::op_list_dir,
-    commands::opencode::op_read_text,
-    commands::opencode::op_write_text,
-    commands::opencode::op_search_code,
-    commands::opencode::op_write_bytes,
+            commands::opencode::op_read_text,
+            commands::opencode::op_write_text,
+            commands::opencode::op_search_code,
+            commands::opencode::op_write_bytes,
             commands::opencode::op_launcher_settings_path,
             commands::opencode::op_run_command,
             commands::opencode::op_node_info,
+            commands::opencode_browser::op_browser_status,
+            commands::opencode_browser::op_browser_open,
+            commands::opencode_browser::op_browser_navigate,
+            commands::opencode_browser::op_browser_snapshot,
+            commands::opencode_browser::op_browser_click,
+            commands::opencode_browser::op_browser_type,
+            commands::opencode_browser::op_browser_scroll,
+            commands::opencode_browser::op_browser_close,
             commands::opencode::op_web_fetch,
             commands::opencode::op_http_request,
             commands::opencode::op_http_get_bytes,

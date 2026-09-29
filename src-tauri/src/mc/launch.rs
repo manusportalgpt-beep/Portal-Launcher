@@ -2,17 +2,17 @@
 //! подстановка placeholder'ов, quickPlay (мир/сервер), стрим логов в UI и
 //! перехват краша с предложением отправить лог в Grok.
 
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::{Arc, Mutex};
-use sha2::{Digest, Sha256};
 use tauri::Emitter;
 
 use super::install::{
-    collect_libraries, download_file, http, install_version, natives_dir, resolve_version, rules_allow,
-    version_jar_path,
+    collect_libraries, download_file, http, install_version, natives_dir, resolve_version,
+    rules_allow, version_jar_path,
 };
 use crate::auth::msa;
 use crate::commands::version_manager::{assets_dir, libraries_dir, mc_base_dir};
@@ -29,15 +29,19 @@ lazy_static::lazy_static! {
 
 const MAX_LOG_LINES: usize = 2000;
 const ELYBY_INJECTOR_URL: &str = "https://github.com/yushijinhun/authlib-injector/releases/download/v1.2.8/authlib-injector-1.2.8.jar";
-const ELYBY_INJECTOR_SHA256: &str = "9c7f4343e6c82034958ffb48c14a2cb0c85928be7283103ce17da00c6d5a7b10";
+const ELYBY_INJECTOR_SHA256: &str =
+    "9c7f4343e6c82034958ffb48c14a2cb0c85928be7283103ce17da00c6d5a7b10";
 
 /// Downloads the official authlib-injector only when an Ely.by account starts Java.
 /// It is a JVM agent, so Minecraft and its libraries remain untouched.
 async fn ensure_elyby_injector(client: &reqwest::Client) -> Result<PathBuf, String> {
-    let path = mc_base_dir().join("injectors").join("authlib-injector-1.2.8.jar");
-    let valid = std::fs::read(&path).ok().map(|bytes| {
-        format!("{:x}", Sha256::digest(&bytes)) == ELYBY_INJECTOR_SHA256
-    }).unwrap_or(false);
+    let path = mc_base_dir()
+        .join("injectors")
+        .join("authlib-injector-1.2.8.jar");
+    let valid = std::fs::read(&path)
+        .ok()
+        .map(|bytes| format!("{:x}", Sha256::digest(&bytes)) == ELYBY_INJECTOR_SHA256)
+        .unwrap_or(false);
     if !valid {
         std::fs::create_dir_all(path.parent().ok_or("Invalid injector directory")?)
             .map_err(|e| format!("Create Ely.by injector folder: {e}"))?;
@@ -47,7 +51,9 @@ async fn ensure_elyby_injector(client: &reqwest::Client) -> Result<PathBuf, Stri
         let digest = format!("{:x}", Sha256::digest(&bytes));
         if digest != ELYBY_INJECTOR_SHA256 {
             let _ = std::fs::remove_file(&temp);
-            return Err("The downloaded Ely.by authlib-injector failed its SHA-256 check.".to_string());
+            return Err(
+                "The downloaded Ely.by authlib-injector failed its SHA-256 check.".to_string(),
+            );
         }
         std::fs::rename(&temp, &path).map_err(|e| format!("Save Ely.by injector: {e}"))?;
     }
@@ -82,10 +88,16 @@ pub fn instance_game_dir(instance_id: &str) -> PathBuf {
 
 fn neoforge_minimum_from_range(value: &str) -> Option<String> {
     let value = value.trim().trim_matches(['\'', '"']);
-    let minimum = value.trim_start_matches(['[', '(']).split(',').next()?.trim();
+    let minimum = value
+        .trim_start_matches(['[', '('])
+        .split(',')
+        .next()?
+        .trim();
     (!minimum.is_empty()
-        && minimum.split('.').all(|part| !part.is_empty() && part.chars().all(|character| character.is_ascii_digit())))
-        .then(|| minimum.to_string())
+        && minimum.split('.').all(|part| {
+            !part.is_empty() && part.chars().all(|character| character.is_ascii_digit())
+        }))
+    .then(|| minimum.to_string())
 }
 
 fn required_neoforge_version_from_mod_metadata(game_dir: &Path) -> Option<String> {
@@ -94,12 +106,22 @@ fn required_neoforge_version_from_mod_metadata(game_dir: &Path) -> Option<String
     let mut required: Option<String> = None;
     for entry in entries.flatten() {
         let path = entry.path();
-        let file_name = path.file_name().and_then(|value| value.to_str()).unwrap_or_default();
-        if !path.is_file() || !file_name.to_ascii_lowercase().ends_with(".jar") || file_name.ends_with(".disabled") {
+        let file_name = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default();
+        if !path.is_file()
+            || !file_name.to_ascii_lowercase().ends_with(".jar")
+            || file_name.ends_with(".disabled")
+        {
             continue;
         }
-        let Ok(file) = std::fs::File::open(&path) else { continue; };
-        let Ok(mut archive) = zip::ZipArchive::new(file) else { continue; };
+        let Ok(file) = std::fs::File::open(&path) else {
+            continue;
+        };
+        let Ok(mut archive) = zip::ZipArchive::new(file) else {
+            continue;
+        };
         let metadata = ["META-INF/neoforge.mods.toml", "META-INF/mods.toml"]
             .iter()
             .find_map(|name| {
@@ -108,7 +130,9 @@ fn required_neoforge_version_from_mod_metadata(game_dir: &Path) -> Option<String
                 std::io::Read::read_to_string(&mut entry, &mut text).ok()?;
                 Some(text)
             });
-        let Some(metadata) = metadata else { continue; };
+        let Some(metadata) = metadata else {
+            continue;
+        };
         let mut is_neoforge_dependency = false;
         for raw_line in metadata.lines() {
             let line = raw_line.split('#').next().unwrap_or("").trim();
@@ -116,15 +140,29 @@ fn required_neoforge_version_from_mod_metadata(game_dir: &Path) -> Option<String
                 is_neoforge_dependency = false;
                 continue;
             }
-            let Some((key, value)) = line.split_once('=') else { continue; };
+            let Some((key, value)) = line.split_once('=') else {
+                continue;
+            };
             match key.trim() {
-                "modId" => is_neoforge_dependency = value.trim().trim_matches(['\'', '"']).eq_ignore_ascii_case("neoforge"),
+                "modId" => {
+                    is_neoforge_dependency = value
+                        .trim()
+                        .trim_matches(['\'', '"'])
+                        .eq_ignore_ascii_case("neoforge")
+                }
                 "versionRange" if is_neoforge_dependency => {
                     if let Some(candidate) = neoforge_minimum_from_range(value) {
-                        let replace = required.as_deref()
-                            .map(|current| !crate::commands::loader_installer::neoforge_version_satisfies(current, &candidate))
+                        let replace = required
+                            .as_deref()
+                            .map(|current| {
+                                !crate::commands::loader_installer::neoforge_version_satisfies(
+                                    current, &candidate,
+                                )
+                            })
                             .unwrap_or(true);
-                        if replace { required = Some(candidate); }
+                        if replace {
+                            required = Some(candidate);
+                        }
                     }
                 }
                 _ => {}
@@ -136,8 +174,12 @@ fn required_neoforge_version_from_mod_metadata(game_dir: &Path) -> Option<String
 
 fn persist_neoforge_loader_version(instance_id: &str, version: &str) {
     let path = instances_root().join(instance_id).join("instance.json");
-    let Ok(raw) = std::fs::read_to_string(&path) else { return; };
-    let Ok(mut config) = serde_json::from_str::<serde_json::Value>(&raw) else { return; };
+    let Ok(raw) = std::fs::read_to_string(&path) else {
+        return;
+    };
+    let Ok(mut config) = serde_json::from_str::<serde_json::Value>(&raw) else {
+        return;
+    };
     config["loader_version"] = serde_json::Value::String(version.to_string());
     let _ = std::fs::write(path, serde_json::to_string_pretty(&config).unwrap_or(raw));
 }
@@ -226,7 +268,10 @@ fn neoforge_version_component(version: &serde_json::Value) -> Option<String> {
 
 fn neoforge_lib_base(neoforge_version: &str) -> PathBuf {
     libraries_dir()
-        .join("net").join("neoforged").join("neoforge").join(neoforge_version)
+        .join("net")
+        .join("neoforged")
+        .join("neoforge")
+        .join(neoforge_version)
 }
 
 /// Патченный клиент NeoForge, если установщик действительно сгенерировал
@@ -259,7 +304,11 @@ fn neoforge_new_model_client_jar(version: &serde_json::Value) -> Option<PathBuf>
 /// (1.20.1/1.21.x) игра живёт внутри universal/mc-slim артефакта.
 fn neoforge_year_line(version: &serde_json::Value) -> bool {
     neoforge_version_component(version)
-        .and_then(|nfv| nfv.split('.').next().and_then(|part| part.parse::<u32>().ok()))
+        .and_then(|nfv| {
+            nfv.split('.')
+                .next()
+                .and_then(|part| part.parse::<u32>().ok())
+        })
         .map(|major| major >= 25)
         .unwrap_or(false)
 }
@@ -271,8 +320,12 @@ fn neoforge_profile_owns_client_jar(version: &serde_json::Value) -> bool {
     match neoforge_version_component(version) {
         Some(nfv) => {
             let lib_base = neoforge_lib_base(&nfv);
-            lib_base.join(format!("neoforge-{nfv}-client.jar")).is_file()
-                || lib_base.join(format!("neoforge-{nfv}-universal.jar")).is_file()
+            lib_base
+                .join(format!("neoforge-{nfv}-client.jar"))
+                .is_file()
+                || lib_base
+                    .join(format!("neoforge-{nfv}-universal.jar"))
+                    .is_file()
         }
         None => {
             // Not a NeoForge profile — fall back to coordinate inspection.
@@ -283,7 +336,8 @@ fn neoforge_profile_owns_client_jar(version: &serde_json::Value) -> bool {
                 .filter_map(|library| library["name"].as_str())
                 .any(|name| {
                     let normalized = name.to_ascii_lowercase();
-                    normalized.starts_with("net.neoforged:neoforge:") && normalized.ends_with(":client")
+                    normalized.starts_with("net.neoforged:neoforge:")
+                        && normalized.ends_with(":client")
                 })
         }
     }
@@ -414,16 +468,24 @@ mod classpath_tests {
 }
 
 fn required_java_for_mc_id(id: &str) -> u32 {
-    let parts: Vec<u64> = id.split('.').filter_map(|part| part.parse::<u64>().ok()).collect();
+    let parts: Vec<u64> = id
+        .split('.')
+        .filter_map(|part| part.parse::<u64>().ok())
+        .collect();
     if parts.first().copied().unwrap_or(1) >= 26 {
         25
     } else {
         let minor = parts.get(1).copied().unwrap_or(20);
         let patch = parts.get(2).copied().unwrap_or(0);
-        if minor <= 16 { 8 }
-        else if minor == 17 { 16 }
-        else if minor == 20 && patch < 5 { 17 }
-        else { 21 }
+        if minor <= 16 {
+            8
+        } else if minor == 17 {
+            16
+        } else if minor == 20 && patch < 5 {
+            17
+        } else {
+            21
+        }
     }
 }
 
@@ -502,9 +564,16 @@ pub async fn launch_instance(
             // Резервный вариант — старая система (если когда-либо была настроена).
             let account = msa::ensure_fresh_token(&app).await;
             match account {
-                Some(a) if !a.access_token.is_empty() => (a.username, a.uuid, a.access_token, "msa".to_string()),
+                Some(a) if !a.access_token.is_empty() => {
+                    (a.username, a.uuid, a.access_token, "msa".to_string())
+                }
                 Some(a) => (a.username, a.uuid, "0".to_string(), "legacy".to_string()),
-                None => ("Player".to_string(), msa::offline_uuid("Player"), "0".to_string(), "legacy".to_string()),
+                None => (
+                    "Player".to_string(),
+                    msa::offline_uuid("Player"),
+                    "0".to_string(),
+                    "legacy".to_string(),
+                ),
             }
         }
     };
@@ -512,24 +581,28 @@ pub async fn launch_instance(
     let uuid = final_uuid;
     // Main UI paths pass `provider` explicitly. Quick-play paths may not, so only
     // fall back to the saved profile when it is the same account UUID.
-    let is_elyby = provider.as_deref() == Some("elyby") || (
-        provider.is_none() && msa::load_account()
-            .map(|saved| saved.provider.as_deref() == Some("elyby") && saved.uuid == uuid)
-            .unwrap_or(false)
-    );
+    let is_elyby = provider.as_deref() == Some("elyby")
+        || (provider.is_none()
+            && msa::load_account()
+                .map(|saved| saved.provider.as_deref() == Some("elyby") && saved.uuid == uuid)
+                .unwrap_or(false));
     // Retrieve the XUID from the saved MS account so the game receives
     // the correct Xbox user identifier for session validation.
-    let xuid = msa::load_account()
-        .and_then(|a| a.xuid)
-        .unwrap_or_default();
+    let xuid = msa::load_account().and_then(|a| a.xuid).unwrap_or_default();
 
     // 2. Prepare the exact Temurin runtime before resolving a loader. Forge
     // and NeoForge installers execute Java while their profile is recovered.
     let expected_java_major = required_java_for_mc_id(&instance.mc_version);
-    status("java", "Проверяю Java для установки Minecraft и загрузчика…");
+    status(
+        "java",
+        "Проверяю Java для установки Minecraft и загрузчика…",
+    );
     let candidate = crate::commands::jvm::find_java(expected_java_major);
     let candidate_ok = crate::commands::jvm::run_java(&candidate)
-        .map(|info| info.major_version == expected_java_major && !info.architecture.eq_ignore_ascii_case("x86"))
+        .map(|info| {
+            info.major_version == expected_java_major
+                && !info.architecture.eq_ignore_ascii_case("x86")
+        })
         .unwrap_or(false);
     let (prepared_java_path, _downloaded_java) = if candidate_ok {
         (candidate, false)
@@ -539,7 +612,10 @@ pub async fn launch_instance(
         let existing = crate::commands::jvm::find_java(expected_java_major);
         if !existing.is_empty() {
             let existing_ok = crate::commands::jvm::run_java(&existing)
-                .map(|info| info.major_version == expected_java_major && !info.architecture.eq_ignore_ascii_case("x86"))
+                .map(|info| {
+                    info.major_version == expected_java_major
+                        && !info.architecture.eq_ignore_ascii_case("x86")
+                })
                 .unwrap_or(false);
             if existing_ok {
                 (existing, false)
@@ -547,17 +623,27 @@ pub async fn launch_instance(
                 // Binary exists but version detection failed — use it anyway
                 // rather than re-downloading. The directory name inference
                 // in download_java will catch it if needed.
-                status("java", &format!("Скачиваю Temurin JDK {expected_java_major}…"));
+                status(
+                    "java",
+                    &format!("Скачиваю Temurin JDK {expected_java_major}…"),
+                );
                 let path = crate::commands::jvm::download_java(app.clone(), expected_java_major)
                     .await
-                    .map_err(|error| format!("Не удалось подготовить Temurin JDK {expected_java_major}: {error}"))?;
+                    .map_err(|error| {
+                        format!("Не удалось подготовить Temurin JDK {expected_java_major}: {error}")
+                    })?;
                 (path, true)
             }
         } else {
-            status("java", &format!("Скачиваю Temurin JDK {expected_java_major}…"));
+            status(
+                "java",
+                &format!("Скачиваю Temurin JDK {expected_java_major}…"),
+            );
             let path = crate::commands::jvm::download_java(app.clone(), expected_java_major)
                 .await
-                .map_err(|error| format!("Не удалось подготовить Temurin JDK {expected_java_major}: {error}"))?;
+                .map_err(|error| {
+                    format!("Не удалось подготовить Temurin JDK {expected_java_major}: {error}")
+                })?;
             (path, true)
         }
     };
@@ -589,31 +675,66 @@ pub async fn launch_instance(
     if requested_loader == "forge" || requested_loader == "neoforge" {
         let vanilla = crate::mc::install::ensure_version_json(&client, &instance.mc_version)
             .await
-            .map_err(|error| format!("Не удалось подготовить Vanilla {} до установки {}: {error}", instance.mc_version, instance.loader))?;
-        status("install", "Подготавливаю Vanilla-файлы для установщика загрузчика…");
+            .map_err(|error| {
+                format!(
+                    "Не удалось подготовить Vanilla {} до установки {}: {error}",
+                    instance.mc_version, instance.loader
+                )
+            })?;
+        status(
+            "install",
+            "Подготавливаю Vanilla-файлы для установщика загрузчика…",
+        );
         install_version(&app, &vanilla, &instance.mc_version, &instance.mc_version).await?;
         check_cancelled()?;
         if requested_loader == "neoforge" {
-            let required = required_neoforge_version_from_mod_metadata(&instance_game_dir(&instance_id));
-            let version_is_old = required.as_ref().map(|minimum| !crate::commands::loader_installer::neoforge_version_satisfies(&effective_loader_version, minimum)).unwrap_or(false);
-            let profile_is_incomplete = !crate::commands::loader_installer::neoforge_profile_complete(&effective_loader_version);
+            let required =
+                required_neoforge_version_from_mod_metadata(&instance_game_dir(&instance_id));
+            let version_is_old = required
+                .as_ref()
+                .map(|minimum| {
+                    !crate::commands::loader_installer::neoforge_version_satisfies(
+                        &effective_loader_version,
+                        minimum,
+                    )
+                })
+                .unwrap_or(false);
+            let profile_is_incomplete =
+                !crate::commands::loader_installer::neoforge_profile_complete(
+                    &effective_loader_version,
+                );
             if version_is_old || profile_is_incomplete {
                 let neoforge_status = if version_is_old {
-                    format!("Моды требуют NeoForge {} или новее — обновляю загрузчик…", required.as_deref().unwrap_or_default())
+                    format!(
+                        "Моды требуют NeoForge {} или новее — обновляю загрузчик…",
+                        required.as_deref().unwrap_or_default()
+                    )
                 } else {
                     "NeoForge profile неполный — заново создаю patched Minecraft JAR…".to_string()
                 };
                 status("neoforge", &neoforge_status);
                 let selected = if let Some(minimum) = required.filter(|_| version_is_old) {
-                    crate::commands::loader_installer::latest_neoforge_version_at_least(&instance.mc_version, &minimum).await?
-                } else { effective_loader_version.clone() };
+                    crate::commands::loader_installer::latest_neoforge_version_at_least(
+                        &instance.mc_version,
+                        &minimum,
+                    )
+                    .await?
+                } else {
+                    effective_loader_version.clone()
+                };
                 let installed = crate::commands::loader_installer::install_neoforge(
                     instance.mc_version.clone(),
                     selected.clone(),
-                    crate::commands::version_manager::mc_base_dir().to_string_lossy().to_string(),
-                ).await?;
+                    crate::commands::version_manager::mc_base_dir()
+                        .to_string_lossy()
+                        .to_string(),
+                )
+                .await?;
                 if !installed.success {
-                    return Err(format!("Не удалось восстановить NeoForge {}: {}", selected, installed.message));
+                    return Err(format!(
+                        "Не удалось восстановить NeoForge {}: {}",
+                        selected, installed.message
+                    ));
                 }
                 effective_loader_version = installed.version;
                 persist_neoforge_loader_version(&instance_id, &effective_loader_version);
@@ -628,19 +749,28 @@ pub async fn launch_instance(
         &instance.loader,
         &effective_loader_version,
     )
-    .await {
+    .await
+    {
         Ok(resolved) => resolved,
         Err(error) => {
             status("error", &error);
             return Err(error);
         }
     };
-    let asset_index_ready = version["assetIndex"]["id"].as_str()
-        .map(|id| assets_dir().join("indexes").join(format!("{id}.json")).exists())
+    let asset_index_ready = version["assetIndex"]["id"]
+        .as_str()
+        .map(|id| {
+            assets_dir()
+                .join("indexes")
+                .join(format!("{id}.json"))
+                .exists()
+        })
         .unwrap_or(true);
     prepared_only = prepared_only
         || !asset_index_ready
-        || collect_libraries(&version).iter().any(|lib| !lib.path.exists());
+        || collect_libraries(&version)
+            .iter()
+            .any(|lib| !lib.path.exists());
 
     status("install", "Проверяю и докачиваю файлы игры…");
     check_cancelled()?;
@@ -649,17 +779,23 @@ pub async fn launch_instance(
     // 4. Java
     status("java", "Ищу Java…");
     let java_major = required_java(&version);
-    let java_path = if !instance.java_path.is_empty() && Path::new(&instance.java_path).exists()
+    let java_path = if !instance.java_path.is_empty()
+        && Path::new(&instance.java_path).exists()
         && crate::commands::jvm::run_java(&instance.java_path)
-            .map(|info| info.major_version == java_major && !info.architecture.eq_ignore_ascii_case("x86"))
-            .unwrap_or(false) {
+            .map(|info| {
+                info.major_version == java_major && !info.architecture.eq_ignore_ascii_case("x86")
+            })
+            .unwrap_or(false)
+    {
         instance.java_path.clone()
     } else if java_major == expected_java_major {
         prepared_java_path
     } else {
         let found = crate::commands::jvm::find_java(java_major);
         let found_ok = crate::commands::jvm::run_java(&found)
-            .map(|info| info.major_version == java_major && !info.architecture.eq_ignore_ascii_case("x86"))
+            .map(|info| {
+                info.major_version == java_major && !info.architecture.eq_ignore_ascii_case("x86")
+            })
             .unwrap_or(false);
         if !found_ok {
             // Don't set prepared_only=true here — download_java now checks
@@ -679,7 +815,11 @@ pub async fn launch_instance(
             &format!(
                 "Java {} · {} · {} · Xmx {} МБ",
                 info.major_version,
-                if info.vendor.is_empty() { "совместимый runtime" } else { &info.vendor },
+                if info.vendor.is_empty() {
+                    "совместимый runtime"
+                } else {
+                    &info.vendor
+                },
                 info.architecture,
                 configured_max_ram,
             ),
@@ -689,22 +829,44 @@ pub async fn launch_instance(
     // 4. Пути сборки (своя файловая система на каждую сборку)
     let game_dir = instance_game_dir(&instance_id);
     for sub in [
-        "mods", "config", "saves", "resourcepacks", "shaderpacks",
-        "screenshots", "logs", "crash-reports", "datapacks",
+        "mods",
+        "config",
+        "saves",
+        "resourcepacks",
+        "shaderpacks",
+        "screenshots",
+        "logs",
+        "crash-reports",
+        "datapacks",
     ] {
         std::fs::create_dir_all(game_dir.join(sub)).ok();
     }
 
-    let mc_id = version["id"].as_str().unwrap_or(&instance.mc_version).to_string();
+    let mc_id = version["id"]
+        .as_str()
+        .unwrap_or(&instance.mc_version)
+        .to_string();
     // install_version всегда распаковывает natives в versions/<vanilla version>/natives.
     // Fabric/Quilt profile ID здесь использовать нельзя: JVM получает пустую
     // папку и LWJGL падает с "Failed to locate library: lwjgl.dll".
     let natives = natives_dir(&instance.mc_version);
-    let has_lwjgl_dll = || std::fs::read_dir(&natives)
-        .ok()
-        .into_iter()
-        .flatten()
-        .any(|entry| entry.ok().map(|entry| entry.file_name().to_string_lossy().eq_ignore_ascii_case("lwjgl.dll")).unwrap_or(false));
+    let has_lwjgl_dll = || {
+        std::fs::read_dir(&natives)
+            .ok()
+            .into_iter()
+            .flatten()
+            .any(|entry| {
+                entry
+                    .ok()
+                    .map(|entry| {
+                        entry
+                            .file_name()
+                            .to_string_lossy()
+                            .eq_ignore_ascii_case("lwjgl.dll")
+                    })
+                    .unwrap_or(false)
+            })
+    };
     // Старые попытки могли оставить natives в пути loader-профиля или оборвать
     // распаковку. Восстанавливаем папку до запуска, а не передаём LWJGL пустой путь.
     if !has_lwjgl_dll() {
@@ -731,7 +893,10 @@ pub async fn launch_instance(
     let client_jar = crate::mc::install::version_jar_path(&instance.mc_version);
     if !client_jar.exists() {
         prepared_only = true;
-        log::warn!("client.jar отсутствует ({}), докачиваю повторно", client_jar.display());
+        log::warn!(
+            "client.jar отсутствует ({}), докачиваю повторно",
+            client_jar.display()
+        );
         install_version(&app, &version, &profile_id, &instance.mc_version).await?;
         if !client_jar.exists() {
             return Err(format!(
@@ -753,7 +918,10 @@ pub async fn launch_instance(
     if !missing.is_empty() {
         prepared_only = true;
         log::warn!("Отсутствуют библиотеки ({}): {:#?}", missing.len(), missing);
-        status("install", &format!("Докачиваю недостающие файлы ({})...", missing.len()));
+        status(
+            "install",
+            &format!("Докачиваю недостающие файлы ({})...", missing.len()),
+        );
         // Одна повторная попытка докачать перед сборкой classpath.
         install_version(&app, &version, &profile_id, &instance.mc_version).await?;
     }
@@ -785,13 +953,29 @@ pub async fn launch_instance(
     let mut vars: HashMap<String, String> = HashMap::new();
     vars.insert("auth_player_name".into(), username.clone());
     vars.insert("version_name".into(), mc_id.clone());
-    vars.insert("game_directory".into(), game_dir.to_string_lossy().to_string());
-    vars.insert("assets_root".into(), assets_dir().to_string_lossy().to_string());
-    vars.insert("game_assets".into(), assets_dir().join("virtual").join("legacy").to_string_lossy().to_string());
+    vars.insert(
+        "game_directory".into(),
+        game_dir.to_string_lossy().to_string(),
+    );
+    vars.insert(
+        "assets_root".into(),
+        assets_dir().to_string_lossy().to_string(),
+    );
+    vars.insert(
+        "game_assets".into(),
+        assets_dir()
+            .join("virtual")
+            .join("legacy")
+            .to_string_lossy()
+            .to_string(),
+    );
     vars.insert("assets_index_name".into(), asset_index.clone());
     vars.insert("auth_uuid".into(), uuid.replace('-', ""));
     vars.insert("auth_access_token".into(), token.clone());
-    vars.insert("auth_session".into(), format!("token:{token}:{}", uuid.replace('-', "")));
+    vars.insert(
+        "auth_session".into(),
+        format!("token:{token}:{}", uuid.replace('-', "")),
+    );
     vars.insert("auth_xuid".into(), xuid.clone());
     vars.insert("clientid".into(), "PortalLauncher".into());
     vars.insert("user_type".into(), user_type.clone());
@@ -800,12 +984,18 @@ pub async fn launch_instance(
         "version_type".into(),
         version["type"].as_str().unwrap_or("release").to_string(),
     );
-    vars.insert("natives_directory".into(), natives.to_string_lossy().to_string());
+    vars.insert(
+        "natives_directory".into(),
+        natives.to_string_lossy().to_string(),
+    );
     vars.insert("launcher_name".into(), "PortalLauncher".into());
     vars.insert("launcher_version".into(), env!("CARGO_PKG_VERSION").into());
     vars.insert("classpath".into(), classpath_str.clone());
     vars.insert("classpath_separator".into(), sep().into());
-    vars.insert("library_directory".into(), libraries_dir().to_string_lossy().to_string());
+    vars.insert(
+        "library_directory".into(),
+        libraries_dir().to_string_lossy().to_string(),
+    );
     vars.insert("resolution_width".into(), "1280".into());
     vars.insert("resolution_height".into(), "720".into());
 
@@ -852,7 +1042,10 @@ pub async fn launch_instance(
     // system property побеждает, поэтому Fabric и современные snapshots
     // всегда получают реальную папку с lwjgl.dll.
     jvm_args.push(format!("-Djava.library.path={}", natives.to_string_lossy()));
-    jvm_args.push(format!("-Dorg.lwjgl.librarypath={}", natives.to_string_lossy()));
+    jvm_args.push(format!(
+        "-Dorg.lwjgl.librarypath={}",
+        natives.to_string_lossy()
+    ));
 
     if let Some(file) = version["logging"]["client"]["file"]["id"].as_str() {
         let cfg = assets_dir().join("log_configs").join(file);
@@ -864,20 +1057,23 @@ pub async fn launch_instance(
     }
     if !instance.custom_jvm_args.trim().is_empty() {
         let mut ignored_heap_flags = Vec::new();
-        let custom_args = instance.custom_jvm_args.split_whitespace().filter_map(|arg| {
-            let normalized = arg.to_ascii_lowercase();
-            let overrides_heap = normalized.starts_with("-xms")
-                || normalized.starts_with("-xmx")
-                || normalized.starts_with("-xx:initialheapsize=")
-                || normalized.starts_with("-xx:minheapsize=")
-                || normalized.starts_with("-xx:maxheapsize=");
-            if overrides_heap {
-                ignored_heap_flags.push(arg.to_string());
-                None
-            } else {
-                Some(arg.to_string())
-            }
-        });
+        let custom_args = instance
+            .custom_jvm_args
+            .split_whitespace()
+            .filter_map(|arg| {
+                let normalized = arg.to_ascii_lowercase();
+                let overrides_heap = normalized.starts_with("-xms")
+                    || normalized.starts_with("-xmx")
+                    || normalized.starts_with("-xx:initialheapsize=")
+                    || normalized.starts_with("-xx:minheapsize=")
+                    || normalized.starts_with("-xx:maxheapsize=");
+                if overrides_heap {
+                    ignored_heap_flags.push(arg.to_string());
+                    None
+                } else {
+                    Some(arg.to_string())
+                }
+            });
         jvm_args.extend(custom_args);
         if !ignored_heap_flags.is_empty() {
             log::warn!(
@@ -988,7 +1184,10 @@ pub async fn launch_instance(
     #[cfg(windows)]
     {
         let java_file = Path::new(&java_path);
-        let mut gpu_targets = vec![java_file.to_path_buf(), Path::new(&game_java_path).to_path_buf()];
+        let mut gpu_targets = vec![
+            java_file.to_path_buf(),
+            Path::new(&game_java_path).to_path_buf(),
+        ];
         if let Some(bin_dir) = java_file.parent() {
             gpu_targets.push(bin_dir.join("javaw.exe"));
         }
@@ -1012,7 +1211,11 @@ pub async fn launch_instance(
             log::info!(
                 "GPU preference for Minecraft Java {}: {}",
                 target.display(),
-                if updated { "high performance" } else { "unchanged" },
+                if updated {
+                    "high performance"
+                } else {
+                    "unchanged"
+                },
             );
         }
     }
@@ -1050,7 +1253,11 @@ pub async fn launch_instance(
         classpath.len(),
         game_args
             .iter()
-            .map(|a| if a == &token { "<token>".to_string() } else { a.clone() })
+            .map(|a| if a == &token {
+                "<token>".to_string()
+            } else {
+                a.clone()
+            })
             .collect::<Vec<_>>()
             .join(" ")
     );
@@ -1068,7 +1275,9 @@ pub async fn launch_instance(
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
     let log_file = std::fs::OpenOptions::new()
-        .create(true).truncate(true).write(true)
+        .create(true)
+        .truncate(true)
+        .write(true)
         .open(game_dir.join("logs").join("latest.log"))
         .ok()
         .map(|file| Arc::new(Mutex::new(file)));
@@ -1078,12 +1287,18 @@ pub async fn launch_instance(
     app.emit(
         "game-log-session",
         serde_json::json!({ "instance_id": &instance_id, "pid": pid }),
-    ).ok();
+    )
+    .ok();
     status("running", "Minecraft запущен");
-    for (stream, is_err) in [(stdout.map(|s| Box::new(s) as Box<dyn std::io::Read + Send>), false)]
-        .into_iter()
-        .chain([(stderr.map(|s| Box::new(s) as Box<dyn std::io::Read + Send>), true)])
-    {
+    for (stream, is_err) in [(
+        stdout.map(|s| Box::new(s) as Box<dyn std::io::Read + Send>),
+        false,
+    )]
+    .into_iter()
+    .chain([(
+        stderr.map(|s| Box::new(s) as Box<dyn std::io::Read + Send>),
+        true,
+    )]) {
         let Some(stream) = stream else { continue };
         let app2 = app.clone();
         let id2 = instance_id.clone();
@@ -1093,7 +1308,9 @@ pub async fn launch_instance(
             for line in reader.lines().map_while(Result::ok) {
                 push_log(&id2, &line);
                 if let Some(file) = &log_file2 {
-                    if let Ok(mut file) = file.lock() { let _ = writeln!(file, "{}", line); }
+                    if let Ok(mut file) = file.lock() {
+                        let _ = writeln!(file, "{}", line);
+                    }
                 }
                 app2.emit(
                     "game-log",
@@ -1120,7 +1337,10 @@ pub async fn launch_instance(
     std::thread::spawn(move || {
         let status = child.wait();
         RUNNING.lock().unwrap().remove(&id3);
-        let code = status.as_ref().map(|s| s.code().unwrap_or(-1)).unwrap_or(-1);
+        let code = status
+            .as_ref()
+            .map(|s| s.code().unwrap_or(-1))
+            .unwrap_or(-1);
         let logs = LOGS.lock().unwrap().get(&id3).cloned().unwrap_or_default();
         let tail = logs
             .iter()
@@ -1254,11 +1474,13 @@ fn request_stop(app: tauri::AppHandle, instance_id: String) -> Result<(), String
         app2.emit(
             "launch-status",
             serde_json::json!({ "instance_id": &id2, "status": status, "message": message }),
-        ).ok();
+        )
+        .ok();
         app2.emit(
             "game-exited",
             serde_json::json!({ "instance_id": &id2, "code": -1, "stopped_by_launcher": true }),
-        ).ok();
+        )
+        .ok();
     });
     Ok(())
 }
@@ -1288,9 +1510,13 @@ pub fn get_running_instances() -> Vec<String> {
 #[tauri::command]
 pub fn get_game_logs(instance_id: String) -> Vec<String> {
     if let Some(logs) = LOGS.lock().unwrap().get(&instance_id).cloned() {
-        if !logs.is_empty() { return logs; }
+        if !logs.is_empty() {
+            return logs;
+        }
     }
-    let path = instance_game_dir(&instance_id).join("logs").join("latest.log");
+    let path = instance_game_dir(&instance_id)
+        .join("logs")
+        .join("latest.log");
     std::fs::read_to_string(path)
         .map(|content| content.lines().map(ToString::to_string).collect())
         .unwrap_or_default()
@@ -1340,7 +1566,11 @@ pub fn save_log_session(instance_id: &str, content: &str) -> Result<SavedLogSess
     std::fs::write(&path, content).map_err(|e| format!("Не удалось сохранить лог: {e}"))?;
 
     Ok(SavedLogSession {
-        id: path.file_name().and_then(|v| v.to_str()).unwrap_or_default().to_string(),
+        id: path
+            .file_name()
+            .and_then(|v| v.to_str())
+            .unwrap_or_default()
+            .to_string(),
         started_at: format_session_time(started),
         size: content.len() as u64,
         lines: content.lines().count(),
@@ -1351,7 +1581,9 @@ pub fn save_log_session(instance_id: &str, content: &str) -> Result<SavedLogSess
 #[tauri::command]
 pub fn list_log_sessions(instance_id: String) -> Vec<SavedLogSession> {
     let dir = portal_logs_dir(&instance_id);
-    let Ok(entries) = std::fs::read_dir(&dir) else { return Vec::new() };
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return Vec::new();
+    };
     let mut out: Vec<SavedLogSession> = entries
         .flatten()
         .filter_map(|entry| {
@@ -1401,7 +1633,10 @@ pub fn delete_log_session(instance_id: String, session_id: String) -> Result<(),
 /// это пользовательский ввод, поэтому имя проверяется и путь собирается заново.
 fn resolve_log_session_path(instance_id: &str, session_id: &str) -> Result<PathBuf, String> {
     let dir = portal_logs_dir(instance_id);
-    let base = dir.file_name().and_then(|v| v.to_str()).unwrap_or("portal-logs");
+    let base = dir
+        .file_name()
+        .and_then(|v| v.to_str())
+        .unwrap_or("portal-logs");
     let stem = session_id
         .strip_suffix(".log")
         .ok_or_else(|| "Некорректное имя сессии".to_string())?;
@@ -1413,7 +1648,10 @@ fn resolve_log_session_path(instance_id: &str, session_id: &str) -> Result<PathB
         return Err("Некорректное имя сессии".to_string());
     }
     let path = dir.join(format!("{stem}.log"));
-    let resolved_parent = path.parent().and_then(|p| p.file_name()).and_then(|v| v.to_str());
+    let resolved_parent = path
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|v| v.to_str());
     if resolved_parent != Some(base) {
         return Err("Некорректный путь сессии".to_string());
     }

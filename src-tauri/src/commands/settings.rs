@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 fn settings_path() -> PathBuf {
     let mut p = dirs_next::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -37,27 +37,38 @@ pub async fn save_all_settings(settings: HashMap<String, serde_json::Value>) -> 
 
 /// Get a specific setting with a default value
 #[tauri::command]
-pub async fn get_setting(key: String, default: serde_json::Value) -> Result<serde_json::Value, String> {
+pub async fn get_setting(
+    key: String,
+    default: serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let map = load_raw();
     Ok(map.get(&key).cloned().unwrap_or(default))
 }
 
 /// Get boolean setting
 pub fn get_bool_setting(key: &str, default: bool) -> bool {
-    load_raw().get(key).and_then(|v| v.as_bool()).unwrap_or(default)
+    load_raw()
+        .get(key)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(default)
 }
 
 /// Quickly read the CurseForge API key from settings (used by curseforge module)
 pub fn read_curseforge_api_key() -> String {
-    load_raw().get("curseforge_api_key")
-        .and_then(|v| v.as_str()).unwrap_or("").to_string()
+    load_raw()
+        .get("curseforge_api_key")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string()
 }
 
 /// Get the relay server base URL (configured in Settings → API Keys)
 pub fn read_relay_url() -> String {
-    load_raw().get("relay_server_url")
+    load_raw()
+        .get("relay_server_url")
         .and_then(|v| v.as_str())
-        .unwrap_or("http://localhost:3000").to_string()
+        .unwrap_or("http://localhost:3000")
+        .to_string()
 }
 
 #[tauri::command]

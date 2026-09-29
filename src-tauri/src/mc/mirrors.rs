@@ -38,7 +38,11 @@ pub fn current() -> Mirror {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) else {
         return Mirror::Official;
     };
-    Mirror::from_setting(v.get("cdn_mirror").and_then(|x| x.as_str()).unwrap_or("official"))
+    Mirror::from_setting(
+        v.get("cdn_mirror")
+            .and_then(|x| x.as_str())
+            .unwrap_or("official"),
+    )
 }
 
 /// Переписывает официальный URL на выбранное зеркало.
@@ -57,7 +61,10 @@ pub fn rewrite_with(url: &str, m: Mirror) -> String {
         ("https://launchermeta.mojang.com", base.to_string()),
         ("https://piston-data.mojang.com", base.to_string()),
         ("https://launcher.mojang.com", base.to_string()),
-        ("https://resources.download.minecraft.net", format!("{base}/assets")),
+        (
+            "https://resources.download.minecraft.net",
+            format!("{base}/assets"),
+        ),
         ("https://libraries.minecraft.net", format!("{base}/maven")),
         ("https://maven.fabricmc.net", format!("{base}/maven")),
         ("https://meta.fabricmc.net", format!("{base}/fabric-meta")),
@@ -100,13 +107,20 @@ pub fn list_cdn_mirrors() -> Vec<serde_json::Value> {
 #[tauri::command]
 pub async fn test_cdn_mirror(mirror: String) -> Result<u64, String> {
     let m = Mirror::from_setting(&mirror);
-    let url = rewrite_with("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json", m);
+    let url = rewrite_with(
+        "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
+        m,
+    );
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(12))
         .build()
         .map_err(|e| e.to_string())?;
     let start = std::time::Instant::now();
-    let resp = client.get(&url).send().await.map_err(|e| format!("Недоступно: {e}"))?;
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("Недоступно: {e}"))?;
     if !resp.status().is_success() {
         return Err(format!("HTTP {}", resp.status()));
     }

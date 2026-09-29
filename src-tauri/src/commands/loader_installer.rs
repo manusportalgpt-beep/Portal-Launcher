@@ -1,6 +1,6 @@
-use serde::{Serialize, Deserialize};
-use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
 use sha1::{Digest, Sha1};
+use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LoaderInstallResult {
@@ -23,15 +23,26 @@ fn neoforge_profile_dirs(version: &str) -> Vec<PathBuf> {
     let root = crate::commands::version_manager::versions_dir();
     let std_prefix = format!("neoforge-{version}");
     let suffix = format!("-{version}");
-    std::fs::read_dir(&root).ok().into_iter().flatten().filter_map(|entry| entry.ok())
+    std::fs::read_dir(&root)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok())
         .map(|entry| entry.path())
-        .filter(|path| path.is_dir() && path.file_name().and_then(|name| name.to_str()).map(|name| {
-            if name.starts_with(&std_prefix) {
-                return true;
-            }
-            // Legacy format: neoforge-1.21.1-21.1.77
-            name.starts_with("neoforge-") && name.ends_with(&suffix)
-        }).unwrap_or(false))
+        .filter(|path| {
+            path.is_dir()
+                && path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .map(|name| {
+                        if name.starts_with(&std_prefix) {
+                            return true;
+                        }
+                        // Legacy format: neoforge-1.21.1-21.1.77
+                        name.starts_with("neoforge-") && name.ends_with(&suffix)
+                    })
+                    .unwrap_or(false)
+        })
         .collect()
 }
 
@@ -41,18 +52,31 @@ fn neoforge_profile_dirs(version: &str) -> Vec<PathBuf> {
 pub fn neoforge_profile_complete(version: &str) -> bool {
     let dirs = neoforge_profile_dirs(version);
     let profile_dir = dirs.iter().find(|dir| {
-        let id = dir.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+        let id = dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default();
         dir.join(format!("{id}.json")).is_file()
     });
     let Some(dir) = profile_dir else {
         return false;
     };
-    let id = dir.file_name().and_then(|name| name.to_str()).unwrap_or_default();
+    let id = dir
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
     let lib_base = crate::commands::version_manager::libraries_dir()
-        .join("net").join("neoforged").join("neoforge").join(version);
+        .join("net")
+        .join("neoforged")
+        .join("neoforge")
+        .join(version);
     // NeoForge 1.21.5+ may produce only the universal jar, not the client classifier.
-    let has_client_jar = lib_base.join(format!("neoforge-{version}-client.jar")).is_file();
-    let has_universal_jar = lib_base.join(format!("neoforge-{version}-universal.jar")).is_file();
+    let has_client_jar = lib_base
+        .join(format!("neoforge-{version}-client.jar"))
+        .is_file();
+    let has_universal_jar = lib_base
+        .join(format!("neoforge-{version}-universal.jar"))
+        .is_file();
     if has_client_jar || has_universal_jar {
         return true;
     }
@@ -66,7 +90,10 @@ pub fn neoforge_profile_complete(version: &str) -> bool {
             let coord = format!("net.neoforged:neoforge:{version}:universal");
             let has_in_profile = profile["libraries"].as_array().map_or(false, |libs| {
                 libs.iter().any(|lib| {
-                    lib["name"].as_str().map(|name| name == coord).unwrap_or(false)
+                    lib["name"]
+                        .as_str()
+                        .map(|name| name == coord)
+                        .unwrap_or(false)
                 })
             });
             if has_in_profile {
@@ -79,8 +106,12 @@ pub fn neoforge_profile_complete(version: &str) -> bool {
 
 fn clear_incomplete_neoforge_profile(version: &str) -> Result<(), String> {
     for dir in neoforge_profile_dirs(version) {
-        std::fs::remove_dir_all(&dir)
-            .map_err(|error| format!("Не удалось очистить неполный NeoForge profile {}: {error}", dir.display()))?;
+        std::fs::remove_dir_all(&dir).map_err(|error| {
+            format!(
+                "Не удалось очистить неполный NeoForge profile {}: {error}",
+                dir.display()
+            )
+        })?;
     }
     Ok(())
 }
@@ -89,28 +120,43 @@ fn clear_incomplete_neoforge_profile(version: &str) -> Result<(), String> {
 /// shared Minecraft root. Portal Launcher keeps game data per instance, so a
 /// minimal profile store must exist in that shared root before invoking them.
 fn ensure_launcher_profile_store(base_dir: &std::path::Path) -> Result<(), String> {
-    std::fs::create_dir_all(base_dir)
-        .map_err(|error| format!("Не удалось подготовить папку Minecraft {}: {error}", base_dir.display()))?;
+    std::fs::create_dir_all(base_dir).map_err(|error| {
+        format!(
+            "Не удалось подготовить папку Minecraft {}: {error}",
+            base_dir.display()
+        )
+    })?;
     let profile_path = base_dir.join("launcher_profiles.json");
     if !profile_path.exists() {
-        std::fs::write(&profile_path, r#"{"profiles":{},"settings":{},"version":3}"#)
-            .map_err(|error| format!("Не удалось создать launcher_profiles.json: {error}"))?;
+        std::fs::write(
+            &profile_path,
+            r#"{"profiles":{},"settings":{},"version":3}"#,
+        )
+        .map_err(|error| format!("Не удалось создать launcher_profiles.json: {error}"))?;
     }
     Ok(())
 }
 
 /// Required Java major version for a given MC version string (1.7.2 – latest).
 fn java_major_for_mc(mc_version: &str) -> u32 {
-    let parts: Vec<u32> = mc_version.split('.').filter_map(|part| part.parse::<u32>().ok()).collect();
+    let parts: Vec<u32> = mc_version
+        .split('.')
+        .filter_map(|part| part.parse::<u32>().ok())
+        .collect();
     // Minecraft 26.x (including 26.2) is built for Java 25.
     if parts.first().copied().unwrap_or(1) >= 26 {
         25
     } else {
         let minor = parts.get(1).copied().unwrap_or(0);
-        if minor <= 16 { 8 }
-        else if minor == 17 { 16 }
-        else if minor == 20 && parts.get(2).copied().unwrap_or(0) < 5 { 17 }
-        else { 21 }
+        if minor <= 16 {
+            8
+        } else if minor == 17 {
+            16
+        } else if minor == 20 && parts.get(2).copied().unwrap_or(0) < 5 {
+            17
+        } else {
+            21
+        }
     }
 }
 
@@ -131,9 +177,16 @@ fn installer_failure(output: &std::process::Output) -> String {
         .rev()
         .collect::<Vec<_>>()
         .join("\n");
-    let code = output.status.code().map(|value| value.to_string()).unwrap_or_else(|| "неизвестен".to_string());
-    if tail.is_empty() { format!("установщик завершился с кодом {code} без вывода") }
-    else { format!("код {code}: {tail}") }
+    let code = output
+        .status
+        .code()
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "неизвестен".to_string());
+    if tail.is_empty() {
+        format!("установщик завершился с кодом {code} без вывода")
+    } else {
+        format!("код {code}: {tail}")
+    }
 }
 
 fn installer_failure_with_network_hint(output: &std::process::Output) -> String {
@@ -169,7 +222,10 @@ fn verified_java(major: u32, purpose: &str) -> Result<String, String> {
 
 fn find_java_for_mc(mc_version: &str) -> Result<String, String> {
     let major = java_major_for_mc(mc_version);
-    verified_java(major, &format!("установки загрузчика для Minecraft {mc_version}"))
+    verified_java(
+        major,
+        &format!("установки загрузчика для Minecraft {mc_version}"),
+    )
 }
 
 /// Quilt поддерживает Minecraft начиная с 1.14. Раньше здесь стояло `>= 26`,
@@ -191,15 +247,29 @@ fn is_modern_quilt_target(mc_version: &str) -> bool {
 }
 
 async fn download_bytes(client: &reqwest::Client, url: &str) -> Result<bytes::Bytes, String> {
-    client.get(url).send().await
-        .map_err(|e| format!("GET {url}: {e}"))?.bytes().await
+    client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("GET {url}: {e}"))?
+        .bytes()
+        .await
         .map_err(|e| format!("read: {e}"))
 }
 
 fn installer_os_classifier() -> &'static str {
-    #[cfg(target_os = "windows")] { "natives-windows" }
-    #[cfg(target_os = "macos")]   { "natives-macos" }
-    #[cfg(all(not(target_os="windows"), not(target_os="macos")))] { "natives-linux" }
+    #[cfg(target_os = "windows")]
+    {
+        "natives-windows"
+    }
+    #[cfg(target_os = "macos")]
+    {
+        "natives-macos"
+    }
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    {
+        "natives-linux"
+    }
 }
 
 /// Относительный путь библиотеки внутри libraries/ из Maven-координаты
@@ -314,36 +384,81 @@ async fn ensure_installer_vanilla_libraries(
         }
         let name = lib["name"].as_str().unwrap_or("").to_string();
         if let Some(artifact) = lib["downloads"]["artifact"].as_object() {
-            let url = artifact.get("url").and_then(|u| u.as_str()).unwrap_or("").to_string();
-            let sha1 = artifact.get("sha1").and_then(|s| s.as_str()).map(String::from);
-            let rel = artifact.get("path").and_then(|p| p.as_str())
+            let url = artifact
+                .get("url")
+                .and_then(|u| u.as_str())
+                .unwrap_or("")
+                .to_string();
+            let sha1 = artifact
+                .get("sha1")
+                .and_then(|s| s.as_str())
+                .map(String::from);
+            let rel = artifact
+                .get("path")
+                .and_then(|p| p.as_str())
                 .map(str::to_string)
                 .or_else(|| installer_maven_rel(&name));
             if !url.is_empty() {
                 if let Some(rel) = rel {
-                    if let Err(error) = download_installer_library(client, &url, &libs_dir.join(&rel), sha1.as_deref()).await {
+                    if let Err(error) = download_installer_library(
+                        client,
+                        &url,
+                        &libs_dir.join(&rel),
+                        sha1.as_deref(),
+                    )
+                    .await
+                    {
                         failures.push(format!("{rel}: {error}"));
                     }
                 }
             }
         } else if !name.is_empty() {
-            let base = lib["url"].as_str().unwrap_or("https://libraries.minecraft.net/");
+            let base = lib["url"]
+                .as_str()
+                .unwrap_or("https://libraries.minecraft.net/");
             if let Some(rel) = installer_maven_rel(&name) {
-                if let Err(error) = download_installer_library(client, &format!("{}/{}", base.trim_end_matches('/'), rel), &libs_dir.join(&rel), None).await {
+                if let Err(error) = download_installer_library(
+                    client,
+                    &format!("{}/{}", base.trim_end_matches('/'), rel),
+                    &libs_dir.join(&rel),
+                    None,
+                )
+                .await
+                {
                     failures.push(format!("{rel}: {error}"));
                 }
             }
         }
         if let Some(classifiers) = lib["downloads"]["classifiers"].as_object() {
             let classifier = installer_os_classifier();
-            if let Some(natives) = classifiers.get(classifier).and_then(|value| value.as_object()) {
-                let url = natives.get("url").and_then(|u| u.as_str()).unwrap_or("").to_string();
-                let rel = natives.get("path").and_then(|p| p.as_str()).map(str::to_string)
+            if let Some(natives) = classifiers
+                .get(classifier)
+                .and_then(|value| value.as_object())
+            {
+                let url = natives
+                    .get("url")
+                    .and_then(|u| u.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let rel = natives
+                    .get("path")
+                    .and_then(|p| p.as_str())
+                    .map(str::to_string)
                     .or_else(|| installer_maven_rel(&format!("{name}:{classifier}")));
-                let sha1 = natives.get("sha1").and_then(|s| s.as_str()).map(String::from);
+                let sha1 = natives
+                    .get("sha1")
+                    .and_then(|s| s.as_str())
+                    .map(String::from);
                 if !url.is_empty() {
                     if let Some(rel) = rel {
-                        if let Err(error) = download_installer_library(client, &url, &libs_dir.join(&rel), sha1.as_deref()).await {
+                        if let Err(error) = download_installer_library(
+                            client,
+                            &url,
+                            &libs_dir.join(&rel),
+                            sha1.as_deref(),
+                        )
+                        .await
+                        {
                             failures.push(format!("{rel}: {error}"));
                         }
                     }
@@ -374,7 +489,10 @@ async fn download_verified_installer_jar(
         let result = async {
             let response = client
                 .get(url)
-                .header(reqwest::header::ACCEPT, "application/java-archive, application/octet-stream;q=0.9, */*;q=0.1")
+                .header(
+                    reqwest::header::ACCEPT,
+                    "application/java-archive, application/octet-stream;q=0.9, */*;q=0.1",
+                )
                 .send()
                 .await
                 .map_err(|error| format!("GET {url}: {error}"))?;
@@ -388,23 +506,37 @@ async fn download_verified_installer_jar(
             if !status.is_success() {
                 return Err(format!("сервер вернул HTTP {status}"));
             }
-            if content_type.contains("text/html") || content_type.contains("text/plain") || content_type.contains("application/json") {
+            if content_type.contains("text/html")
+                || content_type.contains("text/plain")
+                || content_type.contains("application/json")
+            {
                 return Err(format!("сервер вернул {content_type}, а не Java-архив"));
             }
 
-            let bytes = response.bytes().await.map_err(|error| format!("не удалось прочитать ответ: {error}"))?;
-            let jar_magic = bytes.starts_with(b"PK\x03\x04") || bytes.starts_with(b"PK\x05\x06") || bytes.starts_with(b"PK\x07\x08");
+            let bytes = response
+                .bytes()
+                .await
+                .map_err(|error| format!("не удалось прочитать ответ: {error}"))?;
+            let jar_magic = bytes.starts_with(b"PK\x03\x04")
+                || bytes.starts_with(b"PK\x05\x06")
+                || bytes.starts_with(b"PK\x07\x08");
             if bytes.len() < 4096 || !jar_magic {
-                return Err(format!("получен невалидный JAR ({} байт, отсутствует ZIP-сигнатура)", bytes.len()));
+                return Err(format!(
+                    "получен невалидный JAR ({} байт, отсутствует ZIP-сигнатура)",
+                    bytes.len()
+                ));
             }
 
             let part_path = jar_path.with_extension(format!("jar.part-{attempt}"));
             std::fs::remove_file(&part_path).ok();
-            std::fs::write(&part_path, &bytes).map_err(|error| format!("не удалось записать временный JAR: {error}"))?;
+            std::fs::write(&part_path, &bytes)
+                .map_err(|error| format!("не удалось записать временный JAR: {error}"))?;
             std::fs::remove_file(jar_path).ok();
-            std::fs::rename(&part_path, jar_path).map_err(|error| format!("не удалось заменить installer JAR: {error}"))?;
+            std::fs::rename(&part_path, jar_path)
+                .map_err(|error| format!("не удалось заменить installer JAR: {error}"))?;
             Ok::<(), String>(())
-        }.await;
+        }
+        .await;
 
         match result {
             Ok(()) => return Ok(()),
@@ -423,9 +555,13 @@ fn maven_versions(xml: &str) -> Vec<String> {
     let mut remainder = xml;
     while let Some(start) = remainder.find("<version>") {
         let after_start = &remainder[start + 9..];
-        let Some(end) = after_start.find("</version>") else { break; };
+        let Some(end) = after_start.find("</version>") else {
+            break;
+        };
         let version = after_start[..end].trim();
-        if !version.is_empty() { versions.push(version.to_string()); }
+        if !version.is_empty() {
+            versions.push(version.to_string());
+        }
         remainder = &after_start[end + 10..];
     }
     versions
@@ -443,17 +579,30 @@ fn forge_builds_for_mc(xml: &str, mc_version: &str) -> Vec<String> {
         .collect()
 }
 
-async fn forge_builds_for_mc_from_maven(client: &reqwest::Client, mc_version: &str) -> Result<Vec<String>, String> {
+async fn forge_builds_for_mc_from_maven(
+    client: &reqwest::Client,
+    mc_version: &str,
+) -> Result<Vec<String>, String> {
     let response = client
         .get("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml")
-        .send().await.map_err(|error| format!("Forge metadata: {error}"))?;
+        .send()
+        .await
+        .map_err(|error| format!("Forge metadata: {error}"))?;
     if !response.status().is_success() {
         return Err(format!("Forge metadata: HTTP {}", response.status()));
     }
-    let xml = response.text().await.map_err(|error| format!("Forge metadata: {error}"))?;
+    let xml = response
+        .text()
+        .await
+        .map_err(|error| format!("Forge metadata: {error}"))?;
     let builds = forge_builds_for_mc(&xml, mc_version);
-    if builds.is_empty() { Err(format!("Для Forge нет совместимой версии под Minecraft {mc_version}")) }
-    else { Ok(builds) }
+    if builds.is_empty() {
+        Err(format!(
+            "Для Forge нет совместимой версии под Minecraft {mc_version}"
+        ))
+    } else {
+        Ok(builds)
+    }
 }
 
 /// Build the NeoForge Maven prefix that matches only versions for the
@@ -465,7 +614,10 @@ async fn forge_builds_for_mc_from_maven(client: &reqwest::Client, mc_version: &s
 /// MC 26.2 → 26.2.x.
 fn neoforge_prefix_for_mc(mc_version: &str) -> String {
     let parts: Vec<&str> = mc_version.split('.').collect();
-    let major: u32 = parts.first().and_then(|part| part.parse().ok()).unwrap_or(1);
+    let major: u32 = parts
+        .first()
+        .and_then(|part| part.parse().ok())
+        .unwrap_or(1);
     if major >= 26 {
         let minor = parts.get(1).unwrap_or(&"0");
         format!("{}.{}.", major, minor)
@@ -478,7 +630,10 @@ fn neoforge_prefix_for_mc(mc_version: &str) -> String {
 
 fn neoforge_versions_for_mc(xml: &str, mc_version: &str) -> Vec<String> {
     let prefix = neoforge_prefix_for_mc(mc_version);
-    let mut versions: Vec<String> = maven_versions(xml).into_iter().filter(|version| version.starts_with(&prefix)).collect();
+    let mut versions: Vec<String> = maven_versions(xml)
+        .into_iter()
+        .filter(|version| version.starts_with(&prefix))
+        .collect();
     versions.sort_by(|left, right| compare_neoforge_versions(right, left));
     versions.dedup();
     versions
@@ -504,7 +659,12 @@ fn compare_neoforge_versions(left: &str, right: &str) -> std::cmp::Ordering {
     let right_parts = numeric_parts(right);
     let length = left_parts.len().max(right_parts.len());
     for index in 0..length {
-        match left_parts.get(index).copied().unwrap_or(0).cmp(&right_parts.get(index).copied().unwrap_or(0)) {
+        match left_parts
+            .get(index)
+            .copied()
+            .unwrap_or(0)
+            .cmp(&right_parts.get(index).copied().unwrap_or(0))
+        {
             std::cmp::Ordering::Equal => {}
             ordering => return ordering,
         }
@@ -516,7 +676,10 @@ pub fn neoforge_version_satisfies(candidate: &str, minimum: &str) -> bool {
     compare_neoforge_versions(candidate, minimum) != std::cmp::Ordering::Less
 }
 
-pub async fn latest_neoforge_version_at_least(mc_version: &str, minimum: &str) -> Result<String, String> {
+pub async fn latest_neoforge_version_at_least(
+    mc_version: &str,
+    minimum: &str,
+) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .user_agent("PortalLauncher/1.3")
@@ -536,8 +699,12 @@ pub async fn latest_neoforge_version_at_least(mc_version: &str, minimum: &str) -
         .ok_or_else(|| format!("Для Minecraft {mc_version} нет NeoForge версии не ниже {minimum}"))
 }
 
-async fn latest_forge_version(client: &reqwest::Client, mc_version: &str) -> Result<String, String> {
-    forge_builds_for_mc_from_maven(client, mc_version).await?
+async fn latest_forge_version(
+    client: &reqwest::Client,
+    mc_version: &str,
+) -> Result<String, String> {
+    forge_builds_for_mc_from_maven(client, mc_version)
+        .await?
         .into_iter()
         .last()
         .ok_or_else(|| format!("Для Forge нет совместимой версии под Minecraft {mc_version}"))
@@ -545,34 +712,64 @@ async fn latest_forge_version(client: &reqwest::Client, mc_version: &str) -> Res
 
 /// Install Fabric loader – 1.14+ to latest snapshots.
 #[tauri::command]
-pub async fn install_fabric(mc_version: String, loader_version: String, instance_dir: String) -> Result<LoaderInstallResult, String> {
+pub async fn install_fabric(
+    mc_version: String,
+    loader_version: String,
+    instance_dir: String,
+) -> Result<LoaderInstallResult, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(180))
-        .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
+        .user_agent("PortalLauncher/1.3")
+        .build()
+        .map_err(|e| e.to_string())?;
 
-    let parsed: Vec<u32> = mc_version.split('.').filter_map(|p| p.parse().ok()).collect();
+    let parsed: Vec<u32> = mc_version
+        .split('.')
+        .filter_map(|p| p.parse().ok())
+        .collect();
     let mc_major = parsed.first().copied().unwrap_or(1);
     let mc_minor = parsed.get(1).copied().unwrap_or(0);
     // Годовые версии (26.x) Fabric поддерживает; классические — с 1.14.
     if mc_major < 26 && mc_minor < 14 {
         return Ok(LoaderInstallResult {
-            success: false, loader: "fabric".into(), version: loader_version,
+            success: false,
+            loader: "fabric".into(),
+            version: loader_version,
             message: "Fabric не поддерживает версии ниже 1.14. Используйте Forge.".into(),
         });
     }
 
     let lv = if loader_version.is_empty() {
-        let meta_url = format!("https://meta.fabricmc.net/v2/versions/loader/{}", mc_version);
-        let meta: serde_json::Value = client.get(&meta_url)
-            .send().await.map_err(|e| e.to_string())?.json().await.map_err(|e| e.to_string())?;
-        meta.as_array().and_then(|a| a.first())
-            .and_then(|v| v["loader"]["version"].as_str().or_else(|| v["version"].as_str()))
-            .unwrap_or("0.16.9").to_string()
-    } else { loader_version };
+        let meta_url = format!(
+            "https://meta.fabricmc.net/v2/versions/loader/{}",
+            mc_version
+        );
+        let meta: serde_json::Value = client
+            .get(&meta_url)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?
+            .json()
+            .await
+            .map_err(|e| e.to_string())?;
+        meta.as_array()
+            .and_then(|a| a.first())
+            .and_then(|v| {
+                v["loader"]["version"]
+                    .as_str()
+                    .or_else(|| v["version"].as_str())
+            })
+            .unwrap_or("0.16.9")
+            .to_string()
+    } else {
+        loader_version
+    };
 
-    let installer_url = "https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.1/fabric-installer-1.0.1.jar";
+    let installer_url =
+        "https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.0.1/fabric-installer-1.0.1.jar";
     let jar_path = mc_base_dir().join("fabric-installer.jar");
-    std::fs::write(&jar_path, &download_bytes(&client, installer_url).await?).map_err(|e| e.to_string())?;
+    std::fs::write(&jar_path, &download_bytes(&client, installer_url).await?)
+        .map_err(|e| e.to_string())?;
 
     // Use the exact runtime required by the selected Minecraft version. A
     // fixed Java 17 installer path breaks current Fabric targets that require
@@ -580,30 +777,56 @@ pub async fn install_fabric(mc_version: String, loader_version: String, instance
     // correctly at game start.
     let java = find_java_for_mc(&mc_version)?;
     let output = crate::utils::create_hidden_command(&java)
-        .args(&["-jar", &jar_path.to_string_lossy(), "client",
-            "-mcversion", &mc_version, "-loader", &lv,
-            "-dir", &instance_dir, "-noprofile"])
-        .output().map_err(|e| format!("Run Fabric ({java}): {e}"))?;
+        .args(&[
+            "-jar",
+            &jar_path.to_string_lossy(),
+            "client",
+            "-mcversion",
+            &mc_version,
+            "-loader",
+            &lv,
+            "-dir",
+            &instance_dir,
+            "-noprofile",
+        ])
+        .output()
+        .map_err(|e| format!("Run Fabric ({java}): {e}"))?;
 
     std::fs::remove_file(&jar_path).ok();
     Ok(LoaderInstallResult {
-        success: output.status.success(), loader: "fabric".into(), version: lv,
-        message: if output.status.success() { "Fabric installed successfully".into() }
-                 else { format!("Не удалось установить Fabric: {}", installer_failure(&output)) },
+        success: output.status.success(),
+        loader: "fabric".into(),
+        version: lv,
+        message: if output.status.success() {
+            "Fabric installed successfully".into()
+        } else {
+            format!(
+                "Не удалось установить Fabric: {}",
+                installer_failure(&output)
+            )
+        },
     })
 }
 
 /// Install Forge – 1.7.2 to latest (full installer flow).
 #[tauri::command]
-pub async fn install_forge(mc_version: String, forge_version: String, _instance_dir: String) -> Result<LoaderInstallResult, String> {
+pub async fn install_forge(
+    mc_version: String,
+    forge_version: String,
+    _instance_dir: String,
+) -> Result<LoaderInstallResult, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(300))
-        .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
+        .user_agent("PortalLauncher/1.3")
+        .build()
+        .map_err(|e| e.to_string())?;
 
     // Forge does not ship releases for snapshots
     if mc_version.contains('w') || mc_version.contains("-pre") || mc_version.contains("-rc") {
         return Ok(LoaderInstallResult {
-            success: false, loader: "forge".into(), version: forge_version,
+            success: false,
+            loader: "forge".into(),
+            version: forge_version,
             message: "Forge не поддерживает снапшоты. Используйте Fabric/Quilt.".into(),
         });
     }
@@ -614,18 +837,27 @@ pub async fn install_forge(mc_version: String, forge_version: String, _instance_
         .strip_prefix(&format!("{mc_version}-"))
         .unwrap_or(&requested_version)
         .to_string();
-    let fallback_notice = !requested_build.is_empty() && !available_builds.contains(&requested_build);
-    let selected_version = if requested_build.is_empty() {
-        available_builds.last().cloned().ok_or_else(|| format!("Для Forge нет совместимой версии под Minecraft {mc_version}"))?
-    } else if available_builds.contains(&requested_build) {
-        requested_build
+    let fallback_notice =
+        !requested_build.is_empty() && !available_builds.contains(&requested_build);
+    let selected_version =
+        if requested_build.is_empty() {
+            available_builds.last().cloned().ok_or_else(|| {
+                format!("Для Forge нет совместимой версии под Minecraft {mc_version}")
+            })?
+        } else if available_builds.contains(&requested_build) {
+            requested_build
+        } else {
+            // Stale instances may retain a build from another Minecraft branch.
+            // Use the latest exact build rather than requesting a guaranteed-404 URL.
+            available_builds.last().cloned().ok_or_else(|| {
+                format!("Для Forge нет совместимой версии под Minecraft {mc_version}")
+            })?
+        };
+    let full_ver = if selected_version.starts_with(&format!("{mc_version}-")) {
+        selected_version
     } else {
-        // Stale instances may retain a build from another Minecraft branch.
-        // Use the latest exact build rather than requesting a guaranteed-404 URL.
-        available_builds.last().cloned().ok_or_else(|| format!("Для Forge нет совместимой версии под Minecraft {mc_version}"))?
+        format!("{}-{}", mc_version, selected_version)
     };
-    let full_ver = if selected_version.starts_with(&format!("{mc_version}-")) { selected_version }
-                   else { format!("{}-{}", mc_version, selected_version) };
 
     let installer_url = format!(
         "https://maven.minecraftforge.net/net/minecraftforge/forge/{v}/forge-{v}-installer.jar",
@@ -634,9 +866,13 @@ pub async fn install_forge(mc_version: String, forge_version: String, _instance_
 
     let safe_ver = full_ver.replace(':', "-");
     let jar_path = mc_base_dir().join(format!("forge-{}-installer.jar", safe_ver));
-    if let Err(error) = download_verified_installer_jar(&client, "Forge", &installer_url, &jar_path).await {
+    if let Err(error) =
+        download_verified_installer_jar(&client, "Forge", &installer_url, &jar_path).await
+    {
         return Ok(LoaderInstallResult {
-            success: false, loader: "forge".into(), version: full_ver,
+            success: false,
+            loader: "forge".into(),
+            version: full_ver,
             message: format!("Не удалось получить корректный installer JAR Forge: {error}"),
         });
     }
@@ -660,64 +896,107 @@ pub async fn install_forge(mc_version: String, forge_version: String, _instance_
     // never found and every release <=1.12 failed at launch. The official
     // installer accepts an explicit target directory on all supported targets;
     // pass it always so the profile lands where the launcher expects it.
-    let args: Vec<String> = vec!["-jar".into(), jar_str, "--installClient".into(), shared_base.to_string_lossy().to_string()];
+    let args: Vec<String> = vec![
+        "-jar".into(),
+        jar_str,
+        "--installClient".into(),
+        shared_base.to_string_lossy().to_string(),
+    ];
 
     let output = crate::utils::create_hidden_command(&java)
         .args(&args)
-        .output().map_err(|e| format!("Run Forge ({java}): {e}"))?;
+        .output()
+        .map_err(|e| format!("Run Forge ({java}): {e}"))?;
 
     std::fs::remove_file(&jar_path).ok();
     Ok(LoaderInstallResult {
-        success: output.status.success(), loader: "forge".into(), version: full_ver.clone(),
+        success: output.status.success(),
+        loader: "forge".into(),
+        version: full_ver.clone(),
         message: if output.status.success() {
             if fallback_notice {
-                format!("Запрошенная Forge {} несовместима с Minecraft {}; установлена совместимая {}", requested_version, mc_version, full_ver)
-            } else { "Forge installed".into() }
-        }
-                 else { format!("Не удалось установить Forge: {}", installer_failure_with_network_hint(&output)) },
+                format!(
+                    "Запрошенная Forge {} несовместима с Minecraft {}; установлена совместимая {}",
+                    requested_version, mc_version, full_ver
+                )
+            } else {
+                "Forge installed".into()
+            }
+        } else {
+            format!(
+                "Не удалось установить Forge: {}",
+                installer_failure_with_network_hint(&output)
+            )
+        },
     })
 }
 
 /// Install Quilt loader – 1.14+ to latest.
 #[tauri::command]
-pub async fn install_quilt(mc_version: String, loader_version: String, _instance_dir: String) -> Result<LoaderInstallResult, String> {
+pub async fn install_quilt(
+    mc_version: String,
+    loader_version: String,
+    _instance_dir: String,
+) -> Result<LoaderInstallResult, String> {
     // Quilt is installed through the official installer below. Do not route it
     // through lighty/npx: that path can reuse a stale loader version and does
     // not guarantee the release-specific Quilt metadata or gameDir arguments.
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(180))
-        .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
+        .user_agent("PortalLauncher/1.3")
+        .build()
+        .map_err(|e| e.to_string())?;
 
     let requested_is_old = !loader_version.trim().is_empty()
         && is_modern_quilt_target(&mc_version)
-        && (loader_version.contains("beta") || loader_version.contains("alpha")
-            || loader_version.starts_with("0.20.") || loader_version.starts_with("0.21.")
-            || loader_version.starts_with("0.22.") || loader_version.starts_with("0.23.")
-            || loader_version.starts_with("0.24.") || loader_version.starts_with("0.25."));
+        && (loader_version.contains("beta")
+            || loader_version.contains("alpha")
+            || loader_version.starts_with("0.20.")
+            || loader_version.starts_with("0.21.")
+            || loader_version.starts_with("0.22.")
+            || loader_version.starts_with("0.23.")
+            || loader_version.starts_with("0.24.")
+            || loader_version.starts_with("0.25."));
     let lv = if loader_version.trim().is_empty() || requested_is_old {
         let meta_url = format!("https://meta.quiltmc.org/v3/versions/loader/{mc_version}");
         // reqwest без gzip/brotli: сжатый ответ не декодируется.
-        let meta_text = client.get(&meta_url)
+        let meta_text = client
+            .get(&meta_url)
             .header(reqwest::header::ACCEPT_ENCODING, "identity")
-            .send().await.map_err(|e| format!("Quilt metadata: {e}"))?
-            .text().await.map_err(|e| format!("Quilt metadata body: {e}"))?;
-        let meta: serde_json::Value = serde_json::from_str(&meta_text)
-            .map_err(|e| format!("Quilt metadata JSON: {e}"))?;
-        let versions = meta.as_array().ok_or_else(|| format!("Quilt has no loader builds for Minecraft {mc_version}"))?;
-        versions.iter()
-            .filter(|entry| entry["loader"]["stable"].as_bool().unwrap_or(false)
-                && entry["loader"]["version"].as_str().is_some())
+            .send()
+            .await
+            .map_err(|e| format!("Quilt metadata: {e}"))?
+            .text()
+            .await
+            .map_err(|e| format!("Quilt metadata body: {e}"))?;
+        let meta: serde_json::Value =
+            serde_json::from_str(&meta_text).map_err(|e| format!("Quilt metadata JSON: {e}"))?;
+        let versions = meta
+            .as_array()
+            .ok_or_else(|| format!("Quilt has no loader builds for Minecraft {mc_version}"))?;
+        versions
+            .iter()
+            .filter(|entry| {
+                entry["loader"]["stable"].as_bool().unwrap_or(false)
+                    && entry["loader"]["version"].as_str().is_some()
+            })
             .chain(versions.iter())
             .find_map(|entry| entry["loader"]["version"].as_str())
             .ok_or_else(|| format!("Quilt has no compatible loader for Minecraft {mc_version}"))?
             .to_string()
-    } else { loader_version };
+    } else {
+        loader_version
+    };
 
     let installer_url = "https://quiltmc.org/api/v1/download-latest-installer/java-universal";
     let jar_path = mc_base_dir().join("quilt-installer.jar");
-    if let Err(error) = download_verified_installer_jar(&client, "Quilt", installer_url, &jar_path).await {
+    if let Err(error) =
+        download_verified_installer_jar(&client, "Quilt", installer_url, &jar_path).await
+    {
         return Ok(LoaderInstallResult {
-            success: false, loader: "quilt".into(), version: lv,
+            success: false,
+            loader: "quilt".into(),
+            version: lv,
             message: format!("Не удалось получить корректный installer JAR Quilt: {error}"),
         });
     }
@@ -742,27 +1021,52 @@ pub async fn install_quilt(mc_version: String, loader_version: String, _instance
     // установщика, поэтому убираем его заранее (как для NeoForge).
     clear_incomplete_quilt_profile(&mc_version, &lv)?;
     let java = find_java_for_mc(&mc_version)?;
-    log::info!("[Quilt] Running installer: java -jar {} install client {} {} --install-dir {}",
-        jar_path.display(), mc_version, lv, shared_base.display());
+    log::info!(
+        "[Quilt] Running installer: java -jar {} install client {} {} --install-dir {}",
+        jar_path.display(),
+        mc_version,
+        lv,
+        shared_base.display()
+    );
     let output = crate::utils::create_hidden_command(&java)
-        .args(&["-jar", &jar_path.to_string_lossy(), "install", "client",
-            &mc_version, &lv, "--install-dir", &shared_base.to_string_lossy()])
-        .output().map_err(|e| format!("Run Quilt ({java}): {e}"))?;
+        .args(&[
+            "-jar",
+            &jar_path.to_string_lossy(),
+            "install",
+            "client",
+            &mc_version,
+            &lv,
+            "--install-dir",
+            &shared_base.to_string_lossy(),
+        ])
+        .output()
+        .map_err(|e| format!("Run Quilt ({java}): {e}"))?;
 
     let stdout_text = String::from_utf8_lossy(&output.stdout);
     let stderr_text = String::from_utf8_lossy(&output.stderr);
     log::info!("[Quilt] Installer exit code: {:?}", output.status.code());
-    if !stdout_text.trim().is_empty() { log::info!("[Quilt] stdout: {}", &stdout_text[..stdout_text.len().min(2000)]); }
-    if !stderr_text.trim().is_empty() { log::warn!("[Quilt] stderr: {}", &stderr_text[..stderr_text.len().min(2000)]); }
+    if !stdout_text.trim().is_empty() {
+        log::info!(
+            "[Quilt] stdout: {}",
+            &stdout_text[..stdout_text.len().min(2000)]
+        );
+    }
+    if !stderr_text.trim().is_empty() {
+        log::warn!(
+            "[Quilt] stderr: {}",
+            &stderr_text[..stderr_text.len().min(2000)]
+        );
+    }
 
     std::fs::remove_file(&jar_path).ok();
 
     // Установщик может выйти с кодом 0, но не создать профиль — раньше это
     // выглядело как «установилось», а запуск падал с ошибками профиля.
     let profile_id = find_quilt_profile_id(&mc_version, &lv);
-    let profile_ok = profile_id.as_ref().map(|id| {
-        crate::mc::install::version_json_path(id).is_file()
-    }).unwrap_or(false);
+    let profile_ok = profile_id
+        .as_ref()
+        .map(|id| crate::mc::install::version_json_path(id).is_file())
+        .unwrap_or(false);
     if !profile_ok {
         log::warn!("[Quilt] Installer finished but profile is missing. Expected id like quilt-{}-{}. stdout: {}, stderr: {}",
             lv, mc_version, &stdout_text[..stdout_text.len().min(500)], &stderr_text[..stderr_text.len().min(500)]);
@@ -770,7 +1074,9 @@ pub async fn install_quilt(mc_version: String, loader_version: String, _instance
     let success = output.status.success() && profile_ok;
     Ok(LoaderInstallResult {
         // clone: lv ещё нужен в тексте ошибки ниже, а version забирает владение.
-        success, loader: "quilt".into(), version: lv.clone(),
+        success,
+        loader: "quilt".into(),
+        version: lv.clone(),
         message: if success {
             "Quilt установлен".into()
         } else if output.status.success() {
@@ -780,7 +1086,10 @@ pub async fn install_quilt(mc_version: String, loader_version: String, _instance
                 lv, installer_failure(&output)
             )
         } else {
-            format!("Не удалось установить Quilt: {}", installer_failure_with_network_hint(&output))
+            format!(
+                "Не удалось установить Quilt: {}",
+                installer_failure_with_network_hint(&output)
+            )
         },
     })
 }
@@ -790,13 +1099,21 @@ fn quilt_profile_dirs(mc_version: &str, loader_version: &str) -> Vec<PathBuf> {
     let dir = crate::commands::version_manager::versions_dir();
     let needle_loader = loader_version.trim();
     let mut dirs: Vec<PathBuf> = Vec::new();
-    let Ok(entries) = std::fs::read_dir(&dir) else { return dirs };
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return dirs;
+    };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         let lower = name.to_lowercase();
-        if !lower.contains("quilt") { continue; }
-        if !needle_loader.is_empty() && !name.contains(needle_loader) { continue; }
-        if !mc_version.trim().is_empty() && !name.contains(mc_version) { continue; }
+        if !lower.contains("quilt") {
+            continue;
+        }
+        if !needle_loader.is_empty() && !name.contains(needle_loader) {
+            continue;
+        }
+        if !mc_version.trim().is_empty() && !name.contains(mc_version) {
+            continue;
+        }
         dirs.push(entry.path());
     }
     dirs
@@ -805,13 +1122,21 @@ fn quilt_profile_dirs(mc_version: &str, loader_version: &str) -> Vec<PathBuf> {
 /// Удаляет профили Quilt без полного набора файлов (прерванная установка).
 fn clear_incomplete_quilt_profile(mc_version: &str, loader_version: &str) -> Result<(), String> {
     for dir in quilt_profile_dirs(mc_version, loader_version) {
-        let Some(id) = dir.file_name().and_then(|n| n.to_str()) else { continue };
+        let Some(id) = dir.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
         let has_json = crate::mc::install::version_json_path(id).is_file();
         let has_jar = crate::mc::install::version_jar_path(id).is_file();
-        if has_json && has_jar { continue; }
+        if has_json && has_jar {
+            continue;
+        }
         log::warn!("[Quilt] Removing incomplete profile {}", dir.display());
-        std::fs::remove_dir_all(&dir)
-            .map_err(|error| format!("Не удалось очистить неполный профиль Quilt {}: {error}", dir.display()))?;
+        std::fs::remove_dir_all(&dir).map_err(|error| {
+            format!(
+                "Не удалось очистить неполный профиль Quilt {}: {error}",
+                dir.display()
+            )
+        })?;
     }
     Ok(())
 }
@@ -823,9 +1148,15 @@ fn find_quilt_profile_id(mc_version: &str, loader_version: &str) -> Option<Strin
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         let lower = name.to_lowercase();
-        if !lower.contains("quilt") { continue; }
-        if !name.contains(mc_version) { continue; }
-        if !loader_version.trim().is_empty() && !name.contains(loader_version) { continue; }
+        if !lower.contains("quilt") {
+            continue;
+        }
+        if !name.contains(mc_version) {
+            continue;
+        }
+        if !loader_version.trim().is_empty() && !name.contains(loader_version) {
+            continue;
+        }
         if crate::mc::install::version_json_path(&name).is_file() {
             return Some(name);
         }
@@ -835,37 +1166,60 @@ fn find_quilt_profile_id(mc_version: &str, loader_version: &str) -> Option<Strin
 
 /// Install NeoForge – 1.20.1+ including 26.x snapshots.
 #[tauri::command]
-pub async fn install_neoforge(mc_version: String, neoforge_version: String, _instance_dir: String) -> Result<LoaderInstallResult, String> {
+pub async fn install_neoforge(
+    mc_version: String,
+    neoforge_version: String,
+    _instance_dir: String,
+) -> Result<LoaderInstallResult, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(300))
-        .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
+        .user_agent("PortalLauncher/1.3")
+        .build()
+        .map_err(|e| e.to_string())?;
 
-    let parsed: Vec<u32> = mc_version.split('.').filter_map(|p| p.parse().ok()).collect();
+    let parsed: Vec<u32> = mc_version
+        .split('.')
+        .filter_map(|p| p.parse().ok())
+        .collect();
     let mc_major = parsed.first().copied().unwrap_or(1);
     let mc_minor = parsed.get(1).copied().unwrap_or(0);
     // Годовые версии (26.x) NeoForge поддерживает целиком; классические — с 1.20.1.
     if mc_major < 26 && mc_minor < 20 {
         return Ok(LoaderInstallResult {
-            success: false, loader: "neoforge".into(), version: neoforge_version,
+            success: false,
+            loader: "neoforge".into(),
+            version: neoforge_version,
             message: "NeoForge требует Minecraft 1.20.1 или новее.".into(),
         });
     }
 
     let nfv = if neoforge_version.is_empty() {
-        let xml = client.get("https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml")
-            .send().await.map_err(|e| e.to_string())?.text().await.map_err(|e| e.to_string())?;
+        let xml = client
+            .get("https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml")
+            .send()
+            .await
+            .map_err(|e| e.to_string())?
+            .text()
+            .await
+            .map_err(|e| e.to_string())?;
         neoforge_versions_for_mc(&xml, &mc_version).into_iter().next()
             .ok_or_else(|| format!("Для NeoForge нет совместимой сборки под Minecraft {mc_version}. Выберите другую версию Minecraft или загрузчик."))?
-    } else { neoforge_version };
+    } else {
+        neoforge_version
+    };
 
     let installer_url = format!(
         "https://maven.neoforged.net/releases/net/neoforged/neoforge/{v}/neoforge-{v}-installer.jar",
         v = nfv
     );
     let jar_path = mc_base_dir().join(format!("neoforge-{}-installer.jar", nfv));
-    if let Err(error) = download_verified_installer_jar(&client, "NeoForge", &installer_url, &jar_path).await {
+    if let Err(error) =
+        download_verified_installer_jar(&client, "NeoForge", &installer_url, &jar_path).await
+    {
         return Ok(LoaderInstallResult {
-            success: false, loader: "neoforge".into(), version: nfv,
+            success: false,
+            loader: "neoforge".into(),
+            version: nfv,
             message: format!("Не удалось получить корректный installer JAR NeoForge: {error}"),
         });
     }
@@ -889,16 +1243,36 @@ pub async fn install_neoforge(mc_version: String, neoforge_version: String, _ins
         });
     }
     let java = find_java_for_mc(&mc_version)?;
-    log::info!("[NeoForge] Running installer: java -jar {} --installClient {}", jar_path.display(), shared_base.display());
+    log::info!(
+        "[NeoForge] Running installer: java -jar {} --installClient {}",
+        jar_path.display(),
+        shared_base.display()
+    );
     let output = crate::utils::create_hidden_command(&java)
-        .args(&["-jar", &jar_path.to_string_lossy(), "--installClient", &shared_base.to_string_lossy()])
-        .output().map_err(|e| format!("Run NeoForge ({java}): {e}"))?;
+        .args(&[
+            "-jar",
+            &jar_path.to_string_lossy(),
+            "--installClient",
+            &shared_base.to_string_lossy(),
+        ])
+        .output()
+        .map_err(|e| format!("Run NeoForge ({java}): {e}"))?;
 
     let stdout_text = String::from_utf8_lossy(&output.stdout);
     let stderr_text = String::from_utf8_lossy(&output.stderr);
     log::info!("[NeoForge] Installer exit code: {:?}", output.status.code());
-    if !stdout_text.trim().is_empty() { log::info!("[NeoForge] stdout: {}", &stdout_text[..stdout_text.len().min(2000)]); }
-    if !stderr_text.trim().is_empty() { log::warn!("[NeoForge] stderr: {}", &stderr_text[..stderr_text.len().min(2000)]); }
+    if !stdout_text.trim().is_empty() {
+        log::info!(
+            "[NeoForge] stdout: {}",
+            &stdout_text[..stdout_text.len().min(2000)]
+        );
+    }
+    if !stderr_text.trim().is_empty() {
+        log::warn!(
+            "[NeoForge] stderr: {}",
+            &stderr_text[..stderr_text.len().min(2000)]
+        );
+    }
 
     std::fs::remove_file(&jar_path).ok();
 
@@ -910,20 +1284,39 @@ pub async fn install_neoforge(mc_version: String, neoforge_version: String, _ins
     let profile_ready = output.status.success() && neoforge_profile_complete(&nfv);
     // If the installer succeeded but our strict check failed, try a lenient
     // check: profile directory + JSON exists (even without the patched JAR).
-    let profile_lenient = output.status.success() && neoforge_profile_dirs(&nfv).iter().any(|dir| {
-        let id = dir.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-        dir.join(format!("{id}.json")).is_file()
-    });
+    let profile_lenient = output.status.success()
+        && neoforge_profile_dirs(&nfv).iter().any(|dir| {
+            let id = dir.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+            dir.join(format!("{id}.json")).is_file()
+        });
     let final_ready = profile_ready || profile_lenient;
     if !final_ready && output.status.success() {
-        log::warn!("[NeoForge] Installer exited 0 but profile incomplete. Profile dirs: {:?}",
-            neoforge_profile_dirs(&nfv).iter().map(|p| p.display().to_string()).collect::<Vec<_>>());
+        log::warn!(
+            "[NeoForge] Installer exited 0 but profile incomplete. Profile dirs: {:?}",
+            neoforge_profile_dirs(&nfv)
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+        );
     }
     Ok(LoaderInstallResult {
-        success: final_ready, loader: "neoforge".into(), version: nfv,
-        message: if final_ready { "NeoForge installed successfully".into() }
-                 else if output.status.success() { format!("NeoForge installer завершился, но не создал профиль. stdout: {}, stderr: {}", &stdout_text[..stdout_text.len().min(500)], &stderr_text[..stderr_text.len().min(500)]) }
-                 else { format!("Не удалось установить NeoForge: {}", installer_failure_with_network_hint(&output)) },
+        success: final_ready,
+        loader: "neoforge".into(),
+        version: nfv,
+        message: if final_ready {
+            "NeoForge installed successfully".into()
+        } else if output.status.success() {
+            format!(
+                "NeoForge installer завершился, но не создал профиль. stdout: {}, stderr: {}",
+                &stdout_text[..stdout_text.len().min(500)],
+                &stderr_text[..stderr_text.len().min(500)]
+            )
+        } else {
+            format!(
+                "Не удалось установить NeoForge: {}",
+                installer_failure_with_network_hint(&output)
+            )
+        },
     })
 }
 
@@ -987,9 +1380,22 @@ pub async fn get_quilt_versions(mc_version: String) -> Result<Vec<serde_json::Va
 /// Get available Fabric loader versions for a given MC version.
 #[tauri::command]
 pub async fn get_fabric_versions(mc_version: String) -> Result<Vec<serde_json::Value>, String> {
-    let client = reqwest::Client::builder().user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
-    let url = format!("https://meta.fabricmc.net/v2/versions/loader/{}", mc_version);
-    let data: serde_json::Value = client.get(&url).send().await.map_err(|e| e.to_string())?.json().await.map_err(|e| e.to_string())?;
+    let client = reqwest::Client::builder()
+        .user_agent("PortalLauncher/1.3")
+        .build()
+        .map_err(|e| e.to_string())?;
+    let url = format!(
+        "https://meta.fabricmc.net/v2/versions/loader/{}",
+        mc_version
+    );
+    let data: serde_json::Value = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(data.as_array().cloned().unwrap_or_default())
 }
 
@@ -999,35 +1405,49 @@ pub async fn get_fabric_versions(mc_version: String) -> Result<Vec<serde_json::V
 pub async fn get_forge_versions(mc_version: String) -> Result<Vec<String>, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
-        .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
+        .user_agent("PortalLauncher/1.3")
+        .build()
+        .map_err(|e| e.to_string())?;
     // 1. All builds from Maven metadata XML
-    let mut versions: Vec<String> =
-        match client.get("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml")
-            .send().await.and_then(|r| Ok(r))
-        {
-            Ok(resp) => {
-                match resp.text().await {
-                    Ok(xml) => {
-                        let mut vs = forge_builds_for_mc(&xml, &mc_version);
-                        vs.dedup();
-                        vs.reverse(); // newest first
-                        vs
-                    }
-                    Err(_) => vec![],
+    let mut versions: Vec<String> = match client
+        .get("https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml")
+        .send()
+        .await
+        .and_then(|r| Ok(r))
+    {
+        Ok(resp) => {
+            match resp.text().await {
+                Ok(xml) => {
+                    let mut vs = forge_builds_for_mc(&xml, &mc_version);
+                    vs.dedup();
+                    vs.reverse(); // newest first
+                    vs
                 }
+                Err(_) => vec![],
             }
-            Err(_) => vec![],
-        };
+        }
+        Err(_) => vec![],
+    };
 
     // 2. Merge promoted versions at the front
-    if let Ok(resp) = client.get("https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json").send().await {
+    if let Ok(resp) = client
+        .get("https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json")
+        .send()
+        .await
+    {
         if let Ok(data) = resp.json::<serde_json::Value>().await {
             if let Some(promos) = data["promos"].as_object() {
                 for (key, val) in promos {
-                    if key.rsplit_once('-').map(|(promo_mc, _)| promo_mc == mc_version).unwrap_or(false) {
+                    if key
+                        .rsplit_once('-')
+                        .map(|(promo_mc, _)| promo_mc == mc_version)
+                        .unwrap_or(false)
+                    {
                         if let Some(v) = val.as_str() {
                             let fv = v.to_string();
-                            if !versions.contains(&fv) { versions.insert(0, fv); }
+                            if !versions.contains(&fv) {
+                                versions.insert(0, fv);
+                            }
                         }
                     }
                 }
@@ -1043,15 +1463,23 @@ pub async fn get_forge_versions(mc_version: String) -> Result<Vec<String>, Strin
 pub async fn get_neoforge_versions(mc_version: String) -> Result<Vec<String>, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
-        .user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
-    let xml = client.get("https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml")
-        .send().await.map_err(|e| e.to_string())?.text().await.map_err(|e| e.to_string())?;
+        .user_agent("PortalLauncher/1.3")
+        .build()
+        .map_err(|e| e.to_string())?;
+    let xml = client
+        .get("https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .text()
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(neoforge_versions_for_mc(&xml, &mc_version))
 }
 
 #[cfg(test)]
 mod neoforge_tests {
-    use super::{neoforge_prefix_for_mc, neoforge_profile_complete, compare_neoforge_versions};
+    use super::{compare_neoforge_versions, neoforge_prefix_for_mc, neoforge_profile_complete};
 
     #[test]
     fn prefix_for_mc_1_21_matches_only_21_0() {
@@ -1080,11 +1508,17 @@ mod neoforge_tests {
 
     #[test]
     fn numeric_compare_21_1_99_before_21_1_219() {
-        assert_eq!(compare_neoforge_versions("21.1.219", "21.1.99"), std::cmp::Ordering::Greater);
+        assert_eq!(
+            compare_neoforge_versions("21.1.219", "21.1.99"),
+            std::cmp::Ordering::Greater
+        );
     }
 
     #[test]
     fn numeric_compare_equal_versions() {
-        assert_eq!(compare_neoforge_versions("21.1.99", "21.1.99"), std::cmp::Ordering::Equal);
+        assert_eq!(
+            compare_neoforge_versions("21.1.99", "21.1.99"),
+            std::cmp::Ordering::Equal
+        );
     }
 }

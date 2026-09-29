@@ -450,6 +450,107 @@ function applyEffort(
 
 export const TOOLS: ToolDef[] = [
   {
+    name: 'browser_open',
+    description:
+      'Открывает окно браузера для работы. Если браузер уже запущен с отладочным портом — ' +
+      'подключается к открытой у пользователя вкладке, иначе поднимает отдельное окно. ' +
+      'Дальше работай через browser_snapshot / browser_click / browser_type / browser_navigate. ' +
+      'Окно показывается пользователю, все твои клики видны зелёным курсором. ' +
+      'Если пользователь закроет окно - все остальные browser_* начнут возвращать ошибку.',
+    parameters: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'Адрес, который открыть сразу (необязательно)' },
+      },
+      required: [],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'browser_status',
+    description:
+      'Проверяет, открыто ли ещё окно браузера. Вызывай в начале и после долгой паузы: ' +
+      'если closed_by_user=true, пользователь закрыл окно и задачу надо завершить итогом.',
+    parameters: { type: 'object', properties: {}, required: [] },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'browser_snapshot',
+    description:
+      'Снимок текущей страницы: PNG-картинка, заголовок, адрес и видимый текст. ' +
+      'Основной способ «посмотреть, что сейчас на экране». ' +
+      'Пароли, e-mail, телефоны и номера карт в выдаче скрыты - если в поле написано ' +
+      '"(значение скрыто)", значит агент туда не лезет и не должен просить об этом.',
+    parameters: { type: 'object', properties: {}, required: [] },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'browser_navigate',
+    description: 'Переходит по полному адресу в текущей вкладке.',
+    parameters: {
+      type: 'object',
+      properties: { url: { type: 'string', description: 'Полный URL, например https://example.com' } },
+      required: ['url'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'browser_click',
+    description:
+      'Клик по элементу страницы. Лучше передавать CSS-селектор (например "button.submit"), ' +
+      'тогда клик попадёт в центр элемента. Либо координаты x/y в пикселях окна. ' +
+      'В поля пароля кликнуть нельзя — инструмент вернёт отказ.',
+    parameters: {
+      type: 'object',
+      properties: {
+        selector: { type: 'string', description: 'CSS-селектор элемента' },
+        x: { type: 'number', description: 'Координата X в окне' },
+        y: { type: 'number', description: 'Координата Y в окне' },
+      },
+      required: [],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'browser_type',
+    description:
+      'Вводит текст в поле страницы по CSS-селектору. В поля пароля и кодов подтверждения ' +
+      'ввод запрещён - проси пользователя сделать это сам.',
+    parameters: {
+      type: 'object',
+      properties: {
+        selector: { type: 'string', description: 'CSS-селектор поля ввода' },
+        text: { type: 'string', description: 'Текст для ввода' },
+      },
+      required: ['selector', 'text'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'browser_scroll',
+    description: 'Прокручивает страницу. dy положительный - вниз, отрицательный - вверх.',
+    parameters: {
+      type: 'object',
+      properties: { dy: { type: 'number', description: 'На сколько пикселей (по умолчанию 600)' } },
+      required: [],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'browser_close',
+    description: 'Закрывает окно браузера. Вызывай в конце задачи, если открывал его сам.',
+    parameters: { type: 'object', properties: {}, required: [] },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
     name: 'web_search',
     description:
       'Поиск в интернете по текстовому запросу (DuckDuckGo): вернёт до 8 результатов — заголовок, URL, сниппет. ' +
@@ -1854,6 +1955,97 @@ async function execInspectImage(args: { root: PortalRoot; path: string }): Promi
     };
   } catch (e) {
     return { ok: false, output: String(e) };
+  }
+}
+
+/**
+ * Инструменты браузера (`browser_*`).
+ *
+ * Важное отличие от остальных: здесь окно принадлежит пользователю, и он в
+ * любой момент может его закрыть. Тогда все дальнейшие вызовы падают - и мы
+ * отдаём агенту явный текст «задача остановлена», чтобы он не пытался
+ * бесконечно повторять клики и в итоге выдал пользователю итог работы.
+ */
+async function execBrowser(tool: string, args: any, signal?: AbortSignal): Promise<ExecResult> {
+  const CLOSED = 'Пользователь закрыл окно браузера. Задача остановлена - подведи итог и закончи работу.';
+  try {
+    if (signal?.aborted) return { ok: false, output: 'Отменено пользователем.' };
+    if (tool === 'browser_open') {
+      const st = await invoke<any>('op_browser_open', { url: args?.url ? String(args.url) : null });
+      if (st?.closed_by_user) return { ok: false, output: CLOSED };
+      return {
+        ok: true,
+        output: `Окно браузера открыто (${st?.browser || 'браузер'}). Сейчас открыто: ${st?.title || '(пусто)'} — ${st?.url || ''}\n`
+          + `Смотри страницу через browser_snapshot, нажимай через browser_click, вводи текст через browser_type.\n`
+          + `Пользователь видит все твои действия в этом окне.`,
+      };
+    }
+    if (tool === 'browser_status') {
+      const st = await invoke<any>('op_browser_status');
+      if (st?.closed_by_user) return { ok: false, output: CLOSED };
+      return { ok: true, output: `${st?.note || ''} ${st?.title || ''} — ${st?.url || ''}`.trim() };
+    }
+    if (tool === 'browser_navigate') {
+      const url = String(args?.url ?? '');
+      if (!/^https?:\/\//i.test(url)) {
+        return { ok: false, output: 'Нужен полный адрес вида https://example.com' };
+      }
+      const st = await invoke<any>('op_browser_navigate', { url });
+      if (st?.closed_by_user) return { ok: false, output: CLOSED };
+      return { ok: true, output: `Перешёл: ${st?.title || ''} — ${st?.url || url}` };
+    }
+    if (tool === 'browser_scroll') {
+      return { ok: true, output: await invoke<string>('op_browser_scroll', { dy: args?.dy ?? null }) };
+    }
+    if (tool === 'browser_close') {
+      return { ok: true, output: await invoke<string>('op_browser_close') };
+    }
+    if (tool === 'browser_click') {
+      const out = await invoke<string>('op_browser_click', {
+        selector: args?.selector ? String(args.selector) : null,
+        x: args?.x ?? null,
+        y: args?.y ?? null,
+      });
+      return { ok: true, output: out };
+    }
+    if (tool === 'browser_type') {
+      const out = await invoke<string>('op_browser_type', {
+        selector: String(args?.selector ?? ''),
+        text: String(args?.text ?? ''),
+      });
+      return { ok: true, output: out };
+    }
+    if (tool === 'browser_snapshot') {
+      const snap = await invoke<{
+        url: string; title: string; text: string; screenshot: string;
+        redacted: string[]; closed_by_user: boolean;
+      }>('op_browser_snapshot');
+      if (snap.closed_by_user) return { ok: false, output: CLOSED };
+      const hidden = snap.redacted?.length
+        ? `\n\n_Скрыто из выдачи: ${snap.redacted.join(', ')}. Эти данные тебе недоступны, не проси их у пользователя повторно._`
+        : '';
+      const body = `${snap.title || '(без заголовка)'} — ${snap.url || ''}\n\n${snap.text || '(текста на странице нет)'}${hidden}`;
+      // Картинку кладём в кэш изображений, чтобы она нарисовалась в чате
+      // тем же компонентом, что и сгенерированные изображения.
+      let imageName: string | undefined;
+      if (snap.screenshot) {
+        try {
+          imageName = await invoke<string>('op_save_image', { b64: snap.screenshot });
+        } catch {
+          imageName = undefined;
+        }
+      }
+      return { ok: true, output: body, imageName };
+    }
+    return { ok: false, output: `Неизвестный инструмент браузера: ${tool}` };
+  } catch (e) {
+    const msg = String(e);
+    // Закрытое окно - это отмена задачи, а не сбой: формулируем так, чтобы
+    // агент понял, что пора завершаться, а не пробовать снова.
+    if (/закрыл|closed|не подключиться|соединение закрыто/i.test(msg)) {
+      return { ok: false, output: `${CLOSED}\n\nПричина: ${msg}` };
+    }
+    return { ok: false, output: msg };
   }
 }
 
@@ -3438,6 +3630,8 @@ export async function executeTool(
   if (tool === 'http_request') return execHttpRequest(ep, args, requestPermission, signal);
   if (tool === 'set_service_token') return execSetServiceToken(ep, args, requestPermission);
   if (tool === 'spawn_agents') return execSpawnAgents(ep, args, requestPermission, signal);
+
+  if (tool.startsWith('browser_')) return execBrowser(tool, args, signal);
 
   if (tool === 'list_dir') return execListDir(args);
   if (tool === 'read_text') return execReadText(args);

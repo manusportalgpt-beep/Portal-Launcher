@@ -1,22 +1,10 @@
 /// dirs.rs — единая точка для всех директорий лаунчера.
 /// Делегирует в version_manager, который является canonical source.
 pub use super::version_manager::{
-    mc_base_dir as base_dir,
-    versions_dir,
-    libraries_dir,
-    assets_dir,
-    assets_meta_dir,
-    assets_cache_dir,
-    versions_meta_dir,
-    versions_cache_dir,
-    libraries_meta_dir,
-    libraries_cache_dir,
-    meta_dir,
-    meta_cdn_modrinth_dir,
-    meta_cdn_curseforge_dir,
-    meta_modrinth_packs_dir,
-    meta_modrinth_modpacks_dir,
-    meta_feed_dir,
+    assets_cache_dir, assets_dir, assets_meta_dir, libraries_cache_dir, libraries_dir,
+    libraries_meta_dir, mc_base_dir as base_dir, meta_cdn_curseforge_dir, meta_cdn_modrinth_dir,
+    meta_dir, meta_feed_dir, meta_modrinth_modpacks_dir, meta_modrinth_packs_dir,
+    versions_cache_dir, versions_dir, versions_meta_dir,
 };
 
 /// Java base directory

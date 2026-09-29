@@ -1,11 +1,11 @@
 // auth.rs — ТОЛЬКО облачные функции (cloud sync)
 // OAuth Device Code Flow перенесён в minecraft_lib::oauth
 
-use tauri::State;
-use crate::AppState;
+use crate::minecraft_lib::AuthMcProfile as McProfile;
 use crate::services::cloud_auth::CloudAuthData;
 use crate::services::cloud_sync::CloudSyncService;
-use crate::minecraft_lib::AuthMcProfile as McProfile;
+use crate::AppState;
+use tauri::State;
 
 fn auth_json_path() -> std::path::PathBuf {
     crate::minecraft_lib::oauth::auth_json_path()
@@ -48,7 +48,9 @@ pub async fn save_auth_to_cloud(_state: State<'_, AppState>) -> Result<bool, Str
 }
 
 #[tauri::command]
-pub async fn load_auth_from_cloud(_state: State<'_, AppState>) -> Result<Option<McProfile>, String> {
+pub async fn load_auth_from_cloud(
+    _state: State<'_, AppState>,
+) -> Result<Option<McProfile>, String> {
     let data_dir = crate::commands::version_manager::mc_base_dir();
 
     let cloud_service = CloudSyncService::new(data_dir.clone());
@@ -80,7 +82,7 @@ pub async fn load_auth_from_cloud(_state: State<'_, AppState>) -> Result<Option<
                     std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap_or_default()
-                        .as_secs()
+                        .as_secs(),
                 ),
             }))
         }
@@ -151,7 +153,10 @@ pub async fn get_cloud_sync_status() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command]
-pub async fn set_cloud_provider(provider_type: String, access_token: Option<String>) -> Result<(), String> {
+pub async fn set_cloud_provider(
+    provider_type: String,
+    access_token: Option<String>,
+) -> Result<(), String> {
     use crate::services::cloud_auth::CloudProvider;
 
     let data_dir = crate::commands::version_manager::mc_base_dir();
@@ -162,14 +167,23 @@ pub async fn set_cloud_provider(provider_type: String, access_token: Option<Stri
         "portal" => CloudProvider::PortalCloud { api_key: None },
         "google" => {
             let token = access_token.ok_or("Google Drive requires access_token")?;
-            CloudProvider::GoogleDrive { access_token: token }
+            CloudProvider::GoogleDrive {
+                access_token: token,
+            }
         }
         "dropbox" => {
             let token = access_token.ok_or("Dropbox requires access_token")?;
-            CloudProvider::Dropbox { access_token: token }
+            CloudProvider::Dropbox {
+                access_token: token,
+            }
         }
         "local" => {
-            let path = access_token.unwrap_or_else(|| data_dir.join("cloud_auth.json").to_string_lossy().to_string());
+            let path = access_token.unwrap_or_else(|| {
+                data_dir
+                    .join("cloud_auth.json")
+                    .to_string_lossy()
+                    .to_string()
+            });
             CloudProvider::Local { path }
         }
         _ => return Err("Unknown provider. Use: portal, google, dropbox, local".into()),

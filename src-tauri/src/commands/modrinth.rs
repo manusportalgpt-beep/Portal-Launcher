@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ModrinthMod {
@@ -37,7 +37,14 @@ pub struct ModrinthSearchResult {
 
 fn parse_hit(h: &serde_json::Value) -> ModrinthMod {
     let arr = |key: &str| -> Vec<String> {
-        h[key].as_array().map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect()).unwrap_or_default()
+        h[key]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default()
     };
     ModrinthMod {
         project_id: h["project_id"].as_str().unwrap_or("").to_string(),
@@ -71,7 +78,8 @@ fn modrinth_client() -> Result<reqwest::Client, String> {
         .timeout(std::time::Duration::from_secs(20))
         .connect_timeout(std::time::Duration::from_secs(8))
         .user_agent("PortalLauncher/1.3 (https://portalrolls.dev)")
-        .build().map_err(|e| e.to_string())
+        .build()
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -101,29 +109,39 @@ pub async fn search_modrinth(
     facet_groups.push(vec![format!("\"project_type:{}\"", pt)]);
 
     if let Some(cats) = &categories {
-        let filtered: Vec<_> = cats.iter()
+        let filtered: Vec<_> = cats
+            .iter()
             .filter(|c| *c != "All")
             .map(|c| format!("\"categories:{}\"", c.to_lowercase()))
             .collect();
-        if !filtered.is_empty() { facet_groups.push(filtered); }
+        if !filtered.is_empty() {
+            facet_groups.push(filtered);
+        }
     }
     if let Some(vers) = &versions {
-        let filtered: Vec<_> = vers.iter()
+        let filtered: Vec<_> = vers
+            .iter()
             .filter(|v| *v != "All")
             .map(|v| format!("\"versions:{}\"", v))
             .collect();
-        if !filtered.is_empty() { facet_groups.push(filtered); }
+        if !filtered.is_empty() {
+            facet_groups.push(filtered);
+        }
     }
     if let Some(ldrs) = &loaders {
-        let filtered: Vec<_> = ldrs.iter()
+        let filtered: Vec<_> = ldrs
+            .iter()
             .filter(|l| *l != "vanilla" && *l != "All")
             .map(|l| format!("\"categories:{}\"", l.to_lowercase()))
             .collect();
-        if !filtered.is_empty() { facet_groups.push(filtered); }
+        if !filtered.is_empty() {
+            facet_groups.push(filtered);
+        }
     }
 
     let facets = if !facet_groups.is_empty() {
-        let inner: Vec<String> = facet_groups.iter()
+        let inner: Vec<String> = facet_groups
+            .iter()
             .map(|g| format!("[{}]", g.join(",")))
             .collect();
         format!("[{}]", inner.join(","))
@@ -133,25 +151,39 @@ pub async fn search_modrinth(
 
     let mut url = format!(
         "https://api.modrinth.com/v2/search?query={}&limit={}&offset={}&index={}",
-        urlencode(&query), limit, offset, index
+        urlencode(&query),
+        limit,
+        offset,
+        index
     );
     if !facets.is_empty() {
         url.push_str(&format!("&facets={}", urlencode(&facets)));
     }
 
-    let response = client.get(&url)
-        .send().await
+    let response = client
+        .get(&url)
+        .send()
+        .await
         .map_err(|e| format!("Modrinth search request failed: {e}"))?;
     let status = response.status();
-    let body = response.text().await
+    let body = response
+        .text()
+        .await
         .map_err(|e| format!("Modrinth search response failed: {e}"))?;
     if !status.is_success() {
-        return Err(format!("Modrinth API returned HTTP {}: {}", status.as_u16(), body.chars().take(240).collect::<String>()));
+        return Err(format!(
+            "Modrinth API returned HTTP {}: {}",
+            status.as_u16(),
+            body.chars().take(240).collect::<String>()
+        ));
     }
-    let resp: serde_json::Value = serde_json::from_str(&body)
-        .map_err(|e| format!("Modrinth returned invalid JSON: {e}"))?;
+    let resp: serde_json::Value =
+        serde_json::from_str(&body).map_err(|e| format!("Modrinth returned invalid JSON: {e}"))?;
 
-    let hits = resp["hits"].as_array().map(|a| a.iter().map(parse_hit).collect()).unwrap_or_default();
+    let hits = resp["hits"]
+        .as_array()
+        .map(|a| a.iter().map(parse_hit).collect())
+        .unwrap_or_default();
     Ok(ModrinthSearchResult {
         hits,
         total_hits: resp["total_hits"].as_u64().unwrap_or(0),
@@ -165,9 +197,16 @@ pub async fn search_modrinth(
 pub async fn get_modrinth_project(project_id: String) -> Result<serde_json::Value, String> {
     let client = modrinth_client()?;
     let mut resp = client
-        .get(&format!("https://api.modrinth.com/v2/project/{}", project_id))
-        .send().await.map_err(|e| e.to_string())?
-        .json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
+        .get(&format!(
+            "https://api.modrinth.com/v2/project/{}",
+            project_id
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| e.to_string())?;
 
     // ВАЖНО: у проекта нет прямого поля "author" — только "team" (id команды).
     // Раньше страница мода вообще не знала автора (значит и не могла
@@ -175,13 +214,22 @@ pub async fn get_modrinth_project(project_id: String) -> Result<serde_json::Valu
     // один раз, для всех потребителей этой команды.
     if let Some(team_id) = resp["team"].as_str() {
         if let Ok(members) = client
-            .get(&format!("https://api.modrinth.com/v2/team/{team_id}/members"))
-            .send().await
+            .get(&format!(
+                "https://api.modrinth.com/v2/team/{team_id}/members"
+            ))
+            .send()
+            .await
             .map_err(|e| e.to_string())?
-            .json::<serde_json::Value>().await
+            .json::<serde_json::Value>()
+            .await
         {
-            let author = members.as_array()
-                .and_then(|a| a.iter().find(|m| m["role"].as_str() == Some("Owner")).or_else(|| a.first()))
+            let author = members
+                .as_array()
+                .and_then(|a| {
+                    a.iter()
+                        .find(|m| m["role"].as_str() == Some("Owner"))
+                        .or_else(|| a.first())
+                })
                 .and_then(|m| m["user"]["username"].as_str())
                 .map(String::from);
             if let Some(a) = author {
@@ -203,7 +251,10 @@ pub async fn get_modrinth_versions(
     let mut url = format!("https://api.modrinth.com/v2/project/{}/version", project_id);
     let mut params: Vec<String> = vec![];
     if let Some(gv) = &game_version {
-        params.push(format!("game_versions={}", urlencode(&format!("[\"{}\"]", gv))));
+        params.push(format!(
+            "game_versions={}",
+            urlencode(&format!("[\"{}\"]", gv))
+        ));
     }
     if let Some(l) = &loader {
         if l != "vanilla" && !l.is_empty() {
@@ -214,9 +265,14 @@ pub async fn get_modrinth_versions(
         url.push_str(&format!("?{}", params.join("&")));
     }
 
-    let mut resp = client.get(&url)
-        .send().await.map_err(|e| e.to_string())?
-        .json::<serde_json::Value>().await.map_err(|e| e.to_string())?;
+    let mut resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| e.to_string())?;
 
     // Гарантируем порядок «новейшая версия первой»: сортируем по date_published
     // по убыванию. Modrinth обычно уже отдаёт так, но полагаться на это нельзя —

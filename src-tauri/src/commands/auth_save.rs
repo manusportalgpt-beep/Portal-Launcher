@@ -26,8 +26,21 @@ pub async fn save_auth_info(
     refresh_token: String,
     expires_at: u64,
 ) -> Result<(), String> {
-    log::info!("💾 Saving auth: username={}, uuid={}, token_len={}", username, uuid, access_token.len());
-    let info = AuthInfo { username, uuid, access_token, refresh_token, expires_at, xuid: None, skin_url: None };
+    log::info!(
+        "💾 Saving auth: username={}, uuid={}, token_len={}",
+        username,
+        uuid,
+        access_token.len()
+    );
+    let info = AuthInfo {
+        username,
+        uuid,
+        access_token,
+        refresh_token,
+        expires_at,
+        xuid: None,
+        skin_url: None,
+    };
     let path = auth_path();
     log::info!("📁 Auth path: {:?}", path);
     let dir = path.parent().unwrap().to_path_buf();
@@ -42,7 +55,9 @@ pub async fn get_auth_info_cmd() -> Result<Option<AuthInfo>, String> {
     match std::fs::read_to_string(auth_path()) {
         Ok(s) => {
             log::info!("📖 Reading auth.json: {}", &s[..s.len().min(200)]);
-            serde_json::from_str(&s).map(Some).map_err(|e| e.to_string())
+            serde_json::from_str(&s)
+                .map(Some)
+                .map_err(|e| e.to_string())
         }
         Err(_) => {
             log::warn!("⚠️ auth.json not found");
@@ -57,7 +72,7 @@ pub async fn debug_auth_info() -> Result<serde_json::Value, String> {
     let path = auth_path();
     let exists = path.exists();
     let content = std::fs::read_to_string(&path).unwrap_or_default();
-    
+
     Ok(serde_json::json!({
         "path": path.to_string_lossy().to_string(),
         "exists": exists,

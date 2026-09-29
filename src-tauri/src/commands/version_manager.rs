@@ -1,6 +1,6 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use sha1::{Digest, Sha1};
 use std::path::PathBuf;
-use sha1::{Sha1, Digest};
 use tauri::Emitter;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -58,32 +58,38 @@ pub fn assets_dir() -> PathBuf {
 
 pub fn assets_meta_dir() -> PathBuf {
     let p = assets_dir().join("meta");
-    std::fs::create_dir_all(&p).ok(); p
+    std::fs::create_dir_all(&p).ok();
+    p
 }
 
 pub fn assets_cache_dir() -> PathBuf {
     let p = assets_dir().join("cache");
-    std::fs::create_dir_all(&p).ok(); p
+    std::fs::create_dir_all(&p).ok();
+    p
 }
 
 pub fn versions_meta_dir() -> PathBuf {
     let p = versions_dir().join("meta");
-    std::fs::create_dir_all(&p).ok(); p
+    std::fs::create_dir_all(&p).ok();
+    p
 }
 
 pub fn versions_cache_dir() -> PathBuf {
     let p = versions_dir().join("cache");
-    std::fs::create_dir_all(&p).ok(); p
+    std::fs::create_dir_all(&p).ok();
+    p
 }
 
 pub fn libraries_meta_dir() -> PathBuf {
     let p = libraries_dir().join("meta");
-    std::fs::create_dir_all(&p).ok(); p
+    std::fs::create_dir_all(&p).ok();
+    p
 }
 
 pub fn libraries_cache_dir() -> PathBuf {
     let p = libraries_dir().join("cache");
-    std::fs::create_dir_all(&p).ok(); p
+    std::fs::create_dir_all(&p).ok();
+    p
 }
 
 /// Main meta directory for CDN caches, modpacks, and feed
@@ -135,7 +141,9 @@ fn get_installed_version_ids() -> std::collections::HashSet<String> {
         for entry in entries.flatten() {
             if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
                 let id = entry.file_name().to_string_lossy().to_string();
-                if entry.path().join(format!("{}.jar", id)).exists() { set.insert(id); }
+                if entry.path().join(format!("{}.jar", id)).exists() {
+                    set.insert(id);
+                }
             }
         }
     }
@@ -143,27 +151,52 @@ fn get_installed_version_ids() -> std::collections::HashSet<String> {
 }
 
 pub fn get_os_name() -> &'static str {
-    #[cfg(target_os = "windows")] { "windows" }
-    #[cfg(target_os = "macos")]   { "osx" }
-    #[cfg(all(not(target_os="windows"), not(target_os="macos")))] { "linux" }
+    #[cfg(target_os = "windows")]
+    {
+        "windows"
+    }
+    #[cfg(target_os = "macos")]
+    {
+        "osx"
+    }
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    {
+        "linux"
+    }
 }
 
 fn get_os_classifier() -> &'static str {
-    #[cfg(target_os = "windows")] { "natives-windows" }
-    #[cfg(target_os = "macos")]   { "natives-macos" }
-    #[cfg(all(not(target_os="windows"), not(target_os="macos")))] { "natives-linux" }
+    #[cfg(target_os = "windows")]
+    {
+        "natives-windows"
+    }
+    #[cfg(target_os = "macos")]
+    {
+        "natives-macos"
+    }
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    {
+        "natives-linux"
+    }
 }
 
 pub fn check_library_rules(lib: &serde_json::Value) -> bool {
-    let rules = match lib["rules"].as_array() { Some(r) => r, None => return true };
+    let rules = match lib["rules"].as_array() {
+        Some(r) => r,
+        None => return true,
+    };
     let os_name = get_os_name();
     let mut result = false;
     for rule in rules {
         let action = rule["action"].as_str().unwrap_or("allow");
         let os_match = if let Some(os_obj) = rule["os"].as_object() {
             os_obj.get("name").and_then(|n| n.as_str()) == Some(os_name)
-        } else { true };
-        if os_match { result = action == "allow"; }
+        } else {
+            true
+        };
+        if os_match {
+            result = action == "allow";
+        }
     }
     result
 }
@@ -192,7 +225,12 @@ fn maven_lib_url(base: &str, name: &str) -> Option<String> {
     Some(format!("{base}/{}", rel.to_string_lossy()))
 }
 
-async fn download_file_checked(client: &reqwest::Client, url: &str, path: &PathBuf, expected_sha1: Option<&str>) -> Result<bool, String> {
+async fn download_file_checked(
+    client: &reqwest::Client,
+    url: &str,
+    path: &PathBuf,
+    expected_sha1: Option<&str>,
+) -> Result<bool, String> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
     }
@@ -201,18 +239,34 @@ async fn download_file_checked(client: &reqwest::Client, url: &str, path: &PathB
             if let Ok(data) = std::fs::read(path) {
                 let mut hasher = Sha1::new();
                 hasher.update(&data);
-                if format!("{:x}", hasher.finalize()) == sha1 { return Ok(false); } // already ok
+                if format!("{:x}", hasher.finalize()) == sha1 {
+                    return Ok(false);
+                } // already ok
             }
-        } else { return Ok(false); }
+        } else {
+            return Ok(false);
+        }
     }
-    let bytes = client.get(url).send().await.map_err(|e| format!("GET {url}: {e}"))?.bytes().await.map_err(|e| format!("read: {e}"))?;
+    let bytes = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("GET {url}: {e}"))?
+        .bytes()
+        .await
+        .map_err(|e| format!("read: {e}"))?;
     std::fs::write(path, &bytes).map_err(|e| format!("write: {e}"))?;
     Ok(true)
 }
 
 #[tauri::command]
-pub async fn get_available_versions(include_snapshots: Option<bool>) -> Result<Vec<McVersion>, String> {
-    let client = reqwest::Client::builder().user_agent("PortalLauncher/1.3").build().map_err(|e| e.to_string())?;
+pub async fn get_available_versions(
+    include_snapshots: Option<bool>,
+) -> Result<Vec<McVersion>, String> {
+    let client = reqwest::Client::builder()
+        .user_agent("PortalLauncher/1.3")
+        .build()
+        .map_err(|e| e.to_string())?;
     // Официальный манифест Mojang, при необходимости через выбранное зеркало (BMCLAPI и др.)
     const MANIFEST_URL: &str = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
     let mut manifest: Option<serde_json::Value> = None;
@@ -239,16 +293,20 @@ pub async fn get_available_versions(include_snapshots: Option<bool>) -> Result<V
             Err(e) => last_err = format!("{url}: сеть — {e}"),
         }
     }
-    let manifest = manifest.ok_or_else(|| format!("Не удалось получить список версий: {last_err}"))?;
-    
+    let manifest =
+        manifest.ok_or_else(|| format!("Не удалось получить список версий: {last_err}"))?;
+
     let snapshots = include_snapshots.unwrap_or(false);
     let installed = get_installed_version_ids();
-    
+
     // Include ALL versions from official manifest
     // Types: release, snapshot, old_beta, old_alpha, experiment
-    let versions: Vec<McVersion> = manifest["versions"].as_array().unwrap_or(&vec![]).iter()
-        .filter(|v| { 
-            let t = v["type"].as_str().unwrap_or(""); 
+    let versions: Vec<McVersion> = manifest["versions"]
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter(|v| {
+            let t = v["type"].as_str().unwrap_or("");
             // Always include releases and old versions
             if t == "release" || t == "old_beta" || t == "old_alpha" {
                 return true;
@@ -266,12 +324,13 @@ pub async fn get_available_versions(include_snapshots: Option<bool>) -> Result<V
             url: v["url"].as_str().unwrap_or("").to_string(),
             sha1: v["sha1"].as_str().unwrap_or("").to_string(),
             installed: installed.contains(v["id"].as_str().unwrap_or("")),
-        }).collect();
-    
+        })
+        .collect();
+
     // Sort by release time (newest first)
     let mut sorted = versions;
     sorted.sort_by(|a, b| b.release_time.cmp(&a.release_time));
-    
+
     Ok(sorted)
 }
 
@@ -290,11 +349,19 @@ pub async fn get_installed_versions() -> Result<Vec<McVersion>, String> {
         for entry in entries.flatten() {
             if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
                 let id = entry.file_name().to_string_lossy().to_string();
-                let vtype = std::fs::read_to_string(entry.path().join(format!("{}.json", id))).ok()
+                let vtype = std::fs::read_to_string(entry.path().join(format!("{}.json", id)))
+                    .ok()
                     .and_then(|d| serde_json::from_str::<serde_json::Value>(&d).ok())
                     .and_then(|v| v["type"].as_str().map(|s| s.to_string()))
                     .unwrap_or_else(|| "release".to_string());
-                versions.push(McVersion { id, version_type: vtype, release_time: String::new(), url: String::new(), sha1: String::new(), installed: true });
+                versions.push(McVersion {
+                    id,
+                    version_type: vtype,
+                    release_time: String::new(),
+                    url: String::new(),
+                    sha1: String::new(),
+                    installed: true,
+                });
             }
         }
     }
@@ -302,20 +369,36 @@ pub async fn get_installed_versions() -> Result<Vec<McVersion>, String> {
 }
 
 #[tauri::command]
-pub async fn download_minecraft_version(app: tauri::AppHandle, version_id: String) -> Result<(), String> {
+pub async fn download_minecraft_version(
+    app: tauri::AppHandle,
+    version_id: String,
+) -> Result<(), String> {
     let emit = |stage: &str, current: u64, total: u64, msg: &str| {
-        let pct = if total > 0 { ((current * 100) / total) as u8 } else { 0 };
-        app.emit("download-progress", ProgressEvent {
-            stage: stage.to_string(), current, total,
-            message: msg.to_string(), percent: pct,
-        }).ok();
+        let pct = if total > 0 {
+            ((current * 100) / total) as u8
+        } else {
+            0
+        };
+        app.emit(
+            "download-progress",
+            ProgressEvent {
+                stage: stage.to_string(),
+                current,
+                total,
+                message: msg.to_string(),
+                percent: pct,
+            },
+        )
+        .ok();
     };
 
     emit("start", 0, 100, "Starting download...");
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(300))
-        .user_agent("PortalLauncher/1.1").build().map_err(|e| e.to_string())?;
+        .user_agent("PortalLauncher/1.1")
+        .build()
+        .map_err(|e| e.to_string())?;
 
     emit("manifest", 5, 100, "Fetching version manifest...");
     // Официальный манифест Mojang, при необходимости через выбранное зеркало (BMCLAPI и др.)
@@ -344,30 +427,54 @@ pub async fn download_minecraft_version(app: tauri::AppHandle, version_id: Strin
             Err(e) => last_err = format!("{url}: сеть — {e}"),
         }
     }
-    let manifest = manifest.ok_or_else(|| format!("Не удалось получить список версий: {last_err}"))?;
+    let manifest =
+        manifest.ok_or_else(|| format!("Не удалось получить список версий: {last_err}"))?;
 
-    let version_url = manifest["versions"].as_array()
+    let version_url = manifest["versions"]
+        .as_array()
         .and_then(|a| a.iter().find(|v| v["id"].as_str() == Some(&version_id)))
         .and_then(|v| v["url"].as_str())
-        .ok_or_else(|| format!("Version {} not found", version_id))?.to_string();
+        .ok_or_else(|| format!("Version {} not found", version_id))?
+        .to_string();
 
     emit("json", 10, 100, "Downloading version JSON...");
-    let vj: serde_json::Value = client.get(&version_url).send().await.map_err(|e| e.to_string())?.json().await.map_err(|e| e.to_string())?;
+    let vj: serde_json::Value = client
+        .get(&version_url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .json()
+        .await
+        .map_err(|e| e.to_string())?;
 
     let vdir = versions_dir().join(&version_id);
     std::fs::create_dir_all(&vdir).map_err(|e| e.to_string())?;
-    std::fs::write(vdir.join(format!("{}.json", version_id)), serde_json::to_string_pretty(&vj).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    std::fs::write(
+        vdir.join(format!("{}.json", version_id)),
+        serde_json::to_string_pretty(&vj).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
 
     emit("jar", 15, 100, "Downloading client jar...");
-    let client_url = vj["downloads"]["client"]["url"].as_str().ok_or("No client URL")?;
+    let client_url = vj["downloads"]["client"]["url"]
+        .as_str()
+        .ok_or("No client URL")?;
     let client_sha1 = vj["downloads"]["client"]["sha1"].as_str();
-    download_file_checked(&client, client_url, &vdir.join(format!("{}.jar", version_id)), client_sha1).await?;
+    download_file_checked(
+        &client,
+        client_url,
+        &vdir.join(format!("{}.jar", version_id)),
+        client_sha1,
+    )
+    .await?;
 
     emit("libraries", 25, 100, "Downloading libraries...");
     if let Some(libs) = vj["libraries"].as_array() {
         let total_libs = libs.len() as u64;
         for (i, lib) in libs.iter().enumerate() {
-            if !check_library_rules(lib) { continue; }
+            if !check_library_rules(lib) {
+                continue;
+            }
             let lib_name = lib["name"].as_str().unwrap_or("").to_string();
             let mut any_downloaded = false;
             if let Some(art) = lib["downloads"]["artifact"].as_object() {
@@ -375,17 +482,23 @@ pub async fn download_minecraft_version(app: tauri::AppHandle, version_id: Strin
                 let pth = art.get("path").and_then(|p| p.as_str()).unwrap_or("");
                 let sha1 = art.get("sha1").and_then(|s| s.as_str());
                 if !url.is_empty() && !pth.is_empty() {
-                    download_file_checked(&client, url, &libraries_dir().join(pth), sha1).await.ok();
+                    download_file_checked(&client, url, &libraries_dir().join(pth), sha1)
+                        .await
+                        .ok();
                     any_downloaded = true;
                 }
             } else if !lib_name.is_empty() {
                 // Старые версии (< 1.13): библиотека задана только Maven-координатой
                 // и базовым URL репозитория — без раздела downloads.
-                let base = lib["url"].as_str().unwrap_or("https://libraries.minecraft.net/");
+                let base = lib["url"]
+                    .as_str()
+                    .unwrap_or("https://libraries.minecraft.net/");
                 if let Some(pth) = maven_lib_path(&lib_name) {
                     let url = maven_lib_url(base, &lib_name).unwrap_or_default();
                     if !url.is_empty() {
-                        download_file_checked(&client, &url, &libraries_dir().join(&pth), None).await.ok();
+                        download_file_checked(&client, &url, &libraries_dir().join(&pth), None)
+                            .await
+                            .ok();
                         any_downloaded = true;
                     }
                 }
@@ -396,54 +509,111 @@ pub async fn download_minecraft_version(app: tauri::AppHandle, version_id: Strin
                     let url = nat["url"].as_str().unwrap_or("");
                     let pth = nat["path"].as_str().unwrap_or("");
                     if !url.is_empty() && !pth.is_empty() {
-                        download_file_checked(&client, url, &libraries_dir().join(pth), nat["sha1"].as_str()).await.ok();
+                        download_file_checked(
+                            &client,
+                            url,
+                            &libraries_dir().join(pth),
+                            nat["sha1"].as_str(),
+                        )
+                        .await
+                        .ok();
                         any_downloaded = true;
                     }
                 }
             }
             let _ = any_downloaded;
             let pct = 25 + ((i as u64 * 30) / total_libs.max(1)) as u8;
-            emit("libraries", pct as u64, 100, &format!("Libraries {}/{}", i+1, total_libs));
+            emit(
+                "libraries",
+                pct as u64,
+                100,
+                &format!("Libraries {}/{}", i + 1, total_libs),
+            );
         }
     }
 
     emit("assets-index", 55, 100, "Downloading asset index...");
-    let ai_id = vj["assetIndex"]["id"].as_str().or_else(|| vj["assets"].as_str()).unwrap_or(&version_id).to_string();
+    let ai_id = vj["assetIndex"]["id"]
+        .as_str()
+        .or_else(|| vj["assets"].as_str())
+        .unwrap_or(&version_id)
+        .to_string();
     let ai_url = vj["assetIndex"]["url"].as_str().unwrap_or("");
     if !ai_url.is_empty() {
         let idx_dir = assets_dir().join("indexes");
         std::fs::create_dir_all(&idx_dir).ok();
         let idx_path = idx_dir.join(format!("{}.json", ai_id));
-        download_file_checked(&client, ai_url, &idx_path, vj["assetIndex"]["sha1"].as_str()).await?;
+        download_file_checked(
+            &client,
+            ai_url,
+            &idx_path,
+            vj["assetIndex"]["sha1"].as_str(),
+        )
+        .await?;
 
         if let Ok(idx_data) = std::fs::read_to_string(&idx_path) {
             if let Ok(idx) = serde_json::from_str::<serde_json::Value>(&idx_data) {
                 if let Some(objects) = idx["objects"].as_object() {
                     let obj_dir = assets_dir().join("objects");
                     std::fs::create_dir_all(&obj_dir).ok();
-                    let tasks: Vec<_> = objects.values().filter_map(|obj| {
-                        let hash = obj["hash"].as_str()?.to_string();
-                        if hash.len() < 2 { return None; }
-                        let pfx = hash[..2].to_string();
-                        Some((format!("https://resources.download.minecraft.net/{}/{}", pfx, hash), obj_dir.join(&pfx).join(&hash), hash))
-                    }).collect();
+                    let tasks: Vec<_> = objects
+                        .values()
+                        .filter_map(|obj| {
+                            let hash = obj["hash"].as_str()?.to_string();
+                            if hash.len() < 2 {
+                                return None;
+                            }
+                            let pfx = hash[..2].to_string();
+                            Some((
+                                format!(
+                                    "https://resources.download.minecraft.net/{}/{}",
+                                    pfx, hash
+                                ),
+                                obj_dir.join(&pfx).join(&hash),
+                                hash,
+                            ))
+                        })
+                        .collect();
                     let total_assets = tasks.len() as u64;
-                    emit("assets", 60, 100, &format!("Downloading {} assets...", total_assets));
+                    emit(
+                        "assets",
+                        60,
+                        100,
+                        &format!("Downloading {} assets...", total_assets),
+                    );
                     for (chunk_i, chunk) in tasks.chunks(30).enumerate() {
-                        let futs: Vec<_> = chunk.iter().map(|(url, path, sha1)| {
-                            let (c, u, p, s) = (client.clone(), url.clone(), path.clone(), sha1.clone());
-                            async move { download_file_checked(&c, &u, &p, Some(&s)).await.ok(); }
-                        }).collect();
+                        let futs: Vec<_> = chunk
+                            .iter()
+                            .map(|(url, path, sha1)| {
+                                let (c, u, p, s) =
+                                    (client.clone(), url.clone(), path.clone(), sha1.clone());
+                                async move {
+                                    download_file_checked(&c, &u, &p, Some(&s)).await.ok();
+                                }
+                            })
+                            .collect();
                         futures::future::join_all(futs).await;
-                        let pct = 60 + ((chunk_i as u64 * 35) / ((tasks.len() / 30 + 1) as u64).max(1)) as u8;
-                        emit("assets", pct as u64, 100, &format!("Assets {}/{}...", (chunk_i+1)*30, total_assets));
+                        let pct = 60
+                            + ((chunk_i as u64 * 35) / ((tasks.len() / 30 + 1) as u64).max(1))
+                                as u8;
+                        emit(
+                            "assets",
+                            pct as u64,
+                            100,
+                            &format!("Assets {}/{}...", (chunk_i + 1) * 30, total_assets),
+                        );
                     }
                 }
             }
         }
     }
 
-    emit("done", 100, 100, &format!("Minecraft {} ready!", version_id));
+    emit(
+        "done",
+        100,
+        100,
+        &format!("Minecraft {} ready!", version_id),
+    );
     Ok(())
 }
 
@@ -453,7 +623,7 @@ pub fn build_classpath(version_id: &str) -> Result<String, String> {
         .map_err(|_| format!("Version {} not downloaded. Download it first.", version_id))?;
     let vj: serde_json::Value = serde_json::from_str(&data).map_err(|e| e.to_string())?;
     let mut entries: Vec<String> = vec![];
-    
+
     // Always add the main client jar FIRST (critical for Minecraft to launch)
     let jar = vdir.join(format!("{}.jar", version_id));
     if jar.exists() {
@@ -462,22 +632,28 @@ pub fn build_classpath(version_id: &str) -> Result<String, String> {
     } else {
         log::warn!("⚠️ Client jar not found at: {:?}", jar);
     }
-    
+
     // Then add libraries
     if let Some(libs) = vj["libraries"].as_array() {
         log::info!("📚 Processing {} libraries...", libs.len());
         let mut added_libs = 0;
-        
+
         for lib in libs {
-            if !check_library_rules(lib) { 
-                log::debug!("⏭️ Skipping library (rules): {}", lib["name"].as_str().unwrap_or("unknown"));
-                continue; 
+            if !check_library_rules(lib) {
+                log::debug!(
+                    "⏭️ Skipping library (rules): {}",
+                    lib["name"].as_str().unwrap_or("unknown")
+                );
+                continue;
             }
-            
+
             // Try artifact first
             if let Some(art) = lib["downloads"]["artifact"].as_object() {
                 let pth = art.get("path").and_then(|p| p.as_str()).unwrap_or("");
-                let name = art.get("filename").and_then(|f| f.as_str()).unwrap_or(pth.split('/').last().unwrap_or(""));
+                let name = art
+                    .get("filename")
+                    .and_then(|f| f.as_str())
+                    .unwrap_or(pth.split('/').last().unwrap_or(""));
                 if !pth.is_empty() {
                     let lp = libraries_dir().join(pth);
                     if lp.exists() {
@@ -517,36 +693,59 @@ pub fn build_classpath(version_id: &str) -> Result<String, String> {
         }
         log::info!("✅ Added {} libraries to classpath", added_libs);
     }
-    
+
     // Ensure we have at least the client jar
     if entries.is_empty() {
         log::error!("❌ Classpath is EMPTY - will cause crash!");
-        return Err(format!("Classpath empty for version {}. Version files may be corrupted. Try re-downloading.", version_id));
+        return Err(format!(
+            "Classpath empty for version {}. Version files may be corrupted. Try re-downloading.",
+            version_id
+        ));
     }
-    
+
     log::info!("📊 Total classpath entries: {}", entries.len());
     log::info!("📊 Classpath length: {} bytes", entries.len());
-    
+
     let sep = if cfg!(windows) { ";" } else { ":" };
     let result = entries.join(sep);
     Ok(result)
 }
 
 pub fn get_version_meta(version_id: &str) -> Result<(String, String, Vec<String>), String> {
-    let data = std::fs::read_to_string(versions_dir().join(version_id).join(format!("{}.json", version_id)))
-        .map_err(|_| format!("Version JSON not found for {}", version_id))?;
+    let data = std::fs::read_to_string(
+        versions_dir()
+            .join(version_id)
+            .join(format!("{}.json", version_id)),
+    )
+    .map_err(|_| format!("Version JSON not found for {}", version_id))?;
     let v: serde_json::Value = serde_json::from_str(&data).map_err(|e| e.to_string())?;
-    let main_class = v["mainClass"].as_str().unwrap_or("net.minecraft.client.main.Main").to_string();
-    let asset_index = v["assetIndex"]["id"].as_str().or_else(|| v["assets"].as_str()).unwrap_or(version_id).to_string();
-    let extra_jvm: Vec<String> = v["arguments"]["jvm"].as_array().map(|arr| {
-        arr.iter().filter_map(|a| a.as_str()).filter(|s| !s.contains("${")).map(|s| s.to_string()).collect()
-    }).unwrap_or_default();
+    let main_class = v["mainClass"]
+        .as_str()
+        .unwrap_or("net.minecraft.client.main.Main")
+        .to_string();
+    let asset_index = v["assetIndex"]["id"]
+        .as_str()
+        .or_else(|| v["assets"].as_str())
+        .unwrap_or(version_id)
+        .to_string();
+    let extra_jvm: Vec<String> = v["arguments"]["jvm"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|a| a.as_str())
+                .filter(|s| !s.contains("${"))
+                .map(|s| s.to_string())
+                .collect()
+        })
+        .unwrap_or_default();
     Ok((main_class, asset_index, extra_jvm))
 }
 
 #[tauri::command]
 pub async fn delete_minecraft_version(version_id: String) -> Result<(), String> {
     let dir = versions_dir().join(&version_id);
-    if dir.exists() { std::fs::remove_dir_all(&dir).map_err(|e| format!("Delete: {e}"))?; }
+    if dir.exists() {
+        std::fs::remove_dir_all(&dir).map_err(|e| format!("Delete: {e}"))?;
+    }
     Ok(())
 }

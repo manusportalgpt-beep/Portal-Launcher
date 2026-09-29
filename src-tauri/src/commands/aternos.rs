@@ -161,7 +161,11 @@ fn cookie_headers(s: &AternosSession, server: Option<&str>) -> String {
     v
 }
 
-async fn get(s: &AternosSession, url: &str, server: Option<&str>) -> Result<reqwest::Response, String> {
+async fn get(
+    s: &AternosSession,
+    url: &str,
+    server: Option<&str>,
+) -> Result<reqwest::Response, String> {
     polite().await;
     let resp = CLIENT
         .get(url)
@@ -207,7 +211,12 @@ async fn fetch_token(tmp: &AternosSession) -> (String, String) {
     (token, html)
 }
 
-async fn ajax_get(s: &AternosSession, path: &str, extra: &str, server: Option<&str>) -> Result<reqwest::Response, String> {
+async fn ajax_get(
+    s: &AternosSession,
+    path: &str,
+    extra: &str,
+    server: Option<&str>,
+) -> Result<reqwest::Response, String> {
     let sep = if path.contains('?') { '&' } else { '?' };
     let mut url = format!("{AJAX}{path}{sep}TOKEN={}&SEC={}", s.token, s.sec_str());
     if !extra.is_empty() {
@@ -217,13 +226,21 @@ async fn ajax_get(s: &AternosSession, path: &str, extra: &str, server: Option<&s
     get(s, &url, server).await
 }
 
-async fn post_form(s: &AternosSession, url: &str, server: Option<&str>, form: &HashMap<&str, String>) -> Result<reqwest::Response, String> {
+async fn post_form(
+    s: &AternosSession,
+    url: &str,
+    server: Option<&str>,
+    form: &HashMap<&str, String>,
+) -> Result<reqwest::Response, String> {
     polite().await;
     let resp = CLIENT
         .post(url)
         .header("Cookie", cookie_headers(s, server))
         .header("X-Requested-With", "XMLHttpRequest")
-        .header(reqwest::header::CONTENT_TYPE, "application/x-www-form-urlencoded; charset=UTF-8")
+        .header(
+            reqwest::header::CONTENT_TYPE,
+            "application/x-www-form-urlencoded; charset=UTF-8",
+        )
         .header("Accept-Language", "en-US,en;q=0.9,ru;q=0.8")
         .form(form)
         .send()
@@ -253,7 +270,9 @@ fn between_iefies(html: &str) -> Option<String> {
                             if end > html.len() {
                                 break;
                             }
-                            if html[end - 2..].starts_with("();") || html[end - 2..].starts_with(")(") {
+                            if html[end - 2..].starts_with("();")
+                                || html[end - 2..].starts_with(")(")
+                            {
                                 return Some(html[s..end].to_string());
                             }
                             break;
@@ -414,8 +433,8 @@ fn extract_token_literal(s: &str) -> Option<String> {
     let key = "AJAX_TOKEN";
     if let Some(p) = s.find(key) {
         let rest = &s[p + key.len()..];
-for q in [b'\"', b'\''] {
-        if let Some(p2) = rest.as_bytes().iter().position(|&b| b == q) {
+        for q in [b'\"', b'\''] {
+            if let Some(p2) = rest.as_bytes().iter().position(|&b| b == q) {
                 let q2 = q;
                 let inner = &rest[p2 + 1..];
                 if let Some(p3) = inner.as_bytes().iter().position(|&b| b == q2) {
@@ -492,13 +511,7 @@ pub async fn aternos_login(
         sess.token, sk, sv
     );
 
-    let resp = post_form(
-        &sess,
-        &login_url,
-        None,
-        &form,
-    )
-    .await?;
+    let resp = post_form(&sess, &login_url, None, &form).await?;
 
     let session_cookie = parse_cookie(&resp, "ATERNOS_SESSION").unwrap_or_default();
     let body = resp.text().await.unwrap_or_default();
@@ -508,8 +521,11 @@ pub async fn aternos_login(
     }
 
     if session_cookie.is_empty() {
-        if body.contains("password") || body.contains("incorrect") || body.contains("wrong")
-            || body.contains("\"error\"") || body.to_lowercase().contains("wrong-e-mail")
+        if body.contains("password")
+            || body.contains("incorrect")
+            || body.contains("wrong")
+            || body.contains("\"error\"")
+            || body.to_lowercase().contains("wrong-e-mail")
         {
             return Ok(LoginResult::InvalidCredentials);
         }
@@ -562,10 +578,7 @@ pub async fn aternos_login_with_session(
 }
 
 #[tauri::command]
-pub async fn aternos_login_with_token(
-    username: String,
-    ajax_token: String,
-) -> Result<(), String> {
+pub async fn aternos_login_with_token(username: String, ajax_token: String) -> Result<(), String> {
     let sk = sec_part();
     let sv = sec_part();
     let sess = AternosSession {
@@ -681,20 +694,26 @@ fn extract_servers_from_html(html: &str) -> Vec<AternosServerSummary> {
         // name attempt: look for server-name within next 800 chars
         let limit = std::cmp::min(chunk.len(), 1200);
         let block = &chunk[..limit];
-        let name = find_between(block, "server-name", ">", 0)
-            .and_then(|v| {
-                let v2 = v.trim_start().trim_start_matches('>').trim();
-                let end = v2.find('<').unwrap_or(v2.len());
-                let s = v2[..end].trim();
-                if s.is_empty() { None } else { Some(s.to_string()) }
-            });
-        let sub = find_between(block, "server-subinfo", ">", 0)
-            .and_then(|v| {
-                let v2 = v.trim_start().trim_start_matches('>').trim();
-                let end = v2.find('<').unwrap_or(v2.len());
-                let s = v2[..end].trim();
-                if s.is_empty() { None } else { Some(s.to_string()) }
-            });
+        let name = find_between(block, "server-name", ">", 0).and_then(|v| {
+            let v2 = v.trim_start().trim_start_matches('>').trim();
+            let end = v2.find('<').unwrap_or(v2.len());
+            let s = v2[..end].trim();
+            if s.is_empty() {
+                None
+            } else {
+                Some(s.to_string())
+            }
+        });
+        let sub = find_between(block, "server-subinfo", ">", 0).and_then(|v| {
+            let v2 = v.trim_start().trim_start_matches('>').trim();
+            let end = v2.find('<').unwrap_or(v2.len());
+            let s = v2[..end].trim();
+            if s.is_empty() {
+                None
+            } else {
+                Some(s.to_string())
+            }
+        });
         out.push(AternosServerSummary {
             id,
             name: name.clone(),
@@ -747,9 +766,13 @@ pub async fn aternos_server_info(servid: String) -> Result<AternosServerInfo, St
     }
     let v = parse_last_status(&html).unwrap_or(serde_json::json!({}));
     let online = v["online"] == serde_json::json!(1) || v["online"] == serde_json::json!(true);
-    let starting = v["starting"] == serde_json::json!(1) || v["starting"] == serde_json::json!(true);
+    let starting =
+        v["starting"] == serde_json::json!(1) || v["starting"] == serde_json::json!(true);
     let class = v["class"].as_str().map(String::from);
-    let status_text = v["status"].as_str().map(String::from).or_else(|| v["class"].as_str().map(String::from));
+    let status_text = v["status"]
+        .as_str()
+        .map(String::from)
+        .or_else(|| v["class"].as_str().map(String::from));
     Ok(AternosServerInfo {
         id: servid,
         online,
@@ -762,7 +785,11 @@ pub async fn aternos_server_info(servid: String) -> Result<AternosServerInfo, St
         version: v["version"].as_str().map(String::from),
         software: v["software"].as_str().map(String::from),
         motd: v["motd"].as_str().map(String::from),
-        players: v["players"].as_array().map(|a| a.iter().filter_map(|p| p.as_str().map(String::from)).collect()),
+        players: v["players"].as_array().map(|a| {
+            a.iter()
+                .filter_map(|p| p.as_str().map(String::from))
+                .collect()
+        }),
         slots: v["slotLimit"].as_u64().or(v["slot"].as_u64()),
         ram: v["ram"].as_str().map(String::from),
         mem: v["mem"].as_str().map(String::from),
@@ -818,7 +845,8 @@ pub async fn aternos_set_motd(servid: String, motd: String) -> Result<(), String
     let s = regen_sec().await;
     let url = format!(
         "{AJAX}/server/options/set-motd?TOKEN={}&SEC={}",
-        s.token, s.sec_str()
+        s.token,
+        s.sec_str()
     );
     let mut form = HashMap::new();
     form.insert("motd", motd);
@@ -861,8 +889,13 @@ fn parse_files_html(html: &str) -> Vec<AternosFile> {
         // kind: look backwards for data-type
         let lookback = &html[cursor..start];
         let kind = find_between(lookback, "data-type=\"", "\"", 0).unwrap_or_else(|| "file".into());
-        let size = find_between(&html[start..std::cmp::min(html.len(), start + 500)], "class=\"filesize\"", "</div>", 0)
-            .map(|v| v.trim().to_string());
+        let size = find_between(
+            &html[start..std::cmp::min(html.len(), start + 500)],
+            "class=\"filesize\"",
+            "</div>",
+            0,
+        )
+        .map(|v| v.trim().to_string());
         out.push(AternosFile { path, kind, size });
         cursor = start + end + 1;
     }
@@ -883,7 +916,11 @@ pub async fn aternos_files(servid: String, path: String) -> Result<Vec<AternosFi
 }
 
 #[tauri::command]
-pub async fn aternos_download_file(servid: String, file_path: String, filename: String) -> Result<String, String> {
+pub async fn aternos_download_file(
+    servid: String,
+    file_path: String,
+    filename: String,
+) -> Result<String, String> {
     let s = regen_sec().await;
     let encoded = file_path.replace('/', "%2F");
     let url = format!("{BASE}/files/?file={encoded}");
@@ -914,11 +951,7 @@ pub async fn aternos_upload_file(
         return Err("File too large for upload (>64 MB)".into());
     }
     let s = regen_sec().await;
-    let url = format!(
-        "{AJAX}/file/upload?TOKEN={}&SEC={}",
-        s.token,
-        s.sec_str()
-    );
+    let url = format!("{AJAX}/file/upload?TOKEN={}&SEC={}", s.token, s.sec_str());
     let part = reqwest::multipart::Part::bytes(data)
         .file_name(filename.clone())
         .mime_str("application/java-archive")
@@ -955,11 +988,7 @@ pub async fn aternos_create_server(
     software: Option<String>,
 ) -> Result<String, String> {
     let s = regen_sec().await;
-    let url = format!(
-        "{AJAX}/server/create?TOKEN={}&SEC={}",
-        s.token,
-        s.sec_str()
-    );
+    let url = format!("{AJAX}/server/create?TOKEN={}&SEC={}", s.token, s.sec_str());
     let mut form: HashMap<&str, String> = HashMap::new();
     form.insert("name", name);
     form.insert("version", version);
@@ -974,7 +1003,9 @@ pub async fn aternos_create_server(
     } else {
         // fallback: open browser create page
         let _ = crate::commands::files::open_url(format!("{BASE}/servers/")).await;
-        Err(format!("Aternos API create failed ({status}). Opened browser — create your server there."))
+        Err(format!(
+            "Aternos API create failed ({status}). Opened browser — create your server there."
+        ))
     }
 }
 
@@ -991,7 +1022,12 @@ static WATCH: Lazy<tokio::sync::Mutex<Option<(String, WatchCtx)>>> =
     Lazy::new(|| tokio::sync::Mutex::new(None));
 
 #[tauri::command]
-pub async fn aternos_watch_set(app: AppHandle, servid: String, enabled: bool, interval_secs: Option<u64>) -> Result<(), String> {
+pub async fn aternos_watch_set(
+    app: AppHandle,
+    servid: String,
+    enabled: bool,
+    interval_secs: Option<u64>,
+) -> Result<(), String> {
     let mut w = WATCH.lock().await;
     if !enabled {
         if let Some((_, ctx)) = w.take() {
@@ -1055,7 +1091,13 @@ pub async fn aternos_watch_set(app: AppHandle, servid: String, enabled: bool, in
             }
         }
     });
-    *w = Some((servid, WatchCtx { stop: tx, interval_secs: interval }));
+    *w = Some((
+        servid,
+        WatchCtx {
+            stop: tx,
+            interval_secs: interval,
+        },
+    ));
     Ok(())
 }
 
@@ -1112,7 +1154,11 @@ pub async fn aternos_console_open(app: AppHandle, servid: String) -> Result<(), 
     tauri::async_runtime::spawn(async move {
         use tokio_tungstenite::tungstenite::Message;
         // start console stream
-        let _ = ws_tx.send(Message::Text(r#"{"stream":"console","type":"start"}"#.into())).await;
+        let _ = ws_tx
+            .send(Message::Text(
+                r#"{"stream":"console","type":"start"}"#.into(),
+            ))
+            .await;
         let mut interval = tokio::time::interval(Duration::from_secs(44));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
@@ -1148,10 +1194,19 @@ pub async fn aternos_console_open(app: AppHandle, servid: String) -> Result<(), 
                 }
             }
         }
-        let _ = app2.emit("aternos-console", serde_json::json!({"servid":sid,"line":"[console] disconnected"}));
+        let _ = app2.emit(
+            "aternos-console",
+            serde_json::json!({"servid":sid,"line":"[console] disconnected"}),
+        );
     });
 
-    *CONSOLE.lock().await = Some((servid, ConsoleCtx { stop: stop_tx, cmd_tx }));
+    *CONSOLE.lock().await = Some((
+        servid,
+        ConsoleCtx {
+            stop: stop_tx,
+            cmd_tx,
+        },
+    ));
     Ok(())
 }
 
@@ -1208,9 +1263,17 @@ pub async fn aternos_afk_set(
     let maxp = max_protocol.unwrap_or(767).max(730);
     tauri::async_runtime::spawn(async move {
         loop {
-            if *stop_rx.borrow() { break; }
+            if *stop_rx.borrow() {
+                break;
+            }
             // fetch server host/port/version
-            let info = match aternos_server_info(sid.clone()).await { Ok(i)=>i, Err(_)=>{tokio::time::sleep(Duration::from_secs(8)).await;continue} };
+            let info = match aternos_server_info(sid.clone()).await {
+                Ok(i) => i,
+                Err(_) => {
+                    tokio::time::sleep(Duration::from_secs(8)).await;
+                    continue;
+                }
+            };
             if !info.online {
                 tokio::time::sleep(Duration::from_secs(10)).await;
                 continue;
@@ -1218,11 +1281,28 @@ pub async fn aternos_afk_set(
             let host = info.domain.as_deref().or(info.ip.as_deref()).unwrap_or("");
             let port = info.port.unwrap_or(25565) as u16;
             let proto = protocol_for_version(info.version.as_deref().unwrap_or("")).unwrap_or(maxp);
-            if host.is_empty() { tokio::time::sleep(Duration::from_secs(5)).await; continue; }
-            let _ = app2.emit("aternos-afk", serde_json::json!({"servid":sid,"event":"connecting","proto":proto}));
+            if host.is_empty() {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                continue;
+            }
+            let _ = app2.emit(
+                "aternos-afk",
+                serde_json::json!({"servid":sid,"event":"connecting","proto":proto}),
+            );
             match afk_run_loop(host, port, &nickname, proto, &mut stop_rx).await {
-                Ok(()) => { let _ = app2.emit("aternos-afk", serde_json::json!({"servid":sid,"event":"stopped"})); break; }
-                Err(reason) => { let _ = app2.emit("aternos-afk", serde_json::json!({"servid":sid,"event":"reconnecting","reason":reason})); }
+                Ok(()) => {
+                    let _ = app2.emit(
+                        "aternos-afk",
+                        serde_json::json!({"servid":sid,"event":"stopped"}),
+                    );
+                    break;
+                }
+                Err(reason) => {
+                    let _ = app2.emit(
+                        "aternos-afk",
+                        serde_json::json!({"servid":sid,"event":"reconnecting","reason":reason}),
+                    );
+                }
             }
             tokio::time::sleep(Duration::from_secs(3)).await;
         }
@@ -1237,7 +1317,9 @@ fn varint_len(v: u64) -> usize {
     loop {
         x >>= 7;
         c += 1;
-        if x == 0 { break; }
+        if x == 0 {
+            break;
+        }
     }
     c
 }
@@ -1247,9 +1329,13 @@ fn write_varint(buf: &mut Vec<u8>, v: i32) {
     loop {
         let mut b = (u & 0x7F) as u8;
         u >>= 7;
-        if u != 0 { b |= 0x80; }
+        if u != 0 {
+            b |= 0x80;
+        }
         buf.push(b);
-        if u == 0 { break; }
+        if u == 0 {
+            break;
+        }
     }
 }
 
@@ -1285,35 +1371,40 @@ fn offline_uuid(name: &str) -> String {
 fn protocol_for_version(ver: &str) -> Option<i32> {
     // map to known protocol IDs (1.14.4..1.21.0)
     let v = ver.trim();
-    if v.is_empty() { return None; }
+    if v.is_empty() {
+        return None;
+    }
     let parts: Vec<&str> = v.split('.').collect();
     let major = parts.first().and_then(|s| s.parse::<u32>().ok())?;
     let minor = parts.get(1).and_then(|s| s.parse::<u32>().ok())?;
-    let patch = parts.get(2).and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
+    let patch = parts
+        .get(2)
+        .and_then(|s| s.parse::<u32>().ok())
+        .unwrap_or(0);
     Some(match (major, minor, patch) {
-        (1,21,0)|(1,21,1)|(1,21,2)|(1,21,3)|(1,21,4) => 767,
-        (1,20,6) => 769,
-        (1,20,4)|(1,20,5) => 765,
-        (1,20,3) => 764,
-        (1,20,2) => 763,
-        (1,20,1) => 762,
-        (1,20,0) => 761,
-        (1,19,4) => 762,
-        (1,19,3) => 761,
-        (1,19,2) => 760,
-        (1,19,1) => 760,
-        (1,19,0) => 759,
-        (1,18,2) => 758,
-        (1,18,1) => 757,
-        (1,18,0) => 757,
-        (1,17,1) => 756,
-        (1,17,0) => 755,
-        (1,16,5) => 754,
-        (1,16,4) => 754,
-        (1,16,3) => 754,
-        (1,16,2) => 754,
-        (1,16,1) => 754,
-        (1,16,0) => 754,
+        (1, 21, 0) | (1, 21, 1) | (1, 21, 2) | (1, 21, 3) | (1, 21, 4) => 767,
+        (1, 20, 6) => 769,
+        (1, 20, 4) | (1, 20, 5) => 765,
+        (1, 20, 3) => 764,
+        (1, 20, 2) => 763,
+        (1, 20, 1) => 762,
+        (1, 20, 0) => 761,
+        (1, 19, 4) => 762,
+        (1, 19, 3) => 761,
+        (1, 19, 2) => 760,
+        (1, 19, 1) => 760,
+        (1, 19, 0) => 759,
+        (1, 18, 2) => 758,
+        (1, 18, 1) => 757,
+        (1, 18, 0) => 757,
+        (1, 17, 1) => 756,
+        (1, 17, 0) => 755,
+        (1, 16, 5) => 754,
+        (1, 16, 4) => 754,
+        (1, 16, 3) => 754,
+        (1, 16, 2) => 754,
+        (1, 16, 1) => 754,
+        (1, 16, 0) => 754,
         _ => 767,
     })
 }
@@ -1352,14 +1443,17 @@ async fn afk_run_loop(
     ls.extend_from_slice(&write_str(name));
     // UUID as two i64 (MSB/LSB)
     let uuid_no_dash: String = uuid_str.chars().filter(|c| *c != '-').collect();
-    let bytes = hex_decode_16(&uuid_no_dash).unwrap_or([0u8;16]);
+    let bytes = hex_decode_16(&uuid_no_dash).unwrap_or([0u8; 16]);
     let msb = i64::from_be_bytes(bytes[..8].try_into().unwrap());
     let lsb = i64::from_be_bytes(bytes[8..].try_into().unwrap());
     ls.extend_from_slice(&msb.to_be_bytes());
     ls.extend_from_slice(&lsb.to_be_bytes());
     let mut lb = Vec::new();
     write_packet(&mut lb, 0, &ls);
-    let _ = stream.write_all(&lb).await.map_err(|_| "write login start")?;
+    let _ = stream
+        .write_all(&lb)
+        .await
+        .map_err(|_| "write login start")?;
 
     // Read loop — respond to keep-alive and detect kick
     let mut buf = vec![0u8; 8192];
@@ -1420,21 +1514,27 @@ fn decode_varint(buf: &[u8], start: usize) -> Option<(i32, usize)> {
     let mut shift = 0;
     let mut i = start;
     loop {
-        if i >= buf.len() || i - start >= 5 { return None; }
+        if i >= buf.len() || i - start >= 5 {
+            return None;
+        }
         let b = buf[i];
         result |= ((b & 0x7F) as i32) << shift;
         shift += 7;
         i += 1;
-        if b & 0x80 == 0 { return Some((result, i - start)); }
+        if b & 0x80 == 0 {
+            return Some((result, i - start));
+        }
     }
 }
 
 fn hex_decode_16(s: &str) -> Option<[u8; 16]> {
-    let mut out = [0u8;16];
-    if s.len() < 32 { return None; }
+    let mut out = [0u8; 16];
+    if s.len() < 32 {
+        return None;
+    }
     for i in 0..16 {
-        let hi = s.as_bytes()[i*2];
-        let lo = s.as_bytes()[i*2+1];
+        let hi = s.as_bytes()[i * 2];
+        let lo = s.as_bytes()[i * 2 + 1];
         out[i] = (hex_digit(hi)? << 4) | hex_digit(lo)?;
     }
     Some(out)

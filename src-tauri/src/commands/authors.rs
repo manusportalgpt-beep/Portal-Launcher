@@ -43,7 +43,10 @@ fn http() -> reqwest::Client {
 pub async fn get_modrinth_author(user: String) -> Result<AuthorProfile, String> {
     let client = http();
     let u: serde_json::Value = client
-        .get(format!("https://api.modrinth.com/v2/user/{}", urlencoding::encode(&user)))
+        .get(format!(
+            "https://api.modrinth.com/v2/user/{}",
+            urlencoding::encode(&user)
+        ))
         .send()
         .await
         .map_err(|e| format!("Modrinth: {e}"))?
@@ -53,7 +56,10 @@ pub async fn get_modrinth_author(user: String) -> Result<AuthorProfile, String> 
 
     let id = u["id"].as_str().unwrap_or(&user).to_string();
     let projects_raw: serde_json::Value = client
-        .get(format!("https://api.modrinth.com/v2/user/{}/projects", urlencoding::encode(&id)))
+        .get(format!(
+            "https://api.modrinth.com/v2/user/{}/projects",
+            urlencoding::encode(&id)
+        ))
         .send()
         .await
         .map_err(|e| format!("Modrinth projects: {e}"))?
@@ -77,7 +83,11 @@ pub async fn get_modrinth_author(user: String) -> Result<AuthorProfile, String> 
             source: "modrinth".into(),
             categories: p["categories"]
                 .as_array()
-                .map(|a| a.iter().filter_map(|c| c.as_str().map(String::from)).collect())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|c| c.as_str().map(String::from))
+                        .collect()
+                })
                 .unwrap_or_default(),
         });
     }
@@ -116,7 +126,12 @@ pub async fn get_curseforge_author(
         let mut req = client
             .get("https://api.curseforge.com/v1/mods/search")
             .header("x-api-key", key)
-            .query(&[("gameId", "432"), ("pageSize", "50"), ("sortField", "6"), ("sortOrder", "desc")]);
+            .query(&[
+                ("gameId", "432"),
+                ("pageSize", "50"),
+                ("sortField", "6"),
+                ("sortOrder", "desc"),
+            ]);
         if let Some(id) = author_id {
             req = req.query(&[("authorId", id.to_string())]);
         } else {
@@ -179,14 +194,19 @@ pub async fn get_curseforge_author(
         projects.sort_by(|a, b| b.downloads.cmp(&a.downloads));
     }
 
-        Ok(AuthorProfile {
-            source: "curseforge".into(),
-            id: author_id.map(|i| i.to_string()).unwrap_or_else(|| author.clone()),
-            username: author.clone(),
-            display_name: Some(author.clone()),
-            avatar_url,
-            bio: if projects.is_empty() {
-            Some("Не удалось получить проекты автора — проверьте ключ CurseForge API в настройках.".into())
+    Ok(AuthorProfile {
+        source: "curseforge".into(),
+        id: author_id
+            .map(|i| i.to_string())
+            .unwrap_or_else(|| author.clone()),
+        username: author.clone(),
+        display_name: Some(author.clone()),
+        avatar_url,
+        bio: if projects.is_empty() {
+            Some(
+                "Не удалось получить проекты автора — проверьте ключ CurseForge API в настройках."
+                    .into(),
+            )
         } else {
             None
         },

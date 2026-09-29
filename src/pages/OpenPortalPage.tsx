@@ -118,6 +118,18 @@ const COMMANDS: { cmd: string; desc: string; instant: boolean }[] = [
   { cmd: '/cache', desc: 'Кеш зависимостей песочницы (/cache clean — очистить)', instant: true },
 ];
 
+/**
+ * Навыки, которые дают ИИ доступ к экрану, и потому требуют двойного
+ * подтверждения. Проверяем по вхождению имени в тексте сообщения — навык
+ * можно вызвать и как `/browser-agent`, и вместе с задачей текстом.
+ */
+const DOUBLE_CONFIRM_SKILLS = ['browser-agent'];
+
+function needsDoubleConfirm(text: string): boolean {
+  const lower = text.toLowerCase();
+  return DOUBLE_CONFIRM_SKILLS.some(s => lower.includes(s));
+}
+
 /** Расширение файла из имени (в верхнем регистре, для бейджа). */
 function extOf(name: string): string {
   const i = name.lastIndexOf('.');
@@ -1230,6 +1242,9 @@ export function OpenPortalPage() {
   const [sessionFilter, setSessionFilter] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
+  // Черновик, ждущий двойного подтверждения: { text, step }.
+  const [confirmDraft, setConfirmDraft] = useState<{ text: string; step: 1 | 2 } | null>(null);
+
   // Модификации, которые агент нашёл в этой сессии. Их можно упоминать через
   // @ в сообщении — без повторного поиска и без копирования slug руками.
   const [found, setFound] = useState<ModCard[]>([]);
@@ -1570,6 +1585,15 @@ export function OpenPortalPage() {
     const isOverride = typeof overrideText === 'string';
     let text = (overrideText ?? input).trim();
     if (!text) return;
+
+    // Навык с доступом к экрану запускаем только после ДВОЙНОГО подтверждения.
+    // Первое нажатие показывает, что вообще произойдёт, второе — финальное
+    // согласие. Случайно нажать один раз и отдать ИИ экран невозможно.
+    if (needsDoubleConfirm(text)) {
+      setConfirmDraft({ text, step: 1 });
+      if (!isOverride) setInput('');
+      return;
+    }
     if (!isOverride) setInput('');
 
     const live = useOpenCoreStore.getState();
@@ -2196,6 +2220,83 @@ export function OpenPortalPage() {
 
       <ModelManager />
       <PermissionModal />
+
+      {/* Двойное подтверждение запуска навыка с доступом к экрану. */}
+      {confirmDraft && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="w-full max-w-md rounded-lg border p-5"
+            style={{
+              background: 'var(--color-surface)',
+              borderColor: confirmDraft.step === 2 ? 'var(--color-error)' : 'var(--color-border)',
+              boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+            }}>
+            <div className="mb-2 flex items-center gap-2">
+              <ShieldAlert size={16} style={{ color: confirmDraft.step === 2 ? 'var(--color-error)' : 'var(--color-primary)' }} />
+              <h3 className="text-[14px] font-bold" style={{ color: 'var(--color-text)' }}>
+                {confirmDraft.step === 1 ? 'Разрешить ИИ доступ к браузеру?' : 'Точно разрешить? Это последний шаг'}
+              </h3>
+            </div>
+
+            <div className="mb-3 flex gap-1.5">
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-bold"
+                style={{ background: confirmDraft.step === 1 ? 'var(--color-primary)' : 'var(--color-surface-2)', color: confirmDraft.step === 1 ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)' }}>
+                1. Прочитать
+              </span>
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-bold"
+                style={{ background: confirmDraft.step === 2 ? 'var(--color-error)' : 'var(--color-surface-2)', color: confirmDraft.step === 2 ? '#fff' : 'var(--color-text-tertiary)' }}>
+                2. Запустить
+              </span>
+            </div>
+
+            <ul className="mb-3 space-y-1.5 text-[12px] leading-5" style={{ color: 'var(--color-text-secondary)' }}>
+              <li>• ИИ откроет окно браузера и увидит, что в нём отображается.</li>
+              <li>• Сможет нажимать кнопки, заполнять поля и переходить по ссылкам.</li>
+              <li>• Все его действия видны в окне зелёным курсором с подписью «ИИ».</li>
+              <li>• Закроешь окно — задача сразу прервётся, и ИИ выдаст итог.</li>
+              <li style={{ color: 'var(--color-text)' }}>• Пароли и коды подтверждения ИИ не видит и не вводит — это делаешь ты.</li>
+              <li style={{ color: 'var(--color-text)' }}>• Почта, телефон и номера карт в выдаче скрыты.</li>
+            </ul>
+
+            <div className="mb-4 rounded border p-2.5 text-[11px]" style={{ background: 'var(--color-surface-2)', borderColor: 'var(--color-border)' }}>
+              <span style={{ color: 'var(--color-text-tertiary)' }}>Задача: </span>
+              <span style={{ color: 'var(--color-text)' }}>{confirmDraft.text}</span>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmDraft(null)}
+                className="rounded px-3 py-1.5 text-[12px] font-semibold transition-colors"
+                style={{ color: 'var(--color-text-secondary)', background: 'var(--color-surface-2)' }}>
+                Отмена
+              </button>
+              {confirmDraft.step === 1 ? (
+                <button onClick={() => setConfirmDraft({ ...confirmDraft, step: 2 })}
+                  className="rounded px-3 py-1.5 text-[12px] font-semibold transition-colors"
+                  style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+                  Я прочитал, дальше
+                </button>
+              ) : (
+                <>
+                  <button onClick={() => setConfirmDraft({ ...confirmDraft, step: 1 })}
+                    className="rounded px-3 py-1.5 text-[12px] font-semibold transition-colors"
+                    style={{ color: 'var(--color-text-secondary)', background: 'var(--color-surface-2)' }}>
+                    Назад
+                  </button>
+                  <button onClick={() => {
+                      const draft = confirmDraft;
+                      setConfirmDraft(null);
+                      void send(draft.text);
+                    }}
+                    className="rounded px-3 py-1.5 text-[12px] font-bold transition-colors"
+                    style={{ background: 'var(--color-error)', color: '#fff' }}>
+                    Запустить ИИ в браузере
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

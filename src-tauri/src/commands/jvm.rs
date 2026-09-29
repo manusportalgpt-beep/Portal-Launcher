@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tauri::Emitter;
 
@@ -18,19 +18,25 @@ pub fn java_base_dir() -> PathBuf {
 
 pub fn java_meta_dir() -> PathBuf {
     let p = java_base_dir().join("meta");
-    std::fs::create_dir_all(&p).ok(); p
+    std::fs::create_dir_all(&p).ok();
+    p
 }
 
 pub fn java_cache_dir() -> PathBuf {
     let p = java_base_dir().join("cache");
-    std::fs::create_dir_all(&p).ok(); p
+    std::fs::create_dir_all(&p).ok();
+    p
 }
 
 fn managed_runtime_priority(path: &Path) -> u8 {
     let name = path.to_string_lossy().to_ascii_lowercase();
-    if name.contains("temurin") || name.contains("adoptium") { 0 }
-    else if name.contains("zulu") { 1 }
-    else { 2 }
+    if name.contains("temurin") || name.contains("adoptium") {
+        0
+    } else if name.contains("zulu") {
+        1
+    } else {
+        2
+    }
 }
 
 /// Find best available Java for the given major version.
@@ -47,21 +53,31 @@ pub fn find_java(major: u32) -> String {
             .filter_map(|e| e.ok())
             .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
             .map(|e| {
-                if cfg!(windows) { e.path().join("bin").join("java.exe") }
-                else { e.path().join("bin").join("java") }
+                if cfg!(windows) {
+                    e.path().join("bin").join("java.exe")
+                } else {
+                    e.path().join("bin").join("java")
+                }
             })
             .filter(|p| p.exists())
             .collect();
-        
+
         // Temurin is the automatic Portal Launcher runtime. Zulu remains
         // compatible for users who have selected it explicitly.
         candidates.sort_by_key(|path| managed_runtime_priority(path));
-        
+
         for bin in &candidates {
             if let Some(info) = run_java(&bin.to_string_lossy()) {
-                log::info!("🔍 Found managed Java: {} (version={}, vendor={}, managed={})", 
-                    bin.display(), info.major_version, info.vendor, info.managed);
-                if (info.major_version == major || major == 0) && !info.architecture.eq_ignore_ascii_case("x86") {
+                log::info!(
+                    "🔍 Found managed Java: {} (version={}, vendor={}, managed={})",
+                    bin.display(),
+                    info.major_version,
+                    info.vendor,
+                    info.managed
+                );
+                if (info.major_version == major || major == 0)
+                    && !info.architecture.eq_ignore_ascii_case("x86")
+                {
                     log::info!("✅ Using managed Java: {}", bin.display());
                     return bin.to_string_lossy().to_string();
                 }
@@ -72,13 +88,25 @@ pub fn find_java(major: u32) -> String {
     // 2. A compatible user-installed Java is a fallback, so a launcher with no
     // managed runtime does not download another copy unnecessarily.
     if let Ok(jh) = std::env::var("JAVA_HOME") {
-        let bin = if cfg!(windows) { PathBuf::from(&jh).join("bin").join("java.exe") }
-                  else { PathBuf::from(&jh).join("bin").join("java") };
+        let bin = if cfg!(windows) {
+            PathBuf::from(&jh).join("bin").join("java.exe")
+        } else {
+            PathBuf::from(&jh).join("bin").join("java")
+        };
         if bin.exists() {
             if let Some(info) = run_java(&bin.to_string_lossy()) {
-                log::info!("🔍 Found JAVA_HOME Java: {} (version={})", bin.display(), info.major_version);
-                if (info.major_version == major || major == 0) && !info.architecture.eq_ignore_ascii_case("x86") {
-                    log::info!("Using user-installed Java from JAVA_HOME: {}", bin.display());
+                log::info!(
+                    "🔍 Found JAVA_HOME Java: {} (version={})",
+                    bin.display(),
+                    info.major_version
+                );
+                if (info.major_version == major || major == 0)
+                    && !info.architecture.eq_ignore_ascii_case("x86")
+                {
+                    log::info!(
+                        "Using user-installed Java from JAVA_HOME: {}",
+                        bin.display()
+                    );
                     return bin.to_string_lossy().to_string();
                 }
             }
@@ -90,12 +118,25 @@ pub fn find_java(major: u32) -> String {
     // installed inside Portal Launcher.
     #[cfg(windows)]
     {
-        if let Ok(output) = crate::utils::create_hidden_command("where").arg("java").output() {
-            for candidate in String::from_utf8_lossy(&output.stdout).lines().map(|line| PathBuf::from(line.trim())) {
-                let normalized = candidate.to_string_lossy().replace('/', "\\").to_ascii_lowercase();
-                if normalized.contains("\\common files\\oracle\\java\\javapath\\") { continue; }
+        if let Ok(output) = crate::utils::create_hidden_command("where")
+            .arg("java")
+            .output()
+        {
+            for candidate in String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .map(|line| PathBuf::from(line.trim()))
+            {
+                let normalized = candidate
+                    .to_string_lossy()
+                    .replace('/', "\\")
+                    .to_ascii_lowercase();
+                if normalized.contains("\\common files\\oracle\\java\\javapath\\") {
+                    continue;
+                }
                 if let Some(info) = run_java(&candidate.to_string_lossy()) {
-                    if (info.major_version == major || major == 0) && !info.architecture.eq_ignore_ascii_case("x86") {
+                    if (info.major_version == major || major == 0)
+                        && !info.architecture.eq_ignore_ascii_case("x86")
+                    {
                         log::info!("Using validated system Java: {}", candidate.display());
                         return candidate.to_string_lossy().to_string();
                     }
@@ -113,7 +154,13 @@ pub fn find_java(major: u32) -> String {
                 .into_iter()
                 .flatten()
                 .flatten()
-                .map(|e| e.path().join("Contents").join("Home").join("bin").join("java"))
+                .map(|e| {
+                    e.path()
+                        .join("Contents")
+                        .join("Home")
+                        .join("bin")
+                        .join("java")
+                })
                 .filter(|p| p.exists())
                 .collect();
             candidates.sort_by_key(|path| managed_runtime_priority(path));
@@ -162,63 +209,93 @@ pub fn run_java(java_path: &str) -> Option<JavaInfo> {
     // run_java to return None, which leads to infinite re-downloads.
     let out = crate::utils::create_hidden_command(java_path)
         .arg("-version")
-        .output().ok()?;
+        .output()
+        .ok()?;
     // java -version prints version info to stderr by spec
-    let text = String::from_utf8_lossy(&out.stderr).to_string()
-             + &String::from_utf8_lossy(&out.stdout);
-    
+    let text =
+        String::from_utf8_lossy(&out.stderr).to_string() + &String::from_utf8_lossy(&out.stdout);
+
     // Определяем версию: ищем строку с "java.version =" (не specification/runtime)
     let ver_line = text.lines().find(|l| {
         let trimmed = l.trim();
         trimmed.starts_with("java.version =") || trimmed.contains("version \"")
     })?;
-    let ver = ver_line.split('"').nth(1)
+    let ver = ver_line
+        .split('"')
+        .nth(1)
         .or_else(|| ver_line.split('=').nth(1))
         .map(|s| s.trim().to_string())
         .unwrap_or_else(|| "unknown".to_string());
-    
+
     // Определяем мажорную версию
     let major = if ver.starts_with("1.") {
-        ver.split('.').nth(1).and_then(|s| s.parse().ok()).unwrap_or(8)
+        ver.split('.')
+            .nth(1)
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(8)
     } else {
-        ver.split('.').next().and_then(|s| s.parse().ok()).unwrap_or(0)
+        ver.split('.')
+            .next()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0)
     };
-    
+
     // Определяем вендора из вывода -version
     // -version выводит: "OpenJDK Runtime Environment Temurin-17.0.9+9"
-    let vendor = if text.contains("Temurin") { "Temurin".to_string() }
-        else if text.contains("Zulu") { "Zulu".to_string() }
-        else if text.contains("Oracle") { "Oracle".to_string() }
-        else if text.contains("OpenJDK") { "OpenJDK".to_string() }
-        else { String::new() };
-    
+    let vendor = if text.contains("Temurin") {
+        "Temurin".to_string()
+    } else if text.contains("Zulu") {
+        "Zulu".to_string()
+    } else if text.contains("Oracle") {
+        "Oracle".to_string()
+    } else if text.contains("OpenJDK") {
+        "OpenJDK".to_string()
+    } else {
+        String::new()
+    };
+
     // Определяем архитектуру из вывода -version
     // -version выводит: "OpenJDK 64-Bit Server VM" или "OpenJDK Server VM" (32-bit)
-    let arch = if text.contains("64-Bit") || text.contains("x86_64") || text.contains("amd64") { "x86_64".to_string() }
-        else if text.contains("32-Bit") || text.contains("i386") { "x86".to_string() }
-        else if text.contains("aarch64") { "aarch64".to_string() }
-        else { std::env::consts::ARCH.to_string() };
-    
+    let arch = if text.contains("64-Bit") || text.contains("x86_64") || text.contains("amd64") {
+        "x86_64".to_string()
+    } else if text.contains("32-Bit") || text.contains("i386") {
+        "x86".to_string()
+    } else if text.contains("aarch64") {
+        "aarch64".to_string()
+    } else {
+        std::env::consts::ARCH.to_string()
+    };
+
     // Определяем, является ли Java управляемой (managed)
     let managed = java_path.contains("PortalLauncher")
         || (java_path.contains("java") && !java_path.contains("Program"));
-    
-    log::info!("🔍 Java detected: path={}, version={}, major={}, vendor={}, managed={}", 
-        java_path, ver, major, vendor, managed);
-    
-    Some(JavaInfo { 
-        path: java_path.to_string(), 
-        version: ver, 
-        major_version: major, 
-        vendor, 
-        managed, 
-        architecture: arch 
+
+    log::info!(
+        "🔍 Java detected: path={}, version={}, major={}, vendor={}, managed={}",
+        java_path,
+        ver,
+        major,
+        vendor,
+        managed
+    );
+
+    Some(JavaInfo {
+        path: java_path.to_string(),
+        version: ver,
+        major_version: major,
+        vendor,
+        managed,
+        architecture: arch,
     })
 }
 
 #[tauri::command]
 pub async fn get_java_info(java_path: String) -> Result<JavaInfo, String> {
-    let path = if java_path.is_empty() { "java".to_string() } else { java_path };
+    let path = if java_path.is_empty() {
+        "java".to_string()
+    } else {
+        java_path
+    };
     run_java(&path).ok_or_else(|| format!("Could not run Java at '{}'", path))
 }
 
@@ -228,7 +305,9 @@ pub async fn get_java_info(java_path: String) -> Result<JavaInfo, String> {
 #[tauri::command]
 pub async fn detect_java_for_version(major_version: u32) -> Result<Option<JavaInfo>, String> {
     let path = find_java(major_version);
-    let Some(info) = run_java(&path) else { return Ok(None); };
+    let Some(info) = run_java(&path) else {
+        return Ok(None);
+    };
     if info.major_version == major_version && !info.architecture.eq_ignore_ascii_case("x86") {
         Ok(Some(info))
     } else {
@@ -242,9 +321,14 @@ pub async fn get_managed_java_versions() -> Result<Vec<JavaInfo>, String> {
     let mut result = vec![];
     if let Ok(entries) = std::fs::read_dir(&base) {
         for entry in entries.flatten() {
-            if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) { continue; }
-            let bin = if cfg!(windows) { entry.path().join("bin").join("java.exe") }
-                      else { entry.path().join("bin").join("java") };
+            if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                continue;
+            }
+            let bin = if cfg!(windows) {
+                entry.path().join("bin").join("java.exe")
+            } else {
+                entry.path().join("bin").join("java")
+            };
             if let Some(mut info) = run_java(&bin.to_string_lossy()) {
                 info.managed = true;
                 result.push(info);
@@ -252,14 +336,19 @@ pub async fn get_managed_java_versions() -> Result<Vec<JavaInfo>, String> {
         }
     }
     // Also include system java
-    if let Some(sys) = run_java("java") { result.push(sys); }
+    if let Some(sys) = run_java("java") {
+        result.push(sys);
+    }
     Ok(result)
 }
 
 // ─── Shared extraction helper ──────────────────────────────────────────────────
-fn extract_archive<F: Fn(u8, &str) + Send + Sync>(data: &[u8], dest: &PathBuf, ext: &str,
-    emit: &F) -> Result<(), String>
-{
+fn extract_archive<F: Fn(u8, &str) + Send + Sync>(
+    data: &[u8],
+    dest: &PathBuf,
+    ext: &str,
+    emit: &F,
+) -> Result<(), String> {
     std::fs::create_dir_all(dest).map_err(|e| e.to_string())?;
     if ext == "zip" {
         use std::io::{Cursor, Read};
@@ -268,24 +357,42 @@ fn extract_archive<F: Fn(u8, &str) + Send + Sync>(data: &[u8], dest: &PathBuf, e
         for i in 0..total {
             let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
             let name = entry.name().to_string();
-            let rel = if name.starts_with("bin/") || name.starts_with("Contents/") { name.as_str() } else { name.splitn(2, '/').nth(1).unwrap_or(&name) };
-            if rel.is_empty() { continue; }
+            let rel = if name.starts_with("bin/") || name.starts_with("Contents/") {
+                name.as_str()
+            } else {
+                name.splitn(2, '/').nth(1).unwrap_or(&name)
+            };
+            if rel.is_empty() {
+                continue;
+            }
             let out = dest.join(rel);
-            if entry.is_dir() { std::fs::create_dir_all(&out).ok(); }
-            else {
-                if let Some(p) = out.parent() { std::fs::create_dir_all(p).ok(); }
+            if entry.is_dir() {
+                std::fs::create_dir_all(&out).ok();
+            } else {
+                if let Some(p) = out.parent() {
+                    std::fs::create_dir_all(p).ok();
+                }
                 let mut buf = vec![];
                 entry.read_to_end(&mut buf).ok();
                 std::fs::write(&out, buf).ok();
             }
-            if i % 50 == 0 { emit(60 + (i * 35 / total.max(1)) as u8, &format!("Extracting {}/{}", i, total)); }
+            if i % 50 == 0 {
+                emit(
+                    60 + (i * 35 / total.max(1)) as u8,
+                    &format!("Extracting {}/{}", i, total),
+                );
+            }
         }
     } else {
         use flate2::read::GzDecoder;
         use tar::Archive;
         let gz = GzDecoder::new(std::io::Cursor::new(data));
         let mut archive = Archive::new(gz);
-        let entries_v: Vec<_> = archive.entries().map_err(|e| e.to_string())?.collect::<Result<Vec<_>,_>>().map_err(|e| e.to_string())?;
+        let entries_v: Vec<_> = archive
+            .entries()
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
         let total_f = entries_v.len();
         // Re-open for extraction
         let gz2 = GzDecoder::new(std::io::Cursor::new(data));
@@ -293,19 +400,37 @@ fn extract_archive<F: Fn(u8, &str) + Send + Sync>(data: &[u8], dest: &PathBuf, e
         for (i, entry) in archive2.entries().map_err(|e| e.to_string())?.enumerate() {
             let mut e = entry.map_err(|e| e.to_string())?;
             let path = e.path().map_err(|e| e.to_string())?.to_path_buf();
-            let first = path.components().next().and_then(|part| part.as_os_str().to_str()).unwrap_or("");
-            let rel: PathBuf = if first == "bin" || first == "Contents" { path.clone() } else { path.components().skip(1).collect() };
-            if rel.as_os_str().is_empty() { continue; }
+            let first = path
+                .components()
+                .next()
+                .and_then(|part| part.as_os_str().to_str())
+                .unwrap_or("");
+            let rel: PathBuf = if first == "bin" || first == "Contents" {
+                path.clone()
+            } else {
+                path.components().skip(1).collect()
+            };
+            if rel.as_os_str().is_empty() {
+                continue;
+            }
             let out = dest.join(&rel);
-            if let Some(p) = out.parent() { std::fs::create_dir_all(p).ok(); }
+            if let Some(p) = out.parent() {
+                std::fs::create_dir_all(p).ok();
+            }
             e.unpack(&out).ok();
-            #[cfg(unix)] {
+            #[cfg(unix)]
+            {
                 use std::os::unix::fs::PermissionsExt;
                 if let Ok(mode) = e.header().mode() {
                     std::fs::set_permissions(&out, std::fs::Permissions::from_mode(mode)).ok();
                 }
             }
-            if i % 50 == 0 { emit(60 + (i * 35 / total_f.max(1)) as u8, &format!("Extracting {}/{}", i, total_f)); }
+            if i % 50 == 0 {
+                emit(
+                    60 + (i * 35 / total_f.max(1)) as u8,
+                    &format!("Extracting {}/{}", i, total_f),
+                );
+            }
         }
     }
     Ok(())
@@ -314,17 +439,23 @@ fn extract_archive<F: Fn(u8, &str) + Send + Sync>(data: &[u8], dest: &PathBuf, e
 fn locate_java_binary(root: &Path) -> Option<PathBuf> {
     let binary = if cfg!(windows) { "java.exe" } else { "java" };
     let direct = root.join("bin").join(binary);
-    if direct.exists() { return Some(direct); }
+    if direct.exists() {
+        return Some(direct);
+    }
     let mut stack = vec![(root.to_path_buf(), 0u8)];
     while let Some((dir, depth)) = stack.pop() {
-        if depth > 5 { continue; }
+        if depth > 5 {
+            continue;
+        }
         let entries = std::fs::read_dir(&dir).ok()?;
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
                 if path.file_name().and_then(|name| name.to_str()) == Some("bin") {
                     let candidate = path.join(binary);
-                    if candidate.exists() { return Some(candidate); }
+                    if candidate.exists() {
+                        return Some(candidate);
+                    }
                 } else {
                     stack.push((path, depth + 1));
                 }
@@ -345,9 +476,25 @@ async fn download_zulu<F: Fn(u8, &str) + Send + Sync>(
     let (zulu_os, zulu_arch, ext) = if cfg!(target_os = "windows") {
         ("windows", "x86_64", "zip")
     } else if cfg!(target_os = "macos") {
-        ("macos", if cfg!(target_arch = "aarch64") { "aarch64" } else { "x86_64" }, "tar.gz")
+        (
+            "macos",
+            if cfg!(target_arch = "aarch64") {
+                "aarch64"
+            } else {
+                "x86_64"
+            },
+            "tar.gz",
+        )
     } else {
-        ("linux", if cfg!(target_arch = "aarch64") { "aarch64" } else { "x86_64" }, "tar.gz")
+        (
+            "linux",
+            if cfg!(target_arch = "aarch64") {
+                "aarch64"
+            } else {
+                "x86_64"
+            },
+            "tar.gz",
+        )
     };
 
     let api_url = format!(
@@ -355,22 +502,50 @@ async fn download_zulu<F: Fn(u8, &str) + Send + Sync>(
         major_version, zulu_os, zulu_arch, ext
     );
 
-    emit(5, &format!("Fetching Zulu JDK {} for {} {}...", major_version, zulu_os, zulu_arch));
+    emit(
+        5,
+        &format!(
+            "Fetching Zulu JDK {} for {} {}...",
+            major_version, zulu_os, zulu_arch
+        ),
+    );
 
-    let pkgs: serde_json::Value = client.get(&api_url).send().await
-        .map_err(|e| format!("Zulu API: {e}"))?.json().await
+    let pkgs: serde_json::Value = client
+        .get(&api_url)
+        .send()
+        .await
+        .map_err(|e| format!("Zulu API: {e}"))?
+        .json()
+        .await
         .map_err(|e| format!("Zulu parse: {e}"))?;
 
-    let pkg = pkgs.as_array().and_then(|a| a.first()).ok_or("No Zulu release found for this platform")?;
-    let download_url = pkg["download_url"].as_str().ok_or("Zulu: missing download_url")?.to_string();
-    let java_ver = pkg["java_version"].as_array()
-        .and_then(|v| v.first()).and_then(|v| v.as_u64()).unwrap_or(major_version as u64);
+    let pkg = pkgs
+        .as_array()
+        .and_then(|a| a.first())
+        .ok_or("No Zulu release found for this platform")?;
+    let download_url = pkg["download_url"]
+        .as_str()
+        .ok_or("Zulu: missing download_url")?
+        .to_string();
+    let java_ver = pkg["java_version"]
+        .as_array()
+        .and_then(|v| v.first())
+        .and_then(|v| v.as_u64())
+        .unwrap_or(major_version as u64);
     let pkg_name = pkg["name"].as_str().unwrap_or("zulu-jdk").to_string();
 
-    emit(10, &format!("Downloading Zulu JDK {} ({})...", java_ver, pkg_name));
+    emit(
+        10,
+        &format!("Downloading Zulu JDK {} ({})...", java_ver, pkg_name),
+    );
 
-    let resp = client.get(&download_url).send().await.map_err(|e| format!("Download: {e}"))?
-        .error_for_status().map_err(|e| format!("Zulu download HTTP error: {e}"))?;
+    let resp = client
+        .get(&download_url)
+        .send()
+        .await
+        .map_err(|e| format!("Download: {e}"))?
+        .error_for_status()
+        .map_err(|e| format!("Zulu download HTTP error: {e}"))?;
     let data: Vec<u8> = resp.bytes().await.map_err(|e| e.to_string())?.to_vec();
 
     emit(55, "Extracting Zulu JDK...");
@@ -381,7 +556,12 @@ async fn download_zulu<F: Fn(u8, &str) + Send + Sync>(
 
     extract_archive(&data, &dest, ext, emit)?;
 
-    let java_bin = locate_java_binary(&dest).ok_or_else(|| format!("Zulu Java binary was not found after extracting {}", dest.display()))?;
+    let java_bin = locate_java_binary(&dest).ok_or_else(|| {
+        format!(
+            "Zulu Java binary was not found after extracting {}",
+            dest.display()
+        )
+    })?;
 
     emit(100, &format!("Azul Zulu JDK {} installed!", java_ver));
     Ok(java_bin.to_string_lossy().to_string())
@@ -393,9 +573,21 @@ async fn download_temurin<F: Fn(u8, &str) + Send + Sync>(
     major_version: u32,
     emit: &F,
 ) -> Result<String, String> {
-    let (os, arch, ext) = if cfg!(target_os = "windows") { ("windows", "x64", "zip") }
-        else if cfg!(target_os = "macos") { ("mac", if cfg!(target_arch = "aarch64") { "aarch64" } else { "x64" }, "tar.gz") }
-        else { ("linux", "x64", "tar.gz") };
+    let (os, arch, ext) = if cfg!(target_os = "windows") {
+        ("windows", "x64", "zip")
+    } else if cfg!(target_os = "macos") {
+        (
+            "mac",
+            if cfg!(target_arch = "aarch64") {
+                "aarch64"
+            } else {
+                "x64"
+            },
+            "tar.gz",
+        )
+    } else {
+        ("linux", "x64", "tar.gz")
+    };
 
     emit(5, &format!("Fetching Temurin JDK {}...", major_version));
 
@@ -403,30 +595,55 @@ async fn download_temurin<F: Fn(u8, &str) + Send + Sync>(
         "https://api.adoptium.net/v3/assets/latest/{}/hotspot?os={}&architecture={}&image_type=jdk",
         major_version, os, arch
     );
-    let releases: serde_json::Value = client.get(&api_url).send().await
-        .map_err(|e| format!("Adoptium: {e}"))?.json().await
+    let releases: serde_json::Value = client
+        .get(&api_url)
+        .send()
+        .await
+        .map_err(|e| format!("Adoptium: {e}"))?
+        .json()
+        .await
         .map_err(|e| format!("Adoptium parse: {e}"))?;
 
-    let release = releases.as_array().and_then(|a| a.first()).ok_or("No Temurin release found")?;
+    let release = releases
+        .as_array()
+        .and_then(|a| a.first())
+        .ok_or("No Temurin release found")?;
     let bin_obj = release["binary"].as_object().ok_or("No binary")?;
     let pkg = bin_obj["package"].as_object().ok_or("No package")?;
     let download_url = pkg["link"].as_str().ok_or("No download link")?.to_string();
-    let actual_version = release["version"]["semver"].as_str().unwrap_or("").to_string();
+    let actual_version = release["version"]["semver"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
 
     emit(10, &format!("Downloading Temurin {}...", actual_version));
 
-    let resp = client.get(&download_url).send().await.map_err(|e| format!("Download: {e}"))?
-        .error_for_status().map_err(|e| format!("Temurin download HTTP error: {e}"))?;
+    let resp = client
+        .get(&download_url)
+        .send()
+        .await
+        .map_err(|e| format!("Download: {e}"))?
+        .error_for_status()
+        .map_err(|e| format!("Temurin download HTTP error: {e}"))?;
     let data: Vec<u8> = resp.bytes().await.map_err(|e| e.to_string())?.to_vec();
 
     emit(55, "Extracting Temurin JDK...");
     let base = java_base_dir();
-    let dir_name = format!("temurin-jdk{}-{}", major_version, actual_version.replace('.', "_"));
+    let dir_name = format!(
+        "temurin-jdk{}-{}",
+        major_version,
+        actual_version.replace('.', "_")
+    );
     let dest = base.join(&dir_name);
     let _ = std::fs::remove_dir_all(&dest);
     extract_archive(&data, &dest, ext, emit)?;
 
-    let java_bin = locate_java_binary(&dest).ok_or_else(|| format!("Temurin Java binary was not found after extracting {}", dest.display()))?;
+    let java_bin = locate_java_binary(&dest).ok_or_else(|| {
+        format!(
+            "Temurin Java binary was not found after extracting {}",
+            dest.display()
+        )
+    })?;
 
     emit(100, &format!("Temurin JDK {} installed!", actual_version));
     Ok(java_bin.to_string_lossy().to_string())
@@ -445,13 +662,24 @@ pub async fn download_java(app: tauri::AppHandle, major_version: u32) -> Result<
     let base = java_base_dir();
     if let Ok(entries) = std::fs::read_dir(&base) {
         for entry in entries.flatten() {
-            if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) { continue; }
-            let bin = if cfg!(windows) { entry.path().join("bin").join("java.exe") }
-                      else { entry.path().join("bin").join("java") };
-            if !bin.exists() { continue; }
+            if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                continue;
+            }
+            let bin = if cfg!(windows) {
+                entry.path().join("bin").join("java.exe")
+            } else {
+                entry.path().join("bin").join("java")
+            };
+            if !bin.exists() {
+                continue;
+            }
             if let Some(info) = run_java(&bin.to_string_lossy()) {
                 if info.major_version == major_version {
-                    log::info!("✅ Reusing already-downloaded Java {} at {}", major_version, bin.display());
+                    log::info!(
+                        "✅ Reusing already-downloaded Java {} at {}",
+                        major_version,
+                        bin.display()
+                    );
                     return Ok(bin.to_string_lossy().to_string());
                 }
             } else {
@@ -462,7 +690,11 @@ pub async fn download_java(app: tauri::AppHandle, major_version: u32) -> Result<
                     || dir_name.contains(&format!("temurin-jdk{}", major_version))
                     || dir_name.contains(&format!("zulu-jdk{}", major_version))
                 {
-                    log::info!("✅ Reusing Java {} (inferred from dir name) at {}", major_version, bin.display());
+                    log::info!(
+                        "✅ Reusing Java {} (inferred from dir name) at {}",
+                        major_version,
+                        bin.display()
+                    );
                     return Ok(bin.to_string_lossy().to_string());
                 }
             }
@@ -470,45 +702,66 @@ pub async fn download_java(app: tauri::AppHandle, major_version: u32) -> Result<
     }
 
     let emit = move |pct: u8, msg: &str| {
-        app.emit("java-download", serde_json::json!({
-            "percent": pct, "message": msg, "version": major_version
-        })).ok();
+        app.emit(
+            "java-download",
+            serde_json::json!({
+                "percent": pct, "message": msg, "version": major_version
+            }),
+        )
+        .ok();
     };
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(600))
         .user_agent("PortalLauncher/1.3")
-        .build().map_err(|e| e.to_string())?;
+        .build()
+        .map_err(|e| e.to_string())?;
 
     download_temurin(&client, major_version, &emit).await
 }
 
 /// Explicitly download Azul Zulu JDK (for ARM / Apple Silicon preference).
 #[tauri::command]
-pub async fn download_java_zulu(app: tauri::AppHandle, major_version: u32) -> Result<String, String> {
+pub async fn download_java_zulu(
+    app: tauri::AppHandle,
+    major_version: u32,
+) -> Result<String, String> {
     let emit = move |pct: u8, msg: &str| {
-        app.emit("java-download", serde_json::json!({
-            "percent": pct, "message": msg, "version": major_version, "vendor": "zulu"
-        })).ok();
+        app.emit(
+            "java-download",
+            serde_json::json!({
+                "percent": pct, "message": msg, "version": major_version, "vendor": "zulu"
+            }),
+        )
+        .ok();
     };
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(600))
         .user_agent("PortalLauncher/1.3")
-        .build().map_err(|e| e.to_string())?;
+        .build()
+        .map_err(|e| e.to_string())?;
     download_zulu(&client, major_version, &emit).await
 }
 
 /// Explicitly download Eclipse Adoptium Temurin JDK chosen by the player.
 #[tauri::command]
-pub async fn download_java_temurin(app: tauri::AppHandle, major_version: u32) -> Result<String, String> {
+pub async fn download_java_temurin(
+    app: tauri::AppHandle,
+    major_version: u32,
+) -> Result<String, String> {
     let emit = move |pct: u8, msg: &str| {
-        app.emit("java-download", serde_json::json!({
-            "percent": pct, "message": msg, "version": major_version, "vendor": "temurin"
-        })).ok();
+        app.emit(
+            "java-download",
+            serde_json::json!({
+                "percent": pct, "message": msg, "version": major_version, "vendor": "temurin"
+            }),
+        )
+        .ok();
     };
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(600))
         .user_agent("PortalLauncher/1.3")
-        .build().map_err(|e| e.to_string())?;
+        .build()
+        .map_err(|e| e.to_string())?;
     download_temurin(&client, major_version, &emit).await
 }

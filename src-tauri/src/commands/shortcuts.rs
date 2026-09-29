@@ -25,7 +25,12 @@ fn desktop_dir() -> Result<PathBuf, String> {
     #[cfg(windows)]
     {
         let output = crate::utils::create_hidden_command("powershell")
-            .args(["-NoProfile", "-NonInteractive", "-Command", "[Environment]::GetFolderPath('Desktop')"])
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "[Environment]::GetFolderPath('Desktop')",
+            ])
             .output()
             .map_err(|e| format!("Не удалось определить рабочий стол: {e}"))?;
         let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -52,7 +57,13 @@ fn desktop_dir() -> Result<PathBuf, String> {
 fn safe_file_stem(name: &str) -> String {
     let mut value = name
         .chars()
-        .map(|c| if matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*') { '_' } else { c })
+        .map(|c| {
+            if matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*') {
+                '_'
+            } else {
+                c
+            }
+        })
         .collect::<String>()
         .trim()
         .to_string();
@@ -96,12 +107,20 @@ pub fn refresh_portal_launcher_desktop_shortcut() -> Result<(), String> {
         ])
         .output()
         .map_err(|error| format!("Не удалось обновить ярлык лаунчера: {error}"))?;
-    if output.status.success() { Ok(()) }
-    else { Err(format!("Windows не обновила иконку ярлыка: {}", String::from_utf8_lossy(&output.stderr).trim())) }
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(format!(
+            "Windows не обновила иконку ярлыка: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ))
+    }
 }
 
 #[cfg(not(windows))]
-pub fn refresh_portal_launcher_desktop_shortcut() -> Result<(), String> { Ok(()) }
+pub fn refresh_portal_launcher_desktop_shortcut() -> Result<(), String> {
+    Ok(())
+}
 
 /// Wrap a PNG payload in a minimal PNG-backed ICO container for Windows shortcuts.
 fn write_png_ico(png_path: &Path, ico_path: &Path) -> Result<bool, String> {
@@ -123,7 +142,8 @@ fn write_png_ico(png_path: &Path, ico_path: &Path) -> Result<bool, String> {
     ico.extend_from_slice(&(png.len() as u32).to_le_bytes());
     ico.extend_from_slice(&22u32.to_le_bytes());
     ico.extend_from_slice(&png);
-    std::fs::write(ico_path, ico).map_err(|e| format!("Не удалось сохранить иконку сборки: {e}"))?;
+    std::fs::write(ico_path, ico)
+        .map_err(|e| format!("Не удалось сохранить иконку сборки: {e}"))?;
     Ok(true)
 }
 
@@ -131,7 +151,9 @@ fn write_png_ico(png_path: &Path, ico_path: &Path) -> Result<bool, String> {
 /// The frontend renders every Windows size before sending it, so Explorer does
 /// not need to blur one small source image on the desktop.
 fn write_data_url_ico(data_url: &str, ico_path: &Path) -> Result<bool, String> {
-    let Some((header, encoded)) = data_url.split_once(',') else { return Ok(false) };
+    let Some((header, encoded)) = data_url.split_once(',') else {
+        return Ok(false);
+    };
     if !header.starts_with("data:image/") || !header.contains("base64") {
         return Ok(false);
     }
@@ -144,7 +166,8 @@ fn write_data_url_ico(data_url: &str, ico_path: &Path) -> Result<bool, String> {
     if bytes.get(0..4) != Some(&[0, 0, 1, 0]) {
         return Ok(false);
     }
-    std::fs::write(ico_path, bytes).map_err(|e| format!("Не удалось сохранить иконку сборки: {e}"))?;
+    std::fs::write(ico_path, bytes)
+        .map_err(|e| format!("Не удалось сохранить иконку сборки: {e}"))?;
     Ok(true)
 }
 
@@ -160,9 +183,13 @@ pub fn create_instance_shortcut(
     let desktop = desktop_dir()?;
     std::fs::create_dir_all(&desktop).map_err(|e| format!("Рабочий стол недоступен: {e}"))?;
     let label = safe_file_stem(&instance_name);
-    let executable = std::env::current_exe().map_err(|e| format!("Не удалось определить Portal Launcher.exe: {e}"))?;
+    let executable = std::env::current_exe()
+        .map_err(|e| format!("Не удалось определить Portal Launcher.exe: {e}"))?;
     let instance_icon = crate::mc::launch::instance_game_dir(&instance_id).join("icon.png");
-    let stored_instance_icon = crate::commands::version_manager::mc_base_dir().join("instances").join(&instance_id).join("icon.png");
+    let stored_instance_icon = crate::commands::version_manager::mc_base_dir()
+        .join("instances")
+        .join(&instance_id)
+        .join("icon.png");
     let shortcut_icon = shortcut_icon_dir()?.join(format!("{}.ico", safe_file_stem(&instance_id)));
     let legacy_desktop_icon = desktop.join(format!("{label}.ico"));
     let has_instance_icon = icon_ico_data_url
@@ -194,12 +221,23 @@ pub fn create_instance_shortcut(
             ps_quote(&format!("Запустить сборку {} напрямую через Portal Launcher", instance_name)),
         );
         let output = crate::utils::create_hidden_command("powershell")
-            .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &script])
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                &script,
+            ])
             .output()
             .map_err(|e| format!("Не удалось создать ярлык: {e}"))?;
         if !output.status.success() || !shortcut_path.exists() {
             let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            return Err(if detail.is_empty() { "Windows не создал ярлык.".to_string() } else { detail });
+            return Err(if detail.is_empty() {
+                "Windows не создал ярлык.".to_string()
+            } else {
+                detail
+            });
         }
         // Older versions placed helper ICO files beside the .lnk. Explorer
         // showed them as a second desktop object and opened the ICO in Paint.
@@ -207,9 +245,19 @@ pub fn create_instance_shortcut(
         if let Ok(entries) = std::fs::read_dir(&desktop) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                let is_ico = path.extension().and_then(|ext| ext.to_str()).map(|ext| ext.eq_ignore_ascii_case("ico")).unwrap_or(false);
-                let is_launcher_icon = path.file_stem().and_then(|stem| stem.to_str()).map(|stem| stem == label || stem.starts_with("Portal Launcher")).unwrap_or(false);
-                if is_ico && is_launcher_icon { let _ = std::fs::remove_file(path); }
+                let is_ico = path
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .map(|ext| ext.eq_ignore_ascii_case("ico"))
+                    .unwrap_or(false);
+                let is_launcher_icon = path
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .map(|stem| stem == label || stem.starts_with("Portal Launcher"))
+                    .unwrap_or(false);
+                if is_ico && is_launcher_icon {
+                    let _ = std::fs::remove_file(path);
+                }
             }
         }
         return Ok(shortcut_path.to_string_lossy().to_string());
@@ -218,8 +266,13 @@ pub fn create_instance_shortcut(
     #[cfg(target_os = "macos")]
     {
         let shortcut_path = desktop.join(format!("{label}.command"));
-        let text = format!("#!/bin/sh\nexec \\\"{}\\\" --portal-launch-instance \\\"{}\\\"\n", executable.to_string_lossy(), instance_id);
-        std::fs::write(&shortcut_path, text).map_err(|e| format!("Не удалось записать ярлык: {e}"))?;
+        let text = format!(
+            "#!/bin/sh\nexec \\\"{}\\\" --portal-launch-instance \\\"{}\\\"\n",
+            executable.to_string_lossy(),
+            instance_id
+        );
+        std::fs::write(&shortcut_path, text)
+            .map_err(|e| format!("Не удалось записать ярлык: {e}"))?;
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&shortcut_path, std::fs::Permissions::from_mode(0o755)).ok();
         return Ok(shortcut_path.to_string_lossy().to_string());
@@ -228,9 +281,14 @@ pub fn create_instance_shortcut(
     #[cfg(all(unix, not(target_os = "macos")))]
     {
         let shortcut_path = desktop.join(format!("{label}.desktop"));
-        let exec = format!("{} --portal-launch-instance {}", executable.to_string_lossy().replace(' ', "\\ "), instance_id.replace(' ', "\\ "));
+        let exec = format!(
+            "{} --portal-launch-instance {}",
+            executable.to_string_lossy().replace(' ', "\\ "),
+            instance_id.replace(' ', "\\ ")
+        );
         let content = format!("[Desktop Entry]\nType=Application\nName={}\nComment=Launch Minecraft instance with Portal Launcher\nExec={}\nTerminal=false\nCategories=Game;\n", instance_name.replace('\n', " "), exec);
-        std::fs::write(&shortcut_path, content).map_err(|e| format!("Не удалось записать ярлык: {e}"))?;
+        std::fs::write(&shortcut_path, content)
+            .map_err(|e| format!("Не удалось записать ярлык: {e}"))?;
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&shortcut_path, std::fs::Permissions::from_mode(0o755)).ok();
         return Ok(shortcut_path.to_string_lossy().to_string());

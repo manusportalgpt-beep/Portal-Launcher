@@ -24,8 +24,13 @@ pub struct PublicSkinTexture {
 #[tauri::command]
 pub async fn lookup_public_skin(username: String) -> Result<PublicSkinTexture, String> {
     let name = username.trim();
-    if name.is_empty() || name.len() > 16 || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
-        return Err("Введите корректный Minecraft ник: 1–16 символов, буквы, цифры и _.".to_string());
+    if name.is_empty()
+        || name.len() > 16
+        || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    {
+        return Err(
+            "Введите корректный Minecraft ник: 1–16 символов, буквы, цифры и _.".to_string(),
+        );
     }
 
     let client = reqwest::Client::builder()
@@ -34,49 +39,91 @@ pub async fn lookup_public_skin(username: String) -> Result<PublicSkinTexture, S
         .build()
         .map_err(|e| format!("Не удалось создать HTTP client: {e}"))?;
     let profile = client
-        .get(format!("https://api.mojang.com/users/profiles/minecraft/{name}"))
-        .send().await
+        .get(format!(
+            "https://api.mojang.com/users/profiles/minecraft/{name}"
+        ))
+        .send()
+        .await
         .map_err(|e| format!("Не удалось найти игрока: {e}"))?;
-    if profile.status() == reqwest::StatusCode::NO_CONTENT || profile.status() == reqwest::StatusCode::NOT_FOUND {
+    if profile.status() == reqwest::StatusCode::NO_CONTENT
+        || profile.status() == reqwest::StatusCode::NOT_FOUND
+    {
         return Err("Игрок с таким ником не найден или не имеет публичного профиля.".to_string());
     }
     if !profile.status().is_success() {
-        return Err(format!("Minecraft profile API вернул HTTP {}", profile.status()));
+        return Err(format!(
+            "Minecraft profile API вернул HTTP {}",
+            profile.status()
+        ));
     }
-    let profile: serde_json::Value = profile.json().await
+    let profile: serde_json::Value = profile
+        .json()
+        .await
         .map_err(|e| format!("Не удалось прочитать профиль игрока: {e}"))?;
     let uuid = profile["id"].as_str().unwrap_or("").to_string();
     let resolved_name = profile["name"].as_str().unwrap_or(name).to_string();
-    if uuid.is_empty() { return Err("Minecraft profile не вернул UUID игрока.".to_string()); }
+    if uuid.is_empty() {
+        return Err("Minecraft profile не вернул UUID игрока.".to_string());
+    }
 
     let session = client
-        .get(format!("https://sessionserver.mojang.com/session/minecraft/profile/{uuid}"))
-        .send().await
+        .get(format!(
+            "https://sessionserver.mojang.com/session/minecraft/profile/{uuid}"
+        ))
+        .send()
+        .await
         .map_err(|e| format!("Не удалось получить texture profile: {e}"))?;
     if !session.status().is_success() {
-        return Err(format!("Minecraft texture API вернул HTTP {}", session.status()));
+        return Err(format!(
+            "Minecraft texture API вернул HTTP {}",
+            session.status()
+        ));
     }
-    let session: serde_json::Value = session.json().await
+    let session: serde_json::Value = session
+        .json()
+        .await
         .map_err(|e| format!("Не удалось прочитать texture profile: {e}"))?;
-    let value = session["properties"].as_array()
-        .and_then(|items| items.iter().find(|item| item["name"].as_str() == Some("textures")))
+    let value = session["properties"]
+        .as_array()
+        .and_then(|items| {
+            items
+                .iter()
+                .find(|item| item["name"].as_str() == Some("textures"))
+        })
         .and_then(|item| item["value"].as_str())
         .ok_or("У игрока нет доступной public skin texture.")?;
-    let decoded = base64::engine::general_purpose::STANDARD.decode(value)
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(value)
         .map_err(|e| format!("Не удалось decode texture payload: {e}"))?;
     let textures: serde_json::Value = serde_json::from_slice(&decoded)
         .map_err(|e| format!("Не удалось прочитать texture payload: {e}"))?;
     let skin = &textures["textures"]["SKIN"];
     let skin_url = skin["url"].as_str().unwrap_or("").to_string();
-    if skin_url.is_empty() { return Err("У игрока нет public skin texture.".to_string()); }
-    let skin_variant = if skin["metadata"]["model"].as_str() == Some("slim") { "slim" } else { "classic" };
-    let skin_bytes = client.get(&skin_url).send().await
+    if skin_url.is_empty() {
+        return Err("У игрока нет public skin texture.".to_string());
+    }
+    let skin_variant = if skin["metadata"]["model"].as_str() == Some("slim") {
+        "slim"
+    } else {
+        "classic"
+    };
+    let skin_bytes = client
+        .get(&skin_url)
+        .send()
+        .await
         .map_err(|e| format!("Не удалось скачать skin texture: {e}"))?
-        .bytes().await
+        .bytes()
+        .await
         .map_err(|e| format!("Не удалось прочитать skin texture: {e}"))?
         .to_vec();
     validate_minecraft_skin_png(&skin_bytes)?;
-    Ok(PublicSkinTexture { uuid, name: resolved_name, skin_url, skin_variant: skin_variant.to_string(), skin_bytes })
+    Ok(PublicSkinTexture {
+        uuid,
+        name: resolved_name,
+        skin_url,
+        skin_variant: skin_variant.to_string(),
+        skin_bytes,
+    })
 }
 
 /// Get the active skin for the current authenticated user.
@@ -130,12 +177,15 @@ pub async fn upload_skin(
     path: String,
     variant: String, // "classic" or "slim"
 ) -> Result<ProfileTextures, String> {
-    let data = std::fs::read(&path)
-        .map_err(|e| format!("Failed to read skin file: {e}"))?;
+    let data = std::fs::read(&path).map_err(|e| format!("Failed to read skin file: {e}"))?;
     upload_bytes_inner(access_token, data, variant).await
 }
 
-async fn upload_bytes_inner(access_token: String, data: Vec<u8>, variant: String) -> Result<ProfileTextures, String> {
+async fn upload_bytes_inner(
+    access_token: String,
+    data: Vec<u8>,
+    variant: String,
+) -> Result<ProfileTextures, String> {
     validate_minecraft_skin_png(&data)?;
 
     let part = reqwest::multipart::Part::bytes(data)
@@ -221,7 +271,11 @@ pub struct ProfileTextures {
 fn profile_textures_from_value(v: &serde_json::Value) -> ProfileTextures {
     let skin = v["skins"]
         .as_array()
-        .and_then(|skins| skins.iter().find(|skin| skin["state"].as_str() == Some("ACTIVE")))
+        .and_then(|skins| {
+            skins
+                .iter()
+                .find(|skin| skin["state"].as_str() == Some("ACTIVE"))
+        })
         .cloned()
         .unwrap_or(serde_json::Value::Null);
     ProfileTextures {
@@ -238,12 +292,16 @@ fn profile_textures_from_value(v: &serde_json::Value) -> ProfileTextures {
 /// Services textures. It never changes the token; it only stores data returned
 /// by the official profile endpoint for the active Microsoft account.
 fn persist_texture_snapshot(access_token: &str, textures: &ProfileTextures) {
-    let Some(mut account) = crate::auth::msa::load_account() else { return; };
+    let Some(mut account) = crate::auth::msa::load_account() else {
+        return;
+    };
     if account.provider.as_deref() != Some("microsoft") || account.access_token != access_token {
         return;
     }
     account.skin_url = (!textures.skin_url.is_empty()).then(|| textures.skin_url.clone());
-    account.cape_url = textures.capes.iter()
+    account.cape_url = textures
+        .capes
+        .iter()
         .find(|cape| cape.active)
         .map(|cape| cape.url.clone());
     let _ = crate::auth::msa::save_account(&account);
@@ -305,15 +363,22 @@ pub async fn get_elyby_textures(username: String) -> Result<ProfileTextures, Str
 
     if resp.status() == reqwest::StatusCode::NO_CONTENT {
         return Ok(ProfileTextures {
-            uuid: String::new(), name: username, skin_url: String::new(),
-            skin_bytes: None, skin_variant: "classic".to_string(), capes: vec![],
+            uuid: String::new(),
+            name: username,
+            skin_url: String::new(),
+            skin_bytes: None,
+            skin_variant: "classic".to_string(),
+            capes: vec![],
         });
     }
     if !resp.status().is_success() {
         let status = resp.status();
         return Err(format!("Ely.by textures request failed ({status})"));
     }
-    let v: serde_json::Value = resp.json().await.map_err(|e| format!("Ely.by parse error: {e}"))?;
+    let v: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("Ely.by parse error: {e}"))?;
 
     let skin_url = v["SKIN"]["url"].as_str().unwrap_or("").to_string();
     let skin_bytes = if skin_url.is_empty() {
@@ -335,8 +400,15 @@ pub async fn get_elyby_textures(username: String) -> Result<ProfileTextures, Str
     };
     let is_slim = v["SKIN"]["metadata"]["model"].as_str() == Some("slim");
     let cape_url = v["CAPE"]["url"].as_str().unwrap_or("").to_string();
-    let capes = if cape_url.is_empty() { vec![] } else {
-        vec![CapeInfo { id: "elyby-cape".to_string(), url: cape_url, alias: "Ely.by Cape".to_string(), active: true }]
+    let capes = if cape_url.is_empty() {
+        vec![]
+    } else {
+        vec![CapeInfo {
+            id: "elyby-cape".to_string(),
+            url: cape_url,
+            alias: "Ely.by Cape".to_string(),
+            active: true,
+        }]
     };
 
     Ok(ProfileTextures {
@@ -344,7 +416,11 @@ pub async fn get_elyby_textures(username: String) -> Result<ProfileTextures, Str
         name: username,
         skin_url,
         skin_bytes,
-        skin_variant: if is_slim { "slim".to_string() } else { "classic".to_string() },
+        skin_variant: if is_slim {
+            "slim".to_string()
+        } else {
+            "classic".to_string()
+        },
         capes,
     })
 }
@@ -358,7 +434,10 @@ pub async fn get_profile_capes(access_token: String) -> Result<Vec<CapeInfo>, St
 
 /// Equip a cape by its Mojang cape id.
 #[tauri::command]
-pub async fn set_active_cape(access_token: String, cape_id: String) -> Result<Vec<CapeInfo>, String> {
+pub async fn set_active_cape(
+    access_token: String,
+    cape_id: String,
+) -> Result<Vec<CapeInfo>, String> {
     if cape_id.trim().is_empty() {
         return Err("У выбранного плаща нет корректного ID Minecraft Services.".to_string());
     }
@@ -399,7 +478,9 @@ pub async fn hide_active_cape(access_token: String) -> Result<(), String> {
         .send()
         .await
         .map_err(|e| format!("Network error: {e}"))?;
-    if resp.status().is_success() { Ok(()) } else {
+    if resp.status().is_success() {
+        Ok(())
+    } else {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
         Err(format!("Cape hide failed ({status}): {body}"))

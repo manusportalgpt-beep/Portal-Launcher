@@ -547,7 +547,9 @@ function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (te
             </button>
           )
         ) : (
-          <span className="text-[10px] font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>Нет файла под выбранную версию</span>
+          <span className="text-[10px] font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>
+            {card.installNote || 'Нет файла под выбранную версию'}
+          </span>
         )}
         <span className="flex-1" />
         {onMention && (

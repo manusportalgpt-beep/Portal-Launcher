@@ -196,13 +196,26 @@ async fn cf_json_response(
     })
 }
 
+/// Ключ из аргумента команды или, если его нет, из настроек лаунчера.
+///
+/// Раньше параметр был объявлен как `String`, то есть обязательный. Tauri
+/// отклонял вызов раньше, чем код успевал посмотреть на пустую строку, и
+/// запасной путь `read_curseforge_api_key()` был недостижим. Из-за этого
+/// вызовы, которые ключ не передавали (поиск файлов в карточке мода),
+/// падали с «missing required key api_key», и файл не находился.
+fn resolve_api_key(from_arg: Option<String>) -> String {
+    from_arg
+        .map(|k| k.trim().to_string())
+        .filter(|k| !k.is_empty())
+        .unwrap_or_else(read_curseforge_api_key)
+}
+
 #[tauri::command]
-pub async fn get_curseforge_mod(project_id: u64, api_key: String) -> Result<CurseforgeMod, String> {
-    let api_key = if api_key.is_empty() {
-        read_curseforge_api_key()
-    } else {
-        api_key
-    };
+pub async fn get_curseforge_mod(
+    project_id: u64,
+    api_key: Option<String>,
+) -> Result<CurseforgeMod, String> {
+    let api_key = resolve_api_key(api_key);
     if api_key.is_empty() {
         return Err("CurseForge API key not configured".into());
     }
@@ -228,14 +241,10 @@ pub async fn search_curseforge(
     game_version: Option<String>,
     mod_loader_type: Option<u32>,
     sort_field: Option<u32>,
-    api_key: String,
+    api_key: Option<String>,
     game_id: Option<u64>,
 ) -> Result<CurseforgeSearchResult, String> {
-    let api_key = if api_key.is_empty() {
-        read_curseforge_api_key()
-    } else {
-        api_key
-    };
+    let api_key = resolve_api_key(api_key);
     if api_key.is_empty() {
         return Err("CurseForge API key not configured. Add it in Settings → Advanced.".into());
     }
@@ -341,13 +350,9 @@ pub async fn get_curseforge_mod_files(
     mod_id: u64,
     game_version: Option<String>,
     mod_loader_type: Option<u32>,
-    api_key: String,
+    api_key: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let api_key = if api_key.is_empty() {
-        read_curseforge_api_key()
-    } else {
-        api_key
-    };
+    let api_key = resolve_api_key(api_key);
     if api_key.is_empty() {
         return Err("CurseForge API key not configured.".into());
     }
@@ -390,14 +395,10 @@ pub fn curseforge_download_url_candidates(url: &str) -> Vec<String> {
 pub async fn get_curseforge_file_download_url(
     mod_id: u64,
     file_id: u64,
-    api_key: String,
+    api_key: Option<String>,
     prefer_resource_pack_cdn: Option<bool>,
 ) -> Result<String, String> {
-    let api_key = if api_key.is_empty() {
-        read_curseforge_api_key()
-    } else {
-        api_key
-    };
+    let api_key = resolve_api_key(api_key);
     if api_key.is_empty() {
         return Err("CurseForge API key not configured.".into());
     }

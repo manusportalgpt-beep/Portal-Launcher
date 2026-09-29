@@ -53,6 +53,12 @@ export interface ModCard {
   downloadUrl: string;
   /** Есть ли подходящий файл под запрошенные версию/загрузчик. */
   installable: boolean;
+  /**
+   * Почему файл не найден — если не найден. Раньше причина терялась, и
+   * карточка выглядела одинаково при «нет версии под игру» и при сбое
+   * запроса (например, не задан API-ключ CurseForge).
+   */
+  installNote?: string;
   /** Источник контента: modrinth | curseforge | other. */
   source: string;
   url: string;

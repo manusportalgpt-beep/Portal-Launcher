@@ -2481,8 +2481,12 @@ async function searchCurseforgeCards(
     let fileName = '';
     let versionNumber = '';
     let fileId = 0;
+    // Почему файл не нашёлся. Раньше ошибка уходила в пустой catch, и
+    // карточка молча показывала «нет файла» — выглядело так, будто мода
+    // нет под версию игры, хотя на деле запрос даже не уходил.
+    let fileNote = '';
     try {
-      const files = await invoke<any>('get_curseforge_mod_files', { modId: id, gameVersion: mcVersion });
+      const files = await invoke<any>('get_curseforge_mod_files', { modId: id, gameVersion: mcVersion, apiKey });
       const list: any[] = Array.isArray(files)
         ? files
         : Array.isArray(files?.data) ? files.data : [];
@@ -2495,11 +2499,20 @@ async function searchCurseforgeCards(
         fileName = String(pick.fileName ?? '');
         versionNumber = String(pick.displayName ?? pick.fileName ?? '');
         if (fileId) {
-          fileUrl = await invoke<string>('get_curseforge_file_download_url', { modId: id, fileId })
-            .catch(() => '');
+          fileUrl = await invoke<string>('get_curseforge_file_download_url', { modId: id, fileId, apiKey })
+            .catch((e) => {
+              fileNote = `CurseForge не отдал адрес файла: ${String(e)}`;
+              return '';
+            });
         }
+      } else {
+        fileNote = mcVersion
+          ? `У мода нет файла под ${mcVersion}`
+          : 'У мода нет ни одного файла';
       }
-    } catch { /* сети нет — карточка покажется без файла */ }
+    } catch (e) {
+      fileNote = `CurseForge: ${String(e)}`;
+    }
     cards.push({
       projectId: String(id),
       slug: String(it.slug ?? id),
@@ -2518,6 +2531,7 @@ async function searchCurseforgeCards(
       installable: Boolean(fileUrl),
       source: 'curseforge',
       url: `https://www.curseforge.com/minecraft/${it.slug ?? id}`,
+      installNote: fileUrl ? '' : fileNote,
     });
     lines.push(
       `- ${title} · ${author} · id ${id} (CurseForge)` +

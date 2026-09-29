@@ -1355,6 +1355,65 @@ fn meta_from_json(id: &str, raw: &serde_json::Value) -> SessionMeta {
     }
 }
 
+/// Архив полной истории сессии — того, что было ДО сжатия.
+///
+/// Сжатие перезаписывает файл сессии выжимкой, и старая переписка пропадала
+/// навсегда. Теперь полная история складывается рядом отдельным файлом, и её
+/// можно листать вверх по мере надобности.
+#[tauri::command]
+pub fn op_session_archive(session_id: String, payload: String) -> Result<(), String> {
+    if !is_safe_id(&session_id) {
+        return Err("Некорректный идентификатор сессии.".into());
+    }
+    // Принимаем только массив сообщений: мусор в файл писать не даём.
+    let parsed: serde_json::Value = serde_json::from_str(&payload).map_err(|e| e.to_string())?;
+    if !parsed.is_array() {
+        return Err("Архив истории должен быть массивом сообщений.".into());
+    }
+    ensure_all();
+    let dir = sessions_dir().join("history");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.join(format!("{session_id}.json"));
+    std::fs::write(&path, payload).map_err(|e| e.to_string())
+}
+
+/// Сколько всего сообщений в архиве сессии.
+#[tauri::command]
+pub fn op_session_archive_count(session_id: String) -> usize {
+    if !is_safe_id(&session_id) {
+        return 0;
+    }
+    let path = sessions_dir().join("history").join(format!("{session_id}.json"));
+    std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+        .and_then(|v| v.as_array().map(|a| a.len()))
+        .unwrap_or(0)
+}
+
+/// Страница более старых сообщений: те, что стоят ДО индекса `before`.
+///
+/// Возвращаем срез в прямом порядке (старые → новые), чтобы игрок мог
+/// подставить их над уже показанными и продолжить читать вверх.
+#[tauri::command]
+pub fn op_session_archive_page(
+    session_id: String,
+    before: Option<usize>,
+    limit: Option<usize>,
+) -> Result<Vec<Value>, String> {
+    if !is_safe_id(&session_id) {
+        return Err("Некорректный идентификатор сессии.".into());
+    }
+    let path = sessions_dir().join("history").join(format!("{session_id}.json"));
+    let raw = std::fs::read_to_string(&path)
+        .map_err(|_| "Архив истории не найден.".to_string())?;
+    let all: Vec<Value> = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+    let before = before.unwrap_or(all.len()).min(all.len());
+    let limit = limit.unwrap_or(40).clamp(1, 200);
+    let start = before.saturating_sub(limit);
+    Ok(all[start..before].to_vec())
+}
+
 #[tauri::command]
 pub fn op_list_sessions() -> Vec<SessionMeta> {
     ensure_all();

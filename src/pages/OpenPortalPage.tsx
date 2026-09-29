@@ -1311,6 +1311,22 @@ export function OpenPortalPage() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const stickRef = useRef(true);
 
+  // Подгрузка истории из архива, снятого при сжатии.
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyShown, setHistoryShown] = useState(0);
+  const [historyLeft, setHistoryLeft] = useState(0);
+  const [archiveTotal, setArchiveTotal] = useState(0);
+  const [historyChecked, setHistoryChecked] = useState(false);
+  const hasArchive = archiveTotal > 0;
+
+  // При смене сессии архив другой — начинаем сначала.
+  useEffect(() => {
+    setHistoryShown(0);
+    setHistoryLeft(0);
+    setArchiveTotal(0);
+    setHistoryChecked(false);
+  }, [currentSessionId]);
+
   /** Авто-рост поля ввода: до 160px, дальше — прокрутка. */
   useEffect(() => {
     const el = composerRef.current;
@@ -1435,10 +1451,20 @@ export function OpenPortalPage() {
       const summary = (outcome.text || '').trim() || '(модель не вернула текст выжимки)';
       const summaryMsg: ChatMessage = {
         id: `summary-${Date.now()}`, role: 'assistant',
-        content: `**Сжатая история** (${older.length} сообщений свёрнуто)\n\n${summary}`,
+        content: `**Сжатие переписки** (${older.length} сообщений выше)\n\n${summary}`,
         timestamp: Date.now(),
         summary: true,
       };
+      // Полная история уходит в архив ДО подмены в памяти. Раньше она просто
+      // затиралась в файле сессии, и до сжатия уже нельзя было вернуться.
+      try {
+        await invoke('op_session_archive', {
+          sessionId: sid,
+          payload: JSON.stringify(all.map(m => ({ ...m, summary: false }))),
+        });
+      } catch (e) {
+        console.warn('[OpenPortal] не удалось сохранить архив истории', e);
+      }
       useOpenCoreStore.setState({ messages: [summaryMsg, ...keep] });
     } catch (e) {
       useOpenCoreStore.getState().updateMessage(notice.id, { content: `Не удалось сжать историю: ${e instanceof Error ? e.message : String(e)}`, error: true });
@@ -1447,6 +1473,67 @@ export function OpenPortalPage() {
       void persistSession(sid);
     }
   }, []);
+
+  /**
+   * Подгружает более раннюю переписку из архива.
+   *
+   * Архив — это полная история, сохранённая в момент сжатия. Здесь она
+   * показывается постранично: счётчик `historyShown` — сколько верхних
+   * сообщений архива уже вставлено, `historyLeft` — сколько ещё осталось.
+   *
+   * Позицию прокрутки держим вручную: после подстановки блока высота
+   * контейнера растёт, и без поправки взгляд прыгал бы на середину чата.
+   */
+  const loadOlderHistory = useCallback(async () => {
+    const sid = useOpenCoreStore.getState().currentSessionId;
+    if (!sid || loadingHistory) return;
+    if (historyLeft === 0 && historyChecked) return;
+    setLoadingHistory(true);
+    const el = scrollRef.current;
+    const prevHeight = el?.scrollHeight ?? 0;
+    const prevTop = el?.scrollTop ?? 0;
+    try {
+      if (!historyChecked) {
+        const total = await invoke<number>('op_session_archive_count', { sessionId: sid }).catch(() => 0);
+        setArchiveTotal(total);
+        setHistoryLeft(total);
+        setHistoryChecked(true);
+        if (total === 0) { setLoadingHistory(false); return; }
+      }
+      const page = await invoke<ChatMessage[]>('op_session_archive_page', {
+        sessionId: sid,
+        before: historyShown || undefined,
+        limit: 40,
+      });
+      if (!page.length) {
+        setHistoryLeft(0);
+        setLoadingHistory(false);
+        return;
+      }
+      setHistoryShown((n) => n + page.length);
+      setHistoryLeft((n) => Math.max(0, n - page.length));
+      const current = useOpenCoreStore.getState().messages;
+      // Уже подгруженные не дублируем: страницы могут пересекаться, если
+      // история пополнилась между прокрутками.
+      const known = new Set(current.map(m => `${m.id}|${m.timestamp}`));
+      const fresh = page.filter(m => !known.has(`${m.id}|${m.timestamp}`));
+      if (fresh.length) {
+        useOpenCoreStore.setState({ messages: [...fresh, ...current] });
+      }
+      // Возвращаем взгляд на ту же строку, что была до подстановки.
+      requestAnimationFrame(() => {
+        const node = scrollRef.current;
+        if (!node) return;
+        node.scrollTop = prevTop + (node.scrollHeight - prevHeight);
+        stickRef.current = false;
+      });
+    } catch (e) {
+      console.warn('[OpenPortal] не удалось подгрузить историю', e);
+      setHistoryLeft(0);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [loadingHistory, historyLeft, historyChecked, historyShown]);
 
   async function persistSession(targetId?: string) {
     const sid = targetId ?? useOpenCoreStore.getState().currentSessionId;
@@ -1908,7 +1995,22 @@ export function OpenPortalPage() {
         <div ref={scrollRef} onScroll={() => {
             const el = scrollRef.current;
             if (el) stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+            // Подгрузка истории: дошли до верха — подставляем более старые
+            // сообщения из архива, снятого при сжатии.
+            if (el && el.scrollTop < 160) void loadOlderHistory();
           }} className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
+          {loadingHistory && (
+            <p className="mx-auto w-full max-w-3xl pb-2 text-center text-[11px]"
+              style={{ color: 'var(--color-text-tertiary)' }}>
+              Загружаем более раннюю переписку…
+            </p>
+          )}
+          {!loadingHistory && historyLeft === 0 && hasArchive && (
+            <p className="mx-auto w-full max-w-3xl pb-2 text-center text-[11px]"
+              style={{ color: 'var(--color-text-tertiary)' }}>
+              Это начало сохранённой переписки.
+            </p>
+          )}
           {messages.length === 0 ? (
             <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-5 py-8">
               <div className="flex flex-col gap-2">

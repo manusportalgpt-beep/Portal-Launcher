@@ -71,16 +71,17 @@ const KNOWN_PREFIX_CONTEXTS: [RegExp, number][] = [
 
 /** Размер контекстного окна модели в токенах с дефолтами по семейству/провайдеру. */
 export function contextWindow(model: ModelDef, providerId?: string): number {
+  // Модель объявила своё окно — это её настоящий предел, верим ему.
+  // Сюда попадает Big Pickle: у него 200k, и выдавать больше бессмысленно.
   if (model.contextLength) return model.contextLength;
-  // Точное значение из локальной таблицы (для zen и других, кто молчит).
-  const known = KNOWN_MODEL_CONTEXTS[model.id];
-  if (known) return known;
-  for (const [pattern, value] of KNOWN_PREFIX_CONTEXTS) {
-    if (pattern.test(model.id)) return value;
-  }
-  if (model.family === 'anthropic') return 200_000;
-  if (model.family === 'google' || providerId === 'google') return 1_000_000;
-  return 128_000;
+
+  // Всем остальным считаем окно в миллион токенов. Смысл: /compress
+  // срабатывает заранее, контекст всё равно не кончается, а длинное окно
+  // позволяет держать в переписке больше работы и истории без лишних сжатий.
+  void providerId;
+  void KNOWN_MODEL_CONTEXTS;
+  void KNOWN_PREFIX_CONTEXTS;
+  return 1_000_000;
 }
 
 export const OP_PROVIDERS: ProviderDef[] = [

@@ -386,6 +386,9 @@ fn main() {
             // OpenPortal — встроенный ИИ-агент
             commands::opencode::op_layout,
             commands::opencode::op_list_sessions,
+            commands::opencode::op_session_archive,
+            commands::opencode::op_session_archive_count,
+            commands::opencode::op_session_archive_page,
             commands::opencode::op_save_session,
             commands::opencode::op_load_session,
             commands::opencode::op_delete_session,

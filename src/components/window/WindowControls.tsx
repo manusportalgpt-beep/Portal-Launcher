@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, Square, Copy, X } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { isTauri } from '@/lib/invoke-shim';
 import { useUiStore } from '@/stores/uiStore';
 
 // Keep the custom title bar on the same cache-busted public asset as About
@@ -9,14 +10,34 @@ import { useUiStore } from '@/stores/uiStore';
 // resource has already been refreshed by a new Windows installation.
 const portalIcon = '/launcher-icon.png?rev=portal-square-2';
 
+/**
+ * Окно Tauri, взятое безопасно.
+ *
+ * Вне Tauri (отладка фронтенда в браузере, предпросмотр) `getCurrentWindow()`
+ * бросает исключение прямо в рендере, и без границы ошибок это гасило всё
+ * дерево React до чёрного экрана. Поэтому сначала проверяем окружение.
+ */
+function safeWindow() {
+  if (!isTauri()) return null;
+  try {
+    return getCurrentWindow();
+  } catch {
+    return null;
+  }
+}
+
 /** Три кастомные кнопки Windows: свернуть / развернуть / закрыть. */
 export function WindowControls() {
   const [maximized, setMaximized] = useState(false);
-  const win = getCurrentWindow();
+  const win = safeWindow();
 
   useEffect(() => {
+    if (!win) return;
     win.isMaximized().then(setMaximized).catch(() => {});
   }, [win]);
+
+  // Вне Tauri окна нет — кнопки окна просто не рисуются.
+  if (!win) return null;
 
   const btn =
     'ore-flat h-[20px] w-7 inline-flex items-center justify-center text-[var(--color-text)]/65 transition-colors duration-150 hover:text-[var(--color-text)] hover:bg-white/10 active:scale-[0.96]';
@@ -63,7 +84,9 @@ export function TitleBar({ title = 'Portal Launcher' }: { title?: string }) {
         className="flex h-full w-[188px] shrink-0 cursor-grab items-center gap-1.5 rounded-sm px-1.5 text-[11px] font-semibold leading-none tracking-[0.01em] active:cursor-grabbing"
         style={{ color: 'var(--color-text-secondary)' }}
         onPointerDown={event => {
-          if (event.button === 0) void getCurrentWindow().startDragging();
+          if (event.button !== 0) return;
+          const win = safeWindow();
+          if (win) void win.startDragging();
         }}
       >
         <img src={portalIcon} width={16} height={16} draggable={false} className="block shrink-0 rounded-[4px] object-cover" alt="" />

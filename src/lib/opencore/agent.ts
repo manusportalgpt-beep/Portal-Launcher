@@ -12,6 +12,7 @@ import type {
   TokenUsage,
   ModCard,
   FileChange,
+  BrowserCard,
 } from '@/lib/opencore/types';
 import { diffLines } from '@/lib/opencore/diff';
 import { uiCssGuide } from '@/lib/ui-css-vars';
@@ -452,11 +453,10 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'browser_open',
     description:
-      'Открывает окно браузера для работы. Если браузер уже запущен с отладочным портом — ' +
-      'подключается к открытой у пользователя вкладке, иначе поднимает отдельное окно. ' +
-      'Дальше работай через browser_snapshot / browser_click / browser_type / browser_navigate. ' +
-      'Окно показывается пользователю, все твои клики видны зелёным курсором. ' +
-      'Если пользователь закроет окно - все остальные browser_* начнут возвращать ошибку.',
+      'Запускает браузер ИИ. Окна на экране не будет: браузер работает скрыто, ' +
+      'а его картинка появляется в чате отдельной карточкой, где видно и курсор. ' +
+      'Дальше работай через browser_read_text / browser_click / browser_type / browser_navigate. ' +
+      'Если вкладку закрыли, инструменты вернут «задача остановлена».',
     parameters: {
       type: 'object',
       properties: {
@@ -470,26 +470,26 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'browser_status',
     description:
-      'Проверяет, открыто ли ещё окно браузера. Вызывай в начале и после долгой паузы: ' +
-      'если closed_by_user=true, пользователь закрыл окно и задачу надо завершить итогом.',
+      'Проверяет, работает ли браузер. Вызывай в начале и после долгой паузы: ' +
+      'если closed_by_user=true, вкладку закрыли и задачу надо завершить итогом.',
     parameters: { type: 'object', properties: {}, required: [] },
     root: '*',
     requiresPermission: false,
   },
   {
-    name: 'browser_snapshot',
+    name: 'browser_read_text',
     description:
-      'Снимок текущей страницы: PNG-картинка, заголовок, адрес и видимый текст. ' +
-      'Основной способ «посмотреть, что сейчас на экране». ' +
-      'Пароли, e-mail, телефоны и номера карт в выдаче скрыты - если в поле написано ' +
-      '"(значение скрыто)", значит агент туда не лезет и не должен просить об этом.',
+      'Читает текущую страницу: заголовок, адрес и видимый текст. Это основной ' +
+      'способ узнать, что на странице — дешевле и надёжнее, чем смотреть картинку. ' +
+      'Пароли, почта, телефоны и номера карт скрыты: если написано, что данные ' +
+      'замаскированы, не проси пользователя их повторить.',
     parameters: { type: 'object', properties: {}, required: [] },
     root: '*',
     requiresPermission: false,
   },
   {
     name: 'browser_navigate',
-    description: 'Переходит по полному адресу в текущей вкладке.',
+    description: 'Переходит по полному адресу. Разрешены только http:// и https://.',
     parameters: {
       type: 'object',
       properties: { url: { type: 'string', description: 'Полный URL, например https://example.com' } },
@@ -519,8 +519,8 @@ export const TOOLS: ToolDef[] = [
   {
     name: 'browser_type',
     description:
-      'Вводит текст в поле страницы по CSS-селектору. В поля пароля и кодов подтверждения ' +
-      'ввод запрещён - проси пользователя сделать это сам.',
+      'Вводит текст в поле страницы по CSS-селектору. В поля пароля и кодов ' +
+      'подтверждения ввод запрещён — проси пользователя сделать это сам.',
     parameters: {
       type: 'object',
       properties: {
@@ -534,18 +534,36 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'browser_scroll',
-    description: 'Прокручивает страницу. dy положительный - вниз, отрицательный - вверх.',
+    description: 'Прокручивает страницу. dy положительный — вниз, отрицательный — вверх.',
     parameters: {
       type: 'object',
-      properties: { dy: { type: 'number', description: 'На сколько пикселей (по умолчанию 600)' } },
+      properties: { dy: { type: 'number', description: 'На сколько пикселей (по умолчанию 500)' } },
       required: [],
     },
     root: '*',
     requiresPermission: false,
   },
   {
+    name: 'browser_downloads',
+    description:
+      'Список файлов, которые браузер скачал. Всё лежит в кеше лаунчера ' +
+      '(OpenPortal/Cache/downloads), система не затронута.',
+    parameters: { type: 'object', properties: {}, required: [] },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'browser_cache_clear',
+    description:
+      'Удаляет скачанные браузером файлы. Удаляется только содержимое папки ' +
+      'загрузок в кеше лаунчера, больше ничего.',
+    parameters: { type: 'object', properties: {}, required: [] },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
     name: 'browser_close',
-    description: 'Закрывает окно браузера. Вызывай в конце задачи, если открывал его сам.',
+    description: 'Останавливает браузер. Вызывай в конце задачи.',
     parameters: { type: 'object', properties: {}, required: [] },
     root: '*',
     requiresPermission: true,
@@ -1242,6 +1260,8 @@ export interface ExecResult {
   changes?: FileChange[];
   /** Имя файла сгенерированной картинки в кэше — нужно для output_path. */
   imageName?: string;
+  /** Пометка «здесь рисуется живая карточка браузера». */
+  browser?: BrowserCard;
 }
 
 /** HTTP-запрос через Rust (нет CORS, есть сеть бэкенда). Нужен инструментам и фолбэку провайдеров. */
@@ -1961,89 +1981,110 @@ async function execInspectImage(args: { root: PortalRoot; path: string }): Promi
 /**
  * Инструменты браузера (`browser_*`).
  *
- * Важное отличие от остальных: здесь окно принадлежит пользователю, и он в
- * любой момент может его закрыть. Тогда все дальнейшие вызовы падают - и мы
+ * Браузер работает без окна, картинка приходит в карточку чата событием
+ * `browser://frame`. Инструменты возвращают агенту текст и состояние, а
+ * карточку в ленте мы помечаем через `browser` на сообщении.
+ *
+ * Важное: если вкладку закрыли, все дальнейшие вызовы падают - и мы
  * отдаём агенту явный текст «задача остановлена», чтобы он не пытался
  * бесконечно повторять клики и в итоге выдал пользователю итог работы.
  */
 async function execBrowser(tool: string, args: any, signal?: AbortSignal): Promise<ExecResult> {
-  const CLOSED = 'Пользователь закрыл окно браузера. Задача остановлена - подведи итог и закончи работу.';
+  const CLOSED = 'Браузер остановлен. Задача остановлена - подведи итог и закончи работу.';
   try {
     if (signal?.aborted) return { ok: false, output: 'Отменено пользователем.' };
+
     if (tool === 'browser_open') {
       const st = await invoke<any>('op_browser_open', { url: args?.url ? String(args.url) : null });
-      if (st?.closed_by_user) return { ok: false, output: CLOSED };
+      if (st?.closed_by_user || !st?.open) {
+        return { ok: false, output: CLOSED, browser: { active: false, url: '', title: '', downloads: [] } };
+      }
       return {
         ok: true,
-        output: `Окно браузера открыто (${st?.browser || 'браузер'}). Сейчас открыто: ${st?.title || '(пусто)'} — ${st?.url || ''}\n`
-          + `Смотри страницу через browser_snapshot, нажимай через browser_click, вводи текст через browser_type.\n`
-          + `Пользователь видит все твои действия в этом окне.`,
+        output: `Браузер запущен, картинка в чате. Открыто: ${st?.title || '(пусто)'} — ${st?.url || ''}\n`
+          + `Читай страницу через browser_read_text, нажимай browser_click, вводи текст browser_type.\n`
+          + `Файлы скачиваются только в кеш лаунчера. Если вкладку закроют - все инструменты откажут, `
+          + `тогда подведи итог и закончи.`,
+        browser: { active: true, url: st?.url ?? '', title: st?.title ?? '', downloads: st?.downloads ?? [] },
       };
     }
+
     if (tool === 'browser_status') {
       const st = await invoke<any>('op_browser_status');
-      if (st?.closed_by_user) return { ok: false, output: CLOSED };
-      return { ok: true, output: `${st?.note || ''} ${st?.title || ''} — ${st?.url || ''}`.trim() };
+      if (st?.closed_by_user || !st?.open) {
+        return { ok: false, output: CLOSED, browser: { active: false, url: '', title: '', downloads: [] } };
+      }
+      return {
+        ok: true,
+        output: `${st?.note || ''} ${st?.title || ''} — ${st?.url || ''}`.trim(),
+        browser: { active: true, url: st?.url ?? '', title: st?.title ?? '', downloads: st?.downloads ?? [] },
+      };
     }
+
+    if (tool === 'browser_read_text') {
+      const r = await invoke<{ title: string; url: string; text: string; redacted: string[] }>('op_browser_read_text');
+      const hidden = r.redacted?.length
+        ? `\n\n_Скрыто: ${r.redacted.join(', ')}. Этих данных у тебя нет, не проси их повторить._`
+        : '';
+      return {
+        ok: true,
+        output: `${r.title || '(без заголовка)'} — ${r.url}\n\n${r.text || '(текста нет)'}${hidden}`,
+        browser: { active: true, url: r.url ?? '', title: r.title ?? '', downloads: [] },
+      };
+    }
+
     if (tool === 'browser_navigate') {
       const url = String(args?.url ?? '');
-      if (!/^https?:\/\//i.test(url)) {
-        return { ok: false, output: 'Нужен полный адрес вида https://example.com' };
-      }
-      const st = await invoke<any>('op_browser_navigate', { url });
-      if (st?.closed_by_user) return { ok: false, output: CLOSED };
-      return { ok: true, output: `Перешёл: ${st?.title || ''} — ${st?.url || url}` };
+      if (!/^https?:\/\//i.test(url)) return { ok: false, output: 'Нужен полный адрес вида https://example.com' };
+      return { ok: true, output: await invoke<string>('op_browser_navigate', { url }) };
     }
+
     if (tool === 'browser_scroll') {
       return { ok: true, output: await invoke<string>('op_browser_scroll', { dy: args?.dy ?? null }) };
     }
-    if (tool === 'browser_close') {
-      return { ok: true, output: await invoke<string>('op_browser_close') };
+
+    if (tool === 'browser_downloads') {
+      const r = await invoke<{ dir: string; files: string[] }>('op_browser_cache');
+      const list = r.files?.length ? r.files.join(', ') : '(пока ничего)';
+      return { ok: true, output: `Скачано в ${r.dir}: ${list}` };
     }
+
+    if (tool === 'browser_cache_clear') {
+      const r = await invoke<{ removed: number; dir: string }>('op_browser_cache_clear');
+      return { ok: true, output: `Удалено файлов: ${r.removed}. Папка: ${r.dir}` };
+    }
+
+    if (tool === 'browser_close') {
+      const out = await invoke<string>('op_browser_close');
+      return { ok: true, output: out, browser: { active: false, url: '', title: '', downloads: [] } };
+    }
+
     if (tool === 'browser_click') {
-      const out = await invoke<string>('op_browser_click', {
+      return { ok: true, output: await invoke<string>('op_browser_click', {
         selector: args?.selector ? String(args.selector) : null,
         x: args?.x ?? null,
         y: args?.y ?? null,
-      });
-      return { ok: true, output: out };
+      }) };
     }
+
     if (tool === 'browser_type') {
-      const out = await invoke<string>('op_browser_type', {
+      return { ok: true, output: await invoke<string>('op_browser_type', {
         selector: String(args?.selector ?? ''),
         text: String(args?.text ?? ''),
-      });
-      return { ok: true, output: out };
+      }) };
     }
-    if (tool === 'browser_snapshot') {
-      const snap = await invoke<{
-        url: string; title: string; text: string; screenshot: string;
-        redacted: string[]; closed_by_user: boolean;
-      }>('op_browser_snapshot');
-      if (snap.closed_by_user) return { ok: false, output: CLOSED };
-      const hidden = snap.redacted?.length
-        ? `\n\n_Скрыто из выдачи: ${snap.redacted.join(', ')}. Эти данные тебе недоступны, не проси их у пользователя повторно._`
-        : '';
-      const body = `${snap.title || '(без заголовка)'} — ${snap.url || ''}\n\n${snap.text || '(текста на странице нет)'}${hidden}`;
-      // Картинку кладём в кэш изображений, чтобы она нарисовалась в чате
-      // тем же компонентом, что и сгенерированные изображения.
-      let imageName: string | undefined;
-      if (snap.screenshot) {
-        try {
-          imageName = await invoke<string>('op_save_image', { b64: snap.screenshot });
-        } catch {
-          imageName = undefined;
-        }
-      }
-      return { ok: true, output: body, imageName };
-    }
+
     return { ok: false, output: `Неизвестный инструмент браузера: ${tool}` };
   } catch (e) {
     const msg = String(e);
-    // Закрытое окно - это отмена задачи, а не сбой: формулируем так, чтобы
-    // агент понял, что пора завершаться, а не пробовать снова.
-    if (/закрыл|closed|не подключиться|соединение закрыто/i.test(msg)) {
-      return { ok: false, output: `${CLOSED}\n\nПричина: ${msg}` };
+    // Остановленный браузер - это отмена задачи, а не сбой: формулируем так,
+    // чтобы агент понял, что пора завершаться, а не пробовать снова.
+    if (/не открыто|остановлен|закрыт|соединение|не ответил|не удалось подключиться/i.test(msg)) {
+      return {
+        ok: false,
+        output: `${CLOSED}\n\nПричина: ${msg}`,
+        browser: { active: false, url: '', title: '', downloads: [] },
+      };
     }
     return { ok: false, output: msg };
   }
@@ -5256,7 +5297,7 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
         };
         push(toolMsg);
         const res = await executeTool(tc.name, tc.arguments, requestPermission, ep, signal, opts.policy);
-        patch(toolMsg.id, { content: res.output, error: !res.ok, cards: res.cards, changes: res.changes });
+        patch(toolMsg.id, { content: res.output, error: !res.ok, cards: res.cards, changes: res.changes, browser: res.browser });
         if (signal?.aborted) throw new Error('Отменено пользователем.');
         await drainInterrupt();
       }

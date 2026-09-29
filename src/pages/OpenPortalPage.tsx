@@ -17,7 +17,8 @@ import { contextWindow, BROWSER_LINKS } from '@/lib/opencore/providers';
 import { Markdown, PortalImage } from '@/components/openportal/Markdown';
 import { ModelManager } from '@/components/openportal/ModelManager';
 import { PermissionModal } from '@/components/openportal/PermissionModal';
-import type { ChatMessage, SessionData, SessionMeta, PermissionRequest, Attachment, ProjectContext, PermissionPreset, ModCard, FileChange } from '@/lib/opencore/types';
+import { BrowserView } from '@/components/openportal/BrowserView';
+import type { ChatMessage, SessionData, SessionMeta, PermissionRequest, Attachment, ProjectContext, PermissionPreset, ModCard, FileChange, BrowserCard } from '@/lib/opencore/types';
 
 /** Русская форма множественного числа: plural(5, 'чат', 'чата', 'чатов') → 'чатов'. */
 function plural(n: number, one: string, few: string, many: string): string {
@@ -189,7 +190,7 @@ function ThinkingBlock({ text }: { text: string }) {
   );
 }
 
-function ToolMsg({ name, content, error, cards, changes, onInstalled }: { name: string; content: string; error?: boolean; cards?: ModCard[]; changes?: FileChange[]; onInstalled?: (text: string) => void }) {
+function ToolMsg({ name, content, error, cards, changes, browser, onInstalled }: { name: string; content: string; error?: boolean; cards?: ModCard[]; changes?: FileChange[]; browser?: BrowserCard; onInstalled?: (text: string) => void }) {
   const [open, setOpen] = useState(false);
   // Карточки результата mod_search показываются сразу, без раскрытия: раньше
   // агент отдавал только текст, и найденный контент приходилось читать вручную.
@@ -205,6 +206,11 @@ function ToolMsg({ name, content, error, cards, changes, onInstalled }: { name: 
         <span className="ml-auto font-normal" style={{ color: 'var(--color-text-tertiary)' }}>{error ? 'ошибка' : 'ок'}</span>
       </button>
       {changes && changes.length > 0 && <FileChanges changes={changes} />}
+      {browser && (
+        <div className="border-t p-1.5" style={{ borderColor: 'var(--color-border)' }}>
+          <BrowserView card={browser} />
+        </div>
+      )}
       {showCards && (
         <div className="grid gap-1.5 border-t p-1.5" style={{ borderColor: 'var(--color-border)' }}>
           <CardGrid cards={cards!} onInstalled={onInstalled} />
@@ -941,7 +947,7 @@ function ChatBubble({ m, onContinue, streaming, onInstalled }: { m: ChatMessage;
     return <SummaryBlock content={m.content} />;
   }
   if (m.role === 'tool') {
-    return <ToolMsg name={m.toolName ?? m.content.slice(0, 40)} content={m.content} error={m.error} cards={m.cards} changes={m.changes} onInstalled={onInstalled} />;
+    return <ToolMsg name={m.toolName ?? m.content.slice(0, 40)} content={m.content} error={m.error} cards={m.cards} changes={m.changes} browser={m.browser} onInstalled={onInstalled} />;
   }
   if (m.role === 'user') {
     return (
@@ -2250,10 +2256,11 @@ export function OpenPortalPage() {
             </div>
 
             <ul className="mb-3 space-y-1.5 text-[12px] leading-5" style={{ color: 'var(--color-text-secondary)' }}>
-              <li>• ИИ откроет окно браузера и увидит, что в нём отображается.</li>
-              <li>• Сможет нажимать кнопки, заполнять поля и переходить по ссылкам.</li>
-              <li>• Все его действия видны в окне зелёным курсором с подписью «ИИ».</li>
-              <li>• Закроешь окно — задача сразу прервётся, и ИИ выдаст итог.</li>
+              <li>• ИИ запустит собственный браузер. Окна на экране не будет — картинка с курсором появится карточкой в чате.</li>
+              <li>• Сможет читать страницы, нажимать кнопки, заполнять поля и переходить по ссылкам.</li>
+              <li>• Всё, что он делает, видно в этой карточке: зелёный курсор с подписью «ИИ».</li>
+              <li>• Скачанные файлы попадают только в кеш лаунчера — система не затрагивается.</li>
+              <li>• Нажмёшь «стоп» в карточке — браузер закроется, ИИ выдаст итог и закончит.</li>
               <li style={{ color: 'var(--color-text)' }}>• Пароли и коды подтверждения ИИ не видит и не вводит — это делаешь ты.</li>
               <li style={{ color: 'var(--color-text)' }}>• Почта, телефон и номера карт в выдаче скрыты.</li>
             </ul>

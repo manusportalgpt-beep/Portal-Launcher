@@ -95,6 +95,21 @@ export interface ChatMessage {
   usage?: TokenUsage;
   /** Сжатую историю помечаем, чтобы никогда не выкидывать её из контекста при дальнейшем усечении. */
   summary?: boolean;
+  /**
+   * Живая карточка браузера ИИ. Кадры сюда не пишутся - они летят событием
+   * `browser://frame`, а это поле лишь помечает, где карточку рисовать.
+   */
+  browser?: BrowserCard;
+}
+
+/** Состояние браузера ИИ для карточки в чате. */
+export interface BrowserCard {
+  /** Браузер запущен и картинка идёт. */
+  active: boolean;
+  url: string;
+  title: string;
+  /** Файлы, скачанные браузером (лежат в кеше лаунчера). */
+  downloads: string[];
 }
 
 export interface SessionMeta {

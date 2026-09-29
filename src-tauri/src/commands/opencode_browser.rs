@@ -129,9 +129,10 @@ impl Cdp {
         let (tx, rx) = oneshot::channel();
         self.pending.lock().map_err(|_| "poisoned")?.insert(id, tx);
         let msg = json!({ "id": id, "method": method, "params": params }).to_string();
+        // Именно без `.await`: у `UnboundedSender::send` в tokio 1.52
+        // синхронная сигнатура `Result<(), SendError<T>>`, а не future.
         self.tx
             .send(msg)
-            .await
             .map_err(|_| "Соединение с браузером закрыто".to_string())?;
         match tokio::time::timeout(Duration::from_secs(45), rx).await {
             Ok(Ok(res)) => res,
@@ -718,9 +719,8 @@ async fn connect(app: tauri::AppHandle, start_url: &str) -> Result<(), String> {
                 .unwrap_or("")
                 .to_string();
             // Кадр обязателен к подтверждению, иначе поток встаёт.
-            // Именно unbounded_send, а не send: send возвращает future, и без
-            // .await он просто был бы выброшен и подтверждение не ушло бы.
-            let _ = tx_ack.unbounded_send(
+            // `UnboundedSender::send` здесь синхронный и возвращает Result.
+            let _ = tx_ack.send(
                 json!({
                     "id": 0,
                     "method": "Page.screencastFrameAck",

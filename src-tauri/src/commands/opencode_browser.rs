@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::process::{Child, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -254,7 +254,7 @@ fn launch_browser(start_url: &str) -> Result<Child, String> {
     )?;
     let profile = browser_profile();
     let dl = download_dir();
-    let cmd: Command = crate::utils::create_hidden_command(exe.to_string_lossy().as_ref());
+    let mut cmd: Command = crate::utils::create_hidden_command(exe.to_string_lossy().as_ref());
     cmd.arg("--headless=new")
         // Свой пустой профиль: сессия пользователя недоступна.
         .arg(format!("--user-data-dir={}", profile.to_string_lossy()))
@@ -384,7 +384,9 @@ async fn connect(app: tauri::AppHandle, start_url: &str) -> Result<(), String> {
                 .unwrap_or("")
                 .to_string();
             // Кадр обязателен к подтверждению, иначе поток встаёт.
-            let _ = tx_ack.send(
+            // Именно unbounded_send, а не send: send возвращает future, и без
+            // .await он просто был бы выброшен и подтверждение не ушло бы.
+            let _ = tx_ack.unbounded_send(
                 json!({
                     "id": 0,
                     "method": "Page.screencastFrameAck",
@@ -794,7 +796,9 @@ pub async fn op_browser_close() -> Result<String, String> {
     if let Some(mut c) = child {
         let _ = c.kill();
     }
-    *CURSOR.lock().map_err(|_| "poisoned")? = (0.0, 0.0, false);
+    if let Ok(mut cur) = CURSOR.lock() {
+        *cur = (0.0, 0.0, false);
+    }
     Ok("Браузер закрыт".into())
 }
 

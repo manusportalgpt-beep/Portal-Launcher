@@ -2112,7 +2112,7 @@ fn node_bin_dir() -> Option<String> {
 /// в выводе появляются чёрные ромбы вместо букв, и агент не понимает, что
 /// произошло. Поэтому сначала пробуем UTF-8, а при неудаче однобайтовую
 /// таблицу Windows-1251 (кириллица) с таблицей 866 как запасным вариантом.
-fn decode_output(bytes: &[u8]) -> String {
+pub(crate) fn decode_output(bytes: &[u8]) -> String {
     if bytes.is_empty() {
         return String::new();
     }
@@ -2318,6 +2318,432 @@ pub fn op_clear_cache(what: Option<String>) -> Result<CacheInfo, String> {
 /// Вручную заблокированные деструктивные/системные паттерны команд.
 /// Срабатывает до запуска процесса — такие команды запрещены всегда,
 /// независимо от выданного разрешения.
+/// Программы, которые разрешено запускать агенту напрямую, без оболочки.
+///
+/// Смысл: агент передаёт программу и готовые аргументы, а мы запускаем
+/// процесс как есть. Ни `cmd`, ни `powershell` в цепочке нет, поэтому
+/// символы `& | > ;` внутри аргумента остаются обычными символами и
+/// командой не становятся. Это убирает целый класс инъекций, на которых
+/// держался прежний `run_command`.
+const PROGRAM_ALLOWLIST: &[&str] = &[
+    "node",
+    "npm",
+    "npx",
+    "pnpm",
+    "yarn",
+    "python",
+    "python3",
+    "py",
+    "pip",
+    "git",
+    "java",
+    "javac",
+    "gradle",
+    "mvn",
+    "cargo",
+    "rustc",
+    "dotnet",
+    "go",
+    "tsc",
+    "eslint",
+    "prettier",
+    "curl",
+    "winget",
+    "code",
+    "java.exe",
+    "node.exe",
+    "git.exe",
+    "winget.exe",
+];
+
+fn is_program_allowed(program: &str) -> bool {
+    let name = Path::new(program)
+        .file_name()
+        .map(|s| s.to_string_lossy().to_lowercase())
+        .unwrap_or_else(|| program.to_lowercase());
+    PROGRAM_ALLOWLIST
+        .iter()
+        .any(|p| *p == name || p.trim_end_matches(".exe") == name.trim_end_matches(".exe"))
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ProgramRun {
+    pub exit_code: i32,
+    pub stdout: String,
+    pub stderr: String,
+    pub timed_out: bool,
+    pub log: String,
+}
+
+/// Запуск программы без оболочки: отдельная программа и отдельные аргументы.
+///
+/// Отличие от `run_command` принципиальное. Там строка целиком уходила в
+/// `cmd /C`, где модель могла написать `node -e "..." && del ...`, и
+/// блоклист по подстрокам от этого не спасал. Здесь каждый аргумент - это
+/// отдельный элемент массива, поэтому спецсимвол внутри него физически
+/// не может стать разделителем команд.
+#[tauri::command]
+pub async fn op_run_program(
+    root: String,
+    cwd: String,
+    program: String,
+    args: Vec<String>,
+    timeout_ms: Option<u64>,
+) -> Result<ProgramRun, String> {
+    let r = root_from_name(&root)?;
+    if !is_program_allowed(&program) {
+        return Err(format!(
+            "Программа «{program}» не в списке разрешённых. Разрешены: {}.",
+            PROGRAM_ALLOWLIST.join(", ")
+        ));
+    }
+    if args.iter().any(|a| a.contains('\0')) {
+        return Err("Аргумент содержит недопустимый символ".into());
+    }
+    // Рабочая папка - только внутри разрешённой зоны.
+    let cwd_path = if cwd.trim().is_empty() {
+        root_path(r)
+    } else {
+        let cand = resolve_agent_path(r, Path::new(&cwd));
+        if cand.is_dir() {
+            enforce_root(r, &cand, false)?
+        } else {
+            root_path(r)
+        }
+    };
+    let timeout = timeout_ms.unwrap_or(DEFAULT_CMD_TIMEOUT_MS).min(600_000);
+    let args_for_run = args.clone();
+    let cwd_for_run = cwd_path.clone();
+    let prog_for_run = program.clone();
+
+    let finished = tokio::task::spawn_blocking(move || {
+        let env = apply_cache_env(&prog_for_run);
+        let mut c = crate::utils::create_hidden_command(prog_for_run.as_str());
+        c.current_dir(&cwd_for_run);
+        c.envs(env.iter().map(|(k, v)| (k, v)));
+        // Никаких cmd /C: аргументы уходят в CreateProcess как есть.
+        c.args(&args_for_run);
+        c.stdin(std::process::Stdio::null());
+        c.stdout(std::process::Stdio::piped());
+        c.stderr(std::process::Stdio::piped());
+        c.output()
+    });
+
+    match tokio::time::timeout(std::time::Duration::from_millis(timeout), finished).await {
+        Ok(Ok(Ok(out))) => {
+            let run = ProgramRun {
+                exit_code: out.status.code().unwrap_or(-1),
+                stdout: decode_output(&out.stdout),
+                stderr: decode_output(&out.stderr),
+                timed_out: false,
+                log: String::new(),
+            };
+            Ok(record_program_log(r, &program, &args, &run))
+        }
+        Ok(Ok(Err(e))) => Err(format!("Не удалось запустить {program}: {e}")),
+        Ok(Err(e)) => Err(format!("Ошибка запуска: {e}")),
+        Err(_) => Ok(record_program_log(
+            r,
+            &program,
+            &args,
+            &ProgramRun {
+                exit_code: -1,
+                stdout: String::new(),
+                stderr: format!("Превышено время выполнения ({timeout} мс)."),
+                timed_out: true,
+                log: String::new(),
+            },
+        )),
+    }
+}
+
+/// Пишем историю запусков в кеш лаунчера: по ней видно, что ИИ ставил
+/// и запускал, и куда делись скачанные файлы.
+fn record_program_log(r: Root, program: &str, args: &[String], run: &ProgramRun) -> ProgramRun {
+    let line = format!(
+        "{} | exit={} | {} {}\n  stdout: {}\n  stderr: {}\n",
+        chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+        run.exit_code,
+        program,
+        args.join(" "),
+        run.stdout.chars().take(2000).collect::<String>(),
+        run.stderr.chars().take(1000).collect::<String>(),
+    );
+    let dir = root_path(r).join("Cache").join("program-logs");
+    std::fs::create_dir_all(&dir).ok();
+    let path = dir.join("runs.log");
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        use std::io::Write as _;
+        let _ = f.write_all(line.as_bytes());
+    }
+    ProgramRun {
+        log: path.to_string_lossy().into_owned(),
+        ..run.clone()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Установка программ: только официальные источники
+// ---------------------------------------------------------------------------
+
+/// Источник для установки. `winget` - курируемый репозиторий манифестов
+/// Microsoft, где у каждого пакета указан издатель и ссылка на сайт.
+/// Произвольные exe и «установщики из интернета» сюда не попадают.
+const WINGET_SOURCE: &str = "winget";
+
+/// Единственная разрешённая программа для установки. Никаких setup.exe
+/// из интернета: только манифест с издателем.
+fn winget_program() -> String {
+    "winget".to_string()
+}
+
+async fn winget(args: &[&str], timeout_ms: u64) -> Result<String, String> {
+    let owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+    let prog = winget_program();
+    let finished = tokio::task::spawn_blocking(move || {
+        let env = apply_cache_env("winget");
+        let mut c = crate::utils::create_hidden_command(prog.as_str());
+        c.envs(env.iter().map(|(k, v)| (k, v)));
+        c.args(&owned);
+        c.stdin(std::process::Stdio::null());
+        c.stdout(std::process::Stdio::piped());
+        c.stderr(std::process::Stdio::piped());
+        c.output()
+    });
+    match tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), finished).await {
+        Ok(Ok(Ok(out))) => Ok(decode_output(&out.stdout)),
+        Ok(Ok(Err(e))) => Err(format!(
+            "winget недоступен: {e}. Он входит в Windows 10/11; обновить: https://aka.ms/getwinget"
+        )),
+        Ok(Err(e)) => Err(format!("Ошибка запуска winget: {e}")),
+        Err(_) => Err("winget не ответил за отведённое время".into()),
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AppCandidate {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub source: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AppInfo {
+    pub id: String,
+    pub name: String,
+    pub publisher: String,
+    pub publisher_url: String,
+    pub homepage: String,
+    pub license: String,
+    pub installer_type: String,
+    pub source: String,
+    /// Человеческий вывод: можно ставить или нет.
+    pub verdict: String,
+}
+
+/// Поиск пакета в официальном репозитории манифестов.
+#[tauri::command]
+pub async fn op_app_search(query: String) -> Result<Vec<AppCandidate>, String> {
+    let q = query.trim();
+    if q.is_empty() {
+        return Err("Пустой запрос".into());
+    }
+    let out = winget(
+        &[
+            "search",
+            "--query",
+            q,
+            "--source",
+            WINGET_SOURCE,
+            "--accept-source-agreements",
+            "--disable-interactivity",
+        ],
+        120_000,
+    )
+    .await?;
+    let mut list: Vec<AppCandidate> = Vec::new();
+    for line in out.lines() {
+        // Таблица winget разделяет колонки двумя и более пробелами.
+        let cols: Vec<&str> = line.split_whitespace().collect();
+        if cols.len() < 3 {
+            continue;
+        }
+        // Идентификатор пакета узнаём по виду: Точка.Точка.Часть
+        let id = cols
+            .iter()
+            .find(|c| c.contains('.') && c.chars().any(|ch| ch.is_ascii_alphabetic()))
+            .copied();
+        let Some(id) = id else { continue };
+        let version = cols
+            .last()
+            .filter(|c| c.starts_with(|ch: char| ch.is_ascii_digit()))
+            .copied();
+        let name = line.split_whitespace().next().unwrap_or("").to_string();
+        if list.iter().any(|c| c.id.eq_ignore_ascii_case(id)) {
+            continue;
+        }
+        list.push(AppCandidate {
+            id: id.to_string(),
+            name,
+            version: version.unwrap_or("").to_string(),
+            source: WINGET_SOURCE.to_string(),
+        });
+    }
+    Ok(list)
+}
+
+/// Полная карточка пакета: издатель, сайт, тип установщика.
+///
+/// Именно её ИИ обязан показать пользователю до установки. Установка без
+/// этого шага невозможна: `op_app_install` требует издателя, который
+/// агент видел здесь, и перепроверяет его сам.
+#[tauri::command]
+pub async fn op_app_show(id: String) -> Result<AppInfo, String> {
+    let id = id.trim();
+    if id.is_empty() || !id.contains('.') {
+        return Err(
+            "Нужен полный идентификатор пакета, например Microsoft.VisualStudioCode".into(),
+        );
+    }
+    if id.chars().any(|c| c == '/' || c == '\\' || c == '\0') {
+        return Err("Недопустимый идентификатор".into());
+    }
+    let out = winget(
+        &[
+            "show",
+            "--id",
+            id,
+            "--exact",
+            "--source",
+            WINGET_SOURCE,
+            "--accept-source-agreements",
+            "--disable-interactivity",
+        ],
+        120_000,
+    )
+    .await?;
+
+    let pick = |label: &str| -> String {
+        out.lines()
+            .find_map(|l| {
+                let t = l.trim();
+                t.strip_prefix(label)
+                    .map(|v| v.trim().to_string())
+                    .filter(|v| !v.is_empty())
+            })
+            .unwrap_or_default()
+    };
+    let name = out
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("Found ").map(|s| s.to_string()))
+        .unwrap_or_else(|| id.to_string());
+    let publisher = pick("Publisher:");
+    let publisher_url = pick("Publisher Url:");
+    let installer_type = pick("Installer Type:");
+    let license = pick("License:");
+    // Сайт пакета: в выводе есть Installer Url - это и есть официальный адрес.
+    let homepage = pick("Installer Url:");
+
+    let verdict = if publisher.is_empty() {
+        "непонятно: в манифесте нет издателя".to_string()
+    } else {
+        format!("источник: {WINGET_SOURCE}, издатель: {publisher}")
+    };
+    Ok(AppInfo {
+        id: id.to_string(),
+        name,
+        publisher,
+        publisher_url,
+        homepage,
+        license,
+        installer_type,
+        source: WINGET_SOURCE.to_string(),
+        verdict,
+    })
+}
+
+/// Установка пакета.
+///
+/// Три проверки подряд, поэтому «скачай setup.exe с сайта из выдачи
+/// поисковика» агент сделать не может даже если Very решит:
+///   1. идентификатор строго из официального репозитория манифестов;
+///   2. издатель, который агент передал, должен совпасть с манифестом -
+///      это отсекает пакеты-подделки с похожим именем;
+///   3. ключ `--allow-scripts` намеренно не передаётся, поэтому установщики
+///      с произвольными скриптами не выполнятся.
+#[tauri::command]
+pub async fn op_app_install(id: String, expect_publisher: String) -> Result<String, String> {
+    let info = op_app_show(id.clone()).await?;
+    if info.publisher.is_empty() {
+        return Err("В манифесте нет издателя - устанавливать нечего.".into());
+    }
+    let want = expect_publisher.trim().to_lowercase();
+    if want.is_empty() {
+        return Err(
+            "Сначала покажи пользователю карточку пакета (app_show) и назови издателя: \
+             без этого установка запрещена."
+                .into(),
+        );
+    }
+    if !info.publisher.to_lowercase().contains(&want)
+        && !want.contains(&info.publisher.to_lowercase())
+    {
+        return Err(format!(
+            "Издатель не совпал: в манифесте «{}», а ты указал «{}». Покажи карточку заново.",
+            info.publisher, expect_publisher
+        ));
+    }
+    let out = winget(
+        &[
+            "install",
+            "--id",
+            &info.id,
+            "--exact",
+            "--source",
+            WINGET_SOURCE,
+            "--silent",
+            "--accept-package-agreements",
+            "--accept-source-agreements",
+            "--disable-interactivity",
+        ],
+        900_000,
+    )
+    .await?;
+    Ok(format!(
+        "Установлено: {} ({}) — {}\n{}",
+        info.name, info.id, info.publisher, out
+    ))
+}
+
+/// Проверка, установлено ли что-то (для отчёта ИИ).
+#[tauri::command]
+pub async fn op_app_installed(query: String) -> Result<String, String> {
+    let q = query.trim();
+    if q.is_empty() {
+        return Err("Пустой запрос".into());
+    }
+    winget(
+        &[
+            "list",
+            "--query",
+            q,
+            "--accept-source-agreements",
+            "--disable-interactivity",
+        ],
+        120_000,
+    )
+    .await
+}
+
+/// Команды, которые нельзя запускать агенту как угодно: список опасных
+/// строк оставлен для `run_command`, а для установки используется
+/// отдельный путь через манифесты.
+/// Команды отсёкаются по подстрокам: `cmd`, `powershell`, `del`, `rd`.
 fn is_dangerous_command(cmd: &str) -> bool {
     let lower = cmd.to_lowercase();
     const PATTERNS: &[&str] = &[

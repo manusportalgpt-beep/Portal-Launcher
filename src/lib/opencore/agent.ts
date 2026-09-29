@@ -569,6 +569,87 @@ export const TOOLS: ToolDef[] = [
     requiresPermission: true,
   },
   {
+    name: 'run_program',
+    description:
+      'Запускает программу БЕЗ оболочки: ты передаёшь имя программы и готовые аргументы ' +
+      'списком. Ни cmd, ни powershell не участвуют, поэтому спецсимволы (& | > ;) в аргументах ' +
+      'безобидны и командой не станут. Основной способ выполнять что-то в песочнице. ' +
+      'Разрешён ограниченный список программ (node, npm, python, git, java, cargo, dotnet, ' +
+      'gradle, curl и др.); для установки программ используй app_install.',
+    parameters: {
+      type: 'object',
+      properties: {
+        program: { type: 'string', description: 'Имя или путь к программе, например node' },
+        args: { type: 'array', items: { type: 'string' }, description: 'Аргументы отдельными элементами' },
+        cwd: { type: 'string', description: 'Рабочая папка внутри песочницы' },
+        root: { type: 'string', description: 'Зона: portal | temp | launcher' },
+        timeout_ms: { type: 'number', description: 'Таймаут в мс (по умолчанию 120000)' },
+      },
+      required: ['program'],
+    },
+    root: 'portal',
+    requiresPermission: false,
+  },
+  {
+    name: 'app_search',
+    description:
+      'Ищет программу в официальном репозитории манифестов winget (курируемый список ' +
+      'Microsoft, у каждого пакета указан издатель и официальный сайт). Возвращает ' +
+      'идентификаторы вида Microsoft.VisualStudioCode. Никаких случайных установщиков ' +
+      'из интернета.',
+    parameters: {
+      type: 'object',
+      properties: { query: { type: 'string', description: 'Что ищем: «Visual Studio Code», «Discord»' } },
+      required: ['query'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'app_show',
+    description:
+      'Карточка пакета: издатель, официальный сайт, тип установщика, лицензия. ' +
+      'ОБЯЗАТЕЛЬНЫЙ шаг перед установкой — покажи эти данные пользователю и назови ' +
+      'издателя вслух. Установка не пройдёт без этого шага.',
+    parameters: {
+      type: 'object',
+      properties: { id: { type: 'string', description: 'Идентификатор пакета из app_search' } },
+      required: ['id'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
+    name: 'app_install',
+    description:
+      'Устанавливает программу из официального репозитория winget. Обязательные условия: ' +
+      '1) сначала вызови app_show и убедись, что издатель настоящий; ' +
+      '2) передай expect_publisher — строку издателя из карточки, иначе отказ; ' +
+      '3) предупреди пользователя, что будет установлено, и дождись согласия. ' +
+      'Установщики с произвольными скриптами не запустятся — это осознанное ограничение.',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Идентификатор пакета' },
+        expect_publisher: { type: 'string', description: 'Издатель из app_show' },
+      },
+      required: ['id', 'expect_publisher'],
+    },
+    root: '*',
+    requiresPermission: true,
+  },
+  {
+    name: 'app_installed',
+    description: 'Проверяет, установлена ли программа на этом компьютере.',
+    parameters: {
+      type: 'object',
+      properties: { query: { type: 'string', description: 'Название для поиска среди установленных' } },
+      required: ['query'],
+    },
+    root: '*',
+    requiresPermission: false,
+  },
+  {
     name: 'web_search',
     description:
       'Поиск в интернете по текстовому запросу (DuckDuckGo): вернёт до 8 результатов — заголовок, URL, сниппет. ' +
@@ -2087,6 +2168,99 @@ async function execBrowser(tool: string, args: any, signal?: AbortSignal): Promi
       };
     }
     return { ok: false, output: msg };
+  }
+}
+
+/**
+ * Запуск программы без оболочки: отдельные аргументы вместо строки.
+ * Здесь нет `cmd /C`, поэтому спецсимволы в аргументах остаются данными.
+ */
+async function execRunProgram(args: any): Promise<ExecResult> {
+  const program = String(args?.program ?? '').trim();
+  if (!program) return { ok: false, output: 'Не указана программа.' };
+  // Модели часто присылают args строкой - принимаем и такой формат.
+  let list: string[] = Array.isArray(args?.args)
+    ? args.args.map((a: unknown) => String(a))
+    : typeof args?.args === 'string' && args.args.trim()
+      ? args.args.trim().split(/\s+/)
+      : [];
+  try {
+    const r = await invoke<{ exit_code: number; stdout: string; stderr: string; timed_out: boolean; log: string }>(
+      'op_run_program',
+      {
+        root: String(args?.root || 'portal'),
+        cwd: args?.cwd ? String(args.cwd) : '',
+        program,
+        args: list,
+        timeout_ms: args?.timeout_ms ?? null,
+      },
+    );
+    const body = [r.stdout, r.stderr && `--- stderr ---\n${r.stderr}`].filter(Boolean).join('\n').trim()
+      || '(пустой вывод)';
+    const head = `exit=${r.exit_code}${r.timed_out ? ' (превышено время)' : ''}\n`;
+    return { ok: r.exit_code === 0, output: head + body + `\n\n_Журнал запуска: ${r.log}_` };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
+/**
+ * Установка программ. Схема жёсткая: поиск → карточка с издателем →
+ * установка с тем же издателем. Никаких «скачай setup.exe и запусти».
+ */
+async function execApp(tool: string, args: any): Promise<ExecResult> {
+  try {
+    if (tool === 'app_search') {
+      const list = await invoke<{ id: string; name: string; version: string; source: string }[]>(
+        'op_app_search',
+        { query: String(args?.query ?? '') },
+      );
+      if (!list.length) return { ok: true, output: 'Ничего не найдено в официальном репозитории.' };
+      const body = list
+        .map(c => `- ${c.name} — id: ${c.id}${c.version ? ` — ${c.version}` : ''}`)
+        .join('\n');
+      return {
+        ok: true,
+        output: `Найдено в официальном репозитории winget:\n${body}\n\n`
+          + `Прежде чем ставить: вызови app_show с этим id, покажи пользователю издателя и официальный `
+          + `сайт, спроси согласие. Установка с выдуманным издателем будет отклонена.`,
+      };
+    }
+    if (tool === 'app_show') {
+      const info = await invoke<{
+        id: string; name: string; publisher: string; publisher_url: string;
+        homepage: string; license: string; installer_type: string; source: string; verdict: string;
+      }>('op_app_show', { id: String(args?.id ?? '') });
+      const lines = [
+        `${info.name} (${info.id})`,
+        `Издатель: ${info.publisher || '— НЕТ В МАНИФЕСТЕ —'}`,
+        `Официальный сайт пакета: ${info.homepage || '—'}`,
+        `Сайт издателя: ${info.publisher_url || '—'}`,
+        `Тип установщика: ${info.installer_type || '—'}`,
+        `Лицензия: ${info.license || '—'}`,
+        `Источник: ${info.source}`,
+      ];
+      return {
+        ok: true,
+        output: lines.join('\n')
+          + `\n\nПокажи это пользователю и спроси, ставить ли. Если да — вызывай app_install `
+          + `с expect_publisher: "${info.publisher}".`,
+      };
+    }
+    if (tool === 'app_install') {
+      const id = String(args?.id ?? '');
+      const pub = String(args?.expect_publisher ?? '');
+      if (!pub.trim()) {
+        return { ok: false, output: 'Сначала вызови app_show и передай издателя в expect_publisher.' };
+      }
+      return { ok: true, output: await invoke<string>('op_app_install', { id, expect_publisher: pub }) };
+    }
+    if (tool === 'app_installed') {
+      return { ok: true, output: await invoke<string>('op_app_installed', { query: String(args?.query ?? '') }) };
+    }
+    return { ok: false, output: `Неизвестный инструмент установки: ${tool}` };
+  } catch (e) {
+    return { ok: false, output: String(e) };
   }
 }
 
@@ -3673,6 +3847,8 @@ export async function executeTool(
   if (tool === 'spawn_agents') return execSpawnAgents(ep, args, requestPermission, signal);
 
   if (tool.startsWith('browser_')) return execBrowser(tool, args, signal);
+  if (tool === 'run_program') return execRunProgram(args);
+  if (tool.startsWith('app_')) return execApp(tool, args);
 
   if (tool === 'list_dir') return execListDir(args);
   if (tool === 'read_text') return execReadText(args);

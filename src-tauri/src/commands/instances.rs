@@ -2641,10 +2641,7 @@ async fn import_curseforge_modpack_from_archive(
         app.emit("instance-progress", serde_json::json!({"stage":"downloading","instance_id":new_id,"name":pack_name,"icon":icon_b64.as_deref(),"percent":pct,"message":format!("Downloading {}/{}", i+1, total)})).ok();
 
         match crate::commands::curseforge::get_curseforge_file_download_url(
-            project_id,
-            file_id,
-            String::new(),
-            None,
+            project_id, file_id, None, None,
         )
         .await
         {
@@ -2707,8 +2704,7 @@ async fn import_curseforge_modpack_from_archive(
         let Ok(project_id) = item.id.parse::<u64>() else {
             continue;
         };
-        if let Ok(project) =
-            crate::commands::curseforge::get_curseforge_mod(project_id, String::new()).await
+        if let Ok(project) = crate::commands::curseforge::get_curseforge_mod(project_id, None).await
         {
             if !project.name.trim().is_empty() {
                 item.name = project.name;

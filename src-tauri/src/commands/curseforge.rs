@@ -504,12 +504,10 @@ pub struct BedrockTaxonomy {
 }
 
 #[tauri::command]
-pub async fn get_bedrock_curseforge_taxonomy(api_key: String) -> Result<BedrockTaxonomy, String> {
-    let api_key = if api_key.is_empty() {
-        read_curseforge_api_key()
-    } else {
-        api_key
-    };
+pub async fn get_bedrock_curseforge_taxonomy(
+    api_key: Option<String>,
+) -> Result<BedrockTaxonomy, String> {
+    let api_key = resolve_api_key(api_key);
     if api_key.is_empty() {
         return Err("CurseForge API key not configured. Add it in Settings → Advanced.".into());
     }

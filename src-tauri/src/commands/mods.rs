@@ -438,7 +438,7 @@ pub async fn search_mods(
                 None,
                 None,
                 None,
-                curseforge_api_key.unwrap_or_default(),
+                curseforge_api_key,
                 None,
             )
             .await?,
@@ -465,7 +465,7 @@ pub async fn search_mods(
                     None,
                     None,
                     None,
-                    curseforge_api_key.unwrap_or_default(),
+                    curseforge_api_key,
                     None
                 )
             );
@@ -678,7 +678,7 @@ pub async fn install_curseforge_mod(
     let download_url = super::curseforge::get_curseforge_file_download_url(
         mod_id,
         file_id,
-        api_key.clone(),
+        Some(api_key.clone()),
         Some(mod_type_folder(mtype) == "resourcepacks" || mod_type_folder(mtype) == "shaderpacks"),
     )
     .await?;
@@ -1891,7 +1891,7 @@ pub async fn check_mod_updates(instance_id: String) -> Result<Vec<InstalledMod>,
             let latest_url = crate::commands::curseforge::get_curseforge_file_download_url(
                 project_id,
                 latest["id"].as_u64().unwrap_or_default(),
-                key,
+                Some(key),
                 None,
             )
             .await
@@ -2540,7 +2540,7 @@ pub async fn check_instance_target_mod_compatibility(
                     id,
                     Some(target_version.clone()),
                     cf_loader,
-                    String::new(),
+                    None,
                 )
                 .await
                 {
@@ -2556,7 +2556,7 @@ pub async fn check_instance_target_mod_compatibility(
                                 id,
                                 Some(target_version.clone()),
                                 None,
-                                String::new(),
+                                None,
                             )
                             .await
                             {

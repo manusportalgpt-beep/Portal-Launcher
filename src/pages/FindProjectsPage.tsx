@@ -32,6 +32,9 @@ type FindProjectsFilterSnapshot = {
   selectedCats?: string[];
   selectedLoaders?: string[];
   selectedVersions?: string[];
+  /** Режим Bedrock и выбранная категория CurseForge Bedrock. */
+  bedrock?: boolean;
+  bedrockCat?: string;
 };
 
 function findProjectsFilterKey(instanceId: string) {
@@ -120,6 +123,24 @@ const TYPE_DEFS: Record<ProjectType, { modrinthFacet: string; cfClass: number; l
   resourcepacks: { modrinthFacet: 'resourcepack', cfClass: 12,   labelKey: 'resourcePacks', icon: ImageIcon },
   shaders:       { modrinthFacet: 'shader',       cfClass: 6552, labelKey: 'shaders',       icon: Sparkles },
 };
+/**
+ * Категории CurseForge для Minecraft Bedrock.
+ *
+ * Список не зашит числами: `get_bedrock_curseforge_taxonomy` спрашивает у
+ * CurseForge `/v1/games` и `/v1/games/{id}/categories` и отдаёт настоящие
+ * classId. Fallback ниже — на случай, если таксономия недоступна (нет ключа
+ * или нет сети), чтобы вкладки всё равно нарисовались.
+ */
+const BEDROCK_CATEGORIES: { slug: string; label: string; fallbackClass: number; icon: any }[] = [
+  { slug: 'addons', label: 'Addons', fallbackClass: 5, icon: Package },
+  { slug: 'maps', label: 'Maps', fallbackClass: 3, icon: Map },
+  { slug: 'texture-packs', label: 'Texture Packs', fallbackClass: 4, icon: ImageIcon },
+  { slug: 'scripts', label: 'Scripts', fallbackClass: 7, icon: Sparkles },
+  { slug: 'skins', label: 'Skins', fallbackClass: 10, icon: Package },
+];
+
+type BedrockTaxonomy = { game_id: number; classes: Record<string, number> };
+
 const SORT_OPTIONS = [
   { value:'relevance', labelKey:'relevance' },
   { value:'downloads', labelKey:'downloads' },
@@ -237,8 +258,10 @@ function dedupeCombinedProjects(projects: Project[]): Project[] {
 }
 
 // ── Install Button ──────────────────────────────────────────────────────────
-function InstallBtn({ project, instanceId, mcVersion, loader }: {
+function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
   project: Project; instanceId: string; mcVersion: string; loader: string;
+  /** Установка в com.mojang вместо папки сборки. */
+  bedrockMode?: boolean;
 }) {
   const { t } = useTranslation();
   const normalizedMcVersion = normalizeMinecraftVersion(mcVersion);
@@ -344,6 +367,47 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
         const numericProjectId = Number(installProject.id);
         if (!Number.isSafeInteger(numericProjectId) || numericProjectId <= 0) {
           throw new Error(t('findProjects.install.curseforgeInvalidProject'));
+        }
+
+        // ── Bedrock ────────────────────────────────────────────────────────
+        // У Bedrock другой конвейер: файлы приходят .mcaddon/.mcpack, версии
+        // и загрузчики в фильтрах не участвуют, а содержимое кладётся не в
+        // папку сборки, а в com.mojang конкретного установленного издания.
+        // Поэтому здесь своя короткая ветка, а не переиспользование Java-пути:
+        // попытка прогнать Bedrock-файл через mod_type папки Java ничего не
+        // дала бы, игра бы его просто не увидела.
+        if (bedrockMode) {
+          const filesResp = await invoke<any>('get_curseforge_mod_files', {
+            modId: numericProjectId,
+            apiKey: cfApiKey,
+          });
+          const candidates = (Array.isArray(filesResp?.data) ? filesResp.data : [])
+            .filter((f: any) => Number(f?.id) > 0 && Boolean(f?.fileName))
+            .sort((a: any, b: any) => new Date(b.fileDate ?? 0).getTime() - new Date(a.fileDate ?? 0).getTime());
+          const selectedFile = candidates[0];
+          if (!selectedFile) throw new Error('У этого проекта на CurseForge нет ни одного файла.');
+
+          const downloadUrl = await invoke<string>('get_curseforge_file_download_url', {
+            modId: numericProjectId,
+            fileId: Number(selectedFile.id),
+            apiKey: cfApiKey,
+          }).catch(() => '');
+          if (!downloadUrl) throw new Error('CurseForge не отдал адрес файла для Bedrock.');
+
+          // Издание Bedrock нужно, чтобы положить контент в его папку com.mojang.
+          const pkgs = await invoke<{ family: string; name: string }[]>('list_bedrock_versions').catch(() => []);
+          if (!pkgs?.length) {
+            throw new Error('Не найдено установленное издание Minecraft Bedrock. Установи его в лаунчере — контент кладётся в его папку com.mojang.');
+          }
+          const res = await invoke<{ installed: string[] }>('install_bedrock_content', {
+            family: pkgs[0].family,
+            downloadUrl,
+            fileName: String(selectedFile.fileName),
+          });
+          console.log('[Bedrock install]', installProject.title, res.installed);
+          triggerInstallEffect({ name: installProject.title, iconUrl: installProject.iconUrl, contentType: 'resourcepack' });
+          setState('done');
+          return;
         }
 
         // contentType определяем как на ModDetail: реальный тип контента
@@ -456,7 +520,6 @@ function InstallBtn({ project, instanceId, mcVersion, loader }: {
           iconUrl: installProject.iconUrl || null,
           apiKey: cfApiKey,
         });
-        useInstalledStore.getState().mark(instanceId, [installProject.id, installProject.title, installProject.slug]);
         triggerInstallEffect({ name: installProject.title, iconUrl: installProject.iconUrl, contentType });
         setState('done');
       }
@@ -515,8 +578,8 @@ function ProjectAuthorAvatar({ project }: { project: Project }) {
 }
 
 // ── Project Card ─────────────────────────────────────────────────────────────
-function ProjectCard({ p, view, instanceId, mcVersion, loader, onClick }: {
-  p: Project; view: 'grid'|'list'; instanceId: string; mcVersion: string; loader: string;
+function ProjectCard({ p, view, instanceId, mcVersion, loader, bedrockMode, onClick }: {
+  p: Project; view: 'grid'|'list'; instanceId: string; mcVersion: string; loader: string; bedrockMode?: boolean;
   onClick: () => void;
 }) {
   const { t } = useTranslation();
@@ -552,7 +615,7 @@ function ProjectCard({ p, view, instanceId, mcVersion, loader, onClick }: {
         </div>
       </div>
       <div onClick={e => e.stopPropagation()}>
-        <InstallBtn project={p} instanceId={instanceId} mcVersion={mcVersion} loader={loader} />
+        <InstallBtn project={p} instanceId={instanceId} mcVersion={mcVersion} loader={loader} bedrockMode={bedrockMode} />
       </div>
     </div>
   );
@@ -588,7 +651,7 @@ function ProjectCard({ p, view, instanceId, mcVersion, loader, onClick }: {
         </div>
         <div className="flex-1" />
         <div onClick={e => e.stopPropagation()}>
-          <InstallBtn project={p} instanceId={instanceId} mcVersion={mcVersion} loader={loader} />
+          <InstallBtn project={p} instanceId={instanceId} mcVersion={mcVersion} loader={loader} bedrockMode={bedrockMode} />
         </div>
       </div>
     </div>
@@ -717,6 +780,35 @@ export function FindProjectsPage() {
 
   const [platform, setPlatform] = useState<Platform>(() => restoredFilters.current.platform ?? defaultPlatform);
   const [projectType, setProjectType] = useState<ProjectType>(() => restoredFilters.current.projectType ?? 'mods');
+
+  // Режим Bedrock: у Minecraft Bedrock на CurseForge своя игра и свои
+  // категории, поэтому фильтры версий/загрузчиков там неприменимы, а
+  // установка идёт в com.mojang, а не в папку сборки.
+  const isBedrockInstance = instance?.modLoader === 'bedrock';
+  const [bedrockMode, setBedrockMode] = useState<boolean>(() => restoredFilters.current.bedrock ?? isBedrockInstance);
+  const [bedrockCat, setBedrockCat] = useState<string>(() => restoredFilters.current.bedrockCat ?? 'addons');
+  const [bedrockTax, setBedrockTax] = useState<BedrockTaxonomy | null>(null);
+  const [bedrockTaxError, setBedrockTaxError] = useState('');
+
+  // Таксономия нужна один раз за сессию: gameId и classId берём у CurseForge,
+  // а не зашиваем числами.
+  useEffect(() => {
+    if (!bedrockMode || bedrockTax) return;
+    let alive = true;
+    invoke<BedrockTaxonomy>('get_bedrock_curseforge_taxonomy', { apiKey: cfApiKey })
+      .then(tax => { if (alive) { setBedrockTax(tax); setBedrockTaxError(''); } })
+      .catch(e => {
+        if (alive) {
+          setBedrockTaxError(String(e));
+        }
+      });
+    return () => { alive = false; };
+  }, [bedrockMode, bedrockTax, cfApiKey]);
+
+  // Активная категория Bedrock: настоящий classId из таксономии, иначе fallback.
+  const bedrockClassId = bedrockTax?.classes?.[bedrockCat]
+    ?? BEDROCK_CATEGORIES.find(c => c.slug === bedrockCat)?.fallbackClass
+    ?? 5;
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortOrder>('relevance');
   const [view, setView] = useState<'grid'|'list'>('list');
@@ -810,9 +902,10 @@ export function FindProjectsPage() {
   useEffect(() => {
     const snapshot: FindProjectsFilterSnapshot = {
       platform, projectType, showFilters, selectedCats, selectedLoaders, selectedVersions,
+      bedrock: bedrockMode, bedrockCat,
     };
     try { sessionStorage.setItem(findProjectsFilterKey(instanceId), JSON.stringify(snapshot)); } catch {}
-  }, [instanceId, platform, projectType, showFilters, selectedCats, selectedLoaders, selectedVersions]);
+  }, [instanceId, platform, projectType, showFilters, selectedCats, selectedLoaders, selectedVersions, bedrockMode, bedrockCat]);
 
   function fromModrinth(h: ModrinthHit): Project {
     return {
@@ -838,6 +931,27 @@ export function FindProjectsPage() {
   }
 
   const doSearch = useCallback(async (q: string, pt: ProjectType, pl: Platform, s: SortOrder, pg: number, cats: string[], ldrs: string[], vers: string[]) => {
+    // Bedrock: только CurseForge (у Modrinth нет раздела Bedrock) и с
+    // настоящей игрой Bedrock + её категорией. Версии и загрузчики — это
+    // понятия Java, поэтому фильтры сюда не передаются вовсе.
+    if (bedrockMode) {
+      const sortField = s === 'downloads' ? 6 : s === 'newest' ? 11 : s === 'updated' ? 3 : 2;
+      const res = await invoke<CfResult>('search_curseforge', {
+        query: q, limit: PAGE_SIZE, offset: pg * PAGE_SIZE,
+        classId: bedrockClassId,
+        gameId: bedrockTax?.game_id,
+        sortField,
+        apiKey: cfApiKey,
+      });
+      const mapped = (res.data || []).map(m => fromCurseForge(m));
+      setResults(pg === 0 ? mapped : previous => dedupeCombinedProjects([...previous, ...mapped]));
+      setTotal(res.pagination?.total_count ?? 0);
+      setReachableTotal(res.reachable_count ?? null);
+      setCapped(!!res.capped);
+      setNetError(false);
+      setLoading(false);
+      return;
+    }
     const cacheKey = findProjectsCacheKey(q, pt, pl, s, pg, cats, ldrs, vers);
     const cached = readFindProjectsCache(cacheKey);
     if (cached) {
@@ -932,7 +1046,7 @@ export function FindProjectsPage() {
     } finally {
       setLoading(false);
     }
-  }, [cfApiKey]);
+  }, [cfApiKey, bedrockMode, bedrockClassId, bedrockTax?.game_id]);
 
   const trigger = useCallback((immediate = false) => {
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
@@ -1028,35 +1142,73 @@ export function FindProjectsPage() {
           </div>
         )}
 
-        {/* Type tabs */}
+        {/* Переключатель Java / Bedrock. У Bedrock на CurseForge своя игра и свои
+            категории, поэтому три привычные вкладки там бессмысленны. */}
+        <div className="flex items-center gap-1 rounded-xl p-0.5"
+          style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+          {([['java', 'Java'], ['bedrock', 'Bedrock']] as const).map(([mode, label]) => (
+            <button key={mode} onClick={() => {
+              if (bedrockMode === (mode === 'bedrock')) return;
+              setBedrockMode(mode === 'bedrock');
+              setPage(0);
+              setResults([]);
+              setTotal(0);
+              doSearch(query, projectType, platform, sort, 0, selectedCats, selectedLoaders, selectedVersions);
+            }}
+              className="rounded-lg px-3 py-1 text-[11px] font-bold transition-colors"
+              style={bedrockMode === (mode === 'bedrock')
+                ? { background: 'var(--color-primary)', color: 'var(--color-primary-text)' }
+                : { color: 'var(--color-text-secondary)' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Type tabs: для Bedrock — пять категорий CurseForge Bedrock,
+            для Java — прежние три. */}
         <div className="flex gap-1 flex-wrap">
-          {(Object.entries(TYPE_DEFS) as [ProjectType, typeof TYPE_DEFS[ProjectType]][]).map(([typeId, def]) => {
-            const Icon = def.icon;
+          {(bedrockMode
+            ? BEDROCK_CATEGORIES.map(c => [c.slug, c.label, c.icon] as const)
+            : (Object.entries(TYPE_DEFS) as [ProjectType, typeof TYPE_DEFS[ProjectType]][]).map(([tid, def]) => [tid, t(`findProjects.types.${def.labelKey}`), def.icon] as const)
+          ).map(([id, label, Icon]) => {
+            const active = bedrockMode ? bedrockCat === id : projectType === id;
             return (
-              <button key={typeId} onClick={() => {
-                // Сохраняем текущую позицию скролла для текущей вкладки
-                if (resultsScrollRef.current) {
-                  tabScrollPositions.current[projectType] = resultsScrollRef.current.scrollTop;
-                }
-                setProjectType(typeId);
-                setSelectedCats([]);
-                applyInstanceCompatibility(typeId);
-                // Восстанавливаем позицию для новой вкладки (или 0 = верх)
-                requestAnimationFrame(() => {
+              <button key={id} onClick={() => {
+                if (bedrockMode) {
+                  setBedrockCat(id as string);
+                } else {
                   if (resultsScrollRef.current) {
-                    resultsScrollRef.current.scrollTop = tabScrollPositions.current[typeId] ?? 0;
+                    tabScrollPositions.current[projectType] = resultsScrollRef.current.scrollTop;
+                  }
+                  setProjectType(id as ProjectType);
+                  setSelectedCats([]);
+                  applyInstanceCompatibility(id as ProjectType);
+                }
+                setPage(0);
+                setResults([]);
+                doSearch(query, projectType, platform, sort, 0, selectedCats, selectedLoaders, selectedVersions);
+                requestAnimationFrame(() => {
+                  if (resultsScrollRef.current && !bedrockMode) {
+                    resultsScrollRef.current.scrollTop = tabScrollPositions.current[id as ProjectType] ?? 0;
                   }
                 });
               }}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
-                style={projectType===typeId
+                style={active
                   ? { background:'var(--color-primary-dim)', color:'var(--color-primary)', border:'1px solid color-mix(in srgb, var(--color-primary) 46%, var(--color-border))', boxShadow:'0 5px 16px color-mix(in srgb, var(--color-primary) 12%, transparent)' }
                   : { color:'var(--color-text-secondary)', border:'1px solid transparent' }}>
-                <Icon className="w-3.5 h-3.5" />{t(`findProjects.types.${def.labelKey}`)}
+                <Icon className="w-3.5 h-3.5" />{label}
               </button>
             );
           })}
         </div>
+
+        {bedrockMode && bedrockTaxError && (
+          <span className="text-[10px]" style={{ color: 'var(--color-warning)' }}
+            title={bedrockTaxError}>
+            Категории взяты из запасного списка: {bedrockTaxError}
+          </span>
+        )}
 
 
 
@@ -1221,7 +1373,7 @@ export function FindProjectsPage() {
                 <div className="grid grid-cols-2 xl:grid-cols-3 gap-3 py-2">
                   {results.map(p => (
                     <ProjectCard key={`${p.platform}-${p.id}`} p={p} view="grid"
-                      instanceId={instanceId} mcVersion={installMcVersion} loader={installLoader}
+                      instanceId={instanceId} mcVersion={installMcVersion} loader={installLoader} bedrockMode={bedrockMode}
                       onClick={() => navigate(`/discover/${p.platform}/${p.platform === 'curseforge' ? p.id : p.slug}`, {
                         state: { ...p, contextInstanceId: instanceId, contextMcVersion: installMcVersion, contextLoader: installLoader, fromFindProjects: true, searchOrigin: { storageKey: findProjectsFilterKey(instanceId), scrollTop: resultsScrollRef.current?.scrollTop ?? 0 } }
                       })} />
@@ -1231,7 +1383,7 @@ export function FindProjectsPage() {
                 <div className="space-y-2 py-2">
                   {results.map(p => (
                     <ProjectCard key={`${p.platform}-${p.id}`} p={p} view="list"
-                      instanceId={instanceId} mcVersion={installMcVersion} loader={installLoader}
+                      instanceId={instanceId} mcVersion={installMcVersion} loader={installLoader} bedrockMode={bedrockMode}
                       onClick={() => navigate(`/discover/${p.platform}/${p.platform === 'curseforge' ? p.id : p.slug}`, {
                         state: { ...p, contextInstanceId: instanceId, contextMcVersion: installMcVersion, contextLoader: installLoader, fromFindProjects: true, searchOrigin: { storageKey: findProjectsFilterKey(instanceId), scrollTop: resultsScrollRef.current?.scrollTop ?? 0 } }
                       })} />

@@ -323,6 +323,7 @@ fn main() {
             commands::skins::get_profile_textures,
             commands::skins::get_elyby_textures,
             commands::skins::get_profile_capes,
+            commands::skins::get_public_capes,
             commands::skins::set_active_cape,
             commands::skins::hide_active_cape,
             // Platform (Windows Developer Mode / Bedrock)

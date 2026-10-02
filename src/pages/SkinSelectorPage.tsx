@@ -303,10 +303,16 @@ export function SkinSelectorPage() {
         ? await invoke<ProfileTextures>('get_profile_textures', { access_token: profileToken })
         : isElyby
           ? await invoke<ProfileTextures>('get_elyby_textures', { username: user!.username })
-          : await invoke<PublicSkinTexture>('lookup_public_skin', { username: user!.username }).then(publicSkin => ({
-              ...publicSkin,
-              capes: [],
-            }));
+          : await invoke<PublicSkinTexture>('lookup_public_skin', { username: user!.username }).then(async publicSkin => {
+              // Раньше здесь стояло `capes: []` и запрос не уходил вовсе:
+              // плащ не показывался даже когда он у ника был. Теперь спрашиваем
+              // публичные текстуры — ошибка не должна ломать страницу.
+              let capes: CapeInfo[] = [];
+              try {
+                capes = await invoke<CapeInfo[]>('get_public_capes', { username: user!.username });
+              } catch { /* без сети — просто без плащей */ }
+              return { ...publicSkin, capes };
+            });
       setProfile(p);
       setModel(p.skin_variant === 'slim' ? 'slim' : 'classic');
     } catch (e: any) {

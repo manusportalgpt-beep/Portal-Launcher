@@ -790,6 +790,15 @@ export function FindProjectsPage() {
   const [bedrockTax, setBedrockTax] = useState<BedrockTaxonomy | null>(null);
   const [bedrockTaxError, setBedrockTaxError] = useState('');
 
+  /**
+   * Игра Bedrock в CurseForge. Нужна как запасной вариант: если таксономия не
+   * пришла, поиск всё равно должен идти по Bedrock, а не по Java. Раньше здесь
+   * уходил `undefined`, и CurseForge молча отдавал результаты по игре 432 —
+   * то есть по Java, поэтому в режиме Bedrock не находилось ничего.
+   */
+  const BEDROCK_GAME_ID = 454;
+  const bedrockGameId = bedrockTax?.game_id ?? BEDROCK_GAME_ID;
+
   // Таксономия нужна один раз за сессию: gameId и classId берём у CurseForge,
   // а не зашиваем числами.
   useEffect(() => {
@@ -939,7 +948,7 @@ export function FindProjectsPage() {
       const res = await invoke<CfResult>('search_curseforge', {
         query: q, limit: PAGE_SIZE, offset: pg * PAGE_SIZE,
         classId: bedrockClassId,
-        gameId: bedrockTax?.game_id,
+        gameId: bedrockGameId,
         sortField,
         apiKey: cfApiKey,
       });
@@ -1046,7 +1055,7 @@ export function FindProjectsPage() {
     } finally {
       setLoading(false);
     }
-  }, [cfApiKey, bedrockMode, bedrockClassId, bedrockTax?.game_id]);
+  }, [cfApiKey, bedrockMode, bedrockClassId, bedrockGameId]);
 
   const trigger = useCallback((immediate = false) => {
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
@@ -1120,52 +1129,14 @@ export function FindProjectsPage() {
           <ArrowLeft className="w-4 h-4" />
         </button>
 
-        {/* Instance badge */}
-        {instance && (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl shrink-0"
-            style={{ background:`${instance.color||'var(--color-primary)'}15`, border:`1px solid ${instance.color||'var(--color-primary)'}30` }}>
-            <div className="relative w-5 h-5 rounded-lg flex items-center justify-center overflow-hidden text-[10px] font-black"
-              style={{ background:`${instance.color||'var(--color-primary)'}25`, color:instance.color||'var(--color-primary)' }}>
-              {instanceIcon && <img src={instanceIcon} alt="" className="w-full h-full object-cover" onError={e => {
-                e.currentTarget.style.display = 'none';
-                const fallback = e.currentTarget.parentElement?.querySelector<HTMLElement>('[data-instance-fallback]');
-                if (fallback) fallback.style.display = 'flex';
-              }} />}
-              <span data-instance-fallback className="absolute inset-0 items-center justify-center" style={{ display: instanceIcon ? 'none' : 'flex' }}>{instance.name[0]}</span>
-            </div>
-            <p className="text-xs font-bold" style={{ color:'var(--color-text)' }}>
-              {instance.name}
-              <span className="font-normal ml-1.5" style={{ color:'var(--color-text-secondary)' }}>
-                {instance.minecraftVersion} · {instance.modLoader}
-              </span>
-            </p>
-          </div>
-        )}
+        {/* Бейдж сборки убран: надпись «Бедрок 1.26.52303.0 · bedrock» дублировала то,
+            что уже видно по категориям, и занимала место в шапке. */}
 
-        {/* Переключатель Java / Bedrock. У Bedrock на CurseForge своя игра и свои
-            категории, поэтому три привычные вкладки там бессмысленны. */}
-        <div className="flex items-center gap-1 rounded-xl p-0.5"
-          style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
-          {([['java', 'Java'], ['bedrock', 'Bedrock']] as const).map(([mode, label]) => (
-            <button key={mode} onClick={() => {
-              if (bedrockMode === (mode === 'bedrock')) return;
-              setBedrockMode(mode === 'bedrock');
-              setPage(0);
-              setResults([]);
-              setTotal(0);
-              doSearch(query, projectType, platform, sort, 0, selectedCats, selectedLoaders, selectedVersions);
-            }}
-              className="rounded-lg px-3 py-1 text-[11px] font-bold transition-colors"
-              style={bedrockMode === (mode === 'bedrock')
-                ? { background: 'var(--color-primary)', color: 'var(--color-primary-text)' }
-                : { color: 'var(--color-text-secondary)' }}>
-              {label}
-            </button>
-          ))}
-        </div>
+        {/* Переключатель Java / Bedrock убран намеренно: игра определяется сборкой,
+            в которую ставят. Раньше его можно было переключить вручную, и поиск
+            уходил в другую игру CurseForge, а фильтры оставались от старой. */}
 
-        {/* Type tabs: для Bedrock — пять категорий CurseForge Bedrock,
-            для Java — прежние три. */}
+        {/* Категории: пять категорий CurseForge Bedrock или прежние три Java. */}
         <div className="flex gap-1 flex-wrap">
           {(bedrockMode
             ? BEDROCK_CATEGORIES.map(c => [c.slug, c.label, c.icon] as const)
@@ -1193,10 +1164,10 @@ export function FindProjectsPage() {
                   }
                 });
               }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold transition-colors"
                 style={active
-                  ? { background:'var(--color-primary-dim)', color:'var(--color-primary)', border:'1px solid color-mix(in srgb, var(--color-primary) 46%, var(--color-border))', boxShadow:'0 5px 16px color-mix(in srgb, var(--color-primary) 12%, transparent)' }
-                  : { color:'var(--color-text-secondary)', border:'1px solid transparent' }}>
+                  ? { background:'var(--color-primary)', color:'var(--color-primary-text)' }
+                  : { color:'var(--color-text-secondary)', border:'1px solid var(--color-border)', background:'var(--color-surface-2)' }}>
                 <Icon className="w-3.5 h-3.5" />{label}
               </button>
             );
@@ -1254,8 +1225,11 @@ export function FindProjectsPage() {
       {/* ── Body ── */}
       <div className="flex flex-1 overflow-hidden">
         {/* Filters sidebar */}
+        {/* В режиме Bedrock сайдбар скрываем: там показывались Java-категории
+            (Adventure, Cursed, …) и Java-загрузчики (Fabric/Forge), к Bedrock
+            они отношения не имеют и только сбивали с толку. */}
         <AnimatePresence>
-          {showFilters && (
+          {showFilters && !bedrockMode && (
             <motion.aside key="fs" className="h-full shrink-0 overflow-hidden"
               style={{ borderRight:'1px solid var(--color-border)', background:'var(--color-surface)' }}
               initial={{ width:0, opacity:0 }} animate={{ width:220, opacity:1 }} exit={{ width:0, opacity:0 }}
@@ -1289,27 +1263,6 @@ export function FindProjectsPage() {
                 title="Обновить каталог">
                 <RefreshCw className={`w-4 h-4 ${loading?'animate-spin':''}`} style={{ color:'var(--color-text-secondary)' }} />
               </button>
-              {/* Source selector — either platform separately or both in one result list. */}
-              <div className="flex h-10 shrink-0 overflow-hidden" style={{ border:'1px solid var(--color-border)' }}>
-                {([
-                  ['modrinth', 'Только Modrinth'],
-                  ['combined', 'Modrinth + CurseForge'],
-                  ['curseforge', 'Только CurseForge'],
-                ] as [Platform, string][]).map(([target, title]) => (
-                  <button
-                    key={target}
-                    onClick={() => switchPlatform(target)}
-                    className="flex min-w-10 items-center justify-center px-2 transition-colors hover:bg-white/5"
-                    style={platform === target
-                      ? { background:'var(--color-primary-dim)', color:'var(--color-primary)', borderBottom:'2px solid var(--color-primary)' }
-                      : { color:'var(--color-text-secondary)' }}
-                    title={title}
-                    aria-label={title}
-                  >
-                    <PlatformMark platform={target} size={18} />
-                  </button>
-                ))}
-              </div>
             </div>
           </div>
 

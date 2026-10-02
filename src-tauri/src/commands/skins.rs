@@ -425,6 +425,60 @@ pub async fn get_elyby_textures(username: String) -> Result<ProfileTextures, Str
     })
 }
 
+/// Плащи для входа по нику.
+///
+/// Раньше в этом случае плащи просто подставлялись пустым списком и запрос
+/// не уходил вообще: страница показывала «Без плаща», хотя плащ у ника мог
+/// быть. Публичный Mojang-профиль плащи не отдаёт (они принадлежат
+/// аккаунту), поэтому берём их из публичного read-only прокси Ely.by —
+/// тем же адресом, что и `get_elyby_textures`.
+///
+/// Ошибка не считается поломкой: возвращаем пустой список, чтобы страница
+/// скинов продолжала работать.
+#[tauri::command]
+pub async fn get_public_capes(username: String) -> Result<Vec<CapeInfo>, String> {
+    let name = username.trim();
+    if name.is_empty() {
+        return Ok(Vec::new());
+    }
+    let client = reqwest::Client::new();
+    let resp = match client
+        .get(&format!(
+            "https://skinsystem.ely.by/textures/{}",
+            urlencoding::encode(name)
+        ))
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("[public-capes] сеть недоступна: {e}");
+            return Ok(Vec::new());
+        }
+    };
+    // 204 — профиля нет: это не ошибка, плащей просто не будет.
+    if resp.status() == reqwest::StatusCode::NO_CONTENT || !resp.status().is_success() {
+        return Ok(Vec::new());
+    }
+    let v: serde_json::Value = match resp.json().await {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("[public-capes] не разобрали ответ: {e}");
+            return Ok(Vec::new());
+        }
+    };
+    let url = v["CAPE"]["url"].as_str().unwrap_or("").trim().to_string();
+    if url.is_empty() {
+        return Ok(Vec::new());
+    }
+    Ok(vec![CapeInfo {
+        id: "public-cape".to_string(),
+        url,
+        alias: "Плащ (публичный)".to_string(),
+        active: true,
+    }])
+}
+
 /// Every cape owned by the account (checked against Mojang, drawn by the UI).
 #[tauri::command]
 pub async fn get_profile_capes(access_token: String) -> Result<Vec<CapeInfo>, String> {

@@ -513,15 +513,17 @@ pub async fn get_bedrock_curseforge_taxonomy(
     }
     let client = cf_client(&api_key)?;
 
-    let games: serde_json::Value = client
-        .get("https://api.curseforge.com/v1/games")
-        .query(&[("pageSize", "50")])
-        .send()
-        .await
-        .map_err(|e| format!("CurseForge games request: {e}"))?
-        .json()
-        .await
-        .map_err(|e| format!("CurseForge games parse: {e}"))?;
+    // Идём через общий помощник: он читает ответ как текст, проверяет HTTP-код
+    // и в случае неудачи показывает кусок тела ответа. Раньше здесь стоял
+    // голый `.send().json()`, и при любом непредвиденном ответе мы получали
+    // бесполезное «error decoding response body» без единой подсказки.
+    let games = cf_json_response(
+        client
+            .get("https://api.curseforge.com/v1/games")
+            .query(&[("pageSize", "50")]),
+        "games lookup",
+    )
+    .await?;
 
     let game_id = games["data"].as_array()
         .and_then(|arr| arr.iter().find(|g| {
@@ -530,16 +532,13 @@ pub async fn get_bedrock_curseforge_taxonomy(
         .and_then(|g| g["id"].as_u64())
         .ok_or("CurseForge: игра 'Minecraft Bedrock' не найдена в /v1/games — возможно, API-ключ не даёт к ней доступа.")?;
 
-    let cats: serde_json::Value = client
-        .get(&format!(
+    let cats = cf_json_response(
+        client.get(&format!(
             "https://api.curseforge.com/v1/games/{game_id}/categories"
-        ))
-        .send()
-        .await
-        .map_err(|e| format!("CurseForge categories request: {e}"))?
-        .json()
-        .await
-        .map_err(|e| format!("CurseForge categories parse: {e}"))?;
+        )),
+        "categories lookup",
+    )
+    .await?;
 
     let mut classes = std::collections::HashMap::new();
     if let Some(arr) = cats["data"].as_array() {

@@ -382,27 +382,40 @@ export function SkinStand3D({
         capeTex.minFilter = THREE.NearestFilter;
         capeTex.generateMipmaps = false;
         (capeTex as any).colorSpace = (THREE as any).SRGBColorSpace ?? undefined;
-        // Плащ — плоскость, а не куб. Раньше здесь стоял BoxGeometry с
-        // раскладкой по атласу скина, из-за чего UV попадали в соседние
-        // области текстуры и плащ вытягивался в узкую полосу. Теперь берём
-        // размеры текстуры из самого изображения и натягиваем на плоскость
-        // только область плаща (x 1..11, y 1..17), поэтому результат не
-        // зависит от того, 64×32 текстура или 64×64.
-        const geo = new THREE.PlaneGeometry(10, 16);
+        // Плащ остаётся объёмным (куб), но UV задаются по-настоящему для плаща:
+// своя область спереди и своя сзади. Старая раскладка по атласу скина
+        // брала для куба области тела, из-за чего плащ вытягивался в узкую
+        // полосу. Плоская замена выглядела не объёмной, поэтому здесь куб с
+        // корректными UV: размеры текстуры берём из самого изображения,
+        // чтобы работало и для 64×32, и для 64×64.
+        const geo = new THREE.BoxGeometry(10, 16, 1);
         const img = (capeTex as any).image as { width?: number; height?: number } | undefined;
         const texW = Number(img?.width) || 64;
         const texH = Number(img?.height) || 32;
-        const u0 = 1 / texW;
-        const u1 = 11 / texW;
-        const vTop = 1 - 1 / texH;
-        const vBottom = 1 - 17 / texH;
-        const uv = geo.attributes.uv as any;
-        for (let i = 0; i < uv.count; i++) {
-          const ux = Number(uv.getX(i));
-          const uy = Number(uv.getY(i));
-          uv.setXY(i, u0 + ux * (u1 - u0), vBottom + uy * (vTop - vBottom));
+        const uvAttr = geo.attributes.uv as any;
+        const uvArray = uvAttr.array as Float32Array;
+        // Область плаща: перед — x 1..11, спина — x 12..22, обе y 1..17.
+        const front: [number, number, number, number] = [1 / texW, (1 - 1 / texH), 11 / texW, (1 - 17 / texH)];
+        const back: [number, number, number, number] = [12 / texW, (1 - 1 / texH), 22 / texW, (1 - 17 / texH)];
+        // Порядок граней BoxGeometry: +X, -X, +Y, -Y, +Z, -Z — по 4 вершины.
+        // Узкие рёбра (1 пиксель) берём прозрачный участок текстуры, иначе
+        // по краям плаща видны обрезки соседних областей.
+        const clear: [number, number, number, number] = [0, 1, 1 / texW, 1];
+        const faces: [number, number, number, number][] = [
+          clear, clear,        // +X, -X — боковины
+          clear, clear,        // +Y, -Y — верх и низ
+          back,                // +Z — спина (плащ со спины)
+          front,               // -Z — лицо (плащ спереди)
+        ];
+        for (let f = 0; f < 6; f++) {
+          const [u0, v0, u1, v1] = faces[f];
+          for (let corner = 0; corner < 4; corner++) {
+            const idx = (f * 4 + corner) * 2;
+            uvArray[idx] = (corner === 1 || corner === 2) ? u1 : u0;
+            uvArray[idx + 1] = (corner >= 2) ? v0 : v1;
+          }
         }
-        uv.needsUpdate = true;
+        uvAttr.needsUpdate = true;
         const pivot = new THREE.Group();
         pivot.position.set(0, 8, -2);
         pivot.rotation.y = Math.PI;

@@ -156,7 +156,7 @@ function SkinPreviewModal({
                 <button onClick={() => onCape(null)} className="px-2.5 py-2 text-left text-[11px] font-semibold" style={{ borderRadius: 'var(--radius-button)', background: !selectedCape ? 'var(--color-primary-dim)' : 'var(--color-surface-2)', border: `1px solid ${!selectedCape ? 'var(--color-primary)' : 'var(--color-border)'}`, color: 'var(--color-text)' }}>
                   Без плаща
                 </button>
-                {capes.map(cape => <button key={cape.id} onClick={() => onCape(cape.id)} className="flex items-center gap-2 px-2.5 py-2 text-left text-[11px] font-semibold" style={{ borderRadius: 'var(--radius-button)', background: selectedCape?.id === cape.id ? 'var(--color-primary-dim)' : 'var(--color-surface-2)', border: `1px solid ${selectedCape?.id === cape.id ? 'var(--color-primary)' : 'var(--color-border)'}`, color: 'var(--color-text)' }}><span className="h-4 w-4 shrink-0 rounded-sm" style={{ background: `center / cover url(${cape.url})` }} /> <span className="truncate">{cape.alias}</span></button>)}
+                {capes.map(cape => <button key={cape.id} onClick={() => onCape(cape.id)} className="flex items-center gap-2 px-2.5 py-2 text-left text-[11px] font-semibold" style={{ borderRadius: 'var(--radius-button)', background: selectedCape?.id === cape.id ? 'var(--color-primary-dim)' : 'var(--color-surface-2)', border: `1px solid ${selectedCape?.id === cape.id ? 'var(--color-primary)' : 'var(--color-border)'}`, color: 'var(--color-text)' }}><span className="h-5 w-4 shrink-0 rounded-sm" style={{ background: `center / contain no-repeat url(${cape.url})`, imageRendering: 'auto' }} /> <span className="truncate">{cape.alias}</span></button>)}
               </div>
             </div>
             <div>

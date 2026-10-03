@@ -560,9 +560,6 @@ function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (te
             Упомянуть
           </button>
         )}
-        <span className="text-[9px]" style={{ color: card.installable ? 'var(--color-success)' : 'var(--color-text-tertiary)' }}>
-          {card.installable ? (isBuild ? 'новая сборка' : 'установка доступна') : 'не найден файл'}
-        </span>
       </div>
 
       {error && <p className="px-2 pb-1.5 text-[10px]" style={{ color: 'var(--color-error)' }}>{error}</p>}
@@ -1395,6 +1392,8 @@ export function OpenPortalPage() {
   }, [sessions, sessionFilter]);
 
   const abortRefs = useRef<Record<string, AbortController>>({});
+  // Контроллер именно текущего запуска — для кнопки «Остановить».
+  const runAbortRef = useRef<AbortController | null>(null);
   const interruptsRef = useRef<{ sessionId: string; msg: ChatMessage }[]>([]);
   /** Троттлинг сохранения промежуточного прогресса агента на диск (не чаще раза в 1.5 с). */
   const saveThrottle = useRef(0);
@@ -1902,6 +1901,11 @@ export function OpenPortalPage() {
 
     const abort = new AbortController();
     abortRefs.current[runSessionId] = abort;
+    // Отдельная ссылка на «текущий запуск»: кнопка «Остановить» должна гасить
+    // работу независимо от того, какая сессия сейчас открыта. Раньше она искала
+    // контроллер по текущей сессии и после переключения вкладки не находила
+    // ничего — кнопка выглядела нерабочей.
+    runAbortRef.current = abort;
     useOpenCoreStore.getState().setSessionRunning(runSessionId, true);
 
     const ctxLimit = contextWindow(ep.model, providerId);
@@ -2280,7 +2284,13 @@ export function OpenPortalPage() {
                 style={{ color: 'var(--color-text)' }}
               />
               {running ? (
-                <button onClick={() => { if (currentSessionId) abortRefs.current[currentSessionId]?.abort(); }} title="Остановить"
+                <button onClick={() => {
+                  // Гасим текущий запуск, а не контроллер по открытой сессии:
+                  // после переключения вкладки кнопка иначе искала не то.
+                  const target = runAbortRef.current
+                    ?? (currentSessionId ? abortRefs.current[currentSessionId] : undefined);
+                  target?.abort();
+                }} title="Остановить"
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded"
                   style={{ background: 'var(--color-surface)', color: 'var(--color-error)', border: '1px solid var(--color-border)' }}>
                   <StopCircle size={15} />

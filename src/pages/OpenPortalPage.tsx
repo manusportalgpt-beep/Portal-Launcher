@@ -739,6 +739,46 @@ function FileChanges({ changes }: { changes: FileChange[] }) {
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<Record<string, string>>({});
+  // Состояние переключателей CSS: ключ файла → включён ли он.
+  const [cssOn, setCssOn] = useState<Record<string, boolean>>({});
+
+  /** CSS лаунчера: им можно управлять прямо из карточки. */
+  const isLauncherCss = (c: FileChange) =>
+    /\.css$/i.test(c.path) && (c.root === 'launcher' || c.path.toLowerCase().includes('custom.css'));
+  /**
+   * Включает и выключает CSS лаунчера.
+   *
+   * Файл подключается отдельным тегом в `<head>`, поэтому переключатель
+   * работает мгновенно: перезапускать лаунчер не нужно, в отличие от
+   * пользовательского CSS из настроек, который перечитывается при старте.
+   */
+  const toggleCss = async (change: FileChange, key: string) => {
+    if (busy) return;
+    const tagId = `portal-agent-css-${key.replace(/[^a-z0-9]/gi, '_')}`;
+    const next = !cssOn[key];
+    setBusy(key);
+    try {
+      if (next) {
+        const res = await invoke<string>('op_read_text', { root: change.root, path: change.path });
+        let tag = document.getElementById(tagId) as HTMLStyleElement | null;
+        if (!tag) {
+          tag = document.createElement('style');
+          tag.id = tagId;
+          document.head.appendChild(tag);
+        }
+        tag.textContent = res;
+        setCssOn(prev => ({ ...prev, [key]: true }));
+      } else {
+        document.getElementById(tagId)?.remove();
+        setCssOn(prev => ({ ...prev, [key]: false }));
+      }
+      setErr(prev => ({ ...prev, [key]: '' }));
+    } catch (e) {
+      setErr(prev => ({ ...prev, [key]: String(e) }));
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const download = async (change: FileChange, key: string) => {
     if (busy) return;
@@ -801,11 +841,32 @@ function FileChanges({ changes }: { changes: FileChange[] }) {
                     ? <><Check size={11} /> Скачано</>
                     : <><Download size={11} />{busy === key ? '…' : 'Скачать'}</>}
                 </button>
-                <button onClick={() => void openSandboxFile(change.root, change.path)} title="Открыть файл (HTML — в браузере)"
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded"
-                  style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
-                  <ExternalLink size={11} />
-                </button>
+                {/* Кнопка «Перейти» для обычных файлов. Для CSS лаунчера она
+                    заменена переключателем: такой файл можно включить и
+                    выключить прямо здесь, без перезапуска лаунчера. */}
+                {isLauncherCss(change) ? (
+                  <button onClick={() => void toggleCss(change, key)} disabled={busy === key}
+                    title={cssOn[key] ? 'Выключить этот CSS' : 'Включить этот CSS'}
+                    className="flex h-6 shrink-0 items-center gap-1.5 rounded px-2 text-[10px] font-bold disabled:opacity-50"
+                    style={{
+                      background: cssOn[key] ? 'var(--color-primary)' : 'var(--color-surface-2)',
+                      color: cssOn[key] ? 'var(--color-primary-text)' : 'var(--color-text-secondary)',
+                      border: '1px solid var(--color-border)',
+                    }}>
+                    <span className="relative inline-block h-3 w-6 rounded-full"
+                      style={{ background: cssOn[key] ? 'rgba(255,255,255,0.35)' : 'var(--color-border-strong)' }}>
+                      <span className="absolute top-0.5 h-2 w-2 rounded-full transition-all"
+                        style={{ left: cssOn[key] ? '14px' : '2px', background: '#fff' }} />
+                    </span>
+                    {cssOn[key] ? 'Включён' : 'Выключен'}
+                  </button>
+                ) : (
+                  <button onClick={() => void openSandboxFile(change.root, change.path)} title="Открыть файл (HTML - в браузере)"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded"
+                    style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+                    <ExternalLink size={11} />
+                  </button>
+                )}
               </div>
               {err[key] && <p className="px-2.5 pb-1 text-[10px]" style={{ color: 'var(--color-error)' }}>{err[key]}</p>}
               {isOpen && (

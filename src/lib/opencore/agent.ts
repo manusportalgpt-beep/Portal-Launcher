@@ -271,6 +271,25 @@ const ESSENTIAL_TOOL_NAMES = [
   'web_search', 'fetch_page',
 ];
 
+/**
+ * Псевдонимы инструментов. Модели часто называют инструмент по привычке из
+ * других агентов (bash, terminal, shell), и раньше такой вызов падал с
+ * «Неизвестный инструмент». Здесь они приводятся к настоящему имени, чтобы
+ * агенту не приходилось спорить вместо работы.
+ */
+const TOOL_ALIASES: Record<string, string> = {
+  bash: 'run_command',
+  terminal: 'run_command',
+  shell: 'run_command',
+  readfile: 'read_text',
+  writefile: 'write_text',
+  editfile: 'edit_file',
+  ls: 'list_dir',
+  findcode: 'search_code',
+  websearch: 'web_search',
+  fetchpage: 'fetch_page',
+};
+
 function reducedToolSet(tools: any[]): any[] {
   const kept = tools.filter(t => ESSENTIAL_TOOL_NAMES.includes(t?.function?.name));
   return kept.length > 0 ? kept : [];
@@ -1973,6 +1992,35 @@ function rootBaseFor(root: string): string {
 }
 
 /** Запуск Python-скрипта из песочницы. */
+/**
+ * Запуск команды через оболочку — псевдонимы `bash`, `terminal`, `shell` и
+ * родной `run_command` ведут сюда.
+ *
+ * Раньше `run_command` был объявлен в списке инструментов, но обработчика не
+ * имел, поэтому любой такой вызов заканчивался «Неизвестный инструмент».
+ * Модели при этом часто называют его bash или terminal — теперь это не ошибка.
+ */
+async function execRunCommandAlias(args: any): Promise<ExecResult> {
+  const command = String(args?.command ?? args?.cmd ?? '').trim();
+  if (!command) return { ok: false, output: 'Пустая команда. Укажи, что нужно выполнить.' };
+  try {
+    const res = await invoke<CmdResult>('op_run_command', {
+      root: String(args?.root || 'portal'),
+      cwd: args?.cwd ? String(args.cwd) : '',
+      command,
+      timeout_ms: args?.timeout_ms ?? null,
+      shell: args?.shell ?? null,
+    });
+    const body = [res.stdout, res.stderr && `--- stderr ---\n${res.stderr}`].filter(Boolean).join('\n').trim() || '(пустой вывод)';
+    return {
+      ok: res.exit_code === 0,
+      output: `exit=${res.exit_code}${res.timed_out ? ' (превышено время)' : ''}\n${body}`,
+    };
+  } catch (e) {
+    return { ok: false, output: String(e) };
+  }
+}
+
 async function execRunPython(args: Record<string, unknown>): Promise<ExecResult> {
   try {
     const root = String(args.root ?? 'temp');
@@ -3970,6 +4018,12 @@ export async function executeTool(
   if (tool === 'spawn_agents') return execSpawnAgents(ep, args, requestPermission, signal);
 
   if (tool.startsWith('browser_')) return execBrowser(tool, args, signal);
+  // Псевдонимы. Модели часто называют инструмент по привычке — bash, terminal,
+  // shell — хотя у нас он называется run_command. Раньше такой вызов падал с
+  // «Неизвестный инструмент: bash», и агент начинал спорить вместо работы.
+  if (tool === 'bash' || tool === 'terminal' || tool === 'shell' || tool === 'run_command') {
+    return execRunCommandAlias(args);
+  }
   if (tool === 'run_program') return execRunProgram(args);
   if (tool.startsWith('app_')) return execApp(tool, args);
 
@@ -5616,15 +5670,19 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
     if (outcome.toolCalls?.length) {
       patch(assistantId, { toolCalls: outcome.toolCalls });
 
-      for (let i = 0; i < outcome.toolCalls.length; i++) {
-        if (signal?.aborted) throw new Error('Отменено пользователем.');
-        const tc = outcome.toolCalls[i];
-        const toolMsg: ChatMessage = {
-          id: `tool-${tc.id}`, role: 'tool', content: '… выполняется …',
-          toolCallId: tc.id, toolName: tc.name, timestamp: Date.now(),
-        };
-        push(toolMsg);
-        const res = await executeTool(tc.name, tc.arguments, requestPermission, ep, signal, opts.policy);
+for (let i = 0; i < outcome.toolCalls.length; i++) {
+      if (signal?.aborted) throw new Error('Отменено пользователем.');
+      const tc = outcome.toolCalls[i];
+      // Псевдоним приводим к настоящему имени до показа в ленте: иначе в чате
+      // светится красная плашка «Неизвестный инструмент: bash» на успешном
+      // по сути вызове.
+      const realName = TOOL_ALIASES[tc.name] ?? tc.name;
+      const toolMsg: ChatMessage = {
+        id: `tool-${tc.id}`, role: 'tool', content: '… выполняется …',
+        toolCallId: tc.id, toolName: realName, timestamp: Date.now(),
+      };
+      push(toolMsg);
+      const res = await executeTool(realName, tc.arguments, requestPermission, ep, signal, opts.policy);
         patch(toolMsg.id, { content: res.output, error: !res.ok, cards: res.cards, changes: res.changes, browser: res.browser });
         if (signal?.aborted) throw new Error('Отменено пользователем.');
         await drainInterrupt();

@@ -969,16 +969,20 @@ export function FindProjectsPage() {
     try { sessionStorage.setItem(findProjectsFilterKey(instanceId), JSON.stringify(snapshot)); } catch {}
   }, [instanceId, platform, projectType, showFilters, selectedCats, selectedLoaders, selectedVersions, bedrockMode, bedrockCat]);
 
-  function fromModrinth(h: ModrinthHit): Project {
+  function fromModrinth(h: ModrinthHit, foundAs: ProjectType): Project {
     return {
       id: h.project_id, slug: h.slug, title: h.title, description: h.description,
       author: h.author, downloads: h.downloads, follows: h.follows, iconUrl: h.icon_url,
       categories: h.categories, gameVersions: h.game_versions, loaders: h.loaders,
-      dateModified: h.date_modified, platform: 'modrinth', projectType,
+      dateModified: h.date_modified, platform: 'modrinth',
+      // Тип берём из того, чем реально искали, а не из замыкания: иначе
+      // результат может оказаться помеченным чужим типом, и установка
+      // положит его не в ту папку и подберёт не тот загрузчик.
+      projectType: foundAs,
       color: h.color ? '#' + h.color.toString(16).padStart(6,'0') : undefined,
     };
   }
-  function fromCurseForge(m: CfMod): Project {
+  function fromCurseForge(m: CfMod, foundAs: ProjectType): Project {
     const lmap: Record<number,string> = {0:'any',1:'forge',2:'cauldron',3:'liteloader',4:'fabric',5:'quilt',6:'neoforge'};
     return {
       id: String(m.id), slug: m.slug, title: m.name, description: m.summary,
@@ -987,7 +991,8 @@ export function FindProjectsPage() {
       categories: (m.categories ?? []).map(c => c.name),
       gameVersions: [...new Set((m.latest_files_indexes ?? []).map(f => f.game_version).filter(Boolean))],
       loaders: [...new Set((m.latest_files_indexes ?? []).map(f => lmap[f.mod_loader_type]||'unknown').filter(l=>l!=='any'))],
-      dateModified: m.date_modified, platform: 'curseforge', projectType,
+      dateModified: m.date_modified, platform: 'curseforge',
+      projectType: foundAs,
       classId: m.classId,
     };
   }
@@ -1005,7 +1010,7 @@ export function FindProjectsPage() {
         sortField,
         apiKey: cfApiKey,
       });
-      const mapped = (res.data || []).map(m => fromCurseForge(m));
+      const mapped = (res.data || []).map(m => fromCurseForge(m, pt));
       setResults(pg === 0 ? mapped : previous => dedupeCombinedProjects([...previous, ...mapped]));
       setTotal(res.pagination?.total_count ?? 0);
       setReachableTotal(res.reachable_count ?? null);
@@ -1040,7 +1045,7 @@ export function FindProjectsPage() {
           sort: s.charAt(0).toUpperCase()+s.slice(1),
           projectType: TYPE_DEFS[pt].modrinthFacet,
         });
-        const mapped = (res.hits || []).map(h => fromModrinth(h));
+        const mapped = (res.hits || []).map(h => fromModrinth(h, pt));
         setResults(pg === 0 ? mapped : previous => dedupeCombinedProjects([...previous, ...mapped]));
         setTotal(res.total_hits);
         setReachableTotal(null);
@@ -1057,7 +1062,7 @@ export function FindProjectsPage() {
           sortField,
           apiKey: cfApiKey,
         });
-        const mapped = (res.data || []).map(m => fromCurseForge(m));
+        const mapped = (res.data || []).map(m => fromCurseForge(m, pt));
         setResults(pg === 0 ? mapped : previous => dedupeCombinedProjects([...previous, ...mapped]));
         setTotal(res.pagination?.total_count ?? 0);
         setReachableTotal(res.reachable_count ?? null);
@@ -1084,8 +1089,8 @@ export function FindProjectsPage() {
         const mr = mrOutcome.status === 'fulfilled' ? mrOutcome.value : null;
         const cf = cfOutcome.status === 'fulfilled' ? cfOutcome.value : null;
         const mapped = dedupeCombinedProjects([
-          ...(mr?.hits ?? []).map(hit => fromModrinth(hit)),
-          ...(cf?.data ?? []).map(item => fromCurseForge(item)),
+          ...(mr?.hits ?? []).map(hit => fromModrinth(hit, pt)),
+          ...(cf?.data ?? []).map(item => fromCurseForge(item, pt)),
         ]).sort((left, right) => {
           if (s === 'downloads') return right.downloads - left.downloads;
           if (s === 'follows') return right.follows - left.follows;
@@ -1231,7 +1236,12 @@ export function FindProjectsPage() {
                 }
                 setPage(0);
                 setResults([]);
-                doSearch(query, projectType, platform, sort, 0, selectedCats, selectedLoaders, selectedVersions);
+                // Поиск здесь намеренно НЕ вызываем: смену projectType и так
+                // подхватывает эффект ниже. Раньше тут стоял лишний вызов
+                // doSearch со старым projectType (замыкание ещё не обновилось),
+                // он соревновался с эффектом, и в выдаче могли остаться
+                // результаты чужой вкладки. Тогда модель из «Моды» ставилась
+                // в resourcepacks/, плюс подбиралась не та версия и загрузчик.
                 requestAnimationFrame(() => {
                   if (resultsScrollRef.current && !bedrockMode) {
                     resultsScrollRef.current.scrollTop = tabScrollPositions.current[id as ProjectType] ?? 0;

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Search, Download, Star, X, ChevronDown, Grid, List,
   Package, Sparkles, Database, SlidersHorizontal, RefreshCw, AlertCircle, TriangleAlert,
-  Image as ImageIcon, ArrowLeft, Check, Wifi, Compass, Wrench, Shield, BookOpen, Skull, Gauge, Globe2, Utensils, Archive, Map, Gamepad2, Palette,
+  Image as ImageIcon, ArrowLeft, Check, Wifi, Compass, Wrench, Shield, BookOpen, Skull, Gauge, Globe2, Utensils, Archive, Map, Gamepad2, Palette, ExternalLink,
 } from 'lucide-react';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useInstanceStore } from '@/stores/instanceStore';
@@ -126,10 +126,14 @@ const TYPE_DEFS: Record<ProjectType, { modrinthFacet: string; cfClass: number; l
 /**
  * Категории CurseForge для Minecraft Bedrock.
  *
- * Список не зашит числами: `get_bedrock_curseforge_taxonomy` спрашивает у
- * CurseForge `/v1/games` и `/v1/games/{id}/categories` и отдаёт настоящие
- * classId. Fallback ниже — на случай, если таксономия недоступна (нет ключа
- * или нет сети), чтобы вкладки всё равно нарисовались.
+ * Слаги и classId берём у CurseForge через `get_bedrock_curseforge_taxonomy`
+ * — так надёжнее, чем зашивать числа. Если таксономия недоступна, остаётся
+ * запасной список, и он совпадает с реальными адресами разделов на сайте.
+ *
+ * `url` — настоящие страницы категорий на curseforge.com. Они же используются
+ * для перехода: раньше ссылки собирались по шаблону и для Bedrock уходили в
+ * раздел Java (`/minecraft/...`), а такой адреса не существует — CurseForge
+ * отдавал 404.
  */
 const BEDROCK_CATEGORIES: { slug: string; label: string; fallbackClass: number; icon: any }[] = [
   { slug: 'addons', label: 'Addons', fallbackClass: 5, icon: Package },
@@ -138,6 +142,16 @@ const BEDROCK_CATEGORIES: { slug: string; label: string; fallbackClass: number; 
   { slug: 'scripts', label: 'Scripts', fallbackClass: 7, icon: Sparkles },
   { slug: 'skins', label: 'Skins', fallbackClass: 10, icon: Package },
 ];
+
+/** Страница категории на CurseForge для раздела Bedrock. */
+function bedrockCategoryUrl(slug: string): string {
+  return `https://www.curseforge.com/minecraft-bedrock/search?class=${slug}&page=1&pageSize=20&sortBy=relevancy`;
+}
+
+/** Ссылка на проект: раздел Bedrock отличается от Java, иначе 404. */
+function curseforgeProjectUrl(gameSection: 'minecraft' | 'minecraft-bedrock', slug: string): string {
+  return `https://www.curseforge.com/${gameSection}/${slug}`;
+}
 
 type BedrockTaxonomy = { game_id: number; classes: Record<string, number> };
 
@@ -876,6 +890,15 @@ export function FindProjectsPage() {
     );
   }, [instance?.minecraftVersion, instance?.modLoader, projectType]);
 
+  /** Открыть внешний адрес. В Tauri — через системный браузер, в браузере — новая вкладка. */
+  const openCurseforge = async (url: string) => {
+    try {
+      await invoke('open_url', { url });
+    } catch {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   const switchPlatform = (nextPlatform: Platform) => {
     if (platform !== 'combined') {
       platformFiltersRef.current[platform] = { cats: selectedCats, loaders: selectedLoaders, versions: selectedVersions };
@@ -1205,6 +1228,16 @@ export function FindProjectsPage() {
             );
           })}
         </div>
+
+        {bedrockMode && (
+          <button onClick={() => void openCurseforge(bedrockCategoryUrl(bedrockCat))}
+            title="Открыть эту категорию на CurseForge"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold"
+            style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text-secondary)' }}>
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span className="hidden xl:inline">Раздел на CurseForge</span>
+          </button>
+        )}
 
         {bedrockMode && bedrockTaxError && (
           <span className="text-[10px]" style={{ color: 'var(--color-warning)' }}

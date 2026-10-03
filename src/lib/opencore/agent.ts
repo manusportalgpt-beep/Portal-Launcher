@@ -1116,7 +1116,7 @@ export const TOOLS: ToolDef[] = [
         query: { type: 'string', description: 'Поисковый запрос: название мода или ключевые слова (можно по-русски). Обязательный параметр.' },
         mc_version: { type: 'string', description: 'Версия Minecraft сборки, например 1.20.1 или 26.2. Если неизвестна — можно не указывать.' },
         loader: { type: 'string', enum: ['fabric', 'forge', 'neoforge', 'quilt', 'vanilla'], description: 'Загрузчик сборки (необязательно).' },
-        project_type: { type: 'string', enum: ['mod', 'resourcepack', 'shaderpack', 'modpack'], description: 'Что именно ищем. По умолчанию mod. Для наборов текстур и тем указывай resourcepack, для шейдеров (Complementary, SEUS, BSL, Iris) — shaderpack, для готовых сборок — modpack. Если пользователь просит ресурс-паки или шейдеры, тип нужно указать явно, иначе поиск вернёт только моды.' },
+        project_type: { type: 'string', enum: ['mod', 'resourcepack', 'shaderpack', 'modpack', 'bedrockaddon', 'bedrockmap', 'bedrocktexturepack', 'bedrockscript', 'bedrockskin'], description: 'Что именно ищем. По умолчанию mod. Для наборов текстур и тем указывай resourcepack, для шейдеров (Complementary, SEUS, BSL, Iris) — shaderpack, для готовых сборок — modpack. Для Minecraft Bedrock: bedrockaddon (Addons), bedrockmap (Maps), bedrocktexturepack (Texture Packs), bedrockscript (Scripts), bedrockskin (Skins). Если пользователь просит ресурс-паки или шейдеры, тип нужно указать явно, иначе поиск вернёт только моды.' },
         source: { type: 'string', enum: ['modrinth', 'curseforge', 'both'], description: 'Где искать. По умолчанию modrinth. Ставь "both", если пользователь не указал источник или просит сравнить — CurseForge требует настроенный API-ключ (Настройки → Дополнительно), без него поиск идёт только по Modrinth.' },
         limit: { type: 'number', description: 'Сколько результатов вернуть (по умолчанию 5, максимум 10).' },
       },
@@ -2426,6 +2426,21 @@ function platformLabel(client: unknown, server: unknown): string {
 }
 
 /**
+ * Категории CurseForge для Bedrock: наш project_type → classId.
+ *
+ * Слаги соответствуют настоящим адресам разделов на curseforge.com
+ * (`/minecraft-bedrock/search?class=<slug>`). Значения classId — запасные:
+ * если ответит таксономия CurseForge, они не понадобятся.
+ */
+const BEDROCK_CF_TYPES: Record<string, { classId: number; slug: string; label: string }> = {
+  bedrockaddon: { classId: 5, slug: 'addons', label: 'Addons' },
+  bedrockmap: { classId: 3, slug: 'maps', label: 'Maps' },
+  bedrocktexturepack: { classId: 4, slug: 'texture-packs', label: 'Texture Packs' },
+  bedrockscript: { classId: 7, slug: 'scripts', label: 'Scripts' },
+  bedrockskin: { classId: 10, slug: 'skins', label: 'Skins' },
+};
+
+/**
  * Поиск на CurseForge. Требует API-ключ (Настройки → Дополнительно), поэтому
  * при его отсутствии ветка молча пропускается, а не роняет весь поиск.
  * classId в CurseForge: 6 — мод, 12 — ресурс-пак, 6551 — шейдеры.
@@ -2436,9 +2451,6 @@ async function searchCurseforgeCards(
   mcVersion: string | null,
   limit: number,
 ): Promise<{ cards: ModCard[]; lines: string[]; note: string }> {
-  const classId = projectType === 'resourcepack' ? 12 : projectType === 'shaderpack' ? 6551 : 6;
-  // Ключ берём из настроек лаунчера. Раньше сюда передавался пустой ключ, и
-  // CurseForge отвечал отказом — из-за этого агент «не умел» работать с ним.
   const apiKey = useSettingsStore.getState().curseforgeApiKey ?? '';
   if (!apiKey.trim()) {
     return {
@@ -2448,15 +2460,37 @@ async function searchCurseforgeCards(
         + 'и я смогу искать там моды, ресурс-паки и шейдеры.',
     };
   }
+  // Bedrock — отдельная игра CurseForge со своими категориями и разделом
+  // на сайте. Если искать с classId Java-категории, придут не те проекты, а
+  // ссылка на проект уйдёт в /minecraft/... и даст 404.
+  const bedrock = BEDROCK_CF_TYPES[projectType.toLowerCase().replace(/[\s-]/g, '')];
+  let classId = projectType === 'resourcepack' ? 12 : projectType === 'shaderpack' ? 6551 : 6;
+  let gameId = 432;
+  let gameSection = 'minecraft';
+  if (bedrock) {
+    classId = bedrock.classId;
+    gameId = 454;
+    gameSection = 'minecraft-bedrock';
+    try {
+      const tax = await invoke<{ game_id: number; classes: Record<string, number> }>(
+        'get_bedrock_curseforge_taxonomy', { apiKey },
+      );
+      gameId = tax?.game_id || gameId;
+      const real = tax?.classes?.[bedrock.slug];
+      if (typeof real === 'number' && real > 0) classId = real;
+    } catch {
+      // Таксономия недоступна — работаем на запасных classId.
+    }
+  }
   let result: any;
   try {
     result = await invoke<any>('search_curseforge', {
       query,
       limit,
       classId,
-      gameVersion: mcVersion,
+      gameVersion: bedrock ? undefined : mcVersion,
       apiKey,
-      gameId: 432,
+      gameId,
     });
   } catch (e) {
     return { cards: [], lines: [], note: `CurseForge пропущен: ${String(e)}` };
@@ -2530,7 +2564,10 @@ async function searchCurseforgeCards(
       downloadUrl: fileUrl,
       installable: Boolean(fileUrl),
       source: 'curseforge',
-      url: `https://www.curseforge.com/minecraft/${it.slug ?? id}`,
+      // Ссылка на проект: раздел CurseForge зависит от игры. Для Bedrock это
+      // `/minecraft-bedrock/<slug>`, а `/minecraft/<slug>` для Bedrock-проекта
+      // не существует и открывается как 404.
+      url: `https://www.curseforge.com/${gameSection}/${it.slug ?? id}`,
       installNote: fileUrl ? '' : fileNote,
     });
     lines.push(

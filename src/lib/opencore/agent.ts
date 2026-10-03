@@ -2507,6 +2507,14 @@ function platformLabel(client: unknown, server: unknown): string {
  * (`/minecraft-bedrock/search?class=<slug>`). Значения classId — запасные:
  * если ответит таксономия CurseForge, они не понадобятся.
  */
+/**
+ * Типы контента, которые определяют выбор папки установки.
+ *
+ * Значение из ответа Modrinth берётся только если оно в этом списке: иначе
+ * под опечатку или новый тип мод уводился в resourcepacks/ вместо mods/.
+ */
+const KNOWN_PROJECT_TYPES = new Set(['mod', 'resourcepack', 'shaderpack', 'datapack', 'modpack']);
+
 const BEDROCK_CF_TYPES: Record<string, { classId: number; slug: string; label: string }> = {
   bedrockaddon: { classId: 5, slug: 'addons', label: 'Addons' },
   bedrockmap: { classId: 3, slug: 'maps', label: 'Maps' },
@@ -2666,7 +2674,14 @@ async function execModSearch(args: Record<string, unknown>): Promise<ExecResult>
     // Тип контента. Раньше он не передавался, и Rust всегда ставил project_type:mod —
     // поэтому агент физически не мог найти ресурс-паки и шейдеры.
     const rawType = String(args.project_type ?? 'mod').trim().toLowerCase();
-    const projectType = (['mod', 'resourcepack', 'shaderpack', 'modpack'].includes(rawType) ? rawType : 'mod');
+    // Bedrock-типы тоже должны проходить: раньше их не было в списке, и любой
+    // из них молча превращался в 'mod', то есть поиск шёл в Java-категории.
+    const projectType = (
+      KNOWN_PROJECT_TYPES.has(rawType)
+      || Object.keys(BEDROCK_CF_TYPES).some(k => k === rawType.replace(/[\s-]/g, ''))
+        ? rawType
+        : 'mod'
+    );
     // Где искать: только Modrinth, только CurseForge или оба сразу.
     const rawSource = String(args.source ?? 'modrinth').trim().toLowerCase();
     const withCurseforge = rawSource === 'curseforge' || rawSource === 'both';
@@ -2749,7 +2764,14 @@ async function execModSearch(args: Record<string, unknown>): Promise<ExecResult>
       description: String(h.description ?? ''),
       author: String(h.author ?? ''),
       iconUrl: h.icon_url ? String(h.icon_url) : null,
-      projectType: String(h.project_type ?? projectType),
+      // Тип берём только из известного набора. Раньше сюда шло любое значение
+      // `project_type` от Modrinth, и оно напрямую решало, в какую папку ляжет
+      // файл: неизвестное или опечатанное значение уводило мод в
+      // resourcepacks/. Теперь лишние значения отбрасываются, и карточка
+      // остаётся с типом, по которому реально искали.
+      projectType: KNOWN_PROJECT_TYPES.has(String(h.project_type ?? '').trim().toLowerCase())
+        ? String(h.project_type).trim().toLowerCase()
+        : projectType,
       platform: platformLabel(h.client_side, h.server_side),
       loaders: Array.isArray(h.loaders) ? h.loaders.map(String) : [],
       gameVersions: Array.isArray(h.game_versions) ? h.game_versions.map(String) : [],

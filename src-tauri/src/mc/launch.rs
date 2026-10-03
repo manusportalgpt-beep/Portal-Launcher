@@ -1598,15 +1598,28 @@ pub fn list_log_sessions(instance_id: String) -> Vec<SavedLogSession> {
             let started = name
                 .strip_prefix("session-")
                 .and_then(|rest| rest.split('-').next())
-                .and_then(|value| value.parse::<u64>().ok())
-                .unwrap_or_default();
+                .and_then(|value| value.parse::<u64>().ok());
             let lines = std::fs::read_to_string(&path)
                 .map(|text| text.lines().count())
                 .unwrap_or(0);
+            let metadata = entry.metadata().ok();
+            // Если из имени файла время вытащить не вышло, тихо подставлялся
+            // ноль — и в списке логов писалось «01.01.1970 00:00:00». Теперь
+            // в таком случае берём дату изменения самого файла: она есть
+            // всегда и совпадает со временем запуска сессии.
+            let started = match started {
+                Some(value) if value > 0 => value,
+                _ => metadata
+                    .as_ref()
+                    .and_then(|m| m.modified().ok())
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_secs())
+                    .unwrap_or_default(),
+            };
             Some(SavedLogSession {
                 id: name,
                 started_at: format_session_time(started),
-                size: entry.metadata().map(|m| m.len()).unwrap_or(0),
+                size: metadata.as_ref().map(|m| m.len()).unwrap_or(0),
                 lines,
             })
         })

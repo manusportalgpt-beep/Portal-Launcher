@@ -296,7 +296,7 @@ type ToolMode = 'full' | 'reduced' | 'none';
 const toolModeCache = new Map<string, ToolMode>();
 /** Счётчик запросов без инструментов — по нему periodically перепроверяем tools. */
 const noToolCalls = new Map<string, number>();
-const REPROBE_EVERY = 8;
+const REPROBE_EVERY = 2;
 
 function toolModeKey(providerId: string, modelId: string): string {
   return `${providerId}::${modelId}`;
@@ -326,6 +326,33 @@ function rememberToolMode(key: string, step: number, ladderLen: number): void {
   if (ladderLen > 1 && step === 0) { toolModeCache.set(key, 'full'); noToolCalls.set(key, 0); return; }
   if (step === ladderLen - 1) toolModeCache.set(key, 'none');
   else toolModeCache.set(key, 'reduced');
+}
+
+/**
+ * Сообщить пользователю, что инструменты отключены.
+ *
+ * Без этого режим 'none' выглядел загадочно: агент продолжал отвечать
+ * уверенным тоном, обещал «сейчас создам файл» — но выполнять ничего не мог,
+ * потому что в запрос не уходил ни один инструмент. Пользователь видел
+ * враньё без единого намёка на причину.
+ */
+let toolsDisabledNoticeShown = false;
+
+export function resetToolsDisabledNotice(): void {
+  toolsDisabledNoticeShown = false;
+}
+
+export function shouldWarnToolsDisabled(key: string): boolean {
+  if (toolModeCache.get(key) !== 'none' || toolsDisabledNoticeShown) return false;
+  toolsDisabledNoticeShown = true;
+  return true;
+}
+
+export function toolsDisabledWarning(): string {
+  return 'Инструменты отключены для этой модели: провайдер отклонил список инструментов '
+    + '(HTTP 400) — слишком много или они не поддерживаются. Поэтому я могу только описывать '
+    + 'действия словами, но не выполнять их. Я попробую включить инструменты снова через '
+    + 'пару сообщений; если не выйдет — надёжнее работать на Java-сборке, где их набор меньше.';
 }
 
 /**
@@ -5571,6 +5598,20 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
     if (!usage.total) usage.total = usage.input + usage.output;
     opts.onUsage?.(usage);
     patch(assistantId, { usage });
+
+    // Агент ответил текстом и не вызвал ни одного инструмента. Если для этой
+    // модели инструменты отключены лестницей отката, честно скажем об этом:
+    // иначе выглядит так, будто он просто «забыл» выполнить обещанное.
+    if (shouldWarnToolsDisabled(toolModeKey(ep.provider.id, ep.model.id))) {
+      push({
+        id: `tools-off-${Date.now()}`,
+        role: 'assistant',
+        content: toolsDisabledWarning(),
+        error: true,
+        timestamp: Date.now(),
+        model: ep.model.id,
+      });
+    }
 
     if (outcome.toolCalls?.length) {
       patch(assistantId, { toolCalls: outcome.toolCalls });

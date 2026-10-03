@@ -2,6 +2,7 @@ use discord_rich_presence::activity::{Activity, Assets, Button, Party};
 use discord_rich_presence::DiscordIpc;
 use discord_rich_presence::DiscordIpcClient;
 use once_cell::sync::Lazy;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::State;
 
@@ -12,6 +13,8 @@ const LAUNCHER_PROTOCOL: &str = "portal-launcher://join";
 pub struct DiscordState {
     pub client: Mutex<Option<DiscordIpcClient>>,
     pub application_id: String,
+    /// Сообщаем об отсутствии Discord один раз, а не на каждой попытке.
+    warned_absent: AtomicBool,
 }
 
 impl DiscordState {
@@ -19,6 +22,7 @@ impl DiscordState {
         Self {
             client: Mutex::new(None),
             application_id,
+            warned_absent: AtomicBool::new(false),
         }
     }
 
@@ -82,7 +86,21 @@ impl DiscordState {
 // Команда для инициализации Discord Rich Presence
 #[tauri::command]
 pub fn init_discord(state: State<DiscordState>) -> Result<(), String> {
-    state.connect()
+    // Отсутствие клиента Discord — это не поломка лаунчера, а обычное
+    // состояние системы: приложение на компьютере может быть не запущено.
+    // Раньше это возвращало ошибку, и в консоли каждый раз появлялось
+    // «failed to connect to IPC socket». Теперь сообщаем один раз и молчим.
+    match state.connect() {
+        Ok(()) => Ok(()),
+        Err(_) => {
+            if !state.warned_absent.swap(true, Ordering::SeqCst) {
+                log::info!(
+                    "Discord Rich Presence отключён: клиент Discord не запущен (это не ошибка)"
+                );
+            }
+            Ok(())
+        }
+    }
 }
 
 // Команда для обновления статуса в лаунчере

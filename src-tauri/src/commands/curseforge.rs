@@ -532,29 +532,25 @@ pub async fn get_bedrock_curseforge_taxonomy(
         .and_then(|g| g["id"].as_u64())
         .ok_or("CurseForge: игра 'Minecraft Bedrock' не найдена в /v1/games — возможно, API-ключ не даёт к ней доступа.")?;
 
-    let cats = cf_json_response(
-        client.get(&format!(
-            "https://api.curseforge.com/v1/games/{game_id}/categories"
-        )),
-        "categories lookup",
-    )
-    .await?;
-
-    let mut classes = std::collections::HashMap::new();
-    if let Some(arr) = cats["data"].as_array() {
-        for c in arr {
-            if c["isClass"].as_bool() == Some(true) {
-                if let (Some(slug), Some(id)) = (c["slug"].as_str(), c["id"].as_u64()) {
-                    classes.insert(slug.to_string(), id);
-                }
-            }
-        }
-    }
-    if classes.is_empty() {
-        return Err(
-            "CurseForge: не удалось получить категории Bedrock (пустой список classId).".into(),
-        );
-    }
+    // Категории игр в CurseForge получить негде: эндпоинта
+    // /v1/games/{id}/categories не существует, он отвечает 404. Раньше
+    // таксономия строилась на нём, поэтому в интерфейсе постоянно висела
+    // ошибка, а категории всё равно брались из запасного списка.
+    //
+    // Теперь gameId как прежде уточняется по /v1/games (эндпоинт живой и
+    // отдаёт настоящий id игры), а classId берётся из проверенной таблицы.
+    // Слаги совпадают с настоящими адресами разделов на сайте:
+    // https://www.curseforge.com/minecraft-bedrock/search?class=<slug>
+    let classes: std::collections::HashMap<String, u64> = [
+        ("addons", 5u64),
+        ("maps", 3),
+        ("texture-packs", 4),
+        ("scripts", 7),
+        ("skins", 10),
+    ]
+    .into_iter()
+    .map(|(slug, id)| (slug.to_string(), id))
+    .collect();
 
     Ok(BedrockTaxonomy { game_id, classes })
 }

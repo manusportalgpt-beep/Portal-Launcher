@@ -14,7 +14,8 @@ import { useCurrentUser } from '@/stores/authStore';
 import { toIconSrc } from '@/lib/icon-src';
 import { resolveEndpoint, runAgentTurn, buildSystemPrompt, compressHistory, callProvider, estimateTokens } from '@/lib/opencore/agent';
 import { contextWindow, BROWSER_LINKS } from '@/lib/opencore/providers';
-import { Markdown, PortalImage } from '@/components/openportal/Markdown';
+import { Markdown, PortalImage, TOKEN_COLOR } from '@/components/openportal/Markdown';
+import { normalizeLang, tokenizeLine } from '@/lib/opencore/highlight';
 import { ModelManager } from '@/components/openportal/ModelManager';
 import { PermissionModal } from '@/components/openportal/PermissionModal';
 import { BrowserView } from '@/components/openportal/BrowserView';
@@ -766,10 +767,15 @@ function FileChanges({ changes }: { changes: FileChange[] }) {
         <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>{changes.length}</span>
       </div>
       <div className="border-t" style={{ borderColor: 'var(--color-border)' }}>
-        {changes.map(change => {
-          const key = `${change.root}/${change.path}`;
+        {changes.map((change, changeIdx) => {
+          // Ключ включает индекс: раньше он строился только из root+path, и если
+          // у двух записей путь совпадал (или приходил пустым), обе строки
+          // получали один ключ — и открывался не тот файл, а сразу оба.
+          const key = `${change.root}/${change.path}#${changeIdx}`;
           const isOpen = openPath === key;
           const { name, size } = changeTitle(change);
+          // Язык для подсветки выводим из расширения файла.
+          const dialect = normalizeLang(name.split('.').pop());
           return (
             <div key={key} className="border-b last:border-b-0" style={{ borderColor: 'var(--color-border)' }}>
               <div className="flex items-center gap-2 px-2.5 py-1.5">
@@ -816,7 +822,14 @@ function FileChanges({ changes }: { changes: FileChange[] }) {
                       <span className="w-2 shrink-0 select-none" style={{ color: line.kind === 'add' ? 'var(--color-success)' : line.kind === 'remove' ? 'var(--color-error)' : 'transparent' }}>
                         {line.kind === 'add' ? '+' : line.kind === 'remove' ? '−' : ' '}
                       </span>
-                      <span className="min-w-0 flex-1 whitespace-pre-wrap break-all">{line.text}</span>
+                      <span className="min-w-0 flex-1 whitespace-pre-wrap break-all">
+                        {/* Подсветка синтаксиса. Раньше весь diff выводился
+                            одним цветом на строку, и код читался как серый
+                            текст —语法 подсветки не было вовсе. */}
+                        {tokenizeLine(line.text, dialect).map((t, j) => (
+                          <span key={j} style={{ color: TOKEN_COLOR[t.kind] }}>{t.text}</span>
+                        ))}
+                      </span>
                     </div>
                   ))}
                 </div>

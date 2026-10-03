@@ -368,7 +368,7 @@ function CodeCopy({ text }: { text: string }) {
 }
 
 /** Цвета токенов. Заданы здесь, чтобы тема лаунчера управляла и кодом. */
-const TOKEN_COLOR: Record<TokenKind, string> = {
+export const TOKEN_COLOR: Record<TokenKind, string> = {
   plain: 'var(--color-text)',
   comment: 'var(--color-text-tertiary)',
   string: '#a5d6a7',

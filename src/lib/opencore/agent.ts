@@ -5448,10 +5448,18 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
     });
 
     const contextLimit = opts.contextLimit ?? 128_000;
-    if (!didCompact && messages.length > 10) {
+    // Порог автосжатия — не 75% окна модели, а меньшее из них и практического
+    // предела. После перехода на окно в миллион токенов 75% — это 750k, а
+    // такой переписки почти не бывает, и сжатие не срабатывало никогда.
+    // 180k — длина, на которой история уже реально мешает модели работать.
+    const autoCompressAt = Math.min(contextLimit * 0.75, 180_000);
+    if (messages.length > 10) {
       try {
         const est = estimateInputTokens(systemPrompt, toTurns(messages));
-        if (est > contextLimit * 0.75) {
+        // Повторное сжатие разрешаем, если после первого история всё ещё
+        // заметно больше нормы: длинная задача может уйти далеко за порог.
+        const canCompact = !didCompact || est > autoCompressAt * 1.6;
+        if (est > autoCompressAt && canCompact) {
           didCompact = true;
           let compacted: ChatMessage[];
           try {
@@ -5461,6 +5469,13 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
           }
           messages = compacted;
           opts.onReplace?.(messages);
+          push({
+            id: `autofit-${Date.now()}-${iter}`,
+            role: 'assistant',
+            content: `История переписки выросла примерно до ${Math.round(est / 1000)}k токенов — `
+              + 'сжимаю её сам, чтобы работа продолжалась без потери задачи. Что важно, сохранено выше по тексту.',
+            timestamp: Date.now(),
+          });
         }
       } catch { /* оценка недоступна — работаем как есть */ }
     }

@@ -430,6 +430,9 @@ function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
             fileName: String(selectedFile.fileName),
           });
           console.log('[Bedrock install]', installProject.title, res.installed);
+          // Помечаем установленным, иначе после перезахода страницы тот же
+          // аддон снова предлагался бы поставить.
+          useInstalledStore.getState().mark(instanceId, [installProject.id, installProject.title, installProject.slug]);
           triggerInstallEffect({ name: installProject.title, iconUrl: installProject.iconUrl, contentType: 'resourcepack' });
           setState('done');
           return;
@@ -545,6 +548,10 @@ function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
           iconUrl: installProject.iconUrl || null,
           apiKey: cfApiKey,
         });
+        // Помечаем пакет установленным. Без этого карточка после установки
+        // оставалась в состоянии «готово», и уже установленный с CurseForge
+        // мод при следующем открытии страницы снова предлагался к установке.
+        useInstalledStore.getState().mark(instanceId, [installProject.id, installProject.title, installProject.slug]);
         triggerInstallEffect({ name: installProject.title, iconUrl: installProject.iconUrl, contentType });
         setState('done');
       }
@@ -560,7 +567,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
   if (state === 'done') return (
     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold"
       style={{ background:'rgba(46,204,113,0.15)', color:'#2ECC71' }}>
-      <Check className="w-3.5 h-3.5" />{t('findProjects.install.done')}
+      <Check className="w-3.5 h-3.5" />{t('findProjects.install.downloaded')}
     </div>
   );
   if (state === 'err') return (
@@ -810,7 +817,19 @@ export function FindProjectsPage() {
   // категории, поэтому фильтры версий/загрузчиков там неприменимы, а
   // установка идёт в com.mojang, а не в папку сборки.
   const isBedrockInstance = instance?.modLoader === 'bedrock';
-  const [bedrockMode, setBedrockMode] = useState<boolean>(() => restoredFilters.current.bedrock ?? isBedrockInstance);
+  // Режим Bedrock — свойство целевой сборки, а не сохраняемая настройка
+  // интерфейса. Раньше он восстанавливался из sessionStorage, и достаточно
+  // было один раз открыть страницу на Bedrock-сборке, чтобы потом Java-сборка
+  // тоже ушла в режим Bedrock: поиск шёл в другую игру, а установка уходила в
+  // ветку com.mojang вместо папки сборки. Поэтому при наличии сборки решение
+  // принимает она, сохранённый флаг учитывается только когда сборки нет.
+  const [bedrockMode, setBedrockMode] = useState<boolean>(
+    () => (instance ? isBedrockInstance : restoredFilters.current.bedrock ?? false),
+  );
+  // Если сборка сменилась, режим пересчитывается под неё.
+  useEffect(() => {
+    if (instance) setBedrockMode(isBedrockInstance);
+  }, [instance?.id]);
   const [bedrockCat, setBedrockCat] = useState<string>(() => restoredFilters.current.bedrockCat ?? 'addons');
   const [bedrockTax, setBedrockTax] = useState<BedrockTaxonomy | null>(null);
   const [bedrockTaxError, setBedrockTaxError] = useState('');

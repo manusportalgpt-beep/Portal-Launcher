@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
 import { useAuthorAvatar } from '@/lib/author-avatar';
 import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
+import { AuthorCard, Loader } from '@/components/uiverse/Uiv';
 
 type Project = { id: string; slug: string; name: string; summary: string; icon_url?: string; downloads: number; source: string };
 type Profile = {
@@ -28,39 +29,50 @@ export function AuthorPage() {
     invoke<Profile>(cmd, args).then(setProfile).catch((e) => setError(String(e)));
   }, [source, name, location.search]);
 
+  // Пункт 10: автор открывается карточкой поверх интерфейса, а не отдельной
+  // страницей. Маршрут и все ссылки на него остались прежними — меняется
+  // только подача, поэтому ничего не ломается.
   return (
-    <div className="ore-flat h-full overflow-y-auto scroll-area p-6 pb-10 text-[var(--color-text)]">
-      <button onClick={() => navigate(-1)} className="mb-4 inline-flex items-center gap-2 text-sm opacity-70 hover:opacity-100">
-        <ArrowLeft size={16} /> Назад
-      </button>
+    <div
+      className="fixed inset-0 z-[900] flex items-start justify-center overflow-y-auto p-6"
+      style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)' }}
+      onClick={() => navigate(-1)}
+    >
+      <div
+        className="mt-10 w-full max-w-4xl rounded-3xl p-6 pb-10"
+        style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <button onClick={() => navigate(-1)} className="mb-4 inline-flex items-center gap-2 text-sm opacity-70 hover:opacity-100">
+          <ArrowLeft size={16} /> Назад
+        </button>
 
-      {error && <p className="text-red-400">{error}</p>}
-      {!profile && !error && <p className="opacity-60">Загружаю профиль автора…</p>}
-
-      {profile && (
-        <>
-          <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-5">
-            {profile.avatar_url || fallbackAvatar ? (
-              <img src={profile.avatar_url || fallbackAvatar || ''} alt={profile.username} className="h-20 w-20 rounded-2xl object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} />
-            ) : (
-              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 text-2xl font-bold">
-                {profile.username.slice(0, 1).toUpperCase()}
-              </div>
-            )}
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold">{profile.display_name || profile.username}</h1>
-              <p className="text-sm opacity-60">
-                {profile.source === 'modrinth' ? 'Modrinth' : 'CurseForge'} · {profile.projects.length} проектов ·{' '}
-                {profile.total_downloads.toLocaleString('ru-RU')} загрузок
-              </p>
-              {profile.bio && <p className="mt-2 text-sm opacity-80">{profile.bio}</p>}
-            </div>
-            <a href={profile.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm hover:bg-white/20">
-              <ExternalLink size={14} /> Открыть в браузере
-            </a>
+        {error && <p className="text-red-400">{error}</p>}
+        {!profile && !error && (
+          <div className="flex items-center justify-center gap-3 py-16">
+            <Loader variant="loaders_AqFox_silent-quail-21" size={30} />
+            <p className="opacity-60 text-sm">Загружаю профиль автора…</p>
           </div>
+        )}
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {profile && (
+          <>
+            <div className="mb-5">
+              <AuthorCard
+                name={profile.display_name || profile.username}
+                handle={`${profile.source === 'modrinth' ? 'Modrinth' : 'CurseForge'} · ${profile.projects.length} проектов · ${profile.total_downloads.toLocaleString('ru-RU')} загрузок`}
+                description={profile.bio}
+                avatarUrl={profile.avatar_url || fallbackAvatar || undefined}
+              />
+            </div>
+
+            <div className="mb-4 flex justify-end">
+              <a href={profile.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-sm hover:bg-white/20">
+                <ExternalLink size={14} /> Открыть в браузере
+              </a>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {profile.projects.map((p) => (
               <button
                 key={p.id || p.slug}
@@ -84,6 +96,7 @@ export function AuthorPage() {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

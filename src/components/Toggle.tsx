@@ -23,10 +23,12 @@ export function Toggle({ value, onChange, title, className = '', decorative = fa
       style={{
         width: 38,
         height: 20,
-        borderRadius: 2,
+        borderRadius: 999,
         overflow: 'hidden',
-        background: value ? 'var(--color-primary)' : 'var(--color-surface-2)',
-        border: `1px solid ${value ? 'var(--color-primary)' : 'var(--color-border)'}`,
+        // Градиент палитры вместо сплошной заливки: пункт «всё кругленькое,
+        // чёрный → красный» должен работать и на переключателях.
+        background: value ? 'var(--grad)' : 'var(--color-surface-2)',
+        border: `1px solid ${value ? 'var(--grad-glow)' : 'var(--color-border)'}`,
       }}
     >
       <span
@@ -34,7 +36,7 @@ export function Toggle({ value, onChange, title, className = '', decorative = fa
         style={{
           width: 12,
           height: 12,
-          borderRadius: 1,
+          borderRadius: 999,
           background: 'var(--color-text)',
           top: '50%',
           transform: 'translateY(-50%)',

@@ -1,3 +1,5 @@
+import { palettes as PALETTES, usePaletteStore } from '@/lib/uiverse-palette';
+import { ThemeToggle, IconButton } from '@/components/uiverse/Uiv';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -307,7 +309,11 @@ function SegRow({ label, desc, value, options, onChange }: { label: string; desc
 function AppearanceSection() {
   const { t } = useTranslation();
   const { themeId, setTheme } = useThemeStore();
+  const { paletteId, setPalette } = usePaletteStore();
   const ui = useUiStore();
+  // Тумблер темы переключает только светлую/тёмную, OLED и свои темы не трогает.
+  const isDark = themeId !== 'light';
+  const setDark = (v: boolean) => setTheme(v ? 'dark' : 'light');
   const panelAppearance = ui.navMode === 'notch' ? ui.notchPanelAppearance : ui.sidebarPanelAppearance;
   const setPanelAppearance = (key: keyof typeof panelAppearance, value: unknown) => {
     const next = { ...panelAppearance, [key]: value };
@@ -416,6 +422,49 @@ function AppearanceSection() {
           </button>
         ))}
       </div>
+
+      {/* Палитра градиента: задаёт цвета для всех компонентов uiverse. */}
+      <div className="mb-6">
+        <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--color-text)' }}>Палитра градиента</h3>
+        <p className="text-[11px] mb-3" style={{ color: 'var(--color-text-secondary)' }}>
+          Цвет кнопок и эффектов слева направо. Применяется сразу ко всему интерфейсу.
+        </p>
+        <div className="grid grid-cols-3 gap-3">
+          {PALETTES.map(p => (
+            <button
+              key={p.id}
+              onClick={() => setPalette(p.id)}
+              data-testid={`palette-${p.id}`}
+              className="p-3 text-left transition-opacity hover:opacity-90"
+              style={{
+                background: 'var(--color-surface)',
+                border: `1px solid ${paletteId === p.id ? 'var(--grad-glow)' : 'var(--color-border)'}`,
+                borderRadius: 'var(--radius-card)',
+              }}
+            >
+              <span
+                aria-hidden="true"
+                className="block h-[10px] w-full mb-2"
+                style={{ background: `linear-gradient(90deg, ${p.from}, ${p.to})`, borderRadius: 999 }}
+              />
+              <p className="text-[11px] font-bold" style={{ color: paletteId === p.id ? 'var(--grad-glow)' : 'var(--color-text)' }}>
+                {p.name}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Переключатель тёмной/светлой темы (uiverse: strong-squid-82). */}
+      <div className="mb-6 flex items-center justify-between gap-4 px-3 py-3"
+        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-card)' }}>
+        <div>
+          <p className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>Тёмная тема</p>
+          <p className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>Между тёмной и светлой, с анимацией солнца и луны</p>
+        </div>
+        <ThemeToggle checked={isDark} onChange={setDark} />
+      </div>
+
       <CustomThemeBuilder />
 
       {/* ===================== Typography ===================== */}
@@ -1032,10 +1081,14 @@ function AboutSection() {
           {clicks >= 5 && <p className="mt-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{language === 'ru' ? 'Иконка лаунчера перешла в альтернативную редкость.' : 'The launcher icon has entered an alternate rarity.'}</p>}
         </div>
       </div>
-      <a href="https://github.com/manusportalgpt-beep/Portal-Launcher" target="_blank" rel="noreferrer" className="portal-about-github mb-4 flex items-center justify-between gap-3 px-3 py-3 transition-colors" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', color:'var(--color-text)' }}>
-        <span className="flex min-w-0 items-center gap-2"><Github className="h-4 w-4 shrink-0" /><span className="min-w-0"><span className="block text-xs font-black">GitHub проекта</span><span className="block truncate text-[10px]" style={{ color:'var(--color-text-secondary)' }}>manusportalgpt-beep/Portal-Launcher</span></span></span>
-        <ExternalLink className="h-4 w-4 shrink-0" style={{ color:'var(--color-text-secondary)' }} />
-      </a>
+      {/* Кнопка проекта на uiverse: pink-chicken-70 (пункт 2). */}
+      <div className="mb-4 flex justify-center">
+        <IconButton
+          id="Buttons_adamgiebl_pink-chicken-70"
+          label="GitHub проекта"
+          href="https://github.com/manusportalgpt-beep/Portal-Launcher"
+        />
+      </div>
       {notifications.length > 0 && (
         <div className="mb-4">
           <p className="text-xs font-semibold mb-2" style={{ color:'var(--color-text-secondary)' }}>Recent updates</p>

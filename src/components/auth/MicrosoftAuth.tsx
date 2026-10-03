@@ -1,3 +1,4 @@
+import { LoginButton } from '@/components/uiverse/Uiv';
 import { invoke } from '@/lib/invoke-shim';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { useState, useEffect, useCallback } from 'react';
@@ -187,21 +188,16 @@ export function MicrosoftAuth({ onSuccess, onCancel }: {
                 Выберите способ входа
               </p>
             </div>
-            <button onClick={startFlow}
-              className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
-              style={{ background:'#0078D4', color:'white' }}>
-              <svg viewBox="0 0 21 21" className="w-4 h-4 fill-white">
-                <rect x="1" y="1" width="9" height="9"/><rect x="11" y="1" width="9" height="9"/>
-                <rect x="1" y="11" width="9" height="9"/><rect x="11" y="11" width="9" height="9"/>
-              </svg>
-              Войти через Microsoft
-            </button>
-            <button onClick={() => setStep('offline')}
-              className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-80"
-              style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-              <UserCircle className="w-4 h-4" />
-              Другой Способ (без лицензии)
-            </button>
+            {/* Пункт 5: кнопка входа на uiverse (fast-cat-82). Отдельные кнопки для
+                входа по нику и через Ely.by — тот же компонент, меняются
+                только подписи. */}
+            <div className="flex w-full justify-center">
+              <LoginButton provider="Microsoft" onClick={startFlow} />
+            </div>
+            <div className="flex w-full flex-wrap justify-center gap-3">
+              <LoginButton provider="Никнейм" onClick={() => setStep('offline')} />
+              <LoginButton provider="Ely.by" onClick={() => setStep('offline')} />
+            </div>
             {onCancel && (
               <button onClick={onCancel} className="text-sm" style={{ color:'var(--color-text-tertiary)' }}>Отмена</button>
             )}

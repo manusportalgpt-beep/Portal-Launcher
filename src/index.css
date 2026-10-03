@@ -52,6 +52,14 @@
   --motion-fast: 160ms;
   --motion-base: 220ms;
   --motion-slow: 320ms;
+  /* Палитра градиента. Переопределяется из localStorage в applyPalette(),
+     но значения по умолчанию нужны, чтобы компоненты uiverse не остались
+     без цвета, если localStorage недоступен (приватный режим). */
+  --grad-from: #000000;
+  --grad-to: #8B0000;
+  --grad-glow: #E01F26;
+  --grad: linear-gradient(90deg, var(--grad-from) 0%, var(--grad-to) 100%);
+  --grad-soft: linear-gradient(90deg, var(--grad-from) 0%, var(--grad-to) 55%, var(--grad-from) 100%);
 }
 
 /* The workspace remains black; actual objects alone receive a neutral outline. */
@@ -66,19 +74,49 @@ html[data-design-system="clean"] {
   --shadow-sm:none;
   --shadow-md:none;
   --shadow-lg:none;
-  --radius-button:3px;
-  --radius-card:4px;
-  --radius-modal:6px;
+  /* Раньше здесь стояли значения 3/4/6px и правило, принудительно
+     превращавшее rounded-* в квадраты. Пользователь попросил «всё
+     кругленькое», поэтому скругления теперь крупные и единые. */
+  --radius-button:16px;
+  --radius-card:20px;
+  --radius-modal:26px;
+  --radius-xs:10px;
+  --radius-sm:12px;
+  --radius-md:14px;
+  --radius-lg:18px;
+  --radius-xl:22px;
 }
 
-/* Portal clean mode: interactive objects remain compact squares, not pills. */
+/* Portal clean mode: единые круглые углы вместо квадратов. */
 html[data-design-system="clean"] .rounded-xl,
 html[data-design-system="clean"] .rounded-2xl,
 html[data-design-system="clean"] .rounded-3xl,
 html[data-design-system="clean"] .rounded-full {
-  border-radius:var(--radius-md) !important;
+  border-radius:var(--radius-card) !important;
 }
 html[data-design-system="clean"] [class*="shadow-"] { box-shadow:none !important; }
+
+/* ---------------------------------------------------------------------------
+   Загрузка не должна дёргать интерфейс при прокрутке: карточки с эффектами
+   из uiverse часто используют position:fixed и overflow, из-за чего
+   появлялась горизонтальная прокрутка и «залипание» при перемещении.
+   --------------------------------------------------------------------------- */
+html, body { overscroll-behavior: none; }
+.pnl-scroll, .scroll-area { scrollbar-gutter: stable; }
+
+/* ---------------------------------------------------------------------------
+   Пункт 13: убрать полоски разделения экрана (элементов).
+   Разделители в приложении рисуются через border-bottom/top у панелей, списков
+   и групп. Полностью убирать границы нельзя — ими обозначены сами поля ввода,
+   поэтому гасим только односторонние разделители-полосы.
+   --------------------------------------------------------------------------- */
+hr { border: none !important; }
+[class*="divide-y"] > * + * { border-top-width: 0 !important; }
+[class*="divide-x"] > * + * { border-left-width: 0 !important; }
+.sidebar-divider, .nav-divider, .panel-divider { display: none !important; }
+
+/* Круглые углы для стандартных элементов интерфейса. */
+input, textarea, select { border-radius: var(--radius-md); }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { height: 100%; min-height: 100%; overflow: hidden; }

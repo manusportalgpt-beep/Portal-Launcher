@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X, AlertCircle } from 'lucide-react';
+import { Toast as UivToast } from '@/components/uiverse/Uiv';
 
 export interface ToastItem {
   id: number;
@@ -36,24 +36,23 @@ export function FileToastHost() {
     return () => { listeners.delete(add); };
   }, []);
 
+  // Пункт 11: тосты ошибок/выполнения появляются в правом нижнем углу.
+  // Ошибка — heavy-cobra-18, успех — wicked-chipmunk-81 (uiverse.io).
   return (
     <div className="fixed bottom-20 right-5 z-[950] flex flex-col gap-2 items-end">
       <AnimatePresence>
         {toasts.map(t => (
           <motion.div key={t.id}
-            initial={{ opacity: 0, y: 12, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.97 }}
-            className="flex items-start gap-2.5 px-3.5 py-2.5 min-w-[260px] max-w-[340px]"
-            style={{ background: 'var(--color-bg)', border: `1px solid ${t.kind === 'error' ? 'var(--color-error)' : 'var(--color-border)'}`, borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
-            {t.kind === 'error'
-              ? <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--color-error)' }} />
-              : <Check className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--color-success)' }} />
-            }
-            <div className="min-w-0">
-              <p className="text-[12px] font-medium leading-snug" style={{ color: 'var(--color-text)', whiteSpace: 'pre-line' }}>{t.title}</p>
-              {t.subtitle && <p className="text-[10px] mt-0.5 leading-snug" style={{ color: 'var(--color-text-tertiary)', whiteSpace: 'pre-line' }}>{t.subtitle}</p>}
-            </div>
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 40 }}
+            style={{ width: 288 }}
+          >
+            <UivToast
+              kind={t.kind === 'error' ? 'error' : 'success'}
+              title={t.title}
+              detail={t.subtitle}
+            />
           </motion.div>
         ))}
       </AnimatePresence>

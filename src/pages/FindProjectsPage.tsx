@@ -11,6 +11,8 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { useInstalledStore, useIsInstalled } from '@/stores/installedStore';
 import { triggerInstallEffect } from '@/components/InstallEffectOverlay';
+import { InstallButton } from '@/components/uiverse/Uiv';
+import { Loader, LOADER_IDS, type LoaderId } from '@/components/uiverse/Uiv';
 import curseforgeAnvil from '@/assets/curseforge-anvil.png';
 import modrinthWrench from '@/assets/modrinth-wrench-clean.png';
 import { invoke } from '@/lib/invoke-shim';
@@ -272,6 +274,8 @@ function dedupeCombinedProjects(projects: Project[]): Project[] {
 }
 
 // ── Install Button ──────────────────────────────────────────────────────────
+const LOADER_VARIANTS: readonly LoaderId[] = LOADER_IDS;
+
 function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
   project: Project; instanceId: string; mcVersion: string; loader: string;
   /** Установка в com.mojang вместо папки сборки. */
@@ -590,13 +594,18 @@ function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
       {sourceChoiceAvailable && <div className="flex overflow-hidden" style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}>
         {(['modrinth','curseforge'] as SourcePlatform[]).map(source => <button key={source} title={source === 'modrinth' ? 'Скачать с Modrinth' : 'Скачать с CurseForge'} aria-label={source === 'modrinth' ? 'Скачать с Modrinth' : 'Скачать с CurseForge'} onClick={event => { event.stopPropagation(); setSelectedSource(source); }} className="flex h-7 w-7 items-center justify-center" style={{ background:selectedSource === source ? 'var(--color-primary-dim)' : 'transparent', opacity:selectedSource === source ? 1 : .55 }}><PlatformMark platform={source} size={16} /></button>)}
       </div>}
-    <button onClick={doInstall}
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold hover:opacity-90 transition-all"
-      style={{ background:'var(--color-primary)', color:'#fff', opacity: state==='busy' ? 0.7 : 1 }}>
-      {state === 'busy'
-        ? <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />{t('findProjects.install.installing')}</>
-        : <><Download className="w-3.5 h-3.5" />{t('findProjects.install.install')}</>}
-    </button>
+    {/* Кнопка установки на uiverse: stale-baboon-45 (пункт 3).
+          Во время установки остаётся старая кнопка со спиннером: у эффекта
+          нет состояния «занято», а текст там единственный. */}
+      {state === 'busy' ? (
+        <button onClick={doInstall} disabled
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold"
+          style={{ background:'var(--color-primary)', color:'#fff', opacity: 0.7 }}>
+          <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />{t('findProjects.install.installing')}
+        </button>
+      ) : (
+        <InstallButton label={t('findProjects.install.install')} onClick={doInstall} />
+      )}
     </div>
   );
 }
@@ -889,6 +898,9 @@ export function FindProjectsPage() {
   const [reachableTotal, setReachableTotal] = useState<number | null>(null);
   const [capped, setCapped] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Пункт 9: загрузчики чередуются при каждой новой загрузке — пользователь
+  // просил «разновидность», а не один и тот же спиннер на каждом экране.
+  const [searchLoaderTick, setSearchLoaderTick] = useState(0);
   const [netError, setNetError] = useState(false);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 20;
@@ -1033,6 +1045,7 @@ export function FindProjectsPage() {
       }
     }
     setLoading(!cached);
+    if (!cached) setSearchLoaderTick(t => t + 1);
     setNetError(false);
     const offset = pg * PAGE_SIZE;
     try {
@@ -1411,11 +1424,11 @@ export function FindProjectsPage() {
 
             {/* Loading skeletons */}
             {loading && results.length===0 && (
-              <div className="space-y-2">
-                {Array.from({length:8}).map((_,i) => (
-                  <div key={i} className="h-20 rounded-2xl animate-pulse"
-                    style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }} />
-                ))}
+              /* Пункт 9: на пустом месте, где появятся моды, показывается
+                 загрузчик из uiverse, а не серые протухающие плашки. */
+              <div className="flex flex-col items-center justify-center gap-4 py-20">
+                <Loader variant={LOADER_VARIANTS[searchLoaderTick % LOADER_VARIANTS.length]} size={64} />
+                <p className="text-xs" style={{ color:'var(--color-text-tertiary)' }}>Загрузка…</p>
               </div>
             )}
 
@@ -1464,7 +1477,13 @@ export function FindProjectsPage() {
               )
             )}
 
-            {loading && results.length > 0 && <p className="py-4 text-center text-xs" style={{ color:'var(--color-text-tertiary)' }}>Загружаю ещё модификации…</p>}
+            {loading && results.length > 0 && (
+              /* Подгрузка следующей страницы — другой загрузчик, чтобы его
+                 нельзя было спутать с первой загрузкой страницы. */
+              <div className="flex justify-center py-5">
+                <Loader variant={LOADER_VARIANTS[(searchLoaderTick + 3) % LOADER_VARIANTS.length]} size={34} />
+              </div>
+            )}
             {capped && platform !== 'modrinth' && (
               <div className="py-4 text-center">
                 <p className="text-[11px] text-center max-w-md" style={{ color:'var(--color-text-tertiary)' }}>

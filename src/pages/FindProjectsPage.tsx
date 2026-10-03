@@ -387,20 +387,31 @@ function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
           const selectedFile = candidates[0];
           if (!selectedFile) throw new Error('У этого проекта на CurseForge нет ни одного файла.');
 
-          const downloadUrl = await invoke<string>('get_curseforge_file_download_url', {
+          // У Bedrock эндпоинт download-url отдаёт 403 чаще, чем у Java, поэтому
+          // запасные адреса строим из самого файла — как в Java-ветке выше.
+          const rawDownloadUrl = selectedFile.downloadUrl || selectedFile.download_url || '';
+          const fileIdText = String(selectedFile.id ?? '');
+          const derivedDownloadUrl = fileIdText.length >= 5 && selectedFile.fileName
+            ? `https://edge.curseforgecdn.com/files/${fileIdText.slice(0, 4)}/${fileIdText.slice(4).replace(/^0+/, '')}/${selectedFile.fileName}`
+            : '';
+          const officialDownloadUrl = await invoke<string>('get_curseforge_file_download_url', {
             modId: numericProjectId,
             fileId: Number(selectedFile.id),
             apiKey: cfApiKey,
           }).catch(() => '');
+          const downloadUrl = officialDownloadUrl || rawDownloadUrl || derivedDownloadUrl;
           if (!downloadUrl) throw new Error('CurseForge не отдал адрес файла для Bedrock.');
 
           // Издание Bedrock нужно, чтобы положить контент в его папку com.mojang.
-          const pkgs = await invoke<{ family: string; name: string }[]>('list_bedrock_versions').catch(() => []);
+          // Если установлено несколько изданий, берём обычное, а не Preview:
+          // контент в Preview пользователю обычно не нужен.
+          const pkgs = await invoke<{ family: string; name: string; preview?: boolean }[]>('list_bedrock_versions').catch(() => []);
           if (!pkgs?.length) {
             throw new Error('Не найдено установленное издание Minecraft Bedrock. Установи его в лаунчере — контент кладётся в его папку com.mojang.');
           }
+          const target = pkgs.find(p => !p.preview) ?? pkgs[0];
           const res = await invoke<{ installed: string[] }>('install_bedrock_content', {
-            family: pkgs[0].family,
+            family: target.family,
             downloadUrl,
             fileName: String(selectedFile.fileName),
           });
@@ -1129,8 +1140,29 @@ export function FindProjectsPage() {
           <ArrowLeft className="w-4 h-4" />
         </button>
 
-        {/* Бейдж сборки убран: надпись «Бедрок 1.26.52303.0 · bedrock» дублировала то,
-            что уже видно по категориям, и занимала место в шапке. */}
+        {/* Название сборки возвращаем — но только для Java. В Bedrock название
+            избыточно: там видно по категориям, а версия вида «1.26.52303.0»
+            в шапке только мешала и съедала место. */}
+        {!bedrockMode && instance && (
+          <div className="flex items-center gap-2 px-3 py-1.5 shrink-0"
+            style={{ background:`${instance.color||'var(--color-primary)'}15`, border:`1px solid ${instance.color||'var(--color-primary)'}30`, borderRadius:'var(--radius-button)' }}>
+            <div className="relative w-5 h-5 flex items-center justify-center overflow-hidden text-[10px] font-black"
+              style={{ background:`${instance.color||'var(--color-primary)'}25`, color:instance.color||'var(--color-primary)', borderRadius:'var(--radius-sm)' }}>
+              {instanceIcon && <img src={instanceIcon} alt="" className="w-full h-full object-cover" onError={e => {
+                e.currentTarget.style.display = 'none';
+                const fallback = e.currentTarget.parentElement?.querySelector<HTMLElement>('[data-instance-fallback]');
+                if (fallback) fallback.style.display = 'flex';
+              }} />}
+              <span data-instance-fallback className="absolute inset-0 items-center justify-center" style={{ display: instanceIcon ? 'none' : 'flex' }}>{instance.name[0]}</span>
+            </div>
+            <p className="text-xs font-bold" style={{ color:'var(--color-text)' }}>
+              {instance.name}
+              <span className="font-normal ml-1.5" style={{ color:'var(--color-text-secondary)' }}>
+                {instance.minecraftVersion} · {instance.modLoader}
+              </span>
+            </p>
+          </div>
+        )}
 
         {/* Переключатель Java / Bedrock убран намеренно: игра определяется сборкой,
             в которую ставят. Раньше его можно было переключить вручную, и поиск
@@ -1263,6 +1295,31 @@ export function FindProjectsPage() {
                 title="Обновить каталог">
                 <RefreshCw className={`w-4 h-4 ${loading?'animate-spin':''}`} style={{ color:'var(--color-text-secondary)' }} />
               </button>
+              {/* Переключатель трёх платформ. В режиме Bedrock его нет: у
+                  CurseForge Bedrock нет аналога Modrinth, показывать выборку
+                  источников там бессмысленно. */}
+              {!bedrockMode && (
+                <div className="flex h-10 shrink-0 overflow-hidden" style={{ border:'1px solid var(--color-border)' }}>
+                  {([
+                    ['modrinth', 'Только Modrinth'],
+                    ['combined', 'Modrinth + CurseForge'],
+                    ['curseforge', 'Только CurseForge'],
+                  ] as [Platform, string][]).map(([target, title]) => (
+                    <button
+                      key={target}
+                      onClick={() => switchPlatform(target)}
+                      className="flex min-w-10 items-center justify-center px-2 transition-colors hover:bg-white/5"
+                      style={platform === target
+                        ? { background:'var(--color-primary-dim)', color:'var(--color-primary)', borderBottom:'2px solid var(--color-primary)' }
+                        : { color:'var(--color-text-secondary)' }}
+                      title={title}
+                      aria-label={title}
+                    >
+                      <PlatformMark platform={target} size={18} />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

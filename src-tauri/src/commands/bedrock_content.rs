@@ -22,11 +22,12 @@ fn com_mojang_dir(family: &str) -> Result<PathBuf, String> {
             .join("LocalState")
             .join("games")
             .join("com.mojang");
-        if !dir.exists() {
-            return Err(format!(
-                "Не найдена папка com.mojang для {pkg_family}. Запустите Bedrock Edition хотя бы раз, чтобы Windows создала LocalState."
-            ));
-        }
+        // Раньше здесь стояла проверка «папка должна существовать», и установка
+        // падала на ровном месте: com.mojang создаётся самой игрой при первом
+        // запуске, поэтому у только что установленного Bedrock её ещё нет.
+        // Создаём сами — игра этот путь всё равно читает.
+        std::fs::create_dir_all(&dir)
+            .map_err(|e| format!("Не удалось создать папку com.mojang для {pkg_family}: {e}"))?;
         Ok(dir)
     }
     #[cfg(not(target_os = "windows"))]

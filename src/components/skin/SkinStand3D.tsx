@@ -382,8 +382,27 @@ export function SkinStand3D({
         capeTex.minFilter = THREE.NearestFilter;
         capeTex.generateMipmaps = false;
         (capeTex as any).colorSpace = (THREE as any).SRGBColorSpace ?? undefined;
-        const geo = new THREE.BoxGeometry(10, 16, 1);
-        applyBoxUv(geo, 0, 0, 10, 16, 1, 64, 32);
+        // Плащ — плоскость, а не куб. Раньше здесь стоял BoxGeometry с
+        // раскладкой по атласу скина, из-за чего UV попадали в соседние
+        // области текстуры и плащ вытягивался в узкую полосу. Теперь берём
+        // размеры текстуры из самого изображения и натягиваем на плоскость
+        // только область плаща (x 1..11, y 1..17), поэтому результат не
+        // зависит от того, 64×32 текстура или 64×64.
+        const geo = new THREE.PlaneGeometry(10, 16);
+        const img = (capeTex as any).image as { width?: number; height?: number } | undefined;
+        const texW = Number(img?.width) || 64;
+        const texH = Number(img?.height) || 32;
+        const u0 = 1 / texW;
+        const u1 = 11 / texW;
+        const vTop = 1 - 1 / texH;
+        const vBottom = 1 - 17 / texH;
+        const uv = geo.attributes.uv as any;
+        for (let i = 0; i < uv.count; i++) {
+          const ux = Number(uv.getX(i));
+          const uy = Number(uv.getY(i));
+          uv.setXY(i, u0 + ux * (u1 - u0), vBottom + uy * (vTop - vBottom));
+        }
+        uv.needsUpdate = true;
         const pivot = new THREE.Group();
         pivot.position.set(0, 8, -2);
         pivot.rotation.y = Math.PI;

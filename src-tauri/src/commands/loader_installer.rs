@@ -160,6 +160,24 @@ fn java_major_for_mc(mc_version: &str) -> u32 {
     }
 }
 
+/// Безопасное усечение текста установщика по границе символа.
+///
+/// Раньше здесь писали `&out[..out.len().min(2000)]`. Это срез по байтам, и
+/// вывод установщика Quilt/NeoForge содержит кириллицу, поэтому на границе
+/// 2000 байт почти всегда попадал середину многобайтового символа — и вместо
+/// обрезки лог-строки приложение падало с panic. Для установщиков это выглядело
+/// как «Quilt вообще не ставится».
+fn safe_head(text: &str, limit: usize) -> &str {
+    if text.len() <= limit {
+        return text;
+    }
+    let mut end = limit;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
+}
+
 fn installer_failure(output: &std::process::Output) -> String {
     let details = format!(
         "{}\n{}",
@@ -1046,16 +1064,10 @@ pub async fn install_quilt(
     let stderr_text = String::from_utf8_lossy(&output.stderr);
     log::info!("[Quilt] Installer exit code: {:?}", output.status.code());
     if !stdout_text.trim().is_empty() {
-        log::info!(
-            "[Quilt] stdout: {}",
-            &stdout_text[..stdout_text.len().min(2000)]
-        );
+        log::info!("[Quilt] stdout: {}", safe_head(&stdout_text, 2000));
     }
     if !stderr_text.trim().is_empty() {
-        log::warn!(
-            "[Quilt] stderr: {}",
-            &stderr_text[..stderr_text.len().min(2000)]
-        );
+        log::warn!("[Quilt] stderr: {}", safe_head(&stderr_text, 2000));
     }
 
     std::fs::remove_file(&jar_path).ok();
@@ -1069,8 +1081,21 @@ pub async fn install_quilt(
         .unwrap_or(false);
     if !profile_ok {
         log::warn!("[Quilt] Installer finished but profile is missing. Expected id like quilt-{}-{}. stdout: {}, stderr: {}",
-            lv, mc_version, &stdout_text[..stdout_text.len().min(500)], &stderr_text[..stderr_text.len().min(500)]);
+            lv, mc_version, safe_head(&stdout_text, 500), safe_head(&stderr_text, 500));
     }
+    // Что установщик фактически положил в папку профиля. Раньше проверялось
+    // только наличие version.json, из-за чего нельзя было понять, создан ли
+    // patched jar: при его отсутствии Quilt падает уже при запуске, с
+    // «The Patched JAR is missing», и установка выглядела успешной.
+    let profile_contents = profile_id
+        .as_ref()
+        .map(|id| describe_profile_dir(id))
+        .unwrap_or_default();
+    let has_patched_jar = profile_contents.iter().any(|entry| {
+        let lower = entry.to_lowercase();
+        lower.ends_with(".jar") && !lower.contains("sources") && !lower.contains("javadoc")
+    });
+
     let success = output.status.success() && profile_ok;
     Ok(LoaderInstallResult {
         // clone: lv ещё нужен в тексте ошибки ниже, а version забирает владение.
@@ -1078,7 +1103,21 @@ pub async fn install_quilt(
         loader: "quilt".into(),
         version: lv.clone(),
         message: if success {
-            "Quilt установлен".into()
+            if has_patched_jar {
+                "Quilt установлен".into()
+            } else {
+                // Установщик отработал, но jar в профиле нет: сообщаем честно,
+                // чтобы не выдавать «установлено» и не ловить ошибку на запуске.
+                format!(
+                    "Quilt установлен, но в папке профиля нет ни одного JAR — при запуске \
+                     ожидается ошибка «The Patched JAR is missing».\nСодержимое профиля: {}",
+                    if profile_contents.is_empty() {
+                        "(пусто)".into()
+                    } else {
+                        profile_contents.join(", ")
+                    }
+                )
+            }
         } else if output.status.success() {
             format!(
                 "Установщик Quilt завершился, но профиль запуска не создан (ожидался quilt-{}-{mc_version}).\n\
@@ -1092,6 +1131,25 @@ pub async fn install_quilt(
             )
         },
     })
+}
+
+/// Перечисляет файлы папки профиля (для диагностики установки).
+fn describe_profile_dir(profile_id: &str) -> Vec<String> {
+    let Some(dir) = crate::mc::install::version_json_path(profile_id)
+        .parent()
+        .map(|p| p.to_path_buf())
+    else {
+        return Vec::new();
+    };
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = entries
+        .flatten()
+        .filter_map(|entry| entry.file_name().to_str().map(str::to_string))
+        .collect();
+    names.sort();
+    names
 }
 
 /// Каталоги профилей Quilt (`versions/quilt-<loader>-<mc>`).
@@ -1262,16 +1320,10 @@ pub async fn install_neoforge(
     let stderr_text = String::from_utf8_lossy(&output.stderr);
     log::info!("[NeoForge] Installer exit code: {:?}", output.status.code());
     if !stdout_text.trim().is_empty() {
-        log::info!(
-            "[NeoForge] stdout: {}",
-            &stdout_text[..stdout_text.len().min(2000)]
-        );
+        log::info!("[NeoForge] stdout: {}", safe_head(&stdout_text, 2000));
     }
     if !stderr_text.trim().is_empty() {
-        log::warn!(
-            "[NeoForge] stderr: {}",
-            &stderr_text[..stderr_text.len().min(2000)]
-        );
+        log::warn!("[NeoForge] stderr: {}", safe_head(&stderr_text, 2000));
     }
 
     std::fs::remove_file(&jar_path).ok();
@@ -1308,8 +1360,8 @@ pub async fn install_neoforge(
         } else if output.status.success() {
             format!(
                 "NeoForge installer завершился, но не создал профиль. stdout: {}, stderr: {}",
-                &stdout_text[..stdout_text.len().min(500)],
-                &stderr_text[..stderr_text.len().min(500)]
+                safe_head(&stdout_text, 500),
+                safe_head(&stderr_text, 500)
             )
         } else {
             format!(

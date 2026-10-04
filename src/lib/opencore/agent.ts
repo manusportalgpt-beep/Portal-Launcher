@@ -278,6 +278,51 @@ const ESSENTIAL_TOOL_NAMES = [
  * «Неизвестный инструмент». Здесь они приводятся к настоящему имени, чтобы
  * агенту не приходилось спорить вместо работы.
  */
+/**
+ * Снимает обрамляющие кавычки и приводит слеши.
+ *
+ * Модели часто передают пути и имена программ в кавычках: python "'C:\...'
+ * или program '"python"'. Раньше кавычки попадали в команду буквально, и
+ * получалось `python "'C:\...\script.py'"` — Python получал имя файла вместе
+ * с кавычками, не находил файл и падал с «can't open file». А для
+ * run_program проверка белого списка сравнивала `"python"` с `python` и
+ * отвечала «программа не разрешена».
+ */
+function normalizeArgValue(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  let v = value.trim();
+  // Модель могла завернуть значение в одинарные кавычки, а внутрь положить
+  // двойные — снимаем попарно, до двух проходов.
+  for (let i = 0; i < 2; i++) {
+    const first = v[0];
+    const last = v[v.length - 1];
+    if (v.length >= 2 && first === last && (first === '"' || first === "'" || first === '`')) {
+      v = v.slice(1, -1).trim();
+      continue;
+    }
+    break;
+  }
+  return v;
+}
+
+/** Прогоняет все строковые аргументы инструмента через normalizeArgValue. */
+function stripQuotesFromArgs(name: string, args: Record<string, unknown>): Record<string, unknown> {
+  if (!args || typeof args !== 'object') return args;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(args)) {
+    out[key] = normalizeArgValue(value);
+  }
+  // Скрипты часто приходят без расширения, а Windows добавляет .py молча —
+  // оставляем как есть, но имя программы приводим к «голому», чтобы белый
+  // список в Rust проходил независимо от кавычек и пути.
+  if (name === 'run_program' && typeof out.program === 'string') {
+    const raw = out.program as string;
+    const file = raw.split(/[\\/]/).pop() ?? raw;
+    out.program = file.toLowerCase().endsWith('.exe') ? file : file;
+  }
+  return out;
+}
+
 const TOOL_ALIASES: Record<string, string> = {
   bash: 'run_command',
   terminal: 'run_command',
@@ -2149,14 +2194,23 @@ async function execRunCommandAlias(args: any): Promise<ExecResult> {
 async function execRunPython(args: Record<string, unknown>): Promise<ExecResult> {
   try {
     const root = String(args.root ?? 'temp');
-    const path = String(args.path ?? '');
+    let path = String(args.path ?? '');
     if (!path) return { ok: false, output: 'Нужен path к .py файлу.' };
+    // Кавычки снимаем ещё раз: путь мог прийти уже нормализованным, но с
+    // обёрткой из апострофов — иначе Python получал имя файла с кавычками.
+    path = path.replace(/^['"`]+|['"`]+$/g, '').trim();
+    // Если путь уже абсолютный (диск или UNC), не даём Rust приклеить его к
+    // корню зоны: получалось OpenPortal\'C:\...\script.py'.
+    const looksAbsolute = /^[A-Za-z]:[\\/]/.test(path) || path.startsWith('\\\\') || path.startsWith('/');
     if (!/^portal$|^temp$|^launcher$/.test(root)) return { ok: false, output: `Неизвестная зона: ${root}` };
     const argsText = String(args.args ?? '').trim();
+    // Абсолютный путь передаём как есть; относительный — от корня зоны.
+    const zoneRoot = await lookupRoot(root as PortalRoot);
+    const scriptPath = looksAbsolute ? path : `${zoneRoot}/${path}`;
     const res = await invoke<CmdResult>('op_run_command', {
       root,
-      cwd: await lookupRoot(root as PortalRoot),
-      command: `python "${path}"${argsText ? ` ${argsText}` : ''}`,
+      cwd: zoneRoot,
+      command: `python "${scriptPath}"${argsText ? ` ${argsText}` : ''}`,
       timeout_ms: Number(args.timeout_ms ?? 120000),
       shell: null,
     });
@@ -4134,7 +4188,7 @@ export async function executeTool(
   const parsed = safeJsonParseObject(normalizeToolArguments(argsRaw));
   // Имена аргументов приводятся к ожидаемым, иначе модель, назвав параметр
   // file_path, получала сырую ошибку Tauri вместо внятного объяснения.
-  const normalized = normalizeToolArgs(tool, parsed);
+  const normalized = normalizeToolArgs(tool, stripQuotesFromArgs(tool, parsed));
   let args: any = normalized.args;
   if (normalized.error) return { ok: false, output: normalized.error };
 
@@ -5369,6 +5423,11 @@ export function buildSystemPrompt(opts: {
     '',
     `ПОРЯДОК РАБОТЫ С МОДИФИКАЦИЯМИ. 1) Определи совместимость: launcher_build_info (версия игры и загрузчик сборки) + mod_search (что искать). 2) Найди зависимости через mod_search и поставь нужные версии. 3) Собери. 4) Проверь: launcher_verify_build, path_exists, jar_list. 5) Отчитайся с путями и версиями. Не пропускай шаги и не выдумывай классы — сверяйся через jar_list/decompile_jar.`,
     `ПОИСК МОДОВ: mod_search вызывай с конкретным project_type ('mod' | 'resourcepack' | 'shader' | 'modpack') и осмысленным запросом. Если задача игрока — «найди мод на X», сначала mod_search, потом mod_info по id, потом ставить. Не перебирай запросы вслепую: если первый поиск пуст, уточни запрос по одному разу, а не пять подряд.`,
+    '',
+    `ИКОНКИ. Если в задаче нужны иконки — бери их из lucide (https://lucide.dev): там сотни готовых иконок, они ставятся как <i data-lucide="rocket"></i> + скрипт lucide.createIcons(), или инлайном SVG из их набора. Не рисуй иконки сам в SVG-пути и не генерируй их картинкой — это выглядит хуже и весит больше.`,
+    `БРАУЗЕР — ЭТО ГЛАВНОЕ ДЛЯ ПРОВЕРКИ. fetch_page отдаёт только текст, ты не видишь страницу. Чтобы УВИДЕТЬ результат, используй браузер: browser_open / browser_navigate открывают страницу в реальном Chrome, browser_screenshot снимает кадр, и ты можешь посмотреть на него как на изображение.`,
+    `ПРАВИЛО ПРОВЕРКИ САЙТА: после того как написал HTML/CSS — запусти локальный сервер (python -m http.server 8731 из папки проекта), открой http://localhost:8731 через browser_open, сними скриншот и ПОСМОТРИ на него. Только увидев результат, можно писать «готово». Собранный сайт показывай пользователю ссылкой на index.html и командой запуска сервера.`,
+    `ИЗОБРАЖЕНИЯ В БРАУЗЕРЕ: browser_open открывает и картинки по URL — посмотри на них, чтобы оценить, подходит ли текстура или превью, а не оценивай по имени файла.`,
     '',
     `ВАЖНО: обычные вопросы и задания — просто выполнить напрямую. Инструменты (включая web_search) используй ТОЛЬКО когда реально нужно: свежие данные из интернета, работа с файлами/системой/API. Для «hello», вопросов по общим знаниям, пересказов и рефакторинга кода в чате — отвечай сам, без инструментов.`,
     '',

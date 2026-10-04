@@ -52,6 +52,7 @@ export function FileToastHost() {
               kind={t.kind === 'error' ? 'error' : 'success'}
               title={t.title}
               detail={t.subtitle}
+              onClose={() => setToasts(prev => prev.filter(item => item.id !== t.id))}
             />
           </motion.div>
         ))}

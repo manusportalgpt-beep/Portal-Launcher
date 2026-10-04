@@ -349,10 +349,12 @@ export function Toast({
   kind = 'success',
   title,
   detail,
+  onClose,
 }: {
   kind?: 'success' | 'error';
   title: string;
   detail?: string;
+  onClose?: () => void;
 }) {
   const id = kind === 'error'
     ? 'Cards_seyed-mohsen-mousavi_heavy-cobra-18'
@@ -369,7 +371,12 @@ export function Toast({
     );
     if (spans[0]) spans[0].textContent = title;
     if (spans[1]) spans[1].textContent = detail ?? '';
-  }, [title, detail]);
+    const close = root.querySelector<HTMLButtonElement>('button');
+    if (!close || !onClose) return;
+    close.type = 'button';
+    close.addEventListener('click', onClose);
+    return () => close.removeEventListener('click', onClose);
+  }, [title, detail, onClose]);
   return (
     <span
       ref={ref}

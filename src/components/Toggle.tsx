@@ -1,5 +1,3 @@
-import { ToggleSwitch } from '@/components/uiverse/Uiv';
-
 // Переключатель в едином стиле OreUI: прямые углы, серый квадратный бегунок.
 // Раньше каждая страница рисовала свой вариант — выглядело по-разному и бегунок
 // вылезал за рамку. Один компонент = один вид во всём лаунчере.
@@ -14,11 +12,6 @@ export function Toggle({ value, onChange, title, className = '', decorative = fa
   className?: string;
   decorative?: boolean;
 }) {
-  if (!decorative) {
-    const id = title?.replace(/\W+/g, '-').toLowerCase() || 'toggle';
-    return <ToggleSwitch id={id} checked={value} onChange={onChange} className={className} title={title} />;
-  }
-
   const body = (
     <span
       role={decorative ? undefined : 'switch'}
@@ -30,12 +23,10 @@ export function Toggle({ value, onChange, title, className = '', decorative = fa
       style={{
         width: 38,
         height: 20,
-        borderRadius: 999,
+        borderRadius: 2,
         overflow: 'hidden',
-        // Градиент палитры вместо сплошной заливки: пункт «всё кругленькое,
-        // чёрный → красный» должен работать и на переключателях.
-        background: value ? 'var(--grad)' : 'var(--color-surface-2)',
-        border: `1px solid ${value ? 'var(--grad-glow)' : 'var(--color-border)'}`,
+        background: value ? 'var(--color-primary)' : 'var(--color-surface-2)',
+        border: `1px solid ${value ? 'var(--color-primary)' : 'var(--color-border)'}`,
       }}
     >
       <span
@@ -43,7 +34,7 @@ export function Toggle({ value, onChange, title, className = '', decorative = fa
         style={{
           width: 12,
           height: 12,
-          borderRadius: 999,
+          borderRadius: 1,
           background: 'var(--color-text)',
           top: '50%',
           transform: 'translateY(-50%)',

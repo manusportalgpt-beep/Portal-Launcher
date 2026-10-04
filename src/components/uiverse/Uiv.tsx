@@ -401,14 +401,14 @@ export function HoverHint({ label, children }: { label: string; children: React.
   );
 }
 
-/** Эффект генерации: wicked-elephant с сохранением компактного размера лаунчера. */
-export function GenerationLoader({ label = 'OpenPortal работает' }: { label?: string }) {
+/** Эффект генерации: компактный wicked-elephant с синхронной анимацией текста. */
+export function GenerationLoader({ label = 'Генерирует...' }: { label?: string }) {
   return (
     <span className="uiv-generation-loader loader-wrapper" role="status" aria-live="polite" aria-label={label}>
       <span className="loader" aria-hidden="true" />
       <span className="loader-letters" aria-hidden="true">
         {label.split('').map((letter, index) => (
-          <span key={`${letter}-${index}`} className="loader-letter" style={{ animationDelay: `${0.1 + index * 0.105}s` }}>
+          <span key={`${letter}-${index}`} className="loader-letter" style={{ animationDelay: `${index * 0.06}s` }}>
             {letter === ' ' ? '\u00a0' : letter}
           </span>
         ))}

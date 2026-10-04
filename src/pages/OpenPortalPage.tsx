@@ -1051,7 +1051,6 @@ function ChatBubble({ m, onContinue, streaming, onInstalled }: { m: ChatMessage;
       <div className="group relative flex justify-end">
         {actions}
         <div className="openportal-message openportal-message--user max-w-[80%] rounded-2xl rounded-br-md px-3.5 py-2.5 text-[13px] leading-6" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', cursor: 'text', userSelect: 'text' }}>
-          <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold opacity-75"><MessageSquare size={11} /> Вы</div>
           <Markdown text={m.content} />
           {m.attachments && m.attachments.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1077,6 +1076,33 @@ function ChatBubble({ m, onContinue, streaming, onInstalled }: { m: ChatMessage;
           null
         )}
         {m.error && <p className="mt-1 text-[11px]" style={{ color: 'var(--color-error)' }}>Это сообщение могло быть сгенерировано ошибочно. Проверь контекст и попробуй ещё раз.</p>}
+      </div>
+    </div>
+  );
+}
+
+/** Компактный timeline текущей задачи по мотивам red-sloth-16. */
+function AgentPlan({ messages }: { messages: ChatMessage[] }) {
+  const toolMessages = messages.filter(message => message.role === 'tool').slice(-4);
+  const steps: { label: string; done: boolean; error?: boolean }[] = [
+    { label: 'Разбор задачи', done: toolMessages.length > 0 },
+    ...toolMessages.map(message => ({
+      label: message.toolName || message.content.split('\n')[0]?.slice(0, 56) || 'Рабочий шаг',
+      done: message.content !== '… выполняется …' && !message.error,
+      error: message.error,
+    })),
+    { label: 'Формирование результата', done: false },
+  ];
+  return (
+    <div className="uiv-agent-plan" role="status" aria-live="polite">
+      <div className="uiv-agent-plan__title"><ListChecks size={13} /> План задачи</div>
+      <div className="uiv-agent-plan__timeline">
+        {steps.map((step, index) => (
+          <div key={`${step.label}-${index}`} className={`uiv-agent-plan__item${step.done ? ' is-done' : ''}${step.error ? ' is-error' : ''}`}>
+            <span className="uiv-agent-plan__bullet">{step.done ? <Check size={11} /> : <span />}</span>
+            <span className="uiv-agent-plan__label">{step.label}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -2177,7 +2203,6 @@ export function OpenPortalPage() {
               </div>
               <p className="text-[11px] leading-5" style={{ color: 'var(--color-text-tertiary)' }}>
                 Режим <b style={{ color: 'var(--color-text-secondary)' }}>Build</b> выполняет задачи, <b style={{ color: 'var(--color-text-secondary)' }}>Plan</b> только планирует.
-                Команды — <code className="font-mono" style={{ color: 'var(--color-primary)' }}>/help</code>
               </p>
             </div>
           ) : (
@@ -2193,8 +2218,9 @@ export function OpenPortalPage() {
                   onInstalled={text => void send(text)} />
               ))}
               {running && (
-              <div className="flex items-center gap-2 px-1 py-1 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
-                <GenerationLoader label="OpenPortal работает" />
+              <div className="flex flex-col gap-1.5 px-1 py-1 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                <AgentPlan messages={messages} />
+                <GenerationLoader label="Генерирует..." />
                 </div>
               )}
               </MentionContext.Provider>
@@ -2309,7 +2335,7 @@ export function OpenPortalPage() {
                   onKeyDown(e);
                 }}
                 rows={1}
-                placeholder={running ? 'Агент занят — отправь сообщение, он продолжит после текущего шага' : 'Что сделать?  (/ — команды)'}
+                placeholder={running ? 'Агент занят — отправьте сообщение, он продолжит после текущего шага' : 'Что сделать?'}
                 className="max-h-40 min-h-9 flex-1 resize-none overflow-y-auto bg-transparent px-2.5 py-1.5 text-[13px] leading-6 outline-none"
                 style={{ color: 'var(--color-text)' }}
               />
@@ -2332,13 +2358,6 @@ export function OpenPortalPage() {
                   <Send size={14} />
                 </button>
               )}
-            </div>
-            <div className="tags px-2 pb-2">
-              {['/help', '/plan', '/build'].map(command => (
-                <button key={command} type="button" onClick={() => { setInput(command); composerRef.current?.focus(); }}>
-                  {command}
-                </button>
-              ))}
             </div>
             </div>
             </div>

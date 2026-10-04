@@ -1,5 +1,4 @@
 import { setCustomCssEnabled } from '@/lib/ui-engine';
-import { palettes as PALETTES, usePaletteStore } from '@/lib/uiverse-palette';
 import { ThemeToggle, IconButton } from '@/components/uiverse/Uiv';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -310,7 +309,6 @@ function SegRow({ label, desc, value, options, onChange }: { label: string; desc
 function AppearanceSection() {
   const { t } = useTranslation();
   const { themeId, setTheme } = useThemeStore();
-  const { paletteId, setPalette } = usePaletteStore();
   const ui = useUiStore();
   // Тумблер темы переключает только светлую/тёмную, OLED и свои темы не трогает.
   const isDark = themeId !== 'light';
@@ -423,38 +421,6 @@ function AppearanceSection() {
             <p className="mt-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{themeId === t.id ? 'Активна' : 'Палитра'}</p>
           </button>
         ))}
-      </div>
-
-      {/* Палитра градиента: задаёт цвета для всех компонентов uiverse. */}
-      <div className="mb-6">
-        <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--color-text)' }}>Палитра градиента</h3>
-        <p className="text-[11px] mb-3" style={{ color: 'var(--color-text-secondary)' }}>
-          Цвет кнопок и эффектов слева направо. Применяется сразу ко всему интерфейсу.
-        </p>
-        <div className="grid grid-cols-3 gap-3">
-          {PALETTES.map(p => (
-            <button
-              key={p.id}
-              onClick={() => setPalette(p.id)}
-              data-testid={`palette-${p.id}`}
-              className="p-3 text-left transition-opacity hover:opacity-90"
-              style={{
-                background: 'var(--color-surface)',
-                border: `1px solid ${paletteId === p.id ? 'var(--grad-glow)' : 'var(--color-border)'}`,
-                borderRadius: 'var(--radius-card)',
-              }}
-            >
-              <span
-                aria-hidden="true"
-                className="block h-[10px] w-full mb-2"
-                style={{ background: `linear-gradient(90deg, ${p.from}, ${p.to})`, borderRadius: 999 }}
-              />
-              <p className="text-[11px] font-bold" style={{ color: paletteId === p.id ? 'var(--grad-glow)' : 'var(--color-text)' }}>
-                {p.name}
-              </p>
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Переключатель тёмной/светлой темы (uiverse: strong-squid-82). */}

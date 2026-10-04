@@ -280,6 +280,11 @@ export function Loader({
   label?: string;
 }) {
   const { scope, html } = entryOf(variant);
+  // У загрузчиков uiverse жёстко зашит свой размер (часто 100–200 px). Раньше
+  // они вписывались в квадрат через scale(), но у внешнего бокса стоял
+  // overflow: hidden — круглые загрузчики обрезались по углам и выглядели
+  // «обрезанными в кружок». Теперь бокс не режет содержимое, а сам загрузчик
+  // уменьшается и центрируется, поэтому ничего не налезает на соседей.
   const box = useMemo(
     () => ({
       display: 'inline-flex',
@@ -287,7 +292,6 @@ export function Loader({
       justifyContent: 'center',
       width: size,
       height: size,
-      overflow: 'hidden',
       flex: '0 0 auto',
     }),
     [size],
@@ -296,7 +300,15 @@ export function Loader({
     <span className="inline-flex items-center gap-2" style={box} title={label}>
       <span
         className={`uiv-stage ${scope}`}
-        style={{ transform: `scale(${Math.max(0.35, size / 90)})`, transformOrigin: 'center' }}
+        style={{
+          width: size,
+          height: size,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transform: `scale(${Math.max(0.35, size / 130)})`,
+          transformOrigin: 'center',
+        }}
         dangerouslySetInnerHTML={{ __html: html }}
       />
       {label ? <span className="text-[11px]">{label}</span> : null}

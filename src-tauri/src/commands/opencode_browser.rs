@@ -614,6 +614,12 @@ fn launch_browser(start_url: &str) -> Result<Child, String> {
         .arg("--disable-background-networking")
         .arg("--disable-backgrounding-occluded-windows")
         .arg("--disable-renderer-backgrounding")
+        // Без этого флага Chrome отказывается отдавать локальные файлы по
+        // file:// из headless-сессии: страница открывается, но остаётся пустой
+        // («работает только с обычными веб-страницами»). Флаг разрешает
+        // file:// и доступ локальных файлов к другим локальным ресурсам —
+        // именно так проверяются собранные агентом проекты из Projects/.
+        .arg("--allow-file-access-from-files")
         // Системные хранилища секретов не трогаем вообще.
         .arg("--password-store=basic")
         .arg("--use-mock-keychain")

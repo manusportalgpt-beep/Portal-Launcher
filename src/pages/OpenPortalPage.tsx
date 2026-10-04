@@ -2204,8 +2204,8 @@ export function OpenPortalPage() {
                   onInstalled={text => void send(text)} />
               ))}
               {running && (
-              <div className="flex flex-col gap-1.5 px-1 py-1 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
-                <GenerationLoader label="Генерирует..." />
+<div className="flex flex-col gap-1.5 px-1 py-1 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                <GenerationLoader label="генерирую..." />
                 </div>
               )}
               </MentionContext.Provider>

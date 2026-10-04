@@ -1578,3 +1578,69 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.uiv-chat-composer:focus-within { border-color: var(--grad-glow) !important; }
+.uiv-chat-composer textarea::placeholder { color: var(--color-text-tertiary); }
+
+.uiv-generation-loader { position: relative; display: inline-flex; align-items: center; min-height: 18px; overflow: hidden; color: var(--color-text); font-size: 11px; font-weight: 700; }
+.uiv-generation-loader__letters { display: inline-flex; position: relative; z-index: 1; color: var(--color-text); white-space: pre; }
+.uiv-generation-loader__letters > span { display: inline-block; min-width: .16em; opacity: .62; color: var(--color-text); animation: uiv-generation-letter 2.4s infinite linear; will-change: opacity, transform, color; }
+.uiv-generation-loader__scan { position: absolute; z-index: 0; pointer-events: none; inset: 0 auto 0 -20%; width: 45%; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--grad-glow) 70%, transparent), transparent); filter: blur(4px); animation: uiv-generation-scan 2.4s infinite ease-in-out; }
+@keyframes uiv-generation-letter { 0%, 100% { opacity: .62; transform: translateY(0); } 12% { opacity: 1; color: var(--grad-glow); transform: translateY(-1px); } 32% { opacity: .72; color: var(--color-text); transform: translateY(0); } }
+@keyframes uiv-generation-scan { 0% { transform: translateX(0); opacity: 0; } 18% { opacity: .9; } 70%, 100% { transform: translateX(290%); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .uiv-music-card__visualizer i.is-playing,
+  .uiv-generation-loader__letters > span,
+  .uiv-generation-loader__scan { animation: none; }
+}
+
+/* ===== OpenPortal workspace ===== */
+.openportal-thread { width: min(100%, 1180px); }
+.openportal-message-wrap { max-width: 100%; }
+.openportal-message--assistant { color: var(--color-text); }
+.openportal-message--assistant .prose-mc,
+.openportal-message--assistant .prose-mc p,
+.openportal-message--assistant .prose-mc li,
+.openportal-message--assistant .prose-mc td { color: var(--color-text) !important; }
+.openportal-message--assistant .prose-mc strong,
+.openportal-message--assistant .prose-mc h1,
+.openportal-message--assistant .prose-mc h2,
+.openportal-message--assistant .prose-mc h3 { color: var(--color-text) !important; }
+.openportal-message--assistant .prose-mc code,
+.openportal-message--assistant .prose-mc pre { color: var(--color-text); background: var(--color-bg); border-color: var(--color-border); }
+.openportal-message--assistant .prose-mc a { color: var(--grad-glow); }
+.openportal-action-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.openportal-thread .ore-plain { border-color: color-mix(in srgb, var(--color-border) 85%, var(--grad-to)); }
+.openportal-thread .ore-plain button:hover { background: color-mix(in srgb, var(--color-surface) 86%, var(--grad-to)); }
+.openportal-thread .openportal-message { transition: border-color var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) var(--motion-ease); }
+.openportal-thread .openportal-message--assistant:hover { border-color: var(--color-border-strong) !important; }
+@media (min-width: 1100px) {
+  .openportal-message-wrap { max-width: min(100%, 980px); }
+}
+@media (max-width: 720px) {
+  .openportal-thread { width: 100%; }
+  .openportal-message--user { max-width: 92%; }
+}
+
+/* ===== OpenPortal inner surfaces ===== */
+.openportal-browser-frame { border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); }
+.openportal-browser-frame img { max-width: 100%; }
+.openportal-permission-modal { border-color: color-mix(in srgb, var(--grad-to) 48%, var(--color-border)) !important; }
+.openportal-permission-modal code { border-left: 2px solid var(--grad-to); }
+.openportal-code-block { background: var(--color-bg) !important; border-color: var(--color-border) !important; }
+.openportal-code-block > div { background: color-mix(in srgb, var(--color-surface-2) 84%, var(--grad-from)); }
+.openportal-code-copy { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--color-border); }
+.openportal-image-result { margin-top: 2px; padding-bottom: 6px; }
+.openportal-image-result img { max-height: 420px; border: 1px solid var(--color-border); border-radius: var(--radius-card); object-fit: contain; }
+
+.openportal-provider-card { transition: border-color var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) var(--motion-ease); }
+.openportal-provider-card:hover { border-color: color-mix(in srgb, var(--grad-to) 44%, var(--color-border)) !important; }
+.openportal-provider-card--connected { box-shadow: inset 2px 0 0 color-mix(in srgb, var(--grad-to) 72%, transparent); }
+.openportal-provider-card--available { box-shadow: inset 2px 0 0 var(--color-border); }
+.openportal-provider-card input:focus { border-color: var(--grad-glow) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--grad-glow) 15%, transparent); }
+
+/* Статус основного AI-чата: отдельная анимация текста, не смешивается с loader-индикаторами инструментов. */
+.uiv-generation-loader--chat { min-width: 92px; letter-spacing: .01em; color: var(--color-text-secondary); }
+.uiv-generation-loader--chat .uiv-generation-loader__letters { text-transform: lowercase; }
+.uiv-generation-loader--chat .uiv-generation-loader__scan { background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--grad-glow) 82%, transparent), transparent); }
+

@@ -403,12 +403,22 @@ export function HoverHint({ label, children }: { label: string; children: React.
   );
 }
 
-/** Эффект генерации: компактный wicked-elephant с синхронной анимацией текста. */
-export function GenerationLoader({ label = 'Генерирует...' }: { label?: string }) {
+/** Эффект генерации: компактная адаптация wicked-elephant для AI-состояний. */
+export function GenerationLoader({ label = 'генерирую...' }: { label?: string }) {
   return (
-    <span className="uiv-generation-loader loader-wrapper" role="status" aria-live="polite" aria-label={label}>
+    <span className="uiv-generation-loader loader-wrapper uiv-generation-loader--chat" role="status" aria-live="polite" aria-label={label}>
       <span className="loader" aria-hidden="true" />
-      <span className="loader-letters" aria-hidden="true">
+      <span className="uiv-generation-loader__letters loader-letters" aria-hidden="true">
+        {label.split('').map((letter, index) => (
+          <span key={`${letter}-${index}`} className="loader-letter" style={{ animationDelay: `${index * 0.06}s` }}>
+            {letter === ' ' ? '\u00a0' : letter}
+          </span>
+        ))}
+      </span>
+      <span className="uiv-generation-loader__scan" aria-hidden="true" />
+    </span>
+  );
+}
         {label.split('').map((letter, index) => (
           <span key={`${letter}-${index}`} className="loader-letter" style={{ animationDelay: `${index * 0.06}s` }}>
             {letter === ' ' ? '\u00a0' : letter}

@@ -84,6 +84,8 @@ export interface UiState {
   customCss: string;
   customCssName: string;
   customCssEnabled: boolean;
+  /** Пользователь сам выключил оформление — файл с диска больше не включает его. */
+  customCssOptOut: boolean;
   /** Принудительный цвет текста поверх темы: 'auto' — как задано темой */
   textColorOverride: 'auto' | 'black' | 'white';
   /** Сколько сборок показывать быстрым доступом в навигации (после Library) */
@@ -191,6 +193,7 @@ const defaults = {
   customCss: '',
   customCssName: '',
   customCssEnabled: true,
+  customCssOptOut: false,
   textColorOverride: 'auto' as 'auto' | 'black' | 'white',
   navInstanceCount: 8,
   avatarStyle: 'head' as 'face' | 'head',

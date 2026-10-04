@@ -44,6 +44,12 @@ export async function adoptUiCssFileFromDisk(): Promise<boolean> {
   const ui = useUiStore.getState();
   // Пользовательский выбор важнее файла на диске: если CSS уже есть, не трогаем.
   if (ui.customCss.trim()) return false;
+  // Если пользователь сам выключил оформление, файл с диска больше не
+  // включает его обратно. Раньше этот путь срабатывал при каждом запуске,
+  // если текст CSS в хранилище оказывался пустым, и переключатель
+  // «выглядел выключенным», а на следующем запуске оформление снова
+  // включалось само.
+  if (ui.customCssOptOut) return false;
   try {
     const found = await invoke<UiCssFile | null>('load_ui_css');
     if (!found || !found.css.trim()) return false;
@@ -54,6 +60,20 @@ export async function adoptUiCssFileFromDisk(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * Включение/выключение оформления из настроек.
+ *
+ * Флаг выключения ставится явно, а CSS применяется сразу, не дожидаясь
+ * эффекта на стороне: иначе состояние переключателя и реально применённый
+ * CSS расходились до следующего рендера.
+ */
+export function setCustomCssEnabled(enabled: boolean): void {
+  const ui = useUiStore.getState();
+  ui.set('customCssEnabled', enabled);
+  ui.set('customCssOptOut', !enabled);
+applyCustomCss(ui.customCss, enabled);
 }
 
 /** Глобальные визуальные настройки: масштаб, радиусы, фон, анимации, custom CSS. */

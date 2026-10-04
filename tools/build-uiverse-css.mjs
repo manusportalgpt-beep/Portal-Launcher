@@ -204,6 +204,34 @@ const header = `/* СГЕНЕРИРОВАНО tools/build-uiverse-css.mjs — н
    Компоненты uiverse.io (uiverse-io/galaxy), CSS заскоупин и перекрашен
    под палитру лаунчера. */
 .uiv-stage { position: relative; isolation: isolate; }
+
+/* ---------------------------------------------------------------------------
+   Совместимость с размерами лаунчера.
+
+   Компоненты uiverse рассчитаны на отдельную страницу и жёстко задают
+   height: 3rem, padding: 0 2rem, font-size: 18px. Внутри карточки мода
+   такая кнопка выше соседних иконок, а её ::before (width:100%; height:inherit)
+   не изолирован и залипает поверх них. Поэтому всем кнопкам внутри обёртки
+   задаётся компактный размер, а обёртка изолируется.
+   --------------------------------------------------------------------------- */
+[class^="uiv-"] { position: relative; isolation: isolate; max-width: 100%; }
+[class^="uiv-"] button,
+[class^="uiv-"] .button,
+[class^="uiv-"] .cssbuttons-io,
+[class^="uiv-"] .brutalist-button {
+  font-size: 13px !important;
+  line-height: 1.25 !important;
+  height: auto !important;
+  min-height: 30px !important;
+  max-width: 100%;
+  padding: 0.4rem 0.9rem !important;
+  box-sizing: border-box !important;
+}
+[class^="uiv-"] .button-content,
+[class^="uiv-"] .button-text,
+[class^="uiv-"] .cssbuttons-io > span { padding: 0 !important; font-size: inherit !important; }
+[class^="uiv-"] .brutalist-button { gap: 0.5rem !important; }
+[class^="uiv-"] .ms-logo-square { width: 0.75rem !important; height: 0.75rem !important; }
 `;
 
 writeFileSync(outFile, header + kfAll.join('\n') + '\n\n' + chunks.join('\n\n') + '\n', 'utf8');

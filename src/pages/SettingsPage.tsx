@@ -1,3 +1,4 @@
+import { setCustomCssEnabled } from '@/lib/ui-engine';
 import { palettes as PALETTES, usePaletteStore } from '@/lib/uiverse-palette';
 import { ThemeToggle, IconButton } from '@/components/uiverse/Uiv';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -387,7 +388,8 @@ function AppearanceSection() {
     const text = await readThemeFile(f);
     ui.set('customCss', text);
     ui.set('customCssName', f.name);
-    ui.set('customCssEnabled', true);
+    // Явный импорт — намерение пользователя, поэтому снимаем флаг opt-out.
+    setCustomCssEnabled(true);
     setCssDraft(text);
   }
 
@@ -739,7 +741,7 @@ function AppearanceSection() {
           style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
           <FolderOpen className="w-3.5 h-3.5" />Папка
         </button>
-        <Toggle value={ui.customCssEnabled} onChange={v => ui.set('customCssEnabled', v)} />
+        <Toggle value={ui.customCssEnabled} onChange={v => setCustomCssEnabled(v)} />
       </div>
       <p className="text-[10px] mb-3 leading-4" style={{ color: 'var(--color-text-tertiary)' }}>
         Файл <span style={{ color: 'var(--color-primary)' }}>custom.css</span> в папке лаунчера (или

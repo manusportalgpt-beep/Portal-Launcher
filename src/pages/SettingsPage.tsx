@@ -541,7 +541,10 @@ function AppearanceSection() {
               <span className="flex h-8 w-8 shrink-0 items-center justify-center" style={{ background:'var(--color-surface-2)', borderRadius:'var(--radius-sm)' }}>
                 {id === 'standard'
                   ? <span className="uiv-spinner"><i /></span>
-                  : <Loader variant="loaders_AqFox_silent-quail-21" size={20} />}
+                  /* forceVariant — превью показывает именно выбранный вид,
+                     иначе Loader смотрит на текущую настройку и обе кнопки
+                     выглядели бы одинаково. */
+                  : <Loader variant="loaders_AqFox_silent-quail-21" size={20} forceVariant />}
               </span>
               <span className="text-[11px] font-bold" style={{ color: ui.loaderStyle === id ? 'var(--grad-glow)' : 'var(--color-text)' }}>{label}</span>
             </button>

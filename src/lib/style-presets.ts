@@ -94,11 +94,26 @@ export function applyAccentColor(preset: StylePreset, accent: string | null) {
 
   // Градиент за��я�� от цвета акцента, а не от отдельной палитры: чёрный слева,
   // акцент справа. Так переключение цвета сразу меняет и кнопки, и эффекты.
+  //
+  // Направление берётся из data-accent-mode, и задаётся ЗДЕСЬ инлайном.
+  // Раньше режимы задавались css-правилом html[data-accent-mode=...], но
+  // инлайновое свойство всегда побеждает css — поэтому «снизу вверх» и
+  // «радуга» выглядели одинаково с обычным, а на OLED радуги не было видно.
+  const mode = root.getAttribute('data-accent-mode') ?? 'default';
   root.style.setProperty('--grad-from', '#000000');
   root.style.setProperty('--grad-to', base);
   root.style.setProperty('--grad-glow', base);
-  root.style.setProperty('--grad', `linear-gradient(90deg, #000000 0%, ${base} 100%)`);
-  root.style.setProperty('--grad-soft', `linear-gradient(90deg, #000000 0%, ${base} 55%, #000000 100%)`);
+  if (mode === 'rainbow') {
+    const rainbow = 'linear-gradient(90deg, #ff0040 0%, #ff8c00 25%, #ffe600 50%, #39d353 70%, #2f80ed 100%)';
+    root.style.setProperty('--grad', rainbow);
+    root.style.setProperty('--grad-soft', rainbow);
+  } else if (mode === 'vertical') {
+    root.style.setProperty('--grad', `linear-gradient(180deg, #000000 0%, ${base} 100%)`);
+    root.style.setProperty('--grad-soft', `linear-gradient(180deg, ${base} 0%, #000000 55%, ${base} 100%)`);
+  } else {
+    root.style.setProperty('--grad', `linear-gradient(90deg, #000000 0%, ${base} 100%)`);
+    root.style.setProperty('--grad-soft', `linear-gradient(90deg, #000000 0%, ${base} 55%, #000000 100%)`);
+  }
 }
 
 /**

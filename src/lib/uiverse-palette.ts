@@ -102,10 +102,33 @@ function safeReadMode(): AccentMode | null {
  */
 export function applyAccentMode(mode: AccentMode): void {
   document.documentElement.setAttribute('data-accent-mode', mode);
+  // Пересчитываем градиент сразу: режим читается в applyAccentColor, который
+  // иначе применился бы только при следующей смене цвета акцента, и выбор
+  // выглядел бы как «ничего не произошло».
   try {
     window.localStorage.setItem(MODE_KEY, mode);
   } catch {
     /* приватный режим */
+  }
+  repaintGradient();
+}
+
+/** Перерисовывает --grad под текущий цвет акцента и выбранный режим. */
+function repaintGradient(): void {
+  const accent = document.documentElement.style.getPropertyValue('--color-primary');
+  if (!accent) return;
+  const mode = (document.documentElement.getAttribute('data-accent-mode') ?? 'default') as AccentMode;
+  const root = document.documentElement;
+  if (mode === 'rainbow') {
+    const rainbow = 'linear-gradient(90deg, #ff0040 0%, #ff8c00 25%, #ffe600 50%, #39d353 70%, #2f80ed 100%)';
+    root.style.setProperty('--grad', rainbow);
+    root.style.setProperty('--grad-soft', rainbow);
+  } else if (mode === 'vertical') {
+    root.style.setProperty('--grad', `linear-gradient(180deg, #000000 0%, ${accent} 100%)`);
+    root.style.setProperty('--grad-soft', `linear-gradient(180deg, ${accent} 0%, #000000 55%, ${accent} 100%)`);
+  } else {
+    root.style.setProperty('--grad', `linear-gradient(90deg, #000000 0%, ${accent} 100%)`);
+    root.style.setProperty('--grad-soft', `linear-gradient(90deg, #000000 0%, ${accent} 55%, #000000 100%)`);
   }
 }
 

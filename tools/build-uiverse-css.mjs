@@ -98,6 +98,13 @@ function recolor(css) {
   });
 }
 
+function adaptProjectColors(css) {
+  return css
+    .replace(/#3d3a4e/gi, 'var(--color-surface-2)')
+    .replace(/rgba\(150,\s*93,\s*233,\s*1\)/gi, 'var(--grad-from)')
+    .replace(/rgba\(99,\s*88,\s*238,\s*1\)/gi, 'var(--grad-to)');
+}
+
 function scopeSelectors(css, scope) {
   const rules = parseRules(css);
   const parts = [];
@@ -114,7 +121,7 @@ function scopeSelectors(css, scope) {
         return `${scope} ${s}`;
       })
       .join(', ');
-    parts.push(`${scoped}{${recolor(body)}}`);
+    parts.push(`${scoped}{${adaptProjectColors(recolor(body))}}`);
   }
   return parts.join('\n');
 }

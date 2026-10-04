@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
+import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { UIV, type UivEntry } from './registry';
 
 /**
@@ -54,11 +55,15 @@ function applyLabel(root: HTMLElement | null, label: string | undefined) {
     root.querySelector('button') ??
     root.querySelector('a');
   if (!target) return;
-  // svg внутри span оставляем, заменяем только текстовую часть
-  if (target.firstChild && target.firstChild.nodeType === Node.TEXT_NODE) {
-    target.firstChild.textContent = label;
-  } else {
+  // SVG и вложенные элементы оставляем, заменяем только прямые текстовые узлы.
+  const directText = Array.from(target.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
+  if (directText.length > 0) {
+    directText.forEach(node => node.remove());
+    target.appendChild(document.createTextNode(label));
+  } else if (target.children.length === 0) {
     target.textContent = label;
+  } else {
+    target.appendChild(document.createTextNode(label));
   }
 }
 
@@ -125,12 +130,18 @@ export function IconButton({ id, label, href, onClick }: { id: UivId } & ButtonP
     const a = ref.current?.querySelector('a');
     if (a && href) a.href = href;
   }, [href]);
+  const handleClick = (event: React.MouseEvent) => {
+    onClick?.(event);
+    if (event.defaultPrevented || !href) return;
+    const anchor = ref.current?.querySelector<HTMLAnchorElement>('a');
+    if (!anchor) void shellOpen(href).catch(() => window.open(href, '_blank', 'noopener,noreferrer'));
+  };
   return (
     <span
       ref={ref}
       className={`uiv-stage ${scope}`}
       style={{ display: 'inline-block' }}
-      onClick={onClick}
+      onClick={handleClick}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
@@ -177,13 +188,19 @@ export function ThemeToggle({ checked, onChange }: { checked: boolean; onChange:
   const id = 'Toggle-switches_Galahhad_strong-squid-82';
   const { scope, html } = entryOf(id);
   const ref = useRef<HTMLSpanElement | null>(null);
-  useEffect(() => { applyChecked(ref.current, checked); }, [checked]);
+  useEffect(() => {
+    applyChecked(ref.current, checked);
+    const input = ref.current?.querySelector<HTMLInputElement>('input');
+    if (!input) return;
+    const handleChange = () => onChange(input.checked);
+    input.addEventListener('change', handleChange);
+    return () => input.removeEventListener('change', handleChange);
+  }, [checked, onChange]);
   return (
     <span
       ref={ref}
       className={`uiv-stage ${scope}`}
       style={{ display: 'inline-block' }}
-      onClick={() => onChange(!checked)}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
@@ -194,25 +211,33 @@ export function ToggleSwitch({
   id = 'opt',
   checked,
   onChange,
+  className,
+  title,
 }: {
   id?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  className?: string;
+  title?: string;
 }) {
   const key = 'Toggle-switches_varoonrao_spicy-hound-14';
   const { scope, html } = entryOf(key);
   const ref = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
     applyChecked(ref.current, checked);
-    const input = ref.current?.querySelector('input');
-    if (input) input.id = `uiv-${id}`;
-  }, [checked, id]);
+    const input = ref.current?.querySelector<HTMLInputElement>('input');
+    if (!input) return;
+    input.id = `uiv-${id}`;
+    const handleChange = () => onChange(input.checked);
+    input.addEventListener('change', handleChange);
+    return () => input.removeEventListener('change', handleChange);
+  }, [checked, id, onChange]);
   return (
     <span
       ref={ref}
-      className={`uiv-stage ${scope}`}
+      className={`uiv-stage ${scope}${className ? ` ${className}` : ''}`}
       style={{ display: 'inline-block' }}
-      onClick={() => onChange(!checked)}
+      title={title}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

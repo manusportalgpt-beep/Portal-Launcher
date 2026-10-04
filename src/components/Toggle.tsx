@@ -1,3 +1,5 @@
+import { ToggleSwitch } from '@/components/uiverse/Uiv';
+
 // Переключатель в едином стиле OreUI: прямые углы, серый квадратный бегунок.
 // Раньше каждая страница рисовала свой вариант — выглядело по-разному и бегунок
 // вылезал за рамку. Один компонент = один вид во всём лаунчере.
@@ -12,6 +14,11 @@ export function Toggle({ value, onChange, title, className = '', decorative = fa
   className?: string;
   decorative?: boolean;
 }) {
+  if (!decorative) {
+    const id = title?.replace(/\W+/g, '-').toLowerCase() || 'toggle';
+    return <ToggleSwitch id={id} checked={value} onChange={onChange} className={className} title={title} />;
+  }
+
   const body = (
     <span
       role={decorative ? undefined : 'switch'}

@@ -1691,7 +1691,90 @@ function parseDuckDuckGoLite(html: string, max: number): { title: string; url: s
 }
 
 /**
- * Запасной поиск через Википедию.
+ * Вытаскивает вызовы инструментов, которые модель написала текстом.
+ *
+ * Поддерживаются распространённые формы:
+ *   <tool_call>{"name":"read_text","arguments":{...}}</tool_call>
+ *   <tool_call>{"tool":"read_text","parameters":{...}}</tool_call>
+ *   <tool_call name="read_text">{...}</tool_call>
+ * Возвращает очищенный текст без этих блоков, чтобы в ленте не оставалось
+ * сырых тегов, и сами вызовы с настоящими id.
+ */
+function extractPseudoToolCalls(text: string): {
+  calls: Array<{ id: string; name: string; arguments: string }>;
+  text: string;
+} {
+  const calls: Array<{ id: string; name: string; arguments: string }> = [];
+  if (!text || !/<\s*tool_call/i.test(text)) return { calls, text };
+
+  // Пары «открывающий тег с атрибутами → закрывающий» в порядке появления.
+  const re = /<\s*tool_call([^>]*)>([\s\S]*?)<\s*\/\s*tool_call\s*>/gi;
+  let match: RegExpExecArray | null;
+  let cleaned = text;
+  while ((match = re.exec(text)) !== null) {
+    const attrs = match[1] ?? '';
+    const body = (match[2] ?? '').trim();
+    const nameAttr = /name\s*=\s*["']([^"']+)["']/i.exec(attrs)?.[1];
+    let name = nameAttr ?? '';
+    let args: unknown = {};
+
+    if (body) {
+      const payload = extractJsonObject(body);
+      if (payload) {
+        const obj = payload as Record<string, unknown>;
+        name = String(obj.name ?? obj.tool ?? obj.function ?? name);
+        args = obj.arguments ?? obj.parameters ?? obj.args ?? obj.input ?? {};
+      }
+    }
+    if (!name && nameAttr) {
+      const payload = extractJsonObject(body);
+      if (payload) args = payload;
+    }
+    if (!name) continue;
+
+    calls.push({
+      id: `pseudo-${Date.now()}-${calls.length}`,
+      name: String(name),
+      arguments: typeof args === 'string' ? args : JSON.stringify(args ?? {}),
+    });
+    cleaned = cleaned.replace(match[0], '');
+  }
+  return { calls, text: cleaned.trim() };
+}
+
+/** Достаёт первый сбалансированный JSON-объект из строки. */
+function extractJsonObject(raw: string): unknown {
+  const start = raw.indexOf('{');
+  if (start === -1) return undefined;
+  let depth = 0;
+  let inStr = false;
+  let quote = '';
+  let escaped = false;
+  for (let i = start; i < raw.length; i++) {
+    const ch = raw[i];
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\') { escaped = true; continue; }
+    if (inStr) {
+      if (ch === quote) inStr = false;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { inStr = true; quote = ch; continue; }
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        try {
+          return JSON.parse(raw.slice(start, i + 1));
+        } catch {
+          return undefined;
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
  *
  * Нужен потому, что DuckDuckGo режет выдачу запросам с дата-центровых адресов
  * (наш egress — именно такой), и агент получал «ничего не найдено» даже по
@@ -5781,9 +5864,26 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
       thinking: outcome.thinking || undefined,
     });
 
+    // Часть моделей (в основном бесплатные в OpenCode Zen) не умеют
+    // структурированные вызовы и пишут их прямо в текст:
+    // <tool_call>{"name":"read_text","arguments":{...}}</tool_call>.
+    // Раньше такой текст показывался в ленте как есть, а инструмент не
+    // выполнялся — выглядело как «ИИ что-то говорит, но ничего не делает».
+    // Поэтому такой вызов вытаскивается из текста и исполняется по-настоящему.
+    let toolCalls = outcome.toolCalls ?? [];
+    let assistantText = outcome.text || '';
+    if (!toolCalls.length) {
+      const parsed = extractPseudoToolCalls(assistantText);
+      if (parsed.calls.length) {
+        toolCalls = parsed.calls;
+        assistantText = parsed.text;
+        patch(assistantId, { content: assistantText });
+      }
+    }
+
     // Модель прислала ничего (ни текста, ни вызова инструмента) — не оставляем
     // пустое сообщение в ленте, а просто выходим из цикла.
-    if (!(outcome.text || '').trim() && !outcome.toolCalls?.length) {
+    if (!assistantText.trim() && !toolCalls.length) {
       messages = messages.filter(m => m.id !== assistantId);
       opts.onReplace?.(messages);
       return messages;
@@ -5813,12 +5913,12 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
       });
     }
 
-    if (outcome.toolCalls?.length) {
-      patch(assistantId, { toolCalls: outcome.toolCalls });
+    if (toolCalls.length) {
+      patch(assistantId, { toolCalls });
 
-for (let i = 0; i < outcome.toolCalls.length; i++) {
+for (let i = 0; i < toolCalls.length; i++) {
       if (signal?.aborted) throw new Error('Отменено пользователем.');
-      const tc = outcome.toolCalls[i];
+      const tc = toolCalls[i];
       // Псевдоним приводим к настоящему имени до показа в ленте: иначе в чате
       // светится красная плашка «Неизвестный инструмент: bash» на успешном
       // по сути вызове.

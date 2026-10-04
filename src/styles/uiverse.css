@@ -1563,6 +1563,20 @@
   background: color-mix(in srgb, var(--color-surface-2) 92%, var(--grad-from)) !important;
   box-shadow: 0 8px 24px color-mix(in srgb, var(--grad-to) 10%, transparent);
 }
+.uiv-chat-composer.container_chat_bot { display: flex; flex-direction: column; width: 100%; max-width: none; }
+.uiv-chat-composer .container-chat-options { position: relative; display: flex; width: 100%; padding: 1.5px; border-radius: 16px; background: linear-gradient(to bottom right, color-mix(in srgb, var(--grad-glow) 66%, var(--color-surface)), var(--color-surface-2)); }
+.uiv-chat-composer .chat { display: flex; flex: 1; flex-direction: column; min-width: 0; border-radius: 15px; background: color-mix(in srgb, var(--color-bg) 78%, transparent); }
+.uiv-chat-composer .chat-bot { position: relative; min-width: 0; }
+.uiv-chat-composer .chat-bot textarea { min-height: 36px; width: 100%; background: transparent; border: 0; border-radius: 16px; color: var(--color-text); font-family: inherit; font-size: 13px; outline: none; resize: none; }
+.uiv-chat-composer .chat-bot textarea::placeholder { color: var(--color-text-tertiary); }
+.uiv-chat-composer .btns-add label { transition: transform .2s ease, color .2s ease, background-color .2s ease; }
+.uiv-chat-composer .btns-add label:hover { transform: translateY(-2px); color: var(--color-text) !important; }
+.uiv-chat-composer .btn-submit { padding: 2px; border: 0; outline: none; cursor: pointer; transition: transform .15s ease, filter .2s ease; }
+.uiv-chat-composer .btn-submit:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
+.uiv-chat-composer .btn-submit:active:not(:disabled) { transform: scale(.92); }
+.uiv-chat-composer .tags { display: flex; align-items: center; gap: 4px; color: var(--color-text-secondary); font-size: 10px; }
+.uiv-chat-composer .tags button { padding: 4px 8px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); color: var(--color-text-secondary); cursor: pointer; user-select: none; transition: transform .2s ease, color .2s ease, border-color .2s ease; }
+.uiv-chat-composer .tags button:hover { transform: translateY(-2px); color: var(--color-text); border-color: var(--grad-glow); }
 .uiv-chat-composer:focus-within { border-color: var(--grad-glow) !important; }
 .uiv-chat-composer textarea::placeholder { color: var(--color-text-tertiary); }
 

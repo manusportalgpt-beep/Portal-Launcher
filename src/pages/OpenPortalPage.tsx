@@ -2239,8 +2239,10 @@ export function OpenPortalPage() {
               больше не висят тремя отдельными плавающими рядами. */}
           {/* Без overflow-hidden: контейнер обрезал выпадающий список модели и
               панель управления моделями, из-за чего они не открывались. */}
-          <div className="uiv-chat-composer mx-auto w-full max-w-5xl rounded-lg"
+          <div className="uiv-chat-composer container_chat_bot mx-auto w-full max-w-5xl"
             style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+            <div className="container-chat-options">
+            <div className="chat">
             {attachments.length > 0 && (
               <div className="flex flex-wrap gap-1.5 border-b p-2" style={{ borderColor: 'var(--color-border)' }}>
                 {attachments.map((a, i) => (
@@ -2260,13 +2262,15 @@ export function OpenPortalPage() {
               <span className="flex-1" />
               <BuildPicker />
             </div>
-            <div className="flex items-end gap-1.5 p-1.5">
+            <div className="chat-bot flex items-end gap-1.5 p-1.5">
               <input type="file" id="op-file" className="hidden" onChange={onFilePicked} />
-              <label htmlFor="op-file" title="Прикрепить файл или картинку"
-                className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded transition-colors hover:bg-[var(--color-surface)]"
-                style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-tertiary)' }}>
-                <Plus size={14} />
-              </label>
+              <div className="btns-add flex shrink-0 items-center">
+                <label htmlFor="op-file" title="Прикрепить файл или картинку"
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded transition-colors hover:bg-[var(--color-surface)]"
+                  style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-tertiary)' }}>
+                  <Plus size={14} />
+                </label>
+              </div>
               {mentionList.length > 0 && (
                 <div className="absolute bottom-full left-0 right-0 z-40 mb-2 overflow-hidden rounded-lg border p-1"
                   style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>
@@ -2317,17 +2321,26 @@ export function OpenPortalPage() {
                     ?? (currentSessionId ? abortRefs.current[currentSessionId] : undefined);
                   target?.abort();
                 }} title="Остановить"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded"
+                  className="btn-submit flex h-8 w-8 shrink-0 items-center justify-center rounded"
                   style={{ background: 'var(--color-surface)', color: 'var(--color-error)', border: '1px solid var(--color-border)' }}>
                   <StopCircle size={15} />
                 </button>
               ) : (
                 <button onClick={() => void send()} title="Отправить" disabled={!input.trim()}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded transition-opacity disabled:opacity-40"
+                  className="btn-submit flex h-8 w-8 shrink-0 items-center justify-center rounded transition-opacity disabled:opacity-40"
                   style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
                   <Send size={14} />
                 </button>
               )}
+            </div>
+            <div className="tags px-2 pb-2">
+              {['/help', '/plan', '/build'].map(command => (
+                <button key={command} type="button" onClick={() => { setInput(command); composerRef.current?.focus(); }}>
+                  {command}
+                </button>
+              ))}
+            </div>
+            </div>
             </div>
           </div>
           <p className="mt-1.5 text-center text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>

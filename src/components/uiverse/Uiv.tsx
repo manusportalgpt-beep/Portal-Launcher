@@ -432,7 +432,7 @@ export function GenerationLoader({ label = 'генерирую...' }: { label?: 
 }
 
 /** Генерация изображения: вращающийся шар с надписью внутри. */
-export function ImageGenLoader({ label = 'Generating', size = 132 }: { label?: string; size?: number }) {
+export function ImageGenLoader({ label = 'Генерация', size = 132 }: { label?: string; size?: number }) {
   return (
     <span className="uiv-image-loader" style={{ width: size, height: size }} role="status" aria-live="polite" aria-label={label}>
       <span className="loader" aria-hidden="true" />
@@ -448,7 +448,7 @@ export function ImageGenLoader({ label = 'Generating', size = 132 }: { label?: s
 }
 
 /** Генерация кода: надпись в кругу из расходящихся пунктирных слоёв. */
-export function CodeGenLoader({ label = 'Generating', size = 150 }: { label?: string; size?: number }) {
+export function CodeGenLoader({ label = 'Правка', size = 150 }: { label?: string; size?: number }) {
   return (
     <span className="uiv-code-loader" style={{ width: size, height: size * 0.62 }} role="status" aria-live="polite" aria-label={label}>
       <span className="txt-wrapper" aria-hidden="true">

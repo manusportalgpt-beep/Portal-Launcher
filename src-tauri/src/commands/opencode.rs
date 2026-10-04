@@ -3193,3 +3193,123 @@ pub async fn op_list_models(
     }
     Ok(out)
 }
+
+// ---------------------------------------------------------------------------
+// Очистка старых проектов
+// ---------------------------------------------------------------------------
+
+/// Проект, который давно не менялся: размер, дата и признак «только чтение».
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StaleProject {
+    pub name: String,
+    pub path: String,
+    pub size_bytes: u64,
+    /// Секунд с последнего изменения.
+    pub age_days: u64,
+}
+
+fn dir_size(path: &Path) -> u64 {
+    let mut total = 0u64;
+    let Ok(entries) = std::fs::read_dir(path) else {
+        return 0;
+    };
+    for entry in entries.flatten() {
+        let Ok(meta) = entry.metadata() else { continue };
+        if meta.is_dir() {
+            total += dir_size(&entry.path());
+        } else {
+            total += meta.len();
+        }
+    }
+    total
+}
+
+/// Находит проекты, к которым не обращались дольше `max_age_days`.
+/// Только чтение: ничего не удаляет, чтобы игрок сначала увидел список.
+#[tauri::command]
+pub fn op_scan_stale_projects(max_age_days: u64) -> Result<Vec<StaleProject>, String> {
+    let root = projects_dir();
+    if !root.is_dir() {
+        return Ok(Vec::new());
+    }
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let mut out = Vec::new();
+    let Ok(entries) = std::fs::read_dir(&root) else {
+        return Ok(Vec::new());
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        // Метка времени каталога меняется при изменении содержимого, но на
+        // некоторых ФС она выставлена датой создания — поэтому проверяем и
+        // содержимое, иначе «давно не менялся» будет врать.
+        let meta = match entry.metadata() {
+            Ok(m) => m,
+            Err(_) => continue,
+        };
+        let modified = meta
+            .modified()
+            .ok()
+            .and_then(|m| m.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let mut newest = modified;
+        let mut newest_name = String::new();
+        if let Ok(files) = std::fs::read_dir(&path) {
+            for f in files.flatten() {
+                if let Ok(t) = f
+                    .metadata()
+                    .ok()
+                    .and_then(|m| m.modified().ok())
+                    .and_then(|m| m.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_secs())
+                {
+                    if t > newest {
+                        newest = t;
+                        newest_name = f.file_name().to_string_lossy().to_string();
+                    }
+                }
+            }
+        }
+        let age_days = now.saturating_sub(newest) / 86_400;
+        if age_days >= max_age_days {
+            out.push(StaleProject {
+                name: entry.file_name().to_string_lossy().to_string(),
+                path: path.to_string_lossy().to_string(),
+                size_bytes: dir_size(&path),
+                age_days,
+            });
+            let _ = newest_name;
+        }
+    }
+    out.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+    Ok(out)
+}
+
+/// Удаляет перечисленные проекты. Принимает только абсолютные пути внутри
+/// Projects, иначе опечатка в UI удалила бы что-то снаружи.
+#[tauri::command]
+pub fn op_delete_projects(paths: Vec<String>) -> Result<Vec<String>, String> {
+    let root = projects_dir();
+    let mut removed = Vec::new();
+    for raw in paths {
+        let p = PathBuf::from(&raw);
+        let inside = match (p.canonicalize(), root.canonicalize()) {
+            (Ok(real), Ok(base)) => real.starts_with(&base) && real != base,
+            _ => false,
+        };
+        if !inside {
+            return Err(format!("Путь вне папки проектов, пропущен: {raw}"));
+        }
+        if std::fs::remove_dir_all(&p).is_ok() {
+            removed.push(raw);
+        }
+    }
+    Ok(removed)
+}

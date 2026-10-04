@@ -305,6 +305,101 @@ function groupedMessages(messages: ChatMessage[]): MessageRow[] {
  * именно происходит: генерация картинки — вращающийся шар, работа с файлами
  * и кодом — надпись в расходящихся слоях.
  */
+/**
+ * Очистка давно не тронутых проектов.
+ *
+ * Модалка ничего не удаляет вслепую: сначала показывает список с размерами и
+ * датой, игрок отмечает нужное и жмёт «Удалить». Пути дополнительно
+ * проверяются на Rust-стороне, чтобы опечатка не удалила что-то вне Projects.
+ */
+function CleanupProjectsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [ageDays, setAgeDays] = useState(30);
+  const [items, setItems] = useState<Array<{ name: string; path: string; sizeBytes: number; ageDays: number }>>([]);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const scan = useCallback(async () => {
+    setBusy(true); setMsg(null);
+    try {
+      const found = await invoke<Array<{ name: string; path: string; sizeBytes: number; ageDays: number }>>('op_scan_stale_projects', { maxAgeDays: ageDays });
+      setItems(found);
+      setPicked(new Set());
+      setMsg(found.length ? null : 'Ничего не найдено — все проекты недавние.');
+    } catch (e) {
+      setMsg(`Не удалось просканировать: ${String(e)}`);
+    } finally { setBusy(false); }
+  }, [ageDays]);
+
+  useEffect(() => { if (open) void scan(); }, [open, scan]);
+  if (!open) return null;
+
+  const totalBytes = items.filter(i => picked.has(i.path)).reduce((sum, i) => sum + i.sizeBytes, 0);
+  const fmt = (b: number) => b > 1 << 20 ? `${(b / (1 << 20)).toFixed(1)} МБ` : `${Math.max(1, Math.round(b / 1024))} КБ`;
+
+  const remove = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      const removed = await invoke<string[]>('op_delete_projects', { paths: [...picked] });
+      setMsg(`Удалено: ${removed.length}.`);
+      await scan();
+    } catch (e) {
+      setMsg(`Ошибка удаления: ${String(e)}`);
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6"
+      style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl p-4"
+        style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>Очистка старых проектов</p>
+          <button onClick={onClose} className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>Закрыть</button>
+        </div>
+
+        <div className="mb-3 flex items-center gap-2">
+          <span className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>Не трогать проекты моложе</span>
+          <input type="number" min={1} max={3650} value={ageDays} onChange={e => setAgeDays(Math.max(1, Number(e.target.value) || 1))}
+            className="w-16 px-2 py-1 text-xs" style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }} />
+          <span className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>дней</span>
+          <button onClick={() => void scan()} className="ml-auto text-[11px] font-bold" style={{ color: 'var(--grad-glow)' }}>Обновить</button>
+        </div>
+
+        {msg && <p className="mb-3 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>{msg}</p>}
+
+        <div className="mb-3 max-h-64 overflow-y-auto">
+          {items.map(it => (
+            <label key={it.path} className="flex items-center gap-2 px-1 py-1.5 text-[11px]" style={{ color: 'var(--color-text)' }}>
+              <input type="checkbox" checked={picked.has(it.path)}
+                onChange={e => setPicked(prev => {
+                  const next = new Set(prev);
+                  if (e.target.checked) next.add(it.path); else next.delete(it.path);
+                  return next;
+                })} />
+              <span className="min-w-0 flex-1 truncate">{it.name}</span>
+              <span style={{ color: 'var(--color-text-tertiary)' }}>{it.ageDays} дн.</span>
+              <span style={{ color: 'var(--color-text-tertiary)' }}>{fmt(it.sizeBytes)}</span>
+            </label>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+            Выбрано: {picked.size} · {fmt(totalBytes)}
+          </span>
+          <button onClick={() => void remove()} disabled={busy || picked.size === 0}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold disabled:opacity-40"
+            style={{ background: 'var(--color-error)', color: '#fff', borderRadius: 'var(--radius-button)' }}>
+            <Trash2 size={12} /> Удалить
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ToolPendingLoader({ tool }: { tool: string }) {
   const isImage = tool === 'generate_image';
   const isCode = /write_text|edit_file|read_text|write_file|search_code|list_dir/.test(tool);
@@ -1178,6 +1273,10 @@ function CurrentModelPicker() {
   const setModelsMenuOpen = useOpenCoreStore(s => s.setModelsMenuOpen);
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'models' | 'web'>('models');
+  const [cleanupOpen, setCleanupOpen] = useState(false);
+  // Окно очистки живёт здесь, а не в OpenPortalPage: кнопка входа находится
+  // внутри этого выпадающего списка.
+  if (cleanupOpen) return <CleanupProjectsModal open onClose={() => setCleanupOpen(false)} />;
 
   const providers = activeProviders(cfg).filter(p => isProviderEnabled(p, cfg));
   const activeProvider = providers.find(p => p.id === cfg.activeProviderId) ?? firstConnectedProvider(cfg);
@@ -1239,6 +1338,12 @@ function CurrentModelPicker() {
                   className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-1.5 text-[10px] font-bold transition-colors hover:opacity-80"
                   style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
                   <Settings2 size={11} /> Управление моделями
+                </button>
+                <button onClick={() => { setOpen(false); setCleanupOpen(true); }}
+                  data-testid="openportal-cleanup"
+                  className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed py-1.5 text-[10px] font-bold transition-colors hover:opacity-80"
+                  style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}>
+                  <Trash2 size={11} /> Очистка старых проектов
                 </button>
               </>
             ) : (
@@ -1373,6 +1478,7 @@ export function OpenPortalPage() {
   useEffect(() => { void useOpenCoreStore.getState().init(); }, []);
 
   const [input, setInput] = useState('');
+  const [cleanupOpen, setCleanupOpen] = useState(false);
   const [sessionFilter, setSessionFilter] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
@@ -2390,6 +2496,7 @@ export function OpenPortalPage() {
       </main>
 
       <ModelManager />
+      <CleanupProjectsModal open={cleanupOpen} onClose={() => setCleanupOpen(false)} />
       <PermissionModal />
 
       {/* Двойное подтверждение запуска навыка с доступом к экрану. */}

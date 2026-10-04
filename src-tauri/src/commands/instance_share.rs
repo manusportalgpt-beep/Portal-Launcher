@@ -497,7 +497,17 @@ pub async fn share_instance(
     // Добавляем hosted файлы
     let mut form = form;
     for hf in &hosted_files {
-        let file_path = PathBuf::from(hf.full_path.as_ref().unwrap());
+        // Раньше здесь стоял unwrap() на Option. Любой мод без заполненного
+        // full_path ронял задачу паникой, а паника внутри async-команды Tauri
+        // не даёт промису invoke разрешиться — ни then, ни catch не срабатывали,
+        // и оверлей «Instances Share» висел бесконечно.
+        let Some(raw_path) = hf.full_path.as_deref() else {
+            return Err(format!(
+                "Файл {} не найден на диске — обнови сборку и повтори.",
+                hf.filename
+            ));
+        };
+        let file_path = PathBuf::from(raw_path);
         let file_bytes = match tokio::fs::read(&file_path).await {
             Ok(b) => b,
             Err(e) => return Err(format!("Read {}: {e}", hf.filename)),

@@ -120,10 +120,20 @@ export function ShareProgressOverlay({ state, onClose }: { state: ShareState; on
                 </p>
               )}
               {stalled && state.phase !== 'done' && state.phase !== 'error' && (
-                <p className="mt-2 text-[11px]" style={{ color: 'var(--color-warning)' }}>
-                  Сервер uprojects.site не отвечает. Публикация может занять несколько минут
-                  или не удастся — закрой окно и попробуй позже.
-                </p>
+                <div className="mt-2">
+                  <p className="text-[11px]" style={{ color: 'var(--color-warning)' }}>
+                    Сервер uprojects.site не отвечает. Публикация может занять несколько минут
+                    или не удастся — закрой окно и попробуй позже.
+                  </p>
+                  {/* Сторож: без кнопки «Прервать» окно висело бесконечно.
+                      Подтверждать отмену не нужно — сам invoke всё равно
+                      останется в фоне, но интерфейс уже не заблокирован. */}
+                  <button onClick={onClose}
+                    className="mt-1.5 w-full rounded-lg py-1.5 text-[11px] font-bold transition-opacity hover:opacity-80"
+                    style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
+                    Прервать и закрыть
+                  </button>
+                </div>
               )}
               {state.url && (
                 <p className="mt-2 break-all text-[11px]" style={{ color: 'var(--color-primary)' }}>{state.url}</p>

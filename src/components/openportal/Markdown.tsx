@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Check, Clipboard, Code2, Loader2 } from 'lucide-react';
 import { invoke } from '@/lib/invoke-shim';
 import { normalizeLang, tokenizeLine, type TokenKind } from '@/lib/opencore/highlight';
 import { useInstanceStore } from '@/stores/instanceStore';
@@ -230,7 +231,7 @@ function BuildPickerInline({ onPick, busyId, onCancel }: {
             <span className="shrink-0 font-mono text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>
               {inst.minecraftVersion} · {inst.modLoader}
             </span>
-            {busyId === inst.id && <span className="h-2.5 w-2.5 shrink-0 animate-spin rounded-full border border-current border-t-transparent" />}
+            {busyId === inst.id && <Loader2 size={11} className="shrink-0 animate-spin" />}
           </button>
         ))}
       </div>
@@ -360,9 +361,9 @@ function CodeCopy({ text }: { text: string }) {
           setTimeout(() => setCopied(false), 1400);
         } catch { /* clipboard может быть недоступен */ }
       }}
-      className="shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors hover:opacity-80"
+      className="openportal-code-copy shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors hover:opacity-80"
       style={{ color: 'var(--color-text-secondary)', background: 'rgba(127,127,127,0.15)' }}>
-      {copied ? 'Скопировано' : 'Копировать'}
+      {copied ? <><Check size={11} /> Скопировано</> : <><Clipboard size={11} /> Копировать</>}
     </button>
   );
 }
@@ -385,11 +386,12 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   const dialect = normalizeLang(lang);
   const lines = useMemo(() => code.split('\n'), [code]);
   return (
-    <div className="my-2 overflow-hidden rounded-lg text-left"
+    <div className="openportal-code-block my-2 overflow-hidden rounded-lg text-left"
       style={{ background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(127,127,127,0.2)' }}>
       <div className="flex items-center justify-between gap-2 border-b px-3 py-1.5"
         style={{ borderColor: 'rgba(127,127,127,0.2)' }}>
-        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>
+          <Code2 size={12} style={{ color: 'var(--grad-glow)' }} />
           {dialect || 'text'}
         </span>
         <CodeCopy text={code} />

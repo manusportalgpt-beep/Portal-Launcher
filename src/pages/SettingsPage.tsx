@@ -1331,10 +1331,10 @@ const SECTION_CONTENT: Record<Section, React.FC> = {
   about: AboutSection,
 };
 
-export function SettingsPage() {
+export function SettingsPage({ initialSection }: { initialSection?: Section } = {}) {
   const { section: sectionParam } = useParams<{ section?: string }>();
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState<Section>((sectionParam as Section) || 'account');
+  const [activeSection, setActiveSection] = useState<Section>(initialSection ?? (sectionParam as Section) ?? 'account');
 
   const Content = SECTION_CONTENT[activeSection] || AccountSection;
 

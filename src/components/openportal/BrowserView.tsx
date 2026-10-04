@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@/lib/invoke-shim';
 import { listen } from '@tauri-apps/api/event';
-import { Download, Globe, MousePointer2, ShieldAlert, ShieldCheck, X } from 'lucide-react';
+import { Download, Globe, Loader2, MousePointer2, ShieldAlert, ShieldCheck, X } from 'lucide-react';
 import type { BrowserCard as BrowserCardData } from '@/lib/opencore/types';
 
 /** Прозрачный пиксель: заглушка src до первого кадра. */
@@ -158,7 +158,7 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
         </div>
       )}
 
-      <div className="relative bg-black" style={{ aspectRatio: `${ratio}` }}>
+      <div className="openportal-browser-frame relative bg-black" style={{ aspectRatio: `${ratio}` }}>
         <img
           ref={imgRef}
           alt="Браузер ИИ"
@@ -169,6 +169,12 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
           className="absolute inset-0 h-full w-full object-cover"
           style={{ imageRendering: 'auto' }}
         />
+        {!closed && seq === 0 && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2" style={{ background: 'rgba(0,0,0,.56)', color: 'var(--color-text-secondary)' }}>
+            <Loader2 size={18} className="animate-spin" style={{ color: 'var(--grad-glow)' }} />
+            <span className="text-[11px]">Подключаем браузер агента…</span>
+          </div>
+        )}
         {cursor.visible && (
           <MousePointer2
             key={seq}

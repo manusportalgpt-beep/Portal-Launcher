@@ -4,7 +4,8 @@ import {
   Plus, MessageSquare, Trash2, Sparkles, Send, StopCircle, ChevronDown, ChevronRight,
   Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Boxes, Check, Copy, Download,
   Gauge, Minimize2, CornerDownRight, Shield, ShieldCheck, ShieldAlert, Globe, ExternalLink,
-  Package, Wand2, Image as ImageIcon, Search, X, FileDiff, Brain,
+  Package, Wand2, Image as ImageIcon, Search, X, Brain,
+  FileCode2, FolderTree, Globe2, ListChecks, CircleAlert, Loader2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
@@ -19,6 +20,7 @@ import { normalizeLang, tokenizeLine } from '@/lib/opencore/highlight';
 import { ModelManager } from '@/components/openportal/ModelManager';
 import { PermissionModal } from '@/components/openportal/PermissionModal';
 import { BrowserView } from '@/components/openportal/BrowserView';
+import { GenerationLoader, Loader } from '@/components/uiverse/Uiv';
 import type { ChatMessage, SessionData, SessionMeta, PermissionRequest, Attachment, ProjectContext, PermissionPreset, ModCard, FileChange, BrowserCard } from '@/lib/opencore/types';
 
 /** Русская форма множественного числа: plural(5, 'чат', 'чата', 'чатов') → 'чатов'. */
@@ -146,6 +148,21 @@ function fmtSize(n: number): string {
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
+/** Иконка действия определяется смыслом, а не случайным декоративным цветом. */
+function actionIcon(label: string, error = false, pending = false) {
+  if (error) return <CircleAlert size={13} />;
+  if (pending) return <Loader2 size={13} className="animate-spin" />;
+  const value = label.toLowerCase();
+  if (value.includes('search') || value.includes('find') || value.includes('поиск')) return <Search size={13} />;
+  if (value.includes('fetch') || value.includes('browser') || value.includes('web')) return <Globe2 size={13} />;
+  if (value.includes('image') || value.includes('picture') || value.includes('изображ')) return <ImageIcon size={13} />;
+  if (value.includes('file') || value.includes('write') || value.includes('edit') || value.includes('code') || value.includes('код')) return <FileCode2 size={13} />;
+  if (value.includes('folder') || value.includes('directory') || value.includes('пап')) return <FolderTree size={13} />;
+  if (value.includes('plan') || value.includes('план')) return <ListChecks size={13} />;
+  if (value.includes('mod') || value.includes('project') || value.includes('install')) return <Package size={13} />;
+  return <Bot size={13} />;
+}
+
 /** base64 → строка UTF-8 (для встраивания содержимого текстовых вложений). */
 function b64ToUtf8(b64: string): string {
   const bin = atob(b64);
@@ -202,6 +219,9 @@ function ToolMsg({ name, content, error, cards, changes, browser, onInstalled }:
       <button onClick={() => setOpen(o => !o)} className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-semibold"
         style={{ color: error ? 'var(--color-error)' : 'var(--color-text-secondary)' }}>
         <ChevronRight size={11} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
+        <span className="openportal-action-icon" style={{ color: error ? 'var(--color-error)' : 'var(--color-primary)' }}>
+          {actionIcon(name, Boolean(error), content === '… выполняется …')}
+        </span>
         {name}
         {showCards && <span className="rounded px-1 text-[9px] font-bold" style={{ background: 'var(--color-surface)', color: 'var(--color-text-tertiary)' }}>{cards!.length}</span>}
         <span className="ml-auto font-normal" style={{ color: 'var(--color-text-tertiary)' }}>{error ? 'ошибка' : 'ок'}</span>
@@ -218,7 +238,8 @@ function ToolMsg({ name, content, error, cards, changes, browser, onInstalled }:
         </div>
       )}
       {imgMatch && !error && (
-        <div className="pt-1.5 px-2.5">
+        <div className="openportal-image-result pt-1.5 px-2.5">
+          <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold" style={{ color: 'var(--color-text-secondary)' }}><ImageIcon size={11} style={{ color: 'var(--grad-glow)' }} /> Результат генерации изображения</div>
           <PortalImage name={imgMatch[1]} />
           <span className="mt-1 block text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>Сгенерированное изображение — можно открыть и скачать кнопкой рядом</span>
         </div>
@@ -288,9 +309,9 @@ function ToolGroup({ items, onInstalled }: { items: ChatMessage[]; onInstalled?:
         className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-semibold"
         style={{ color: hasError ? 'var(--color-error)' : 'var(--color-text-secondary)' }}>
         <ChevronRight size={11} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
-        {hasError
-          ? <X size={12} style={{ color: 'var(--color-error)' }} />
-          : <Check size={12} style={{ color: 'var(--color-success)' }} />}
+        <span className="openportal-action-icon" style={{ color: hasError ? 'var(--color-error)' : pending ? 'var(--color-primary)' : 'var(--color-success)' }}>
+          {actionIcon(items[0]?.toolName ?? 'agent', hasError, pending)}
+        </span>
         <span className="truncate">
           {one ? (items[0]?.toolName ?? 'действие') : `Выполнено действий: ${items.length}`}
         </span>
@@ -328,10 +349,12 @@ function ToolGroup({ items, onInstalled }: { items: ChatMessage[]; onInstalled?:
               <div key={m.id} className="border-b px-2.5 py-1.5 last:border-b-0" style={{ borderColor: 'var(--color-border)' }}>
                 <div className="flex items-center gap-1.5 text-[10px] font-bold"
                   style={{ color: m.error ? 'var(--color-error)' : 'var(--color-text-secondary)' }}>
-                  {m.error ? <X size={10} /> : <Check size={10} style={{ color: 'var(--color-success)' }} />}
+                  <span className="openportal-action-icon" style={{ color: m.error ? 'var(--color-error)' : 'var(--color-success)' }}>
+                    {actionIcon(m.toolName ?? 'agent', Boolean(m.error), m.content === '… выполняется …')}
+                  </span>
                   {m.toolName}
                 </div>
-                {imgMatch && !m.error && <div className="pt-1.5"><PortalImage name={imgMatch[1]} /></div>}
+                {imgMatch && !m.error && <div className="openportal-image-result pt-1.5"><div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold" style={{ color: 'var(--color-text-secondary)' }}><ImageIcon size={11} style={{ color: 'var(--grad-glow)' }} /> Результат генерации изображения</div><PortalImage name={imgMatch[1]} /></div>}
                 <pre className="mt-1 whitespace-pre-wrap font-mono text-[10px] leading-4"
                   style={{ color: 'var(--color-text-secondary)' }}>{m.content}</pre>
               </div>
@@ -697,6 +720,7 @@ function SummaryBlock({ content }: { content: string }) {
     <div className="mb-2 overflow-hidden rounded-lg" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
       <button onClick={() => setOpen(o => !o)} className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left">
         <ChevronRight size={12} className={`shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} style={{ color: 'var(--color-text-tertiary)' }} />
+        <ListChecks size={12} style={{ color: 'var(--grad-glow)' }} />
         <span className="text-[11px] font-bold" style={{ color: 'var(--color-text)' }}>Выжимка контекста</span>
         <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>виден модели, не входит в расход</span>
       </button>
@@ -799,7 +823,7 @@ function FileChanges({ changes }: { changes: FileChange[] }) {
   return (
     <div className="mb-2 overflow-hidden rounded-lg" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
       <div className="flex items-center gap-1.5 px-2.5 py-1.5">
-        <FileDiff size={12} style={{ color: 'var(--color-text-secondary)' }} />
+        <FileCode2 size={12} style={{ color: 'var(--grad-glow)' }} />
         <span className="text-[11px] font-bold" style={{ color: 'var(--color-text)' }}>Изменённые файлы</span>
         <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>{changes.length}</span>
       </div>
@@ -1026,7 +1050,8 @@ function ChatBubble({ m, onContinue, streaming, onInstalled }: { m: ChatMessage;
     return (
       <div className="group relative flex justify-end">
         {actions}
-        <div className="max-w-[80%] rounded-2xl rounded-br-md px-3.5 py-2.5 text-[13px] leading-6" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', cursor: 'text', userSelect: 'text' }}>
+        <div className="openportal-message openportal-message--user max-w-[80%] rounded-2xl rounded-br-md px-3.5 py-2.5 text-[13px] leading-6" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', cursor: 'text', userSelect: 'text' }}>
+          <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold opacity-75"><MessageSquare size={11} /> Вы</div>
           <Markdown text={m.content} />
           {m.attachments && m.attachments.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1041,10 +1066,11 @@ function ChatBubble({ m, onContinue, streaming, onInstalled }: { m: ChatMessage;
   return (
     <div className="group relative flex justify-start">
       {actions}
-      <div className="max-w-[92%] min-w-0 flex-1">
+      <div className="openportal-message-wrap min-w-0 flex-1">
+        <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}><Bot size={11} /> OpenPortal{meta ? <span className="font-normal">· {meta}</span> : null}</div>
         {m.thinking && <ThinkingBlock text={m.thinking} />}
         {m.content ? (
-          <div className="rounded-2xl rounded-bl-md px-3.5 py-2.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', cursor: 'text', userSelect: 'text' }}>
+          <div className="openportal-message openportal-message--assistant rounded-2xl rounded-bl-md px-3.5 py-2.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', cursor: 'text', userSelect: 'text' }}>
             <Markdown text={m.content} streaming={streaming} />
           </div>
         ) : (
@@ -1096,11 +1122,11 @@ function AttachmentChip({ a, onRemove }: { a: Attachment; onRemove?: () => void 
         className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--color-surface)]"
         style={{ color: state === 'done' ? 'var(--color-success)' : 'var(--color-text-secondary)' }}>
         {state === 'saving'
-          ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          ? <Loader2 size={13} className="animate-spin" />
           : state === 'done' ? <Check size={12} /> : <Download size={12} />}
       </button>
       {onRemove && (
-        <button onClick={onRemove} title="Убрать" className="shrink-0 text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]">✕</button>
+        <button onClick={onRemove} title="Убрать" aria-label="Убрать вложение" className="shrink-0 text-[var(--color-text-tertiary)] hover:text-[var(--color-error)]"><X size={12} /></button>
       )}
       {open && isImg && (
         <span
@@ -2070,7 +2096,7 @@ export function OpenPortalPage() {
                     style={active ? { background: 'var(--color-surface-2)' } : undefined}>
                     {active && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full" style={{ background: 'var(--color-primary)' }} />}
                     {runningSessions[s.id]
-                      ? <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-[1.5px] border-[var(--color-primary)] border-t-transparent" />
+                      ? <Loader variant="loaders_bociKond_wise-bat-13" size={16} label="" />
                       : <MessageSquare size={12} className="shrink-0" style={{ color: active ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }} />}
                     <span className="min-w-0 flex-1 truncate text-[12px] font-semibold leading-4" style={{ color: active ? 'var(--color-text)' : 'var(--color-text-secondary)' }}>{s.title}</span>
                     <span className="hidden shrink-0 group-hover:inline-block" onClick={e => { e.stopPropagation(); void store.deleteSession(s.id); }}>
@@ -2110,8 +2136,9 @@ export function OpenPortalPage() {
             if (el && el.scrollTop < 160) void loadOlderHistory();
           }} className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
           {loadingHistory && (
-            <p className="mx-auto w-full max-w-3xl pb-2 text-center text-[11px]"
+            <p className="mx-auto flex w-full max-w-5xl items-center justify-center gap-2 pb-2 text-center text-[11px]"
               style={{ color: 'var(--color-text-tertiary)' }}>
+              <Loader variant="loaders_dylanharriscameron_ancient-falcon-18" size={18} label="" />
               Загружаем более раннюю переписку…
             </p>
           )}
@@ -2122,7 +2149,7 @@ export function OpenPortalPage() {
             </p>
           )}
           {messages.length === 0 ? (
-            <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center gap-5 py-8">
+            <div className="openportal-thread mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center gap-5 py-8">
               <div className="flex flex-col gap-2">
                 <h1 className="text-xl font-black" style={{ color: 'var(--color-text)' }}>С чем помочь?</h1>
                 <p className="max-w-xl text-[13px] leading-6" style={{ color: 'var(--color-text-secondary)' }}>
@@ -2154,7 +2181,7 @@ export function OpenPortalPage() {
               </p>
             </div>
           ) : (
-            <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+            <div className="openportal-thread mx-auto flex w-full max-w-5xl flex-col gap-3">
               <MentionContext.Provider value={mentionOf}>
               {groupedMessages(messages).map(row => row.kind === 'group' ? (
                 <ToolGroup key={row.key} items={row.items} onInstalled={text => void send(text)} />
@@ -2166,9 +2193,8 @@ export function OpenPortalPage() {
                   onInstalled={text => void send(text)} />
               ))}
               {running && (
-                <div className="flex items-center gap-2 px-1 py-1 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
-                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-primary)] border-t-transparent" />
-                  OpenPortal думает…
+              <div className="flex items-center gap-2 px-1 py-1 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                <GenerationLoader label="OpenPortal работает" />
                 </div>
               )}
               </MentionContext.Provider>
@@ -2178,7 +2204,7 @@ export function OpenPortalPage() {
 
         <div className="ore-plain relative shrink-0 border-t p-3" style={{ borderColor: 'var(--color-border)' }}>
           {cmdOpen && cmdList.length > 0 && (
-            <div className="absolute bottom-full left-0 right-0 z-30 mx-auto mb-2 w-full max-w-3xl rounded-lg border p-1"
+            <div className="absolute bottom-full left-0 right-0 z-30 mx-auto mb-2 w-full max-w-5xl rounded-lg border p-1"
               style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>
               {/* Список ограничен по высоте: видно 6 строк, остальные листаются
                   прокруткой внутри выпадающего списка. */}
@@ -2213,7 +2239,7 @@ export function OpenPortalPage() {
               больше не висят тремя отдельными плавающими рядами. */}
           {/* Без overflow-hidden: контейнер обрезал выпадающий список модели и
               панель управления моделями, из-за чего они не открывались. */}
-          <div className="mx-auto w-full max-w-3xl rounded-lg"
+          <div className="uiv-chat-composer mx-auto w-full max-w-5xl rounded-lg"
             style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
             {attachments.length > 0 && (
               <div className="flex flex-wrap gap-1.5 border-b p-2" style={{ borderColor: 'var(--color-border)' }}>

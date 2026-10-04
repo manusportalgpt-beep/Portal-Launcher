@@ -368,3 +368,19 @@ export function HoverHint({ label, children }: { label: string; children: React.
     </span>
   );
 }
+
+/** Эффект генерации: компактная адаптация wicked-elephant для AI-состояний. */
+export function GenerationLoader({ label = 'OpenPortal работает' }: { label?: string }) {
+  return (
+    <span className="uiv-generation-loader" role="status" aria-live="polite">
+      <span className="uiv-generation-loader__letters" aria-hidden="true">
+        {label.split('').map((letter, index) => (
+          <span key={`${letter}-${index}`} style={{ animationDelay: `${0.08 + index * 0.055}s` }}>
+            {letter === ' ' ? '\u00a0' : letter}
+          </span>
+        ))}
+      </span>
+      <span className="uiv-generation-loader__scan" aria-hidden="true" />
+    </span>
+  );
+}

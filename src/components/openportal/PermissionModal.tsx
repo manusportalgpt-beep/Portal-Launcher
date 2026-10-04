@@ -15,11 +15,11 @@ export function PermissionModal() {
         style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}>
         <motion.div
           initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }}
-          className="w-[min(440px,92vw)] rounded-3xl border p-5"
+          className="openportal-permission-modal w-[min(440px,92vw)] rounded-3xl border p-5"
           style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: '0 32px 80px rgba(0,0,0,.5)' }}>
           <div className="mb-3 flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-              style={{ background: 'rgba(250,204,21,0.12)', color: '#FACC15' }}>
+              style={{ background: 'color-mix(in srgb, var(--grad-to) 16%, transparent)', color: 'var(--grad-glow)' }}>
               <ShieldAlert size={20} />
             </div>
             <div className="min-w-0 flex-1">

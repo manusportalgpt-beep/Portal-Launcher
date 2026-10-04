@@ -332,6 +332,23 @@ select option { background: var(--color-surface-2); color: var(--color-text); }
 /* Light theme tweaks */
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: #CED4DA; }
 
+/* Настройки открываются поверх рабочего пространства, а не отдельным окном. */
+.portal-settings-overlay [class*="border-r"] { border-color: var(--color-border) !important; }
+.portal-settings-overlay aside { background: var(--color-surface) !important; }
+.portal-settings-overlay input,
+.portal-settings-overlay textarea,
+.portal-settings-overlay select { border-radius: var(--radius-button); }
+.portal-settings-overlay button {
+  transition: background-color var(--motion-fast) var(--motion-ease),
+              border-color var(--motion-fast) var(--motion-ease),
+              color var(--motion-fast) var(--motion-ease),
+              opacity var(--motion-fast) var(--motion-ease);
+}
+@media (max-width: 720px) {
+  .portal-settings-overlay { border-radius: 14px !important; }
+  .portal-settings-overlay aside { width: 188px !important; }
+}
+
 /* Animations */
 @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

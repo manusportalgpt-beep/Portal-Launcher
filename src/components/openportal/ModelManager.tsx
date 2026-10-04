@@ -131,7 +131,7 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
   const models = p.models;
 
   return (
-    <div className="rounded-2xl border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}>
+    <div className="openportal-provider-card openportal-provider-card--connected rounded-2xl border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}>
       <div className="flex items-center gap-3">
         <button onClick={() => setOpen(o => !o)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-black"
@@ -321,7 +321,7 @@ function AvailableProviderCard({ p }: { p: ProviderDef }) {
   }
 
   return (
-    <div className="rounded-2xl border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}>
+    <div className="openportal-provider-card openportal-provider-card--available rounded-2xl border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}>
       <div className="flex items-center gap-3">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-black"
           style={{ background: 'var(--color-surface)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>

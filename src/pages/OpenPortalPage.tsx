@@ -88,6 +88,7 @@ const HELP_TEXT = [
   '- `/context` — показать расход контекста и токенов',
   '- `/plan` — режим Plan (только план)',
   '- `/build` — режим Build (выполняет задачи)',
+  '- `/browser-agent` — браузерный агент с live-карточкой и takeover',
   '- `/skill-creator <описание>` — агент создаст новый навык',
   '- `/skill-installer <имя/ссылка>` — агент найдёт и установит навык',
   '- `/cache` — размер кеша зависимостей песочницы, `/cache clean` — очистить его',
@@ -117,6 +118,7 @@ const COMMANDS: { cmd: string; desc: string; instant: boolean }[] = [
   { cmd: '/context', desc: 'Расход контекста и токенов', instant: true },
   { cmd: '/plan', desc: 'Режим Plan — только план', instant: true },
   { cmd: '/build', desc: 'Режим Build — выполнять задачи', instant: true },
+  { cmd: '/browser-agent', desc: 'Live-браузер и управление пользователем', instant: false },
   { cmd: '/skill-creator', desc: 'Создать новый навык', instant: false },
   { cmd: '/skill-installer', desc: 'Найти и установить навык', instant: false },
   { cmd: '/cache', desc: 'Кеш зависимостей песочницы (/cache clean — очистить)', instant: true },
@@ -299,6 +301,7 @@ function ToolGroup({ items, onInstalled }: { items: ChatMessage[]; onInstalled?:
   const hasError = items.some(m => m.error);
   const cards = items.flatMap(m => (m.error ? [] : (m.cards ?? [])));
   const changes = items.flatMap(m => m.changes ?? []);
+  const browser = [...items].reverse().find(m => m.browser)?.browser;
   const totalChanges = changes.length;
   const one = items.length === 1;
 
@@ -329,6 +332,12 @@ function ToolGroup({ items, onInstalled }: { items: ChatMessage[]; onInstalled?:
           {pending ? 'выполняется…' : hasError ? 'с ошибкой' : 'готово'}
         </span>
       </button>
+
+      {browser && (
+        <div className="border-t p-1.5" style={{ borderColor: 'var(--color-border)' }}>
+          <BrowserView card={browser} />
+        </div>
+      )}
 
       {changes.length > 0 && <FileChanges changes={changes} />}
 
@@ -1714,7 +1723,7 @@ export function OpenPortalPage() {
     }
   }
 
-  const send = useCallback(async (overrideText?: string) => {
+  const send = useCallback(async (overrideText?: string, bypassBrowserConfirm = false) => {
     const isOverride = typeof overrideText === 'string';
     let text = (overrideText ?? input).trim();
     if (!text) return;
@@ -1722,7 +1731,7 @@ export function OpenPortalPage() {
     // Навык с доступом к экрану запускаем только после ДВОЙНОГО подтверждения.
     // Первое нажатие показывает, что вообще произойдёт, второе — финальное
     // согласие. Случайно нажать один раз и отдать ИИ экран невозможно.
-    if (needsDoubleConfirm(text)) {
+    if (!bypassBrowserConfirm && needsDoubleConfirm(text)) {
       setConfirmDraft({ text, step: 1 });
       if (!isOverride) setInput('');
       return;
@@ -1798,6 +1807,9 @@ export function OpenPortalPage() {
           taskDirective = `Ты запущен командой /skill-installer. Задача: найти в интернете (web_search) навык «${arg}», скачать содержимое и установить как <portal base>/Skills/<slug>/SKILL.md с frontmatter (name, description).`;
           text = `Команда /skill-installer: найди подходящий навык «${arg}», установи его SKILL.md в папку навыков и кратко объясни, что он делает.`;
         }
+      } else if (cmd === '/browser-agent') {
+        taskDirective = 'Ты запущен командой /browser-agent. Сначала вызови browser_open, затем browser_read_text. Выполни задачу пользователя через собственный live-браузер; показывай ход работы в карточке и не закрывай браузер до итогового результата.';
+        text = 'Команда /browser-agent: запусти браузерного агента и выполни задачу пользователя через live-карточку.';
       } else {
         // Несколько навыков за раз: /shader-creator, /ui-ux-pro-max
         // Запятая и следующий слэш начинают новый навык. Максимум 5.
@@ -2436,7 +2448,7 @@ export function OpenPortalPage() {
                   <button onClick={() => {
                       const draft = confirmDraft;
                       setConfirmDraft(null);
-                      void send(draft.text);
+                      void send(draft.text, true);
                     }}
                     className="rounded px-3 py-1.5 text-[12px] font-bold transition-colors"
                     style={{ background: 'var(--color-error)', color: '#fff' }}>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from 'react';
 import { invoke } from '@/lib/invoke-shim';
 import { listen } from '@tauri-apps/api/event';
 import { Download, Globe, Loader2, MousePointer2, ShieldAlert, ShieldCheck, X } from 'lucide-react';
@@ -46,13 +46,24 @@ interface HostVerdict {
  */
 export function BrowserView({ card }: { card: BrowserCardData }) {
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const moveTimer = useRef<number | null>(null);
   const [seq, setSeq] = useState(0);
   const [cursor, setCursor] = useState({ x: 0, y: 0, visible: false });
+  const [userCursor, setUserCursor] = useState({ x: 0, y: 0, visible: false });
+  const [control, setControl] = useState(false);
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [url, setUrl] = useState(card.url);
   const [title, setTitle] = useState(card.title);
   const [domain, setDomain] = useState<HostVerdict | null>(null);
   const [closed, setClosed] = useState(!card.active);
+
+  useEffect(() => {
+    setClosed(!card.active);
+    if (!card.active) setControl(false);
+    if (card.url) setUrl(card.url);
+    if (card.title) setTitle(card.title);
+  }, [card.active, card.url, card.title]);
 
   // Слушаем кадры. Один слушатель на карточку, и он снимается при уходе.
   useEffect(() => {
@@ -89,13 +100,47 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
       /* уже закрыт */
     }
     setClosed(true);
+    setControl(false);
+  };
+
+  const fw = box.w || 900;
+  const fh = box.h || 640;
+  const point = (event: PointerEvent | WheelEvent) => {
+    const rect = frameRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 450, y: 320 };
+    return {
+      x: Math.max(0, Math.min(fw, ((event.clientX - rect.left) / rect.width) * fw)),
+      y: Math.max(0, Math.min(fh, ((event.clientY - rect.top) / rect.height) * fh)),
+    };
+  };
+
+  const sendMouse = (eventType: 'move' | 'down' | 'up', event: PointerEvent) => {
+    if (!control || closed) return;
+    const p = point(event);
+    setUserCursor({ ...p, visible: true });
+    if (eventType === 'move') {
+      if (moveTimer.current !== null) return;
+      moveTimer.current = window.setTimeout(() => {
+        moveTimer.current = null;
+        void invoke('op_browser_mouse', { eventType: 'move', x: p.x, y: p.y, button: 'none' }).catch(() => {});
+      }, 24);
+      return;
+    }
+    const button = event.button === 2 ? 'right' : event.button === 1 ? 'middle' : 'left';
+    void invoke('op_browser_mouse', { eventType, x: p.x, y: p.y, button }).catch(() => {});
+  };
+
+  const sendKey = (event: KeyboardEvent, eventType: 'down' | 'up') => {
+    if (!control || closed) return;
+    event.preventDefault();
+    const modifiers = (event.altKey ? 1 : 0) | (event.ctrlKey ? 2 : 0) | (event.metaKey ? 4 : 0) | (event.shiftKey ? 8 : 0);
+    const text = eventType === 'down' && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey ? event.key : '';
+    void invoke('op_browser_key', { eventType, key: event.key, code: event.code, text, modifiers }).catch(() => {});
   };
 
   // Кадр приходит в фиксированном размере (Rust просит 900x640), и контейнер
   // имеет тот же пропорции, поэтому координаты кадра переводятся в
   // проценты простым делением. naturalWidth используем, если известен.
-  const fw = box.w || 900;
-  const fh = box.h || 640;
   const ratio = fw / fh;
 
   return (
@@ -133,11 +178,18 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
           </span>
         )}
         {!closed && (
-          <button onClick={() => void stop()} title="Остановить браузер"
-            className="rounded p-0.5 transition-colors"
-            style={{ color: 'var(--color-text-tertiary)' }}>
-            <X size={12} />
-          </button>
+          <>
+            <button onClick={() => setControl(value => !value)} title={control ? 'Передать управление ИИ' : 'Взять браузер под управление'}
+              className="rounded px-1.5 py-0.5 text-[10px] font-bold transition-colors"
+              style={{ color: control ? '#f59e0b' : 'var(--color-primary)', background: 'var(--color-surface)' }}>
+              {control ? 'Управляю сам' : 'Взять управление'}
+            </button>
+            <button onClick={() => void stop()} title="Остановить браузер"
+              className="rounded p-0.5 transition-colors"
+              style={{ color: 'var(--color-text-tertiary)' }}>
+              <X size={12} />
+            </button>
+          </>
         )}
       </div>
 
@@ -158,7 +210,22 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
         </div>
       )}
 
-      <div className="openportal-browser-frame relative bg-black" style={{ aspectRatio: `${ratio}` }}>
+      <div ref={frameRef} tabIndex={control && !closed ? 0 : -1}
+        className={`openportal-browser-frame relative bg-black outline-none ${control && !closed ? 'cursor-crosshair ring-1 ring-amber-400/70' : ''}`}
+        style={{ aspectRatio: `${ratio}` }}
+        onPointerMove={event => sendMouse('move', event)}
+        onPointerDown={event => { if (control) frameRef.current?.focus(); sendMouse('down', event); }}
+        onPointerUp={event => sendMouse('up', event)}
+        onContextMenu={event => { if (control) event.preventDefault(); }}
+        onWheel={event => {
+          if (!control || closed) return;
+          event.preventDefault();
+          const p = point(event);
+          void invoke('op_browser_mouse', { eventType: 'move', x: p.x, y: p.y, button: 'none' }).catch(() => {});
+          void invoke('op_browser_scroll', { dy: event.deltaY }).catch(() => {});
+        }}
+        onKeyDown={event => sendKey(event, 'down')}
+        onKeyUp={event => sendKey(event, 'up')}>
         <img
           ref={imgRef}
           alt="Браузер ИИ"
@@ -187,6 +254,13 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
               filter: 'drop-shadow(0 0 2px #000)',
             }}
           />
+        )}
+        {control && userCursor.visible && !closed && (
+          <span className="pointer-events-none absolute z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-amber-300 bg-amber-400/40 shadow-[0_0_0_2px_rgba(0,0,0,.6)]"
+            style={{
+              left: `${Math.max(0, Math.min(100, (userCursor.x / fw) * 100))}%`,
+              top: `${Math.max(0, Math.min(100, (userCursor.y / fh) * 100))}%`,
+            }} />
         )}
         {closed && (
           <div className="absolute inset-0 flex items-center justify-center text-[12px]"

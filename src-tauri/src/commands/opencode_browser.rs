@@ -107,6 +107,16 @@ fn find_browser() -> Option<(PathBuf, String)> {
             return Some((p, name));
         }
     }
+    // В Linux/macOS браузер обычно устанавливается в PATH, а не в каталоги
+    // ProgramFiles/LOCALAPPDATA. Это также покрывает portable-пакеты.
+    for name in [
+        "google-chrome", "google-chrome-stable", "chromium", "chromium-browser",
+        "microsoft-edge", "microsoft-edge-stable", "chrome", "msedge",
+    ] {
+        if let Ok(path) = which::which(name) {
+            return Some((path, name.to_string()));
+        }
+    }
     None
 }
 
@@ -1039,6 +1049,59 @@ pub async fn op_browser_click(
 ) -> Result<String, String> {
     let (px, py) = resolve_point(selector, x, y).await?;
     dispatch_click(px, py).await
+}
+
+/// Пользовательское управление живым кадром. Координаты приходят в системе
+/// координат кадра (900×640), а не в пикселях окна лаунчера.
+#[tauri::command]
+pub async fn op_browser_mouse(
+    event_type: String,
+    x: f64,
+    y: f64,
+    button: Option<String>,
+) -> Result<String, String> {
+    let kind = match event_type.as_str() {
+        "move" => "mouseMoved",
+        "down" => "mousePressed",
+        "up" => "mouseReleased",
+        _ => return Err("Неизвестное событие мыши".into()),
+    };
+    let c = cdp()?;
+    let btn = button.unwrap_or_else(|| "left".into());
+    let mut params = json!({ "type": kind, "x": x, "y": y, "button": btn });
+    if event_type == "down" || event_type == "up" {
+        params["clickCount"] = json!(1);
+    }
+    c.call("Input.dispatchMouseEvent", params).await?;
+    set_cursor(x, y);
+    Ok(format!("Событие мыши: {event_type}"))
+}
+
+/// Передаёт клавиатурное событие пользователя в активную страницу.
+#[tauri::command]
+pub async fn op_browser_key(
+    event_type: String,
+    key: String,
+    code: Option<String>,
+    text: Option<String>,
+    modifiers: Option<i64>,
+) -> Result<String, String> {
+    let kind = match event_type.as_str() {
+        "down" => "keyDown",
+        "up" => "keyUp",
+        _ => return Err("Неизвестное событие клавиатуры".into()),
+    };
+    let c = cdp()?;
+    let value = text.unwrap_or_default();
+    c.call("Input.dispatchKeyEvent", json!({
+        "type": kind,
+        "key": key,
+        "code": code.unwrap_or_default(),
+        "text": value,
+        "unmodifiedText": value,
+        "modifiers": modifiers.unwrap_or(0),
+    })).await?;
+    Ok("Клавиатура передана странице".into())
 }
 
 #[tauri::command]

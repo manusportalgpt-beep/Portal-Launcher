@@ -419,6 +419,8 @@ fn main() {
             commands::opencode_browser::op_browser_navigate,
             commands::opencode_browser::op_browser_read_text,
             commands::opencode_browser::op_browser_click,
+            commands::opencode_browser::op_browser_mouse,
+            commands::opencode_browser::op_browser_key,
             commands::opencode_browser::op_browser_type,
             commands::opencode_browser::op_browser_scroll,
             commands::opencode_browser::op_browser_close,

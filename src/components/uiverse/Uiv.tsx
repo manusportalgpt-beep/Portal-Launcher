@@ -394,18 +394,18 @@ export function HoverHint({ label, children }: { label: string; children: React.
   );
 }
 
-/** Эффект генерации: компактная адаптация wicked-elephant для AI-состояний. */
+/** Эффект генерации: wicked-elephant с сохранением компактного размера лаунчера. */
 export function GenerationLoader({ label = 'OpenPortal работает' }: { label?: string }) {
   return (
-    <span className="uiv-generation-loader" role="status" aria-live="polite">
-      <span className="uiv-generation-loader__letters" aria-hidden="true">
+    <span className="uiv-generation-loader loader-wrapper" role="status" aria-live="polite" aria-label={label}>
+      <span className="loader" aria-hidden="true" />
+      <span className="loader-letters" aria-hidden="true">
         {label.split('').map((letter, index) => (
-          <span key={`${letter}-${index}`} style={{ animationDelay: `${0.08 + index * 0.055}s` }}>
+          <span key={`${letter}-${index}`} className="loader-letter" style={{ animationDelay: `${0.1 + index * 0.105}s` }}>
             {letter === ' ' ? '\u00a0' : letter}
           </span>
         ))}
       </span>
-      <span className="uiv-generation-loader__scan" aria-hidden="true" />
     </span>
   );
 }

@@ -462,3 +462,20 @@ export function CodeGenLoader({ label = 'Generating', size = 150 }: { label?: st
     </span>
   );
 }
+
+/**
+ * Волна — эффект загрузки и скачивания по умолчанию.
+ *
+ * Пять столбиков с разной задержкой. Вынесен отдельным компонентом, потому
+ * что раньше анимация была привязана к музыкальной карточке и в других
+ * местах загрузки показывалась обычным спиннером.
+ */
+export function WaveLoader({ bars = 5, tall = false, label }: { bars?: number; tall?: boolean; label?: string }) {
+  return (
+    <span className={`uiv-wave${tall ? ' uiv-wave--tall' : ''}`} role="status" aria-live="polite" aria-label={label ?? 'Загрузка'}>
+      {Array.from({ length: Math.max(3, Math.min(9, bars)) }, (_, index) => (
+        <i key={index} className={`is-playing delay-${index}`} />
+      ))}
+    </span>
+  );
+}

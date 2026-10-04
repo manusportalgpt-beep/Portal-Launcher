@@ -1,5 +1,6 @@
 import { setCustomCssEnabled } from '@/lib/ui-engine';
 import { ThemeToggle, IconButton } from '@/components/uiverse/Uiv';
+import { palettes as PALETTES, ACCENT_MODES, usePaletteStore } from '@/lib/uiverse-palette';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -309,6 +310,7 @@ function SegRow({ label, desc, value, options, onChange }: { label: string; desc
 function AppearanceSection() {
   const { t } = useTranslation();
   const { themeId, setTheme } = useThemeStore();
+  const { paletteId, setPalette, accentMode, setAccentMode } = usePaletteStore();
   const ui = useUiStore();
   // Тумблер темы переключает только светлую/тёмную, OLED и свои темы не трогает.
   const isDark = themeId !== 'light';
@@ -404,6 +406,36 @@ function AppearanceSection() {
     <div>
       <h2 className="text-base font-bold mb-1" style={{ color: 'var(--color-text)' }}>{t('settings.appearanceUi.title')}</h2>
       <p className="text-sm mb-5" style={{ color: 'var(--color-text-secondary)' }}>{t('settings.appearanceUi.subtitle')}</p>
+
+      {/* Палитра и вид градиента. Стоят первыми в разделе, потому что
+          перекрашивают все компоненты интерфейса, а не только текущий экран. */}
+      <div className="mb-4">
+        <h3 className="text-sm font-black tracking-wide uppercase mb-2" style={{ color: 'var(--color-text)' }}>Палитра градиента</h3>
+        <p className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>Цвет кнопок и эффектов во всём интерфейсе</p>
+        <div className="grid grid-cols-4 gap-2 mb-4">
+          {PALETTES.map(p => (
+            <button key={p.id} onClick={() => setPalette(p.id)} data-testid={`palette-${p.id}`}
+              className="p-2.5 text-left transition-opacity hover:opacity-90"
+              style={{ background:'var(--color-surface)', border:`1px solid ${paletteId === p.id ? 'var(--grad-glow)' : 'var(--color-border)'}`, borderRadius:'var(--radius-card)' }}>
+              <span aria-hidden="true" className="block h-[8px] w-full mb-1.5"
+                style={{ background:`linear-gradient(90deg, ${p.from}, ${p.to})`, borderRadius:999 }} />
+              <p className="text-[10px] font-bold" style={{ color: paletteId === p.id ? 'var(--grad-glow)' : 'var(--color-text)' }}>{p.name}</p>
+            </button>
+          ))}
+        </div>
+        <h3 className="text-sm font-black tracking-wide uppercase mb-2" style={{ color: 'var(--color-text)' }}>Вид градиента</h3>
+        <div className="grid grid-cols-3 gap-2">
+          {ACCENT_MODES.map(m => (
+            <button key={m.id} onClick={() => setAccentMode(m.id)} data-testid={`accent-mode-${m.id}`}
+              className="p-2.5 text-left transition-opacity hover:opacity-90"
+              style={{ background:'var(--color-surface)', border:`1px solid ${accentMode === m.id ? 'var(--grad-glow)' : 'var(--color-border)'}`, borderRadius:'var(--radius-card)' }}>
+              <span aria-hidden="true" className="block h-[8px] w-full mb-1.5"
+                style={{ background:'var(--grad)', borderRadius:999 }} />
+              <p className="text-[10px] font-bold" style={{ color: accentMode === m.id ? 'var(--grad-glow)' : 'var(--color-text)' }}>{m.label}</p>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="grid grid-cols-3 gap-3 mb-6">
         {THEMES.map(t => (

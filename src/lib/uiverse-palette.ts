@@ -13,7 +13,9 @@
 
 import { create } from 'zustand';
 
-export type PaletteId = 'crimson' | 'ember' | 'blood' | 'ice' | 'toxic' | 'mono';
+export type PaletteId = 'crimson' | 'ember' | 'blood' | 'ice' | 'toxic' | 'mono' | 'rainbow';
+/** Направление градиента: обычный слева направо или снизу вверх. */
+export type AccentMode = 'default' | 'vertical' | 'rainbow';
 
 export interface Palette {
   id: PaletteId;
@@ -33,9 +35,11 @@ export const palettes: Palette[] = [
   { id: 'ice', name: 'Ice', from: '#000000', to: '#0B3D91', glow: '#3B82F6' },
   { id: 'toxic', name: 'Toxic', from: '#000000', to: '#14532D', glow: '#22C55E' },
   { id: 'mono', name: 'Mono', from: '#0A0A0A', to: '#4B5563', glow: '#9CA3AF' },
+  { id: 'rainbow', name: 'Rainbow', from: '#ff0040', to: '#2f80ed', glow: '#ff2d55' },
 ];
 
 export const DEFAULT_PALETTE: PaletteId = 'crimson';
+export const DEFAULT_ACCENT_MODE: AccentMode = 'default';
 
 const STORAGE_KEY = 'portal.palette';
 
@@ -80,7 +84,33 @@ export function loadPalette(): PaletteId {
   const found = palettes.find(p => p.id === raw);
   const id = found ? found.id : DEFAULT_PALETTE;
   applyPalette(id);
+  applyAccentMode((safeReadMode() ?? DEFAULT_ACCENT_MODE) === 'rainbow' && id !== 'rainbow' ? 'default' : safeReadMode() ?? DEFAULT_ACCENT_MODE);
   return id;
+}
+
+const MODE_KEY = 'portal.accentMode';
+
+function safeReadMode(): AccentMode | null {
+  try {
+    const raw = window.localStorage.getItem(MODE_KEY);
+    return raw === 'vertical' || raw === 'rainbow' || raw === 'default' ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Режим акцента. Радуга и вертикальный градиент задаются атрибутом на <html>,
+ * потому что переопределяют --grad целиком и должны побеждать обычную палитру
+ * по каскаду — а не зависеть от порядка применения.
+ */
+export function applyAccentMode(mode: AccentMode): void {
+  document.documentElement.setAttribute('data-accent-mode', mode);
+  try {
+    window.localStorage.setItem(MODE_KEY, mode);
+  } catch {
+    /* приватный режим */
+  }
 }
 
 /**
@@ -90,14 +120,21 @@ export function loadPalette(): PaletteId {
  */
 interface PaletteState {
   paletteId: PaletteId;
+  accentMode: AccentMode;
   setPalette: (id: PaletteId) => void;
+  setAccentMode: (mode: AccentMode) => void;
 }
 
-export const usePaletteStore = create<PaletteState>((set, get) => ({
+export const usePaletteStore = create<PaletteState>(set => ({
   paletteId: DEFAULT_PALETTE,
+  accentMode: DEFAULT_ACCENT_MODE,
   setPalette: id => {
     applyPalette(id);
     set({ paletteId: id });
+  },
+  setAccentMode: mode => {
+    applyAccentMode(mode);
+    set({ accentMode: mode });
   },
 }));
 
@@ -105,3 +142,9 @@ export const usePaletteStore = create<PaletteState>((set, get) => ({
 export function initPaletteStore(): void {
   usePaletteStore.setState({ paletteId: loadPalette() });
 }
+/** Режимы градиента для выбора в оформлении. */
+export const ACCENT_MODES: Array<{ id: AccentMode; label: string }> = [
+  { id: 'default', label: 'Слева направо' },
+  { id: 'vertical', label: 'Снизу вверх' },
+  { id: 'rainbow', label: 'Радуга' },
+];

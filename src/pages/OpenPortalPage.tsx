@@ -2332,9 +2332,17 @@ export function OpenPortalPage() {
                     ?? (currentSessionId ? abortRefs.current[currentSessionId] : undefined);
                   target?.abort();
                 }} title="Остановить"
-                  className="btn-submit flex h-7 w-7 shrink-0 items-center justify-center rounded"
-                  style={{ background: 'var(--color-surface)', color: 'var(--color-error)', border: '1px solid var(--color-border)' }}>
-                  <StopCircle size={16} strokeWidth={2.25} aria-hidden="true" />
+                  className="flex h-7 w-7 shrink-0 items-center justify-center"
+                  style={{
+                    background: 'var(--color-surface)',
+                    color: 'var(--color-error)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-button)',
+                  }}>
+                  {/* Размер задаётся прямо на svg: атрибуты lucide перебиваются
+                      внешним CSS, и иконка растягивалась на всю кнопку. */}
+                  <StopCircle size={16} strokeWidth={2.25} aria-hidden="true"
+                    style={{ width: 16, height: 16, display: 'block', flex: '0 0 auto' }} />
                 </button>
               ) : (
                 <button onClick={() => void send()} title="Отправить" disabled={!input.trim()}

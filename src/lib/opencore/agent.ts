@@ -5717,7 +5717,7 @@ export interface RunTurnOptions {
 }
 
 export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]> {
-  const { ep, systemPrompt, requestPermission, signal, maxIterations = 60 } = opts;
+  const { ep, systemPrompt, requestPermission, signal, maxIterations = 250 } = opts;
   let messages: ChatMessage[] = opts.input;
   let didCompact = false;
 
@@ -6005,18 +6005,18 @@ for (let i = 0; i < toolCalls.length; i++) {
     // цикл заканчивался. Теперь ход продлевается автоматически, но не более
     // трёх раз за вызов, иначе получится бесконечный цикл обещаний.
     if (promisesContinuation(outcome.text ?? '')) {
-      if (autoContinues < 3) {
+      if (autoContinues < 12) {
         autoContinues++;
         push({
           id: `autocont-${Date.now()}-${iter}`,
           role: 'assistant',
-          content: `Ты закончил(а) ответ обещанием продолжить, но ничего не сделал (попытка ${autoContinues} из 3). Не описывай, что сделаешь дальше, — выполни это сейчас: вызови нужные инструменты. Если задача уже выполнена, напиши итог и закончи.`,
+          content: `Ты закончил(а) ответ обещанием продолжить, но ничего не сделал (попытка ${autoContinues} из 12). Не описывай, что сделаешь дальше, — выполни это сейчас: вызови нужные инструменты. Если задача уже выполнена, напиши итог и закончи.`,
           timestamp: Date.now(),
         });
         continue;
       }
       patch(assistantId, {
-        content: `${outcome.text ?? ''}\n\n_(Агент закончил ответ обещанием трижды подряд и остановился — задача не доведена до конца. Напиши «продолжай», чтобы он взялся снова.)_`,
+        content: `${outcome.text ?? ''}\n\n_(Агент закончил ответ обещанием двенадцать раз подряд и остановился — задача не доведена до конца. Напиши «продолжай», чтобы он взялся снова.)_`,
       });
     }
     return messages;

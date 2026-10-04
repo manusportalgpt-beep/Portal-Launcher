@@ -419,7 +419,11 @@ export function SkinStand3D({
           const [u0, v0, u1, v1] = faces[f];
           for (let corner = 0; corner < 4; corner++) {
             const idx = (f * 4 + corner) * 2;
-            uvArray[idx] = (corner === 1 || corner === 2) ? u1 : u0;
+            // Порядок вершин грани в BoxGeometry: (0,top) (1,top) (0,bottom)
+            // (1,bottom). Раньше правый край брался для углов 1 и 2, из-за
+            // чего вторая и третья вершины менялись местами — UV складывались
+            // «бабочкой», и плащ вытягивался в диагональные полосы.
+            uvArray[idx] = (corner === 1 || corner === 3) ? u1 : u0;
             uvArray[idx + 1] = (corner >= 2) ? v0 : v1;
           }
         }

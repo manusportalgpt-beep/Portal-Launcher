@@ -566,7 +566,7 @@ function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (te
               </span>
             )}
             <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)' }}>{source.label}</span>
-            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>{type.label}</span>
+            <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'var(--grad)', color: '#FFFFFF' }}>{type.label}</span>
             <span className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>{card.platform}</span>
             {card.loaders.slice(0, 3).map(l => <span key={l} className="rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>{l}</span>)}
             {card.gameVersions.slice(0, 2).map(v => <span key={v} className="rounded px-1.5 py-0.5 font-mono text-[9px]" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)' }}>{v}</span>)}
@@ -583,7 +583,7 @@ function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (te
             <button onClick={() => void installBuild()} disabled={busy}
               title="Сборка установится как новая сборка лаунчера"
               className="rounded px-2 py-1 text-[10px] font-bold disabled:opacity-50"
-              style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+              style={{ background: 'var(--grad)', color: '#FFFFFF' }}>
               {busy ? 'Установка…' : 'Установить как сборку'}
             </button>
           ) : (
@@ -595,13 +595,13 @@ function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (te
           ) : selectedId ? (
             <button onClick={() => void install(selectedId)} disabled={busy}
               className="rounded px-2 py-1 text-[10px] font-bold disabled:opacity-50"
-              style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+              style={{ background: 'var(--grad)', color: '#FFFFFF' }}>
               {busy ? 'Установка…' : `Установить в «${selectedName || 'сборку'}»`}
             </button>
           ) : (
             <button onClick={() => setPickBuild(true)}
               className="rounded px-2 py-1 text-[10px] font-bold"
-              style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+              style={{ background: 'var(--grad)', color: '#FFFFFF' }}>
               Установить — выбрать сборку
             </button>
           )
@@ -739,7 +739,7 @@ function ContextMeter({ onCompact }: { onCompact: () => void }) {
           </p>
           <button onClick={() => { setOpen(false); onCompact(); }}
             className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 font-bold"
-            style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+            style={{ background: 'var(--grad)', color: '#FFFFFF' }}>
             <Minimize2 size={11} /> Сжать историю
           </button>
         </div>
@@ -2093,7 +2093,7 @@ export function OpenPortalPage() {
       <aside className="flex w-64 shrink-0 flex-col border-r" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
         <div className="flex items-center gap-2.5 px-3.5 pt-3.5 pb-2.5">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-[11px] font-black"
-            style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>OP</div>
+            style={{ background: 'var(--grad)', color: '#FFFFFF' }}>OP</div>
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-[13px] font-black leading-4" style={{ color: 'var(--color-text)' }}>OpenPortal</h2>
             <p className="truncate text-[10px] leading-3" style={{ color: 'var(--color-text-tertiary)' }}>
@@ -2327,7 +2327,7 @@ export function OpenPortalPage() {
                         <span className="block truncate font-mono text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>@{c.slug}</span>
                       </span>
                       <span className="shrink-0 rounded px-1 text-[9px] font-bold"
-                        style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+                        style={{ background: 'var(--grad)', color: '#FFFFFF' }}>
                         {(MOD_TYPE_META[c.projectType] ?? MOD_TYPE_META.mod).label}
                       </span>
                     </button>
@@ -2383,8 +2383,14 @@ export function OpenPortalPage() {
               ) : (
                 <button onClick={() => void send()} title="Отправить" disabled={!input.trim()}
                   className="btn-submit flex h-7 w-7 shrink-0 items-center justify-center rounded transition-opacity disabled:opacity-40"
-                  style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
-                  <Send size={14} />
+                  style={{ background: 'var(--grad)', color: '#FFFFFF' }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                    strokeLinejoin="round" aria-hidden="true"
+                    style={{ width: 15, height: 15, display: 'block', flex: '0 0 auto', fill: 'none' }}>
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  </svg>
                 </button>
               )}
             </div>
@@ -2452,7 +2458,7 @@ export function OpenPortalPage() {
               {confirmDraft.step === 1 ? (
                 <button onClick={() => setConfirmDraft({ ...confirmDraft, step: 2 })}
                   className="rounded px-3 py-1.5 text-[12px] font-semibold transition-colors"
-                  style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+                  style={{ background: 'var(--grad)', color: '#FFFFFF' }}>
                   Я прочитал, дальше
                 </button>
               ) : (

@@ -1040,10 +1040,12 @@ function ChatBubble({ m, onContinue, streaming, onInstalled }: { m: ChatMessage;
         style={{ color: copied ? 'var(--color-success)' : 'var(--color-text-secondary)' }}>
         {copied ? <Check size={11} /> : <Copy size={11} />}
       </button>
-      {m.role === 'assistant' && meta && (
+      {/* Подпись «OpenPortal · модель · провайдер» убрана: пользователь
+          и так видит выбранную модель в панели композитора. */}
+      {false && meta ? (
         <span className="hidden max-w-[220px] truncate px-1 text-[9px] font-semibold min-[480px]:inline"
           style={{ color: 'var(--color-text-tertiary)' }}>{meta}</span>
-      )}
+      ) : null}
     </div>
   );
   if (m.summary) {

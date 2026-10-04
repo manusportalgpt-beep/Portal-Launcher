@@ -2697,3 +2697,73 @@ html[data-portal-style="oreui"] #root {
 @keyframes opBlink {
   50% { opacity: 0; }
 }
+
+/* ---------------------------------------------------------------------------
+   Загрузчики генерации: изображение (шар) и код (слои).CSS лежит здесь, а не в
+   styles/uiverse.css, потому что этот файл генерируется сборщиком и ручная
+   правка в нём затиралась бы пересборкой.
+   --------------------------------------------------------------------------- */
+.uiv-image-loader {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: transparent;
+  user-select: none;
+  flex: 0 0 auto;
+}
+.uiv-image-loader .loader {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  animation: uiv-img-rotate 2s linear infinite;
+}
+@keyframes uiv-img-rotate {
+  0%   { transform: rotate(90deg);  box-shadow: 0 10px 20px 0 var(--grad-glow) inset, 0 20px 30px 0 var(--grad-to) inset, 0 60px 60px 0 #000 inset; }
+  50%  { transform: rotate(270deg); box-shadow: 0 10px 20px 0 var(--grad-glow) inset, 0 20px 10px 0 var(--grad-to) inset, 0 40px 60px 0 #000 inset; }
+  100% { transform: rotate(450deg); box-shadow: 0 10px 20px 0 var(--grad-glow) inset, 0 20px 30px 0 var(--grad-to) inset, 0 60px 60px 0 #000 inset; }
+}
+.uiv-image-loader__letters { position: relative; z-index: 1; display: inline-flex; font-size: 12px; font-weight: 400; }
+.uiv-image-loader__letters > span { display: inline-block; opacity: .4; animation: uiv-img-letter 2s infinite; }
+@keyframes uiv-img-letter { 0%, 100% { opacity: .4; transform: translateY(0); } 20% { opacity: 1; transform: scale(1.15); } 40% { opacity: .7; transform: translateY(0); } }
+
+.uiv-code-loader { --anim: 3.5s; position: relative; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; user-select: none; }
+.uiv-code-loader .txt-wrapper { position: relative; z-index: 1; display: inline-flex; animation: uiv-code-scale var(--anim) ease-in-out infinite; }
+.uiv-code-loader .txt {
+  user-select: none;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  animation: uiv-code-letter calc(var(--anim) * .75) ease-in infinite;
+  animation-delay: calc(var(--i) * .095s);
+}
+.uiv-code-loader .layer {
+  --h: 40px;
+  --x-pad: 26px;
+  --deg-rot: 1.4deg;
+  position: absolute;
+  z-index: 0;
+  inset: calc(1.15rem - .66 * var(--h)) calc(-1 * var(--x-pad));
+  border-radius: var(--h) / calc(2.2 * var(--h));
+  border: dashed 3px var(--grad-to);
+  background-color: color-mix(in srgb, var(--grad-to) 55%, transparent);
+  transform: rotate(calc(var(--i) * var(--deg-rot)));
+  animation: uiv-code-rotate var(--anim) ease-in-out infinite;
+  mix-blend-mode: screen;
+  filter: blur(1px);
+}
+@keyframes uiv-code-rotate { 50% { transform: rotate(calc(var(--i) * -1 * var(--deg-rot))); } }
+@keyframes uiv-code-letter { 35% { filter: blur(2px); } }
+@keyframes uiv-code-scale { 50% { transform: scale(1.1); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .uiv-image-loader .loader,
+  .uiv-image-loader__letters > span,
+  .uiv-code-loader .txt-wrapper,
+  .uiv-code-loader .txt,
+  .uiv-code-loader .layer { animation: none; }
+}

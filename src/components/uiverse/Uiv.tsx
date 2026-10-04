@@ -415,19 +415,50 @@ export function HoverHint({ label, children }: { label: string; children: React.
   );
 }
 
-/** Эффект генерации: компактная адаптация wicked-elephant для AI-состояний. */
+/** Эффект генерации текста: пунктирная маска со свечением + буквы по очереди. */
 export function GenerationLoader({ label = 'генерирую...' }: { label?: string }) {
   return (
-    <span className="uiv-generation-loader loader-wrapper uiv-generation-loader--chat" role="status" aria-live="polite" aria-label={label}>
+    <span className="uiv-generation-loader loader-wrapper" role="status" aria-live="polite" aria-label={label}>
       <span className="loader" aria-hidden="true" />
       <span className="uiv-generation-loader__letters loader-letters" aria-hidden="true">
         {label.split('').map((letter, index) => (
-          <span key={`${letter}-${index}`} className="loader-letter" style={{ animationDelay: `${index * 0.06}s` }}>
+          <span key={`${letter}-${index}`} className="loader-letter" style={{ animationDelay: `${0.1 + index * 0.105}s` }}>
             {letter === ' ' ? '\u00a0' : letter}
           </span>
         ))}
       </span>
-      <span className="uiv-generation-loader__scan" aria-hidden="true" />
+    </span>
+  );
+}
+
+/** Генерация изображения: вращающийся шар с надписью внутри. */
+export function ImageGenLoader({ label = 'Generating', size = 132 }: { label?: string; size?: number }) {
+  return (
+    <span className="uiv-image-loader" style={{ width: size, height: size }} role="status" aria-live="polite" aria-label={label}>
+      <span className="loader" aria-hidden="true" />
+      <span className="uiv-image-loader__letters" aria-hidden="true">
+        {label.split('').map((letter, index) => (
+          <span key={`${letter}-${index}`} className="loader-letter" style={{ animationDelay: `${index * 0.1}s` }}>
+            {letter}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+/** Генерация кода: надпись в кругу из расходящихся пунктирных слоёв. */
+export function CodeGenLoader({ label = 'Generating', size = 150 }: { label?: string; size?: number }) {
+  return (
+    <span className="uiv-code-loader" style={{ width: size, height: size * 0.62 }} role="status" aria-live="polite" aria-label={label}>
+      <span className="txt-wrapper" aria-hidden="true">
+        {label.split('').map((letter, index) => (
+          <span key={`${letter}-${index}`} className="txt" style={{ ['--i' as string]: index }}>{letter}</span>
+        ))}
+      </span>
+      {Array.from({ length: 9 }, (_, index) => (
+        <span key={index} className="layer" style={{ ['--i' as string]: index }} aria-hidden="true" />
+      ))}
     </span>
   );
 }

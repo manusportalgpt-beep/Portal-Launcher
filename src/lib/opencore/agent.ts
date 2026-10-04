@@ -3438,13 +3438,26 @@ async function saveImageBlob(blob: Blob, source: string): Promise<ExecResult> {
 async function generateViaPollinations(prompt: string, size?: string): Promise<ExecResult> {
   const [w, h] = parseSize(size);
   const seed = Math.floor(Math.random() * 1_000_000_000);
-  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${w}&height=${h}&nologo=true&seed=${seed}`;
-  try {
-    const blob = await fetchImageBlob(url);
-    return await saveImageBlob(blob, 'Pollinations');
-  } catch (e) {
-    return { ok: false, output: `Pollinations недоступен: ${String(e)}. Проверь интернет и повтори.` };
+  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${w}&height=${h}&nologo=true&model=flux&seed=${seed}`;
+  // Pollinations режет запрос 403/429, когда картинки генерируются подряд:
+  // агент просил «три превью» — первая проходила, остальные упирались в лимит.
+  // Поэтому не одна попытка, а несколько с нарастающей паузой и сменой seed:
+  // другой seed снимает и��чать ответа, повтор после паузы — переполнение.
+  let lastError = '';
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await sleep(1500 * attempt * attempt);
+    const attemptUrl = attempt === 0
+      ? url
+      : url.replace(/seed=\d+/, `seed=${seed + attempt * 7919}`);
+    try {
+      const blob = await fetchImageBlob(attemptUrl);
+      return await saveImageBlob(blob, 'Pollinations');
+    } catch (e) {
+      lastError = String(e);
+      if (!/403|429|rate|limit/i.test(lastError)) break;
+    }
   }
+  return { ok: false, output: `Pollinations недоступен после нескольких попыток: ${lastError}. Проверь интернет и повтори.` };
 }
 
 /** Генерация через Magnific по ключу сервиса api.magnific.ai (OpenAI-совместимый ответ). */

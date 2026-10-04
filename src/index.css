@@ -2825,3 +2825,24 @@ html[data-accent-mode="vertical"] {
   0% { background-position: 0% 50%; }
   100% { background-position: 300% 50%; }
 }
+/* ---------------------------------------------------------------------------
+   Панель ввода ИИ.
+
+   Пользователь попросил уменьшить её и вернуть по центру:max-w-4xl + p-1
+   растягивали поле на всю ширину, из-за чего композер выглядел огромным
+   относительно остального интерфейса.
+   --------------------------------------------------------------------------- */
+.uiv-chat-composer {
+  max-width: 760px;
+  margin-inline: auto;
+  border-radius: var(--radius-card);
+  padding: 6px !important;
+}
+.uiv-chat-composer .chat-bot { padding: 4px !important; gap: 6px !important; }
+.uiv-chat-composer textarea {
+  min-height: 20px !important;
+  max-height: 96px !important;
+  font-size: 12px !important;
+  padding: 2px 4px !important;
+}
+.uiv-chat-composer textarea::placeholder { font-size: 12px; }

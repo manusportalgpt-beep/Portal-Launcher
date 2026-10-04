@@ -20,7 +20,7 @@ import { normalizeLang, tokenizeLine } from '@/lib/opencore/highlight';
 import { ModelManager } from '@/components/openportal/ModelManager';
 import { PermissionModal } from '@/components/openportal/PermissionModal';
 import { BrowserView } from '@/components/openportal/BrowserView';
-import { GenerationLoader, Loader } from '@/components/uiverse/Uiv';
+import { GenerationLoader, Loader, ImageGenLoader, CodeGenLoader, WaveLoader } from '@/components/uiverse/Uiv';
 import type { ChatMessage, SessionData, SessionMeta, PermissionRequest, Attachment, ProjectContext, PermissionPreset, ModCard, FileChange, BrowserCard } from '@/lib/opencore/types';
 
 /** Русская форма множественного числа: plural(5, 'чат', 'чата', 'чатов') → 'чатов'. */
@@ -225,6 +225,9 @@ function ToolMsg({ name, content, error, cards, changes, browser, onInstalled }:
           {actionIcon(name, Boolean(error), content === '… выполняется …')}
         </span>
         {name}
+        {/* Пока идёт генерация, вместо ничего не делающей иконки — эффект:
+            шар для картинок, надпись в слоях для работы с кодом. */}
+        {content === '… выполняется …' && <ToolPendingLoader tool={name} />}
         {showCards && <span className="rounded px-1 text-[9px] font-bold" style={{ background: 'var(--color-surface)', color: 'var(--color-text-tertiary)' }}>{cards!.length}</span>}
         <span className="ml-auto font-normal" style={{ color: 'var(--color-text-tertiary)' }}>{error ? 'ошибка' : 'ок'}</span>
       </button>
@@ -292,6 +295,22 @@ function groupedMessages(messages: ChatMessage[]): MessageRow[] {
     rows.push({ kind: 'single', key: m.id, messages: [m] });
   }
   return rows;
+}
+
+/**
+ * Эффект выполнения для карточки инструмента.
+ *
+ * Раньше на месте вызова стояла только иконка, которая не менялась, поэтому
+ * во время долгой генерации карточка выглядела «зависшей». Теперь видно, что
+ * именно происходит: генерация картинки — вращающийся шар, работа с файлами
+ * и кодом — надпись в расходящихся слоях.
+ */
+function ToolPendingLoader({ tool }: { tool: string }) {
+  const isImage = tool === 'generate_image';
+  const isCode = /write_text|edit_file|read_text|write_file|search_code|list_dir/.test(tool);
+  if (isImage) return <ImageGenLoader label="Генерация" size={26} />;
+  if (isCode) return <CodeGenLoader label="Правка" size={96} />;
+  return <WaveLoader bars={4} label="Выполняется" />;
 }
 
 function ToolGroup({ items, onInstalled }: { items: ChatMessage[]; onInstalled?: (text: string) => void }) {
@@ -2251,7 +2270,7 @@ export function OpenPortalPage() {
               больше не висят тремя отдельными плавающими рядами. */}
           {/* Без overflow-hidden: контейнер обрезал выпадающий список модели и
               панель управления моделями, из-за чего они не открывались. */}
-          <div className="uiv-chat-composer container_chat_bot mx-auto w-full max-w-4xl"
+          <div className="uiv-chat-composer container_chat_bot mx-auto w-full max-w-3xl"
             style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
             <div className="container-chat-options">
             <div className="chat">

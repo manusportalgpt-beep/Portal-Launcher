@@ -1588,6 +1588,11 @@
 .uiv-chat-composer .tags button:hover { transform: translateY(-2px); color: var(--color-text); border-color: var(--grad-glow); }
 .uiv-chat-composer:focus-within { border-color: var(--grad-glow) !important; }
 .uiv-chat-composer textarea::placeholder { color: var(--color-text-tertiary); }
+.uiv-ai-chat { background: #11151d !important; border-color: #2b3442 !important; box-shadow: 0 8px 24px rgba(0,0,0,.22); }
+.uiv-ai-chat textarea { color: #fff !important; }
+.uiv-ai-chat textarea::placeholder { color: rgba(255,255,255,.62) !important; }
+.uiv-ai-chat button { background: linear-gradient(135deg, var(--grad-from), var(--grad-to)) !important; color: #fff !important; border: 1px solid rgba(255,255,255,.16); }
+.uiv-ai-chat button:disabled { background: #252b36 !important; }
 
 .uiv-generation-loader.loader-wrapper { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 18px; margin: 0; color: var(--color-text-secondary); font-size: 11px; font-weight: 700; user-select: none; }
 .uiv-generation-loader .loader { position: absolute; inset: 0; z-index: 1; background: transparent; mask: repeating-linear-gradient(90deg, transparent 0, transparent 3px, #000 4px, #000 5px); }
@@ -1604,6 +1609,25 @@
 }
 
 /* ===== OpenPortal workspace ===== */
+.uiv-files-tree { --uiv-files-bg: #0b0d12; --uiv-files-panel: #11151d; --uiv-files-panel-2: #171c26; --uiv-files-border: #2b3442; color: #fff; background: var(--uiv-files-bg) !important; border-color: var(--uiv-files-border) !important; }
+.uiv-files-tree > section:first-child { background: var(--uiv-files-panel) !important; border-color: var(--uiv-files-border) !important; }
+.uiv-files-tree > section:last-of-type { background: var(--uiv-files-bg) !important; }
+.uiv-files-tree section > div[style*="border"] { border-color: var(--uiv-files-border) !important; }
+.uiv-files-tree section > div[style*="background"] { background: var(--uiv-files-panel-2) !important; }
+.uiv-files-tree button, .uiv-files-tree input, .uiv-files-tree textarea, .uiv-files-tree p, .uiv-files-tree span { color: #fff !important; }
+.uiv-files-tree input::placeholder, .uiv-files-tree textarea::placeholder { color: rgba(255,255,255,.62) !important; }
+.uiv-files-tree .group { border: 1px solid transparent; transition: transform .2s ease, background-color .2s ease, border-color .2s ease; }
+.uiv-files-tree .group:hover { transform: translateX(2px); background: rgba(255,255,255,.07) !important; border-color: rgba(255,255,255,.16); }
+.uiv-files-tree .group [style*="primary-dim"] { background: rgba(210,36,57,.22) !important; }
+.uiv-files-tree .group button:hover { color: #fff !important; }
+.uiv-files-tree label { background: var(--uiv-files-panel-2) !important; border-color: var(--uiv-files-border) !important; }
+.uiv-files-tree .portal-files-drop > div { background: var(--uiv-files-panel) !important; border-color: var(--uiv-files-border) !important; }
+.uiv-files-tree .portal-files-drop { background: rgba(210,36,57,.16) !important; border-color: var(--grad-to) !important; }
+.uiv-files-tree [class*="bg-[#10131a]"] { background: #0a0c10 !important; }
+.uiv-files-tree .uiv-file-toolbar { background: var(--uiv-files-panel-2); }
+.uiv-files-tree textarea { color: transparent !important; caret-color: #fff !important; }
+.uiv-files-tree pre { color: #fff !important; }
+.uiv-files-tree a { color: #fff !important; }
 .openportal-thread { width: min(100%, 1180px); }
 .openportal-message-wrap { max-width: 100%; }
 .openportal-message--assistant { color: var(--color-text); }

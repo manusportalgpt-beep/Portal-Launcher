@@ -262,7 +262,7 @@ export function AIPage() {
 
       {/* Input */}
       <div className="shrink-0 px-6 py-4" style={{ borderTop: '1px solid var(--color-border)' }}>
-        <div className="flex items-end gap-3 px-4 py-3 rounded-2xl"
+        <div className="uiv-chat-composer uiv-ai-chat flex items-end gap-3 px-4 py-3 rounded-2xl"
           style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
           <textarea
             ref={inputRef}

@@ -515,7 +515,10 @@ export function SkinPixelEditor({ open, initialDataUrl, model, onClose, onSave }
             {/* Предпросмотр */}
             <div className="min-h-0">
               <p className="mb-2 text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Предпросмотр</p>
-              <div className="overflow-hidden rounded-2xl" style={{ background: 'radial-gradient(ellipse at 50% 15%, var(--color-surface-2) 0%, var(--color-bg) 100%)', border: '1px solid var(--color-border)' }}>
+              <div className="overflow-hidden rounded-2xl" style={{ height: 230, background: 'radial-gradient(ellipse at 50% 15%, var(--color-surface-2) 0%, var(--color-bg) 100%)', border: '1px solid var(--color-border)' }}>
+                {/* Высота контейнера задана явно: canvas внутри ставит
+                    height:100%, а у auto-контейнера это давало обрезку модели
+                    снизу — серый прямоугольник поверх ног. */}
                 <SkinStand3D key={liveUrl ?? 'blank'} skinUrl={liveUrl ?? ''} model={savedModel} height={230} cameraDistance={54} interactive autoRotate={false}
                   hiddenParts={Object.keys(hiddenParts).filter(k => hiddenParts[k])} />
               </div>

@@ -15,7 +15,8 @@ const MAX_HOSTED_BYTES: u64 = 250 * 1024 * 1024;
 const USER_AGENT: &str = "PortalLauncher/1.1";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ShareFile {
+pub #[serde(rename_all = "camelCase")]
+struct ShareFile {
     pub file_id: String,
     pub content_type: String,
     pub filename: String,
@@ -35,7 +36,8 @@ pub struct ShareFile {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ShareCounts {
+pub #[serde(rename_all = "camelCase")]
+struct ShareCounts {
     pub mods: u32,
     pub resource_packs: u32,
     pub shaders: u32,
@@ -43,7 +45,8 @@ pub struct ShareCounts {
 }
 
 #[derive(Serialize, Debug)]
-pub struct ShareManifest {
+pub #[serde(rename_all = "camelCase")]
+struct ShareManifest {
     pub schema_version: u32,
     pub name: String,
     pub game_version: String,
@@ -62,7 +65,8 @@ pub struct ShareManifest {
 }
 
 #[derive(Serialize, Debug)]
-pub struct ShareMemory {
+pub #[serde(rename_all = "camelCase")]
+struct ShareMemory {
     pub min: u32,
     pub max: u32,
 }

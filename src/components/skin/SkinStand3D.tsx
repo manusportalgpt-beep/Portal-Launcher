@@ -394,9 +394,17 @@ export function SkinStand3D({
         const texH = Number(img?.height) || 32;
         const uvAttr = geo.attributes.uv as any;
         const uvArray = uvAttr.array as Float32Array;
-        // Область плаща: перед — x 1..11, спина — x 12..22, обе y 1..17.
-        const front: [number, number, number, number] = [1 / texW, (1 - 1 / texH), 11 / texW, (1 - 17 / texH)];
-        const back: [number, number, number, number] = [12 / texW, (1 - 1 / texH), 22 / texW, (1 - 17 / texH)];
+        // Область плаща: перед — x 1..11, спина — x 12..22.
+        // Раньше низ считался как 1 - 17/texH, то есть предполагалась высота
+        // ровно 32. У плащей другой высоты (например 64×64) область
+        // получалась в несколько раз тоньше и растягивалась в гладкую
+        // полосу вместо рисунка. Поэтому по вертикали берём долю от высоты
+        // (17/32), а не пиксели.
+        const CAPE_BOTTOM = 17 / 32;
+        const vTop = 1 - 1 / texH;
+        const vBottom = 1 - CAPE_BOTTOM;
+        const front: [number, number, number, number] = [1 / texW, vTop, 11 / texW, vBottom];
+        const back: [number, number, number, number] = [12 / texW, vTop, 22 / texW, vBottom];
         // Порядок граней BoxGeometry: +X, -X, +Y, -Y, +Z, -Z — по 4 вершины.
         // Узкие рёбра (1 пиксель) берём прозрачный участок текстуры, иначе
         // по краям плаща видны обрезки соседних областей.

@@ -1,5 +1,5 @@
 import { setCustomCssEnabled } from '@/lib/ui-engine';
-import { ThemeToggle, IconButton } from '@/components/uiverse/Uiv';
+import { ThemeToggle, IconButton, Loader } from '@/components/uiverse/Uiv';
 import { palettes as PALETTES, ACCENT_MODES, usePaletteStore } from '@/lib/uiverse-palette';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -525,6 +525,28 @@ function AppearanceSection() {
 
       <div className="mb-5 rounded-2xl p-4" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
         {['oreui','quadral'].includes(ui.stylePreset) ? <DawnAccentPicker /> : <AccentColorPicker />}
+      </div>
+
+      {/* Вид индикатора загрузки: стандартный или случайный из набора uiverse. */}
+      <div className="mb-5 rounded-2xl p-4" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
+        <p className="text-sm font-black" style={{ color:'var(--color-text)' }}>Загрузка</p>
+        <p className="mt-0.5 text-[11px] mb-3" style={{ color:'var(--color-text-secondary)' }}>
+          Как выглядит индикатор во время загрузки и скачивания
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {([['standard', 'Стандартный'], ['random', 'Случайная']] as const).map(([id, label]) => (
+            <button key={id} onClick={() => ui.set('loaderStyle', id)} data-testid={`loader-style-${id}`}
+              className="flex items-center gap-2.5 rounded-xl p-3 text-left transition-opacity hover:opacity-90"
+              style={{ border:`1px solid ${ui.loaderStyle === id ? 'var(--grad-glow)' : 'var(--color-border)'}`, borderRadius:'var(--radius-card)' }}>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center" style={{ background:'var(--color-surface-2)', borderRadius:'var(--radius-sm)' }}>
+                {id === 'standard'
+                  ? <span className="uiv-spinner"><i /></span>
+                  : <Loader variant="loaders_AqFox_silent-quail-21" size={20} />}
+              </span>
+              <span className="text-[11px] font-bold" style={{ color: ui.loaderStyle === id ? 'var(--grad-glow)' : 'var(--color-text)' }}>{label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {ui.navMode === 'notch' && (

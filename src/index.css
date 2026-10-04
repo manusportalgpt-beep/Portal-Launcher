@@ -2846,3 +2846,34 @@ html[data-accent-mode="vertical"] {
   padding: 2px 4px !important;
 }
 .uiv-chat-composer textarea::placeholder { font-size: 12px; }
+/* ---------------------------------------------------------------------------
+   Стандартный индикатор загрузки.
+
+   Раньше единственным был набор эффектов uiverse, и они выбирались случайно —
+   при каждой загрузке вид менялся, это и раздражало. Теперь стандартный вид
+   (круг с обегающим прямоугольником) стоит по умолчанию, а набор uiverse
+   включается настройкой в оформлении.
+   --------------------------------------------------------------------------- */
+.uiv-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+.uiv-spinner i {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--color-surface-active);
+  border-top-color: var(--grad-glow);
+  animation: uiv-spin 0.7s linear infinite;
+}
+.uiv-spinner--lg i { width: 26px; height: 26px; border-width: 3px; }
+.uiv-spinner--sm i { width: 14px; height: 14px; }
+@keyframes uiv-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .uiv-spinner i { animation: none; border-top-color: var(--grad-glow); }
+}

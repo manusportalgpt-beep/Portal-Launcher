@@ -157,6 +157,12 @@ export interface UiState {
   adaptiveTitlebarColor: boolean;
   /** Цвет акцента схемы OreUI (null — по умолчанию зелёный) */
   accentColor: string | null;
+  /**
+   * Вид индика��ора загрузки: 'standard' — обычный прямоугольник в кружке,
+   * 'random' — один из набора эффектов uiverse, выбирается случайно.
+   * По умолчанию standard: он спокойнее и не отвлекает.
+   */
+  loaderStyle: 'standard' | 'random';
 
   set: <K extends keyof UiState>(key: K, value: UiState[K]) => void;
   reset: () => void;
@@ -165,6 +171,7 @@ export interface UiState {
 const defaults = {
   stylePreset: 'standard' as StylePreset,
   accentColor: null as string | null,
+  loaderStyle: 'standard' as 'standard' | 'random',
   navMode: 'notch' as NavMode,
   notchSide: 'top' as NotchSide,
   notchHotzone: 46,

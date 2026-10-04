@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useMemo, useRef } from 'react';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { UIV, type UivEntry } from './registry';
+import { useUiStore } from '@/stores/uiStore';
 
 /**
  * Обёртки над компонентами uiverse.io.
@@ -279,6 +280,21 @@ export function Loader({
   size?: number;
   label?: string;
 }) {
+  const loaderStyle = useUiStore(s => s.loaderStyle);
+  const spinClass = size >= 44 ? ' uiv-spinner--lg' : size <= 20 ? ' uiv-spinner--sm' : '';
+  // По умолчанию показывается спокойный стандартный индикатор. Набор uiverse
+  // включается настройкой в оформлении — раньше он был единственным и выбирался
+  // случайно, поэтому вид менялся от загрузки к загрузке.
+  if (loaderStyle !== 'random') {
+    return (
+      <span className="inline-flex items-center gap-2" title={label}>
+        <span className={`uiv-spinner${spinClass}`} role="status" aria-label={label ?? 'Загрузка'}>
+          <i />
+        </span>
+        {label ? <span className="text-[11px]">{label}</span> : null}
+      </span>
+    );
+  }
   const { scope, html } = entryOf(variant);
   // У загрузчиков uiverse жёстко зашит свой размер (часто 100–200 px). Раньше
   // они вписывались в квадрат через scale(), но у внешнего бокса стоял

@@ -1075,7 +1075,6 @@ function ChatBubble({ m, onContinue, streaming, onInstalled }: { m: ChatMessage;
     <div className="group relative flex justify-start">
       {actions}
       <div className="openportal-message-wrap min-w-0 flex-1">
-        <div className="mb-1 flex items-center gap-1.5 text-[10px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}><Bot size={11} /> OpenPortal{meta ? <span className="font-normal">· {meta}</span> : null}</div>
         {m.thinking && <ThinkingBlock text={m.thinking} />}
         {m.content ? (
           <div className="openportal-message openportal-message--assistant rounded-2xl rounded-bl-md px-3.5 py-2.5" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', cursor: 'text', userSelect: 'text' }}>

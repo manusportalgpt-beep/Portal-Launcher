@@ -419,12 +419,3 @@ export function GenerationLoader({ label = 'генерирую...' }: { label?: 
     </span>
   );
 }
-        {label.split('').map((letter, index) => (
-          <span key={`${letter}-${index}`} className="loader-letter" style={{ animationDelay: `${index * 0.06}s` }}>
-            {letter === ' ' ? '\u00a0' : letter}
-          </span>
-        ))}
-      </span>
-    </span>
-  );
-}

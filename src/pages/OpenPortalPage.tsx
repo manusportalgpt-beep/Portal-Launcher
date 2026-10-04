@@ -2342,8 +2342,16 @@ export function OpenPortalPage() {
                   }}>
                   {/* Размер задаётся прямо на svg: атрибуты lucide перебиваются
                       внешним CSS, и иконка растягивалась на всю кнопку. */}
-                  <StopCircle size={16} strokeWidth={2.25} aria-hidden="true"
-                    style={{ width: 16, height: 16, display: 'block', flex: '0 0 auto' }} />
+                  {/* Иконка задана инлайном, а не компонентом lucide: её размер и цвет
+                      перебивались внешним CSS, и кнопка оставалась пустой
+                      красным квадратом. */}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" strokeWidth="2.25" strokeLinecap="round"
+                    strokeLinejoin="round" aria-hidden="true"
+                    style={{ width: 16, height: 16, display: 'block', flex: '0 0 auto' }}>
+                    <circle cx="12" cy="12" r="10" />
+                    <rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" stroke="none" />
+                  </svg>
                 </button>
               ) : (
                 <button onClick={() => void send()} title="Отправить" disabled={!input.trim()}

@@ -204,8 +204,11 @@ const header = `/* СГЕНЕРИРОВАНО tools/build-uiverse-css.mjs — н
    Компоненты uiverse.io (uiverse-io/galaxy), CSS заскоупин и перекрашен
    под палитру лаунчера. */
 .uiv-stage { position: relative; isolation: isolate; }
+`;
 
-/* ---------------------------------------------------------------------------
+// Слой совместимости идёт ПОСЛЕ правил компонентов: specificity у него
+// такой же, как у оригинала, поэтому порядок решает.
+const compat = `/* ---------------------------------------------------------------------------
    Совместимость с размерами лаунчера.
 
    Компоненты uiverse рассчитаны на отдельную страницу и жёстко задают
@@ -232,9 +235,81 @@ const header = `/* СГЕНЕРИРОВАНО tools/build-uiverse-css.mjs — н
 [class^="uiv-"] .cssbuttons-io > span { padding: 0 !important; font-size: inherit !important; }
 [class^="uiv-"] .brutalist-button { gap: 0.5rem !important; }
 [class^="uiv-"] .ms-logo-square { width: 0.75rem !important; height: 0.75rem !important; }
+
+/* ---------------------------------------------------------------------------
+   Карточка автора (funny-cat-84).
+
+   В оригинале это каркас: имя, ник и описание нарисованы серыми
+   прямоугольниками-заглушками (width: 60/100/180px, background: #414141).
+   Пользователь попросил вернуть иконку, ник и описание, поэтому заглушки
+   заменяются обычным текстом, а карточка растягивается по содержимому
+   вместо фиксированных 190x254.
+   --------------------------------------------------------------------------- */
+.uiv-author-card { display: block; }
+.uiv-author-card .card {
+  width: 100%;
+  height: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: none;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.uiv-author-card .imge {
+  height: auto;
+  background: transparent;
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 2px 12px;
+  align-items: center;
+}
+.uiv-author-card .imge .Usericon {
+  grid-row: 1 / 3;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  transform: none;
+  background: var(--color-surface-2) center/cover no-repeat;
+}
+.uiv-author-card .imge .UserName,
+.uiv-author-card .imge .Id {
+  background: none;
+  border: 0;
+  width: auto;
+  height: auto;
+  transform: none;
+  overflow-wrap: anywhere;
+}
+.uiv-author-card .imge .UserName {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--color-text);
+}
+.uiv-author-card .imge .Id {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.uiv-author-card .Description {
+  width: auto;
+  height: auto;
+  min-height: 0;
+  transform: none;
+  background: var(--color-surface-2);
+  border: 0;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 `;
 
-writeFileSync(outFile, header + kfAll.join('\n') + '\n\n' + chunks.join('\n\n') + '\n', 'utf8');
+writeFileSync(outFile, header + kfAll.join('\n') + '\n\n' + chunks.join('\n\n') + '\n\n' + compat, 'utf8');
 
 // Реестр разметки для React-обёрток.
 const entries = Object.entries(registry)

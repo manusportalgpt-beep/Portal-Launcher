@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { forwardRef, useEffect, useMemo, useRef } from 'react';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { UIV, type UivEntry } from './registry';
 
@@ -24,28 +24,30 @@ function entryOf(id: UivId): UivEntry {
   return found;
 }
 
-/** Базовый рендер компонента по его id. */
-export function Uiv({
-  id,
-  className,
-  style,
-  title,
-}: {
+/**
+ * Базовый рендер компонента по его id.
+ *
+ * forwardRef обязателен: обёртки (AuthorCard и подобные) правят внутренние
+ * узлы оригинальной разметки через ref. Без него ref.current всегда null,
+ * и эффект молча ничего не делает — карточка остаётся пустой.
+ */
+export const Uiv = forwardRef<HTMLSpanElement, {
   id: UivId;
   className?: string;
   style?: React.CSSProperties;
   title?: string;
-}) {
+}>(function Uiv({ id, className, style, title }, ref) {
   const { scope, html } = entryOf(id);
   return (
     <span
+      ref={ref}
       className={`uiv-stage ${scope}${className ? ` ${className}` : ''}`}
       style={style}
       title={title}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
-}
+});
 
 /** Меняет текст в первом текстовом узле (обычно <span> с подписью). */
 function applyLabel(root: HTMLElement | null, label: string | undefined) {
@@ -341,7 +343,7 @@ export function AuthorCard({
     }
   }, [name, handle, description, avatarUrl]);
 
-  return <Uiv id={id} className="uiv-author-card" />;
+  return <Uiv ref={ref} id={id} className="uiv-author-card" />;
 }
 
 /** Тост: heavy-cobra-18 — ошибка, wicked-chipmunk-81 — успех. */

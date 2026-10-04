@@ -80,20 +80,25 @@ const ACCENT_PRESETS: Array<[string, string]> = [
 /** Применяет цвет акцента OreUI (или зелёный по умолчанию) ко всем токенам интерфейса. */
 export function applyAccentColor(preset: StylePreset, accent: string | null) {
   const root = document.documentElement;
-  const base = (preset === 'oreui' || preset === 'quadral') ? (accent ?? OREUI_DEFAULT_ACCENT) : null;
-  if (!base) {
-    root.style.removeProperty('--color-primary');
-    root.style.removeProperty('--color-primary-hover');
-    root.style.removeProperty('--color-primary-dim');
-    root.style.removeProperty('--color-primary-text');
-    return;
-  }
+  // Раньше цвет акцента применялся только к oreui и quadral: для остальных
+  // пресетов стоял ранний выход, и выбор цвета в настройках не давал ничего.
+  // Теперь акцент работает везде, включая Standard.
+  void preset;
+  const base = accent ?? OREUI_DEFAULT_ACCENT;
   const hover = ACCENT_PRESETS.find(([c]) => c.toLowerCase() === base.toLowerCase())?.[1]
     ?? `color-mix(in srgb, ${base} 84%, #000)`;
   root.style.setProperty('--color-primary', base);
   root.style.setProperty('--color-primary-hover', hover);
   root.style.setProperty('--color-primary-dim', base + '26');
   root.style.setProperty('--color-primary-text', '#FFFFFF');
+
+  // Градиент за��я�� от цвета акцента, а не от отдельной палитры: чёрный слева,
+  // акцент справа. Так переключение цвета сразу меняет и кнопки, и эффекты.
+  root.style.setProperty('--grad-from', '#000000');
+  root.style.setProperty('--grad-to', base);
+  root.style.setProperty('--grad-glow', base);
+  root.style.setProperty('--grad', `linear-gradient(90deg, #000000 0%, ${base} 100%)`);
+  root.style.setProperty('--grad-soft', `linear-gradient(90deg, #000000 0%, ${base} 55%, #000000 100%)`);
 }
 
 /**

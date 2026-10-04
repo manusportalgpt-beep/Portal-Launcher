@@ -407,22 +407,9 @@ function AppearanceSection() {
       <h2 className="text-base font-bold mb-1" style={{ color: 'var(--color-text)' }}>{t('settings.appearanceUi.title')}</h2>
       <p className="text-sm mb-5" style={{ color: 'var(--color-text-secondary)' }}>{t('settings.appearanceUi.subtitle')}</p>
 
-      {/* Палитра и вид градиента. Стоят первыми в разделе, потому что
-          перекрашивают все компоненты интерфейса, а не только текущий экран. */}
-      <div className="mb-4">
-        <h3 className="text-sm font-black tracking-wide uppercase mb-2" style={{ color: 'var(--color-text)' }}>Палитра градиента</h3>
-        <p className="text-xs mb-3" style={{ color: 'var(--color-text-secondary)' }}>Цвет кнопок и эффектов во всём интерфейсе</p>
-        <div className="grid grid-cols-4 gap-2 mb-4">
-          {PALETTES.map(p => (
-            <button key={p.id} onClick={() => setPalette(p.id)} data-testid={`palette-${p.id}`}
-              className="p-2.5 text-left transition-opacity hover:opacity-90"
-              style={{ background:'var(--color-surface)', border:`1px solid ${paletteId === p.id ? 'var(--grad-glow)' : 'var(--color-border)'}`, borderRadius:'var(--radius-card)' }}>
-              <span aria-hidden="true" className="block h-[8px] w-full mb-1.5"
-                style={{ background:`linear-gradient(90deg, ${p.from}, ${p.to})`, borderRadius:999 }} />
-              <p className="text-[10px] font-bold" style={{ color: paletteId === p.id ? 'var(--grad-glow)' : 'var(--color-text)' }}>{p.name}</p>
-            </button>
-          ))}
-        </div>
+      {/* Вид градиента. Отдельной палитры больше нет: цвета берутся из цвета
+          акцента, поэтому здесь только направление и радуга. */}
+      <div className="mb-6">
         <h3 className="text-sm font-black tracking-wide uppercase mb-2" style={{ color: 'var(--color-text)' }}>Вид градиента</h3>
         <div className="grid grid-cols-3 gap-2">
           {ACCENT_MODES.map(m => (
@@ -1398,3 +1385,4 @@ export function SettingsPage({ initialSection }: { initialSection?: Section } = 
     </div>
   );
 }
+

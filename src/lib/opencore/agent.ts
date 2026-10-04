@@ -1690,6 +1690,30 @@ function parseDuckDuckGoLite(html: string, max: number): { title: string; url: s
   return out;
 }
 
+/**
+ * Запасной поиск через Википедию.
+ *
+ * Нужен потому, что DuckDuckGo режет выдачу запросам с дата-центровых адресов
+ * (наш egress — именно такой), и агент получал «ничего не найдено» даже по
+ * обычным вопросам. API Википедии не блокирует и отдаёт JSON.
+ */
+async function searchWikipedia(query: string, max: number, signal?: AbortSignal): Promise<Array<{ title: string; url: string; snippet: string }>> {
+  const api = `https://ru.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&srlimit=${Math.max(1, Math.min(10, max))}&format=json&origin=*`;
+  try {
+    const res = await raceSignal(invoke<FetchResult>('op_web_fetch', { url: api }), signal);
+    if (!res.ok || !res.text) return [];
+    const data = JSON.parse(res.text) as any;
+    const hits: any[] = data?.query?.search ?? [];
+    return hits.map(h => ({
+      title: String(h.title ?? ''),
+      url: `https://ru.wikipedia.org/wiki/${encodeURIComponent(String(h.title ?? '').replace(/ /g, '_'))}`,
+      snippet: String(h.snippet ?? '').replace(/<[^>]+>/g, ''),
+    })).filter(r => r.title);
+  } catch {
+    return [];
+  }
+}
+
 /** Поиск по интернету через DuckDuckGo. Если user передал URL — просто прочитать страницу. */
 async function execWebSearch(args: { query?: string; url?: string; max_results?: number }, signal?: AbortSignal): Promise<ExecResult> {
   const rawQuery = String(args.query ?? args.url ?? '').trim();
@@ -1720,9 +1744,21 @@ async function execWebSearch(args: { query?: string; url?: string; max_results?:
     } catch { /* остаёмся с пустым результатом */ }
   }
   if (results.length === 0) {
+    const wiki = await searchWikipedia(rawQuery, max, signal);
+    if (wiki.length > 0) results = wiki;
+  }
+  if (results.length === 0) {
+    // Раньше здесь просто сообщалось «не дал результатов», и агент начинал
+    // подбирать запросы всё новые и новые, ничего не находя. Теперь как минимум
+    // отдаём готовые ссылки, по которым можно перейти вручную.
+    const links = [
+      `https://duckduckgo.com/?q=${encodeURIComponent(rawQuery)}`,
+      `https://www.google.com/search?q=${encodeURIComponent(rawQuery)}`,
+      `https://ru.wikipedia.org/w/index.php?search=${encodeURIComponent(rawQuery)}`,
+    ].map(u => `   ${u}`).join('\n');
     return {
-      ok: false,
-      output: `Поиск по «${rawQuery}» не дал результатов. Попробуй иначе сформулировать запрос или прочитай конкретную страницу через fetch_page(url).`,
+      ok: true,
+      output: `Автопоиск по «${rawQuery}» ничего не вернул (DuckDuckGo не отдаёт выдачу с этого адреса). Открой любую ссылку:\n${links}`,
     };
   }
   const body = results.map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.snippet || '(описание недоступно)'}`).join('\n');

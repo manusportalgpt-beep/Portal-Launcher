@@ -68,14 +68,10 @@ export function applyPalette(id: PaletteId): void {
   const p = getPalette(id);
   const root = document.documentElement;
   root.setAttribute('data-palette', p.id);
-  root.style.setProperty('--grad-from', p.from);
-  root.style.setProperty('--grad-to', p.to);
+  // --grad больше НЕ задаётся здесь. Градиент принадлежит цвету акцента
+  // (см. applyAccentColor в style-presets.ts), иначе палитра при старте
+  // перебивала бы выбор акцента и кнопки оставались не того цвета.
   root.style.setProperty('--grad-glow', p.glow);
-  root.style.setProperty('--grad', `linear-gradient(90deg, ${p.from} 0%, ${p.to} 100%)`);
-  root.style.setProperty(
-    '--grad-soft',
-    `linear-gradient(90deg, ${p.from} 0%, ${p.to} 55%, ${p.from} 100%)`,
-  );
   safeWrite(p.id);
 }
 

@@ -1090,32 +1090,6 @@ function ChatBubble({ m, onContinue, streaming, onInstalled }: { m: ChatMessage;
   );
 }
 
-/** Компактный timeline текущей задачи по мотивам red-sloth-16. */
-function AgentPlan({ messages }: { messages: ChatMessage[] }) {
-  const toolMessages = messages.filter(message => message.role === 'tool').slice(-4);
-  const steps: { label: string; done: boolean; error?: boolean }[] = [
-    { label: 'Разбор задачи', done: toolMessages.length > 0 },
-    ...toolMessages.map(message => ({
-      label: message.toolName || message.content.split('\n')[0]?.slice(0, 56) || 'Рабочий шаг',
-      done: message.content !== '… выполняется …' && !message.error,
-      error: message.error,
-    })),
-    { label: 'Формирование результата', done: false },
-  ];
-  return (
-    <div className="uiv-agent-plan" role="status" aria-live="polite">
-      <div className="uiv-agent-plan__title"><ListChecks size={13} /> План задачи</div>
-      <div className="uiv-agent-plan__timeline">
-        {steps.map((step, index) => (
-          <div key={`${step.label}-${index}`} className={`uiv-agent-plan__item${step.done ? ' is-done' : ''}${step.error ? ' is-error' : ''}`}>
-            <span className="uiv-agent-plan__bullet">{step.done ? <Check size={11} /> : <span />}</span>
-            <span className="uiv-agent-plan__label">{step.label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /** Карточка прикреплённого файла: бейдж расширения, размер, имя и «Скачать» в «Загрузки». */
 function AttachmentChip({ a, onRemove }: { a: Attachment; onRemove?: () => void }) {
@@ -1484,12 +1458,12 @@ export function OpenPortalPage() {
     setHistoryChecked(false);
   }, [currentSessionId]);
 
-  /** Авто-рост поля ввода: до 160px, дальше — прокрутка. */
+  /** Компактный авто-рост поля ввода: длинный текст прокручивается внутри. */
   useEffect(() => {
     const el = composerRef.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
   }, [input]);
 
   /** Держим ленту у последнего сообщения: пока агент работает — только если
@@ -2231,7 +2205,6 @@ export function OpenPortalPage() {
               ))}
               {running && (
               <div className="flex flex-col gap-1.5 px-1 py-1 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
-                <AgentPlan messages={messages} />
                 <GenerationLoader label="Генерирует..." />
                 </div>
               )}
@@ -2277,7 +2250,7 @@ export function OpenPortalPage() {
               больше не висят тремя отдельными плавающими рядами. */}
           {/* Без overflow-hidden: контейнер обрезал выпадающий список модели и
               панель управления моделями, из-за чего они не открывались. */}
-          <div className="uiv-chat-composer container_chat_bot mx-auto w-full max-w-5xl"
+          <div className="uiv-chat-composer container_chat_bot mx-auto w-full max-w-4xl"
             style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
             <div className="container-chat-options">
             <div className="chat">
@@ -2291,7 +2264,7 @@ export function OpenPortalPage() {
             {/* overflow-x-auto здесь обрезал бы выпадающий список модели,
                 поэтому строка тулбара не имеет overflow — модели могут
                 вылезать вверх поверх поля ввода. */}
-            <div className="flex items-center gap-1.5 border-b px-2 py-1.5" style={{ borderColor: 'var(--color-border)' }}>
+            <div className="flex items-center gap-1 border-b px-1.5 py-1" style={{ borderColor: 'var(--color-border)' }}>
               <ModeToggle mode={cfg.mode} onChange={m => useOpenCoreStore.getState().setMode(m)} />
               <CurrentModelPicker />
               <ContextMeter onCompact={() => void compressChat()} />
@@ -2300,11 +2273,11 @@ export function OpenPortalPage() {
               <span className="flex-1" />
               <BuildPicker />
             </div>
-            <div className="chat-bot flex items-end gap-1.5 p-1.5">
+            <div className="chat-bot flex items-end gap-1 p-1">
               <input type="file" id="op-file" className="hidden" onChange={onFilePicked} />
               <div className="btns-add flex shrink-0 items-center">
                 <label htmlFor="op-file" title="Прикрепить файл или картинку"
-                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded transition-colors hover:bg-[var(--color-surface)]"
+                  className="flex h-7 w-7 cursor-pointer items-center justify-center rounded transition-colors hover:bg-[var(--color-surface)]"
                   style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-tertiary)' }}>
                   <Plus size={14} />
                 </label>
@@ -2348,7 +2321,7 @@ export function OpenPortalPage() {
                 }}
                 rows={1}
                 placeholder={running ? 'Агент занят — отправьте сообщение, он продолжит после текущего шага' : 'Что сделать?'}
-                className="max-h-40 min-h-9 flex-1 resize-none overflow-y-auto bg-transparent px-2.5 py-1.5 text-[13px] leading-6 outline-none"
+                className="max-h-24 min-h-8 flex-1 resize-none overflow-y-auto bg-transparent px-2 py-1 text-[12px] leading-5 outline-none"
                 style={{ color: 'var(--color-text)' }}
               />
               {running ? (
@@ -2359,13 +2332,13 @@ export function OpenPortalPage() {
                     ?? (currentSessionId ? abortRefs.current[currentSessionId] : undefined);
                   target?.abort();
                 }} title="Остановить"
-                  className="btn-submit flex h-8 w-8 shrink-0 items-center justify-center rounded"
+                  className="btn-submit flex h-7 w-7 shrink-0 items-center justify-center rounded"
                   style={{ background: 'var(--color-surface)', color: 'var(--color-error)', border: '1px solid var(--color-border)' }}>
-                  <StopCircle size={15} />
+                  <StopCircle size={16} strokeWidth={2.25} aria-hidden="true" />
                 </button>
               ) : (
                 <button onClick={() => void send()} title="Отправить" disabled={!input.trim()}
-                  className="btn-submit flex h-8 w-8 shrink-0 items-center justify-center rounded transition-opacity disabled:opacity-40"
+                  className="btn-submit flex h-7 w-7 shrink-0 items-center justify-center rounded transition-opacity disabled:opacity-40"
                   style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
                   <Send size={14} />
                 </button>

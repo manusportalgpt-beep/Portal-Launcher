@@ -629,12 +629,15 @@
 .uiv-Buttons_Madflows_stale-baboon-45 .button{
   position: relative;
   overflow: hidden;
-  height: 3rem;
-  padding: 0 2rem;
-  border-radius: 1.5rem;
+  height: 2.25rem;
+  min-width: 7.2rem;
+  padding: 0 1.15rem;
+  border-radius: .95rem;
   background: var(--color-surface-2);
   background-size: 400%;
   color: var(--uiv-surface);
+  font-size: .75rem;
+  font-weight: 700;
   border: none;
   cursor: pointer;
 }
@@ -658,6 +661,8 @@
   background: linear-gradient(82.3deg, var(--grad-from) 10.8%, var(--grad-to) 94.3%);
   transition: all 0.475s;
 }
+.uiv-install-busy .uiv-stage { width: 18px; height: 18px; flex: 0 0 18px; }
+.uiv-install-busy .uiv-stage > span { transform: scale(.22) !important; transform-origin: center !important; }
 
 /* ===== Cards/1osm_funny-cat-84.html — 1osm ===== */
 

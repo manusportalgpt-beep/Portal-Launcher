@@ -284,6 +284,7 @@ function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
   const { t } = useTranslation();
   const normalizedMcVersion = normalizeMinecraftVersion(mcVersion);
   const [state, setState] = useState<'idle'|'busy'|'done'|'err'>('idle');
+  const [busyLoader] = useState<LoaderId>(() => LOADER_VARIANTS[Math.floor(Math.random() * LOADER_VARIANTS.length)] ?? LOADER_IDS[0]);
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmRunningInstall, setConfirmRunningInstall] = useState(false);
   const sourceChoiceAvailable = project.sources?.length === 2;
@@ -594,14 +595,14 @@ function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
       {sourceChoiceAvailable && <div className="flex overflow-hidden" style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}>
         {(['modrinth','curseforge'] as SourcePlatform[]).map(source => <button key={source} title={source === 'modrinth' ? 'Скачать с Modrinth' : 'Скачать с CurseForge'} aria-label={source === 'modrinth' ? 'Скачать с Modrinth' : 'Скачать с CurseForge'} onClick={event => { event.stopPropagation(); setSelectedSource(source); }} className="flex h-7 w-7 items-center justify-center" style={{ background:selectedSource === source ? 'var(--color-primary-dim)' : 'transparent', opacity:selectedSource === source ? 1 : .55 }}><PlatformMark platform={source} size={16} /></button>)}
       </div>}
-    {/* Кнопка установки на uiverse: stale-baboon-45 (пункт 3).
-          Во время установки остаётся старая кнопка со спиннером: у эффекта
-          нет состояния «занято», а текст там единственный. */}
+    {/* Кнопка установки сохраняет hover-эффект stale-baboon-45, а во время
+        скачивания и установки показывает один из Uiverse-loader вариантов. */}
       {state === 'busy' ? (
         <button onClick={doInstall} disabled
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold"
-          style={{ background:'var(--color-primary)', color:'#fff', opacity: 0.7 }}>
-          <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />{t('findProjects.install.installing')}
+          className="uiv-install-busy flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-[11px] font-bold"
+          style={{ background:'var(--color-surface-2)', color:'var(--color-text)', border:'1px solid var(--color-border)', opacity: 0.9 }}>
+          <Loader variant={busyLoader} size={18} />
+          <span>{t('findProjects.install.installing')}</span>
         </button>
       ) : (
         <InstallButton label={t('findProjects.install.install')} onClick={doInstall} />

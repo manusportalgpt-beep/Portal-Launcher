@@ -12,19 +12,34 @@ export function BackgroundMusicPlayer() {
   const updateSettings = useSettingsStore(s => s.update);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const dragRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null);
 
   useEffect(() => {
     if (!audioRef.current) audioRef.current = new Audio();
     const audio = audioRef.current;
     audio.src = music;
+    setCurrentTime(0);
+    setDuration(0);
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
+    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const onDurationChange = () => setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
     audio.addEventListener('play', onPlay);
     audio.addEventListener('pause', onPause);
+    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('durationchange', onDurationChange);
+    audio.addEventListener('loadedmetadata', onDurationChange);
     if (music && autoplay === 'startup') audio.play().catch(() => setPlaying(false));
     if (!music) { audio.pause(); audio.removeAttribute('src'); audio.load(); }
-    return () => { audio.removeEventListener('play', onPlay); audio.removeEventListener('pause', onPause); };
+    return () => {
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('durationchange', onDurationChange);
+      audio.removeEventListener('loadedmetadata', onDurationChange);
+    };
   }, [music, autoplay]);
 
   useEffect(() => {
@@ -38,6 +53,13 @@ export function BackgroundMusicPlayer() {
     const audio = audioRef.current;
     if (!audio) return;
     if (audio.paused) audio.play().catch(() => setPlaying(false)); else audio.pause();
+  };
+
+  const seek = (value: number) => {
+    const audio = audioRef.current;
+    if (!audio || !Number.isFinite(value)) return;
+    audio.currentTime = Math.max(0, Math.min(value, duration || value));
+    setCurrentTime(audio.currentTime);
   };
 
   const beginDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -61,7 +83,12 @@ export function BackgroundMusicPlayer() {
         playing={playing}
         volume={volume}
         loop={loop}
+        currentTime={currentTime}
+        duration={duration}
         onToggle={toggle}
+        onToggleLoop={() => updateSettings({ musicLoop: !loop })}
+        onSeek={seek}
+        onVolumeChange={value => updateSettings({ musicVolume: Math.max(0, Math.min(100, value)) })}
         onBeginDrag={beginDrag}
         onDrag={drag}
         onEndDrag={endDrag}

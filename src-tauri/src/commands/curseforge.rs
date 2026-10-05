@@ -252,7 +252,11 @@ pub async fn search_curseforge(
     let client = cf_client(&api_key)?;
     let limit = limit.unwrap_or(20).clamp(1, 50);
     let offset = offset.unwrap_or(0);
-    let effective_class = class_id.unwrap_or(6).to_string();
+    // Класс передаём в запрос только если его реально задали. Раньше здесь
+    // стояло class_id.unwrap_or(6), и параметр уходил в CurseForge всегда: даже
+    // когда интерфейс его не передавал (Bedrock), запрос уходил с classId=6
+    // внутри игры Bedrock, где такой категории нет, и выдача была пустой.
+    let effective_class: Option<String> = class_id.map(|value| value.to_string());
     let sort_field = sort_field.unwrap_or(2).to_string();
     let game_version = game_version.filter(|v| !v.is_empty() && v != "All");
     let mod_loader_type = mod_loader_type.filter(|l| *l > 0);
@@ -263,13 +267,15 @@ pub async fn search_curseforge(
             .get("https://api.curseforge.com/v1/mods/search")
             .query(&[
                 ("gameId", game_id_str.as_str()),
-                ("classId", &effective_class),
                 ("pageSize", &limit.to_string()),
                 ("index", &index.to_string()),
                 ("searchFilter", &query),
                 ("sortField", &sort_field),
                 ("sortOrder", &order.to_string()),
             ]);
+        if let Some(cls) = effective_class.as_deref() {
+            req = req.query(&[("classId", cls)]);
+        }
         if let Some(cat) = category_id {
             req = req.query(&[("categoryId", cat.to_string())]);
         }

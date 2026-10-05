@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useThemeStore } from '@/stores/themeStore';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -141,6 +142,50 @@ function AuthorLink({ author, authorId, source }: { author?: string; authorId?: 
       </span>
       <span className="text-[11px] font-semibold" style={{ color: 'var(--color-primary)' }}>{author}</span>
     </span>
+  );
+}
+
+/**
+ * Флажок выбора мода под тему.
+ *
+ * Нативный input с accent-color не давал того, что нужно: он остаётся
+ * системным элементом, не скругляется под интерфейс и не показывает
+ * галочку нужного цвета. Требование: пустой квадрат до иконки мода, при
+ * нажатии заливается цветом акцента, галочка белая на Dark/OLED и чёрная
+ * на Light.
+ */
+function ModCheck({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  const isDark = useThemeStore(s => s.themeId !== 'light');
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={e => { e.stopPropagation(); onChange(); }}
+      className="grid h-5 w-5 shrink-0 place-items-center transition-colors"
+      style={{
+        borderRadius: 'var(--radius-sm)',
+        background: checked ? 'var(--grad)' : 'transparent',
+        border: `1px solid ${checked ? 'transparent' : 'var(--color-border-strong)'}`,
+      }}
+    >
+      {checked && (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+          stroke={isDark ? '#FFFFFF' : '#000000'} strokeWidth="3.5"
+          strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      )}
+    </button>
   );
 }
 

@@ -442,17 +442,9 @@ function AppearanceSection() {
         ))}
       </div>
 
-      {/* Переключатель тёмной/светлой темы (uiverse: strong-squid-82). */}
-      <div className="mb-6 flex items-center justify-between gap-4 px-3 py-3"
-        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-card)' }}>
-        <div>
-          <p className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>Тёмная тема</p>
-          <p className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>Между тёмной и светлой, с анимацией солнца и луны</p>
-        </div>
-        <ThemeToggle checked={isDark} onChange={setDark} />
-      </div>
-
-      <CustomThemeBuilder />
+      {/* Большой переключатель тёмной/светлой убран: темы выбираются плитками
+          выше (Dark, Light, OLED). Дублирование путало — выглядело так, будто
+          переключатель меняет что-то отдельно от выбора темы. */}
 
       {/* ===================== Typography ===================== */}
       <div className="minimal-section-title">

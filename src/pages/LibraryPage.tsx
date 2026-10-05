@@ -631,17 +631,22 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
       if (form.loader === 'bedrock') {
         if (!bedrockFamily) { dialog.alert('No installed Bedrock edition selected.', { title: 'Error', danger: true }); setCreating(false); return; }
         const pkg = bedrockPkgs.find(p => p.family === bedrockFamily);
-        const raw = {
-          id: crypto.randomUUID(),
+        // Раньше Bedrock-сборка создавалась как обычный JS-объект и только
+        // отдавалась в onCreated — на диск она не попадала ни разу, поэтому
+        // после перезапуска лаунчера сборки не было. Теперь идём через
+        // create_instance, как и Java: запись в instances.json и папка сборки.
+        // AUMID хранится в loader_version — он нужен для запуска.
+        const raw = await invoke<any>('create_instance', {
           name: instanceName,
           description: '',
-          mc_version: pkg?.version || 'Bedrock',
+          mcVersion: pkg?.version || 'Bedrock',
           loader: 'bedrock',
-          loader_version: bedrockFamily, // хранит AUMID для запуска
-          min_ram: 1024, max_ram: 4096,
-          created_at: new Date().toISOString(),
+          loaderVersion: bedrockFamily,
+          minRam: 1024,
+          maxRam: 4096,
+          color: null,
           icon: iconPreview || null,
-        };
+        });
         onCreated(raw);
         setCreating(false); onClose();
         return;

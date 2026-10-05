@@ -157,35 +157,42 @@ function AuthorLink({ author, authorId, source }: { author?: string; authorId?: 
  */
 function ModCheck({
   checked,
+  indeterminate,
   onChange,
   label,
 }: {
   checked: boolean;
+  indeterminate?: boolean;
   onChange: () => void;
   label: string;
 }) {
   const isDark = useThemeStore(s => s.themeId !== 'light');
+  // Состояние «выбрана часть» показываем короткой чертой: без неё нельзя отличить
+  // «выбраны все видимые» от «выбрана часть».
+  const mark = indeterminate && !checked
+    ? <span style={{ width: 9, height: 2, borderRadius: 2, background: isDark ? '#FFFFFF' : '#000000' }} />
+    : checked ? (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+        stroke={isDark ? '#FFFFFF' : '#000000'} strokeWidth="3.5"
+        strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    ) : null;
   return (
     <button
       type="button"
       role="checkbox"
-      aria-checked={checked}
+      aria-checked={indeterminate && !checked ? 'mixed' : checked}
       aria-label={label}
       onClick={e => { e.stopPropagation(); onChange(); }}
       className="grid h-5 w-5 shrink-0 place-items-center transition-colors"
       style={{
         borderRadius: 'var(--radius-sm)',
-        background: checked ? 'var(--grad)' : 'transparent',
-        border: `1px solid ${checked ? 'transparent' : 'var(--color-border-strong)'}`,
+        background: checked || indeterminate ? 'var(--grad)' : 'transparent',
+        border: `1px solid ${checked || indeterminate ? 'transparent' : 'var(--color-border-strong)'}`,
       }}
     >
-      {checked && (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-          stroke={isDark ? '#FFFFFF' : '#000000'} strokeWidth="3.5"
-          strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-      )}
+      {mark}
     </button>
   );
 }
@@ -862,13 +869,11 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
           <div className="rounded-2xl overflow-hidden" style={cardStyle}>
             <div className="flex items-center gap-3 px-3 py-2 text-[11px] font-bold uppercase tracking-wide"
               style={{ color: 'var(--color-text-tertiary)', borderBottom: '1px solid var(--color-border)' }}>
-              <input
-                type="checkbox"
-                aria-label="Выбрать все видимые элементы"
+              <ModCheck
                 checked={visibleMods.length > 0 && visibleMods.every(mod => selectedModIds.has(mod.id))}
-                ref={node => { if (node) node.indeterminate = selectedModIds.size > 0 && !visibleMods.every(mod => selectedModIds.has(mod.id)); }}
+                indeterminate={selectedModIds.size > 0 && !visibleMods.every(mod => selectedModIds.has(mod.id))}
                 onChange={toggleAllVisibleMods}
-                className="w-4 h-4 shrink-0 accent-[var(--color-primary)]"
+                label="Выбрать все видимые элементы"
               />
               <span className="flex-1">Проект</span>
               <span className="w-24 shrink-0">Версия</span>
@@ -877,12 +882,10 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
             {visibleMods.map((m, i) => (
               <div key={m.id} className="flex items-center gap-3 px-3 py-2.5"
                 style={{ borderBottom: i < visibleMods.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
-                <input
-                  type="checkbox"
-                  aria-label={`Выбрать ${m.name}`}
+                <ModCheck
                   checked={selectedModIds.has(m.id)}
                   onChange={() => toggleSelectedMod(m.id)}
-                  className="w-4 h-4 shrink-0 accent-[var(--color-primary)]"
+                  label={`Выбрать ${m.name}`}
                 />
                 <div className="flex items-center gap-2.5 flex-1 min-w-0">
                   <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 flex items-center justify-center"

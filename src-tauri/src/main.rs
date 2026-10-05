@@ -291,6 +291,7 @@ fn main() {
             commands::mods::get_instance_mods,
             commands::mods::toggle_mod,
             commands::mods::remove_mod,
+            commands::mods::transfer_mods,
             commands::mods::list_mod_history,
             commands::mods::list_deleted_mods,
             commands::mods::restore_deleted_mod,

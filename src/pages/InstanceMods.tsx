@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useThemeStore } from '@/stores/themeStore';
+import { Copy, FolderInput, Boxes } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -219,6 +220,12 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   const [mainTab, setMainTab] = useState<MainTab>('content');
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
   const [selectedModIds, setSelectedModIds] = useState<Set<string>>(() => new Set());
+  // Перенос выбранных модов в другую сборку. При move исходные файлы уходят
+  // в «Удалённые» тем же путём, что и при обычном удалении, поэтому их можно
+  // вернуть обратно из корзины.
+  const [transferMode, setTransferMode] = useState<'copy' | 'move' | null>(null);
+  const [transferBusy, setTransferBusy] = useState(false);
+  const [otherInstances, setOtherInstances] = useState<Array<{ id: string; name: string }>>([]);
   const selectedScreenshotIndex = selectedScreenshot ? screenshots.findIndex(item => item.path === selectedScreenshot.path) : -1;
   const selectScreenshotOffset = (offset: number) => {
     if (selectedScreenshotIndex < 0 || screenshots.length < 2) return;
@@ -546,6 +553,38 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       await Promise.all([loadMods(true), loadDeletedMods()]);
     } catch (e: any) {
       setError(e?.toString() ?? 'Не удалось удалить выбранные элементы');
+    }
+  }
+
+  /** Список сборок, кроме текущей — цель для переноса. */
+  async function loadOtherInstances() {
+    try {
+      const list = await invoke<Array<{ id: string; name: string }>>('list_instances');
+      setOtherInstances((list ?? []).filter(i => i.id !== instanceId));
+    } catch {
+      setOtherInstances([]);
+    }
+  }
+
+  /** Переносит или копирует выбранные моды в другую сборку. */
+  async function runTransfer(targetId: string) {
+    if (!selectedMods.length || !transferMode) return;
+    setTransferBusy(true);
+    try {
+      await invoke('transfer_mods', {
+        fromInstanceId: instanceId,
+        toInstanceId: targetId,
+        files: selectedMods.map(m => m.fileName).filter(Boolean),
+        modType: selectedMods[0]?.mod_type || 'mod',
+        moveFiles: transferMode === 'move',
+      });
+      setSelectedModIds(new Set());
+      setTransferMode(null);
+      await Promise.all([loadMods(true), loadDeletedMods()]);
+    } catch (e: any) {
+      setError(`Не удалось ${transferMode === 'move' ? 'перенести' : 'скопировать'}: ${e?.toString?.() ?? e}`);
+    } finally {
+      setTransferBusy(false);
     }
   }
 
@@ -1089,9 +1128,50 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
             Отключить
           </button>
           <span className="h-5 w-px" style={{ background:'var(--color-border)' }} />
+          <button onClick={() => { setTransferMode('copy'); void loadOtherInstances(); }}
+            className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap hover:bg-white/5" style={{ color:'var(--color-text-secondary)' }}>
+            <Copy className="w-3.5 h-3.5" />Копировать
+          </button>
+          <button onClick={() => { setTransferMode('move'); void loadOtherInstances(); }}
+            className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap hover:bg-white/5" style={{ color:'var(--color-text-secondary)' }}>
+            <FolderInput className="w-3.5 h-3.5" />Перенести
+          </button>
+          <span className="h-5 w-px" style={{ background:'var(--color-border)' }} />
           <button onClick={() => void removeSelectedMods()} className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap" style={{ color:'var(--color-error)', background:'rgba(231,76,60,0.10)' }}>
             <Trash2 className="w-3.5 h-3.5" />Удалить
           </button>
+        </div>
+      )}
+
+      {transferMode && (
+        <div className="fixed inset-0 z-[240] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => setTransferMode(null)}>
+          <div className="w-full max-w-sm rounded-2xl p-4"
+            style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}
+            onClick={e => e.stopPropagation()}>
+            <p className="text-sm font-bold" style={{ color:'var(--color-text)' }}>
+              {transferMode === 'move' ? 'Перенести в сборку' : 'Копировать в сборку'}
+            </p>
+            <p className="mt-0.5 text-[11px]" style={{ color:'var(--color-text-secondary)' }}>
+              Выбрано модов: {selectedMods.length}.{' '}
+              {transferMode === 'move'
+                ? 'Перенесённые файлы попадут в «Удалённые» этой сборки.'
+                : 'Эта сборка не изменится.'}
+            </p>
+            <div className="mt-3 max-h-64 overflow-y-auto">
+              {otherInstances.length === 0 && (
+                <p className="py-3 text-center text-[11px]" style={{ color:'var(--color-text-tertiary)' }}>Нет других сборок</p>
+              )}
+              {otherInstances.map(other => (
+                <button key={other.id} disabled={transferBusy} onClick={() => void runTransfer(other.id)}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs transition-colors hover:bg-white/5 disabled:opacity-50"
+                  style={{ color:'var(--color-text)' }}>
+                  <Boxes className="h-4 w-4 shrink-0" style={{ color:'var(--color-primary)' }} />
+                  <span className="flex-1 truncate">{other.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

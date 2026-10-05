@@ -2605,3 +2605,75 @@ pub async fn check_instance_target_mod_compatibility(
     }
     Ok(result)
 }
+
+/// Копирует выбранные моды в другую сборку или переносит их туда.
+///
+/// `move: true` — перенос (в исходной сборке файлы уходят в корзину через
+/// обычный путь восстановления), `move: false` — копирование, исходная
+/// сборка не трогается.
+///
+/// Имя файла проверяется: в нём не должно быть разделителей пути и `..`,
+/// иначе через подделанный аргумент можно было бы писать за пределы папки
+/// сборки.
+#[tauri::command]
+pub async fn transfer_mods(
+    from_instance_id: String,
+    to_instance_id: String,
+    files: Vec<String>,
+    mod_type: Option<String>,
+    move_files: bool,
+) -> Result<Vec<String>, String> {
+    if from_instance_id == to_instance_id {
+        return Err("Исходная и целевая сборки совпадают.".into());
+    }
+    let kind = mod_type.unwrap_or_else(|| "mod".to_string());
+    let src_dir = mods_dir_for(&from_instance_id, &kind);
+    let dst_dir = mods_dir_for(&to_instance_id, &kind);
+    let mut done: Vec<String> = Vec::new();
+
+    for raw in files {
+        // Только имя файла: без разделителей и без выхода вверх.
+        let base = raw.trim().trim_end_matches(".disabled");
+        if base.is_empty()
+            || base.contains('/')
+            || base.contains('\\')
+            || base.contains("..")
+        {
+            continue;
+        }
+        let (source, was_disabled) = {
+            let active = src_dir.join(base);
+            let disabled = src_dir.join(format!("{base}.disabled"));
+            if active.exists() {
+                (active, false)
+            } else if disabled.exists() {
+                (disabled, true)
+            } else {
+                continue;
+            }
+        };
+        let target_name = if was_disabled {
+            format!("{base}.disabled")
+        } else {
+            base.to_string()
+        };
+        let target = dst_dir.join(&target_name);
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+        if std::fs::copy(&source, &target).is_err() {
+            continue;
+        }
+        if move_files {
+            // Убираем из исходной сборки тем же путём, что и remove_mod, чтобы
+            // файл можно было восстановить из «Удалённых».
+            let _ = move_instance_content_to_recovery(&from_instance_id, source, &kind, was_disabled);
+        }
+        done.push(target_name);
+    }
+
+    if done.is_empty() {
+        return Err("Ни один файл не перенесён: проверь имена и тип содержимого.".into());
+    }
+    Ok(done)
+}

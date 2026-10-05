@@ -137,12 +137,21 @@ const TYPE_DEFS: Record<ProjectType, { modrinthFacet: string; cfClass: number; l
  * раздел Java (`/minecraft/...`), а такой адреса не существует — CurseForge
  * отдавал 404.
  */
-const BEDROCK_CATEGORIES: { slug: string; label: string; fallbackClass: number; icon: any }[] = [
-  { slug: 'addons', label: 'Addons', fallbackClass: 5, icon: Package },
-  { slug: 'maps', label: 'Maps', fallbackClass: 3, icon: Map },
-  { slug: 'texture-packs', label: 'Texture Packs', fallbackClass: 4, icon: ImageIcon },
-  { slug: 'scripts', label: 'Scripts', fallbackClass: 7, icon: Sparkles },
-  { slug: 'skins', label: 'Skins', fallbackClass: 10, icon: Package },
+// Категории Bedrock на CurseForge. Числа fallbackClass — это classId из
+// таксономии игры Minecraft (Java): 5 = Mods, 3 = Maps и так далее. Для
+// Bedrock у CurseForge своя нумерация, а эндпоинт /v1/games/{bedrock}/categories
+// отдаёт 404, поэтому достоверных Bedrock classId у нас нет.
+//
+// Из-за этого classId в запрос НЕ передаётся: фильтр по Java-номеру в игре
+// Bedrock не совпадает ни с чем и поиск возвращал пустую выдачу. Вместо этого
+// показываем весь Bedrock-контент, а вкладка категории ведёт на сайт
+// CurseForge с уже применённым фильтром.
+const BEDROCK_CATEGORIES: { slug: string; label: string; fallbackClass: number | null; icon: any }[] = [
+  { slug: 'addons', label: 'Addons', fallbackClass: null, icon: Package },
+  { slug: 'maps', label: 'Maps', fallbackClass: null, icon: Map },
+  { slug: 'texture-packs', label: 'Texture Packs', fallbackClass: null, icon: ImageIcon },
+  { slug: 'scripts', label: 'Scripts', fallbackClass: null, icon: Sparkles },
+  { slug: 'skins', label: 'Skins', fallbackClass: null, icon: Package },
 ];
 
 /** Страница категории на CurseForge для раздела Bedrock. */
@@ -869,9 +878,10 @@ export function FindProjectsPage() {
   }, [bedrockMode, bedrockTax, cfApiKey]);
 
   // Активная категория Bedrock: настоящий classId из таксономии, иначе fallback.
-  const bedrockClassId = bedrockTax?.classes?.[bedrockCat]
-    ?? BEDROCK_CATEGORIES.find(c => c.slug === bedrockCat)?.fallbackClass
-    ?? 5;
+  // classId у Bedrock намеренно не передаётся: номера категорий там свои, а
+  // взять их неоткуда (см. BEDROCK_CATEGORIES). Фильтр по java-номеру давал
+  // пустую выдачу. Ищем по gameId, этого достаточно, чтобы список был не пуст.
+  const bedrockClassId = bedrockTax?.classes?.[bedrockCat] ?? null;
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortOrder>('relevance');
   const [view, setView] = useState<'grid'|'list'>('list');

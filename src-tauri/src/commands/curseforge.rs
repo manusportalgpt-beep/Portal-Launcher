@@ -532,25 +532,18 @@ pub async fn get_bedrock_curseforge_taxonomy(
         .and_then(|g| g["id"].as_u64())
         .ok_or("CurseForge: игра 'Minecraft Bedrock' не найдена в /v1/games — возможно, API-ключ не даёт к ней доступа.")?;
 
-    // Категории игр в CurseForge получить негде: эндпоинта
-    // /v1/games/{id}/categories не существует, он отвечает 404. Раньше
-    // таксономия строилась на нём, поэтому в интерфейсе постоянно висела
-    // ошибка, а категории всё равно брались из запасного списка.
+
+    // Категории Bedrock у CurseForge пронумерованы иначе, чем у Java, а
+    // эндпоинт /v1/games/{id}/categories для Bedrock отдаёт 404. Раньше здесь
+    // возвращались номера из таксономии Java (5 = Mods, 3 = Maps...), и
+    // интерфейс фильтровал Bedrock-поиск по этим номерам. В игре Bedrock таких
+    // classId нет, поэтому выдача была пустой.
     //
-    // Теперь gameId как прежде уточняется по /v1/games (эндпоинт живой и
-    // отдаёт настоящий id игры), а classId берётся из проверенной таблицы.
-    // Слаги совпадают с настоящими адресами разделов на сайте:
-    // https://www.curseforge.com/minecraft-bedrock/search?class=<slug>
-    let classes: std::collections::HashMap<String, u64> = [
-        ("addons", 5u64),
-        ("maps", 3),
-        ("texture-packs", 4),
-        ("scripts", 7),
-        ("skins", 10),
-    ]
-    .into_iter()
-    .map(|(slug, id)| (slug.to_string(), id))
-    .collect();
+    // Возвращаем пустую карту: интерфейс тогда не передаёт classId вовсе и
+    // показывает весь Bedrock-контент. Категория как вкладка ведёт на сайт
+    // CurseForge, где фильтр уже применён по slug.
+    let classes: std::collections::HashMap<String, u64> =
+        std::collections::HashMap::new();
 
     Ok(BedrockTaxonomy { game_id, classes })
 }

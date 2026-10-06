@@ -264,10 +264,6 @@ pub async fn install_bedrock_content(
             ))
         }
     };
-    let bytes = resp
-        .bytes()
-        .await
-        .map_err(|e| format!("Чтение файла: {e}"))?;
 
     let lower = file_name.to_lowercase();
     let base_name = file_name

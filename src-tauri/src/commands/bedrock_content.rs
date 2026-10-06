@@ -87,28 +87,38 @@ fn extract_mcpack(
         zip::ZipArchive::new(reader).map_err(|e| format!("Не читается .mcpack: {e}"))?;
 
     // Ищем манифест: сначала в корне, иначе — в первой же вложенной папке.
-    let mut root_prefix = String::new();
-    let manifest: serde_json::Value = match archive.by_name("manifest.json") {
+//
+// Пробуем корень ОТДЕЛЬНЫМ match и сразу выходим из него. Раньше поиск вложенного
+// манифеста был прямо в ветке Err того же match, и временный Result<ZipFile>
+// от archive.by_name удерживал изменяемую ссылку до конца match — вложенный
+// by_index давал E0499. Теперь к моменту второго поиска заимствование уже
+// завершено.
+let root_manifest: Option<serde_json::Value> = match archive.by_name("manifest.json") {
         Ok(mut f) => {
             let mut s = String::new();
             f.read_to_string(&mut s).map_err(|e| e.to_string())?;
-            serde_json::from_str(&s).map_err(|e| format!("manifest.json битый: {e}"))?
+            Some(serde_json::from_str(&s).map_err(|e| format!("manifest.json битый: {e}"))?)
         }
-        Err(_) => {
-            let nested: Option<String> = (0..archive.len()).find_map(|i| {
-                let entry = archive.by_index(i).ok()?;
-                let name = entry.name().to_string();
-                if entry.is_dir() || !name.ends_with("manifest.json") {
-                    return None;
-                }
-                match name.rfind('/') {
-                    Some(pos) if pos > 0 => Some(name[..=pos].to_string()),
-                    _ => None,
-                }
-            });
-            let prefix = nested.ok_or(
-                "В .mcpack нет manifest.json — это не валидный Bedrock-пак".to_string(),
-            )?;
+        Err(_) => None,
+    };
+
+    let mut root_prefix = String::new();
+    let manifest: serde_json::Value = match root_manifest {
+        Some(value) => value,
+        None => {
+            let prefix = (0..archive.len())
+                .find_map(|i| {
+                    let entry = archive.by_index(i).ok()?;
+                    let name = entry.name().to_string();
+                    if entry.is_dir() || !name.ends_with("manifest.json") {
+                        return None;
+                    }
+                    match name.rfind('/') {
+                        Some(pos) if pos > 0 => Some(name[..=pos].to_string()),
+                        _ => None,
+                    }
+                })
+                .ok_or("В .mcpack нет manifest.json — это не валидный Bedrock-пак".to_string())?;
             let mut f = archive
                 .by_name(&format!("{prefix}manifest.json"))
                 .map_err(|e| format!("Не читается manifest.json: {e}"))?;

@@ -70,7 +70,13 @@ fn safe_dir_name(name: &str) -> String {
         .to_string()
 }
 
-/// Извлекает один .mcpack (zip с manifest.json в корне) в нужную подпапку com.mojang.
+/// Извлекает один .mcpack в нужную подпапку com.mojang.
+///
+/// Раньше manifest.json искался строго в корне архива, и любой .mcpack с
+/// вложенной структурой (а такие встречаются на CurseForge постоянно) отвергался
+/// с «не валидный Bedrock-пак». Теперь, как и в extract_mcaddon, допускается
+/// один уровень вложенности: если в корне манифеста нет, ищем
+/// `<папка>/manifest.json` и вытаскиваем содержимое этой папки.
 fn extract_mcpack(
     bytes: &[u8],
     com_mojang: &PathBuf,
@@ -80,13 +86,37 @@ fn extract_mcpack(
     let mut archive =
         zip::ZipArchive::new(reader).map_err(|e| format!("Не читается .mcpack: {e}"))?;
 
-    let manifest: serde_json::Value = {
-        let mut f = archive
-            .by_name("manifest.json")
-            .map_err(|_| "В .mcpack нет manifest.json — это не валидный Bedrock-пак".to_string())?;
-        let mut s = String::new();
-        f.read_to_string(&mut s).map_err(|e| e.to_string())?;
-        serde_json::from_str(&s).map_err(|e| format!("manifest.json битый: {e}"))?
+    // Ищем манифест: сначала в корне, иначе — в первой же вложенной папке.
+    let mut root_prefix = String::new();
+    let manifest: serde_json::Value = match archive.by_name("manifest.json") {
+        Ok(mut f) => {
+            let mut s = String::new();
+            f.read_to_string(&mut s).map_err(|e| e.to_string())?;
+            serde_json::from_str(&s).map_err(|e| format!("manifest.json битый: {e}"))?
+        }
+        Err(_) => {
+            let nested: Option<String> = (0..archive.len()).find_map(|i| {
+                let entry = archive.by_index(i).ok()?;
+                let name = entry.name().to_string();
+                if entry.is_dir() || !name.ends_with("manifest.json") {
+                    return None;
+                }
+                match name.rfind('/') {
+                    Some(pos) if pos > 0 => Some(name[..=pos].to_string()),
+                    _ => None,
+                }
+            });
+            let prefix = nested.ok_or(
+                "В .mcpack нет manifest.json — это не валидный Bedrock-пак".to_string(),
+            )?;
+            let mut f = archive
+                .by_name(&format!("{prefix}manifest.json"))
+                .map_err(|e| format!("Не читается manifest.json: {e}"))?;
+            let mut s = String::new();
+            f.read_to_string(&mut s).map_err(|e| e.to_string())?;
+            root_prefix = prefix;
+            serde_json::from_str(&s).map_err(|e| format!("manifest.json битый: {e}"))?
+        }
     };
 
     let subfolder = target_subfolder_for_manifest(&manifest);
@@ -100,7 +130,18 @@ fn extract_mcpack(
         if entry.is_dir() {
             continue;
         }
-        let out_path = out_dir.join(entry.name());
+        // При вложенной структуре в out_dir тащим только содержимое этой папки.
+        let relative = if root_prefix.is_empty() {
+            entry.name().to_string()
+        } else if let Some(stripped) = entry.name().strip_prefix(&root_prefix) {
+            stripped.to_string()
+        } else {
+            continue;
+        };
+        if relative.is_empty() {
+            continue;
+        }
+        let out_path = out_dir.join(&relative);
         if let Some(p) = out_path.parent() {
             std::fs::create_dir_all(p).ok();
         }

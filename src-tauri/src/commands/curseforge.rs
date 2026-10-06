@@ -452,7 +452,10 @@ pub async fn get_curseforge_file_download_url(
             .await;
             match file_resp {
                 Ok(fr) => {
-                    let fname = fr["data"]["fileName"].as_str().unwrap_or("mod.jar");
+                    let fname_raw = fr["data"]["fileName"].as_str().unwrap_or("mod.jar");
+                    // Пробелы и скобки в имени файла ломают URL: у Bedrock-аддонов
+                    // имена вида «My Addon (v2).mcaddon» встречаются постоянно.
+                    let fname = urlencoding::encode(fname_raw).to_string();
                     format!(
                         "https://edge.curseforgecdn.com/files/{}/{}/{}",
                         part1, part2, fname
@@ -478,7 +481,10 @@ pub async fn get_curseforge_file_download_url(
             .await;
             match file_resp {
                 Ok(fr) => {
-                    let fname = fr["data"]["fileName"].as_str().unwrap_or("mod.jar");
+                    let fname_raw = fr["data"]["fileName"].as_str().unwrap_or("mod.jar");
+                    // Пробелы и скобки в имени файла ломают URL: у Bedrock-аддонов
+                    // имена вида «My Addon (v2).mcaddon» встречаются постоянно.
+                    let fname = urlencoding::encode(fname_raw).to_string();
                     format!(
                         "https://edge.curseforgecdn.com/files/{}/{}/{}",
                         part1, part2, fname

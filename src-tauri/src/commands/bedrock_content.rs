@@ -220,12 +220,50 @@ pub async fn install_bedrock_content(
 ) -> Result<BedrockInstallResult, String> {
     let com_mojang = com_mojang_dir(&family)?;
 
-    let resp = reqwest::get(&download_url)
-        .await
-        .map_err(|e| format!("Скачивание: {e}"))?;
-    if !resp.status().is_success() {
-        return Err(format!("Скачивание не удалось: HTTP {}", resp.status()));
+    // Раньше файл качался ровно по одному адресу, и если основной хост CDN
+    // отдавал 403 или 404, установка падала. У CurseForge три зеркала одного
+    // хранилища, поэтому перебираем их по очереди — как уже сделано для
+    // Java-файлов в curseforge.rs.
+    let hosts = [
+        "edge.curseforgecdn.com",
+        "edge.forgecdn.net",
+        "mediafilez.forgecdn.net",
+    ];
+    let mut urls: Vec<String> = Vec::new();
+    for host in hosts {
+        let swapped = download_url
+            .replacen("edge.curseforgecdn.com", host, 1)
+            .replacen("edge.forgecdn.net", host, 1)
+            .replacen("mediafilez.forgecdn.net", host, 1);
+        urls.push(swapped);
     }
+    if !urls.iter().any(|u| u == &download_url) {
+        urls.insert(0, download_url.clone());
+    }
+
+    let mut bytes: Option<Vec<u8>> = None;
+    let mut last_err = String::new();
+    for url in urls {
+        match reqwest::get(&url).await {
+            Ok(resp) if resp.status().is_success() => match resp.bytes().await {
+                Ok(b) => {
+                    bytes = Some(b.to_vec());
+                    break;
+                }
+                Err(e) => last_err = format!("чтение ответа: {e}"),
+            },
+            Ok(resp) => last_err = format!("HTTP {}", resp.status()),
+            Err(e) => last_err = format!("{e}"),
+        }
+    }
+    let bytes = match bytes {
+        Some(b) => b,
+        None => {
+            return Err(format!(
+                "Не удалось скачать файл ни с одного зеркала CurseForge: {last_err}"
+            ))
+        }
+    };
     let bytes = resp
         .bytes()
         .await

@@ -405,8 +405,33 @@ fn include_neoforge_runtime(profile: &mut serde_json::Value) {
     }
 
     // NeoForge 1.21.5+ may produce a patched client JAR (:client classifier)
-    // instead of embedding it in the universal jar. The game needs this on the
-    // classpath to find patched Minecraft classes.
+    // instead of embedding it in the universal jar.
+    //
+    // Но добавлять его на classpath можно НЕ ВСЕГДА, и это и есть причина
+    // «Duplicate key ...-client.jar».
+    //
+    // Официальный профиль NeoForge (проверено на 21.1.256) содержит в
+    // arguments.jvm:
+    //   -DlibraryDirectory=${library_directory}
+    //   -DignoreList=client-extra,${version_name}.jar
+    //   -p <bootstraplauncher, securejarhandler, asm, JarJarFileSystems>
+    // и НЕ перечисляет :client среди libraries — FML сам находит этот jar в
+    // libraryDirectory. Мы дописывали :client в libraries, откуда он попадал
+    // в -cp, и FML находил его же при обходе libraryDirectory. Один файл
+    // дважды с разными FileChannel — Collectors.toMap падал до загрузки модов.
+    //
+    // Поэтому при наличии -DlibraryDirectory вход добавляться не должен:
+    // classpath тут вообще лишний, библиотеки FML разрешает сам.
+    let uses_library_directory = profile["arguments"]["jvm"]
+        .as_array()
+        .map(|args| {
+            args.iter().any(|arg| {
+                arg.as_str()
+                    .map(|value| value.contains("library_directory"))
+                    .unwrap_or(false)
+            })
+        })
+        .unwrap_or(false);
     let client_coord = format!("net.neoforged:neoforge:{version}:client");
     let client_path = format!("net/neoforged/neoforge/{version}/neoforge-{version}-client.jar");
     // Ищем и по имени координаты, и по пути файла.
@@ -428,7 +453,7 @@ fn include_neoforge_runtime(profile: &mut serde_json::Value) {
             .unwrap_or(false);
         by_name || by_path
     });
-    if !has_client {
+    if !has_client && !uses_library_directory {
         let client_jar = neoforge_base.join(format!("neoforge-{version}-client.jar"));
         if client_jar.is_file() {
             let entry = serde_json::json!({

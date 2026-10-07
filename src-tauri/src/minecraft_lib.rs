@@ -405,11 +405,21 @@ fn build_classpath(
     libraries_dir: &Path,
 ) -> Result<Vec<String>, String> {
     let mut cp = Vec::new();
+    // Один и тот же путь на classpath недопустим: NeoForge (FML) собирает
+    // classpath через Collectors.toMap ПО ПУТИ ФАЙЛА, и повтор даёт
+    // «Duplicate key ...\neoforge-<верс>-client.jar» до загрузки модов.
+    //
+    // Здесь дедупликации не было вовсе: jar игры и каждая библиотека
+    // добавлялись вслепую. Если профиль загрузчика перечисляет один артефакт
+    // дважды — например, один и тот же client-jar без classifier и с :client —
+    // обе записи доходили до запуска.
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     // Добавляем main Minecraft jar
     let version_jar = versions_dir.join(version).join(format!("{}.jar", version));
     if version_jar.exists() {
         cp.push(version_jar.to_string_lossy().to_string());
+        seen.insert(version_jar.to_string_lossy().to_string());
     } else {
         return Err(format!("Minecraft jar not found: {:?}", version_jar));
     }
@@ -473,7 +483,10 @@ fn build_classpath(
                                 if let Some(path) = artifact.get("path").and_then(|p| p.as_str()) {
                                     let lib_path = libraries_dir.join(path);
                                     if lib_path.exists() {
-                                        cp.push(lib_path.to_string_lossy().to_string());
+                                        let entry = lib_path.to_string_lossy().to_string();
+                                        if seen.insert(entry.clone()) {
+                                            cp.push(entry);
+                                        }
                                     }
                                     continue;
                                 }
@@ -502,7 +515,10 @@ fn build_classpath(
                                     if let Some(path) = nat.get("path").and_then(|p| p.as_str()) {
                                         let lib_path = libraries_dir.join(path);
                                         if lib_path.exists() {
-                                            cp.push(lib_path.to_string_lossy().to_string());
+                                            let entry = lib_path.to_string_lossy().to_string();
+                                            if seen.insert(entry.clone()) {
+                                                cp.push(entry);
+                                            }
                                         }
                                     }
                                 }
@@ -520,6 +536,30 @@ fn build_classpath(
         version_jar.exists(),
         cp.len().saturating_sub(1)
     );
+    // Дубль на classpath роняет NeoForge до загрузки модов, а понять по
+    // логу, какой именно файл повторился, иначе невозможно. Считаем ещё раз
+    // и пишем все повторы — если их ноль, значит дубль приходит не отсюда.
+    {
+        let mut counts: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
+        for entry in &cp {
+            *counts.entry(entry.clone()).or_insert(0) += 1;
+        }
+        let duplicates: Vec<String> = counts
+            .into_iter()
+            .filter(|(_, n)| *n > 1)
+            .map(|(path, n)| format!("x{n} {path}"))
+            .collect();
+        if duplicates.is_empty() {
+            log::info!("🔍 Classpath: дублей нет");
+        } else {
+            log::warn!(
+                "🔍 Classpath: найдено дублей {}: {}",
+                duplicates.len(),
+                duplicates.join(" | ")
+            );
+        }
+    }
 
     Ok(cp)
 }

@@ -14,6 +14,13 @@ pub struct CfLogo {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CfCategory {
     pub name: String,
+    /// Слаг категории (addons, maps, texture-packs...). Раньше его не было, и
+    /// поэтому вкладки Bedrock невозможно было различить: все показывали одно
+    /// и то же. По слагу фильтруем на клиенте, classId у Bedrock недоступен.
+    #[serde(default)]
+    pub slug: String,
+    #[serde(default)]
+    pub id: u64,
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CfScreenshot {
@@ -96,9 +103,11 @@ fn parse_mod(m: &serde_json::Value) -> CurseforgeMod {
             .as_array()
             .map(|a| {
                 a.iter()
-                    .map(|c| CfCategory {
-                        name: c["name"].as_str().unwrap_or("").to_string(),
-                    })
+.map(|c| CfCategory {
+        name: c["name"].as_str().unwrap_or("").to_string(),
+        slug: c["slug"].as_str().unwrap_or("").to_string(),
+        id: c["id"].as_u64().unwrap_or(0),
+    })
                     .collect()
             })
             .unwrap_or_default(),

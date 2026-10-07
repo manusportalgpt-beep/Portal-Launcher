@@ -80,7 +80,7 @@ interface CfMod {
   authors: { id?: number; name: string; avatar_url?: string }[];
   download_count: number; thumbs_up_count: number;
   logo?: { thumbnail_url: string };
-  categories: { name: string }[];
+  categories: { name: string; slug?: string }[];
   latest_files_indexes: { game_version: string; mod_loader_type: number }[];
   date_modified: string; slug: string;
 }
@@ -88,7 +88,10 @@ interface CfResult { data: CfMod[]; pagination: { total_count: number }; reachab
 interface Project {
   id: string; slug: string; title: string; description: string;
   author: string; authorId?: number; authorAvatarUrl?: string; downloads: number; follows: number; iconUrl?: string;
-  categories: string[]; gameVersions: string[]; loaders: string[];
+  categories: string[];
+  /** Слаги категорий CurseForge — по ним фильтруются вкладки Bedrock. */
+  categorySlugs?: string[];
+  gameVersions: string[]; loaders: string[];
   dateModified: string; platform: Platform; projectType: ProjectType;
   classId?: number;
   sources?: SourcePlatform[];
@@ -1012,6 +1015,7 @@ export function FindProjectsPage() {
       author: (m.authors ?? [])[0]?.name ?? 'Неизвестный автор', authorId: (m.authors ?? [])[0]?.id, authorAvatarUrl: (m.authors ?? [])[0]?.avatar_url, downloads: m.download_count ?? 0, follows: m.thumbs_up_count ?? 0,
       iconUrl: m.logo?.thumbnail_url,
       categories: (m.categories ?? []).map(c => c.name),
+      categorySlugs: (m.categories ?? []).map(c => c.slug ?? '').filter(Boolean),
       gameVersions: [...new Set((m.latest_files_indexes ?? []).map(f => f.game_version).filter(Boolean))],
       loaders: [...new Set((m.latest_files_indexes ?? []).map(f => lmap[f.mod_loader_type]||'unknown').filter(l=>l!=='any'))],
       dateModified: m.date_modified, platform: 'curseforge',
@@ -1033,9 +1037,19 @@ export function FindProjectsPage() {
         sortField,
         apiKey: cfApiKey,
       });
-      const mapped = (res.data || []).map(m => fromCurseForge(m, pt));
+      const mappedAll = (res.data || []).map(m => fromCurseForge(m, pt));
+      // Фильтр по вкладке делаем на клиенте по слагам категорий. classId у
+      // Bedrock недоступны (эндпоинт таксономии отдаёт 404), а отдавать все
+      // вкладки одинаковыми тоже нельзя было — поэтому CurseForge отдаёт в
+      // каждом проекте список категорий со слагами, и мы режем выдачу сами.
+      const activeSlugs = new Set(
+        BEDROCK_CATEGORIES.filter(c => c.slug === bedrockCat).map(c => c.slug),
+      );
+      const mapped = activeSlugs.size === 1
+        ? mappedAll.filter(p => (p.categorySlugs ?? []).some(s => activeSlugs.has(s)))
+        : mappedAll;
       setResults(pg === 0 ? mapped : previous => dedupeCombinedProjects([...previous, ...mapped]));
-      setTotal(res.pagination?.total_count ?? 0);
+      setTotal(activeSlugs.size === 1 ? mapped.length : (res.pagination?.total_count ?? 0));
       setReachableTotal(res.reachable_count ?? null);
       setCapped(!!res.capped);
       setNetError(false);

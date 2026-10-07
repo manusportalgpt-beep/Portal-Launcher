@@ -1542,6 +1542,20 @@ pub async fn preview_remote_modpack(
         )
         .ok();
     };
+    // Ключ CurseForge берём не только из аргумента: LibraryPage вызывает это
+    // с apiKey: null, и раньше ветка CurseForge молча пропускалась. Из-за
+    // этого все записи оставались с заглушкой «Loading metadata…» до
+    // повторного открытия манифеста. Фолбэк в настройки — как в
+    // resolve_api_key у curseforge.rs.
+    let resolved_api_key = api_key
+        .map(|k| k.trim().to_string())
+        .filter(|k| !k.is_empty())
+        .unwrap_or_else(super::settings::read_curseforge_api_key);
+    let api_key: Option<String> = if resolved_api_key.is_empty() {
+        None
+    } else {
+        Some(resolved_api_key)
+    };
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(120))
         .user_agent("PortalLauncher/1.3")

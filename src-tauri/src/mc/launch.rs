@@ -956,6 +956,32 @@ pub async fn launch_instance(
     }
     let classpath_str = classpath.join(sep());
 
+    // Отчёт в файл, а не в log: stderr из Tauri-приложения никуда не
+    // попадает, поэтому прошлый вариант диагностики был не виден нигде.
+    // Файл лежит рядом с логами сборки и читается после неудачного запуска.
+    {
+        let mut counts: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
+        for entry in &classpath {
+            *counts.entry(entry.to_lowercase()).or_insert(0) += 1;
+        }
+        let duplicates: Vec<String> = counts
+            .into_iter()
+            .filter(|(_, n)| *n > 1)
+            .map(|(path, n)| format!("x{n} {path}"))
+            .collect();
+        let report = format!(
+            "Classpath: {} записей.\nДубликатов в classpath: {}\n{}\n\nПолный список:\n{}",
+            classpath.len(),
+            duplicates.len(),
+            duplicates.join("\n"),
+            classpath.iter().map(|e| format!("  {e}")).collect::<Vec<_>>().join("\n")
+        );
+        let logs_dir = game_dir.join("portal-logs");
+        std::fs::create_dir_all(&logs_dir).ok();
+        std::fs::write(logs_dir.join("classpath-report.txt"), &report).ok();
+    }
+
     let asset_index = version["assetIndex"]["id"]
         .as_str()
         .or(version["assets"].as_str())

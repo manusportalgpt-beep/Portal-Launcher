@@ -408,11 +408,25 @@ fn include_neoforge_runtime(profile: &mut serde_json::Value) {
     // instead of embedding it in the universal jar. The game needs this on the
     // classpath to find patched Minecraft classes.
     let client_coord = format!("net.neoforged:neoforge:{version}:client");
+    let client_path = format!("net/neoforged/neoforge/{version}/neoforge-{version}-client.jar");
+    // Ищем и по имени координаты, и по пути файла.
+    //
+    // Раньше проверка шла только по строке `name`. Профиль NeoForge 21.1.256
+    // перечисляет этот же jar без classifier, поэтому проверка не срабатывала,
+    // и мы дописывали вторую запись на тот же файл. Две библиотеки с разными
+    // координатами и одинаковым путём проходили дедупликацию по координате,
+    // и FML падал на Collectors.toMap с «Duplicate key ...-client.jar» ещё до
+    // загрузки модов.
     let has_client = libraries.iter().any(|library| {
-        library["name"]
+        let by_name = library["name"]
             .as_str()
             .map(|name| name.trim_end_matches("@jar") == client_coord)
-            .unwrap_or(false)
+            .unwrap_or(false);
+        let by_path = library["downloads"]["artifact"]["path"]
+            .as_str()
+            .map(|path| path == client_path)
+            .unwrap_or(false);
+        by_name || by_path
     });
     if !has_client {
         let client_jar = neoforge_base.join(format!("neoforge-{version}-client.jar"));
@@ -422,7 +436,7 @@ fn include_neoforge_runtime(profile: &mut serde_json::Value) {
                 "url": "https://maven.neoforged.net/releases/",
                 "downloads": {
                     "artifact": {
-                        "path": format!("net/neoforged/neoforge/{version}/neoforge-{version}-client.jar"),
+                        "path": client_path,
                         "url": format!("https://maven.neoforged.net/releases/net/neoforged/neoforge/{version}/neoforge-{version}-client.jar"),
                         "size": std::fs::metadata(&client_jar).map(|m| m.len()).unwrap_or(0),
                     }

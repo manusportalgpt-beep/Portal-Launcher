@@ -355,6 +355,15 @@ fn classpath_library_key(coordinate: &str) -> Option<String> {
 fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
     let mut cp: Vec<String> = Vec::new();
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    // Отдельно держим уже занятые ФАЙЛЫ, а не только координаты.
+    //
+    // NeoForge 21.1.256 и его профиль перечисляют один и тот же client-jar под
+    // разными координатами (без classifier и с :client). По координате они
+    // разные, оба попадали в classpath, и FML падал на
+    // Collectors.toMap с «Duplicate key ...neoforge-21.1.256-client.jar»
+    // ещё до загрузки модов. Один и тот же путь на classpath допустим только
+    // один раз, поэтому проверяем именно его.
+    let mut seen_paths: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for lib in collect_libraries(version) {
         if lib.native {
@@ -376,7 +385,7 @@ fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
         // библиотеки — она пропускалась молча. Итог: classpath собирался
         // неполным, Minecraft падал с ClassNotFoundException/NoClassDefFoundError
         // именно на сборках с загрузчиками (Fabric/Forge/Quilt).
-        if lib.path.exists() && seen.insert(key) {
+        if lib.path.exists() && seen.insert(key) && seen_paths.insert(p.clone()) {
             cp.push(p);
         }
     }
@@ -399,7 +408,7 @@ fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
         // добавляем патченный клиент вручную, чтобы он гарантированно попал
         // на classpath (того ждёт старый FML-механизм joined-конфига).
         let patched_str = patched.to_string_lossy().to_string();
-        if !cp.iter().any(|entry| *entry == patched_str) {
+        if !cp.iter().any(|entry| *entry == patched_str) && seen_paths.insert(patched_str.clone()) {
             cp.push(patched_str);
         }
     }
@@ -415,7 +424,10 @@ fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
         true
     };
     if jar.exists() && need_vanilla {
-        cp.push(jar.to_string_lossy().to_string());
+        let jar_str = jar.to_string_lossy().to_string();
+        if !cp.iter().any(|entry| *entry == jar_str) {
+            cp.push(jar_str);
+        }
     }
     cp
 }

@@ -13,6 +13,7 @@ import {
   Rocket, Download, Clock,
 } from 'lucide-react';
 import { invoke } from '@/lib/invoke-shim';
+import { toIconSrc } from '@/lib/icon-src';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useCurrentUser, useIsAuthenticated, useAuthStore } from '@/stores/authStore';
@@ -24,7 +25,7 @@ import { AccentColorPicker } from '@/components/AccentColorPicker';
 import { ONBOARDING_BACKGROUNDS } from '@/lib/onboarding-backgrounds';
 import { useUiStore } from '@/stores/uiStore';
 import { useLayoutStore, type LayoutMode } from '@/stores/layoutStore';
-import { readThemeFile } from '@/lib/ui-engine';
+import { readThemeFile, prismThemeToCss, type PrismTheme } from '@/lib/ui-engine';
 import { UI_CSS_VARS } from '@/lib/ui-css-vars';
 import { removeBackgroundMedia, saveBackgroundMedia } from '@/lib/background-media';
 import { openBrowserWindow } from '@/lib/browser';
@@ -324,6 +325,30 @@ function AppearanceSection() {
   const backgroundVideoFileRef = useRef<HTMLInputElement | null>(null);
   const backgroundImageFileRef = useRef<HTMLInputElement | null>(null);
   const [cssDraft, setCssDraft] = useState(ui.customCss);
+  // Темы Prism и наши .prtheme в одном списке: папка Prism — это theme.json +
+  // файл стилей + resources с иконками, а не одиночный файл.
+  const [themes, setThemes] = useState<PrismTheme[]>([]);
+  useEffect(() => {
+    let alive = true;
+    invoke<PrismTheme[]>('list_prthemes')
+      .then(list => { if (alive && Array.isArray(list)) setThemes(list); })
+      .catch(() => { if (alive) setThemes([]); });
+    return () => { alive = false; };
+  }, [ui.customCssName]);
+
+  /** Применяет тему: палитра из theme.json превращается в наши переменные,
+   *  к ней добавляется собственный CSS темы. */
+  const applyPrismTheme = async (t: PrismTheme) => {
+    const css = prismThemeToCss(t);
+    ui.set('customCssOptOut', false);
+    ui.set('customCss', css);
+    ui.set('customCssName', t.name);
+    ui.set('customCssEnabled', true);
+    setCustomCssEnabled(true);
+    setCssDraft(css);
+    setCssSaved(true);
+    setTimeout(() => setCssSaved(false), 1800);
+  };
   const [cssSaved, setCssSaved] = useState(false);
 
   async function importVideo(file?: File | null) {
@@ -777,6 +802,34 @@ function AppearanceSection() {
         </div>
       </details>
 
+      {/* Темы: и наши плоские .prtheme, и папки Prism Launcher. */}
+      {themes.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-3">
+          {themes.map(t => {
+            const active = ui.customCssName === t.name;
+            return (
+              <button key={t.id} onClick={() => applyPrismTheme(t)} title={t.is_prism_folder ? `Папка Prism: ${t.file}` : t.file}
+                className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs font-bold transition-all"
+                style={{
+                  background: active ? 'var(--color-primary)' : 'var(--color-surface-2)',
+                  color: active ? 'var(--color-primary-text)' : 'var(--color-text-secondary)',
+                  border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                }}>
+                {t.icon ? (
+                  <img src={toIconSrc(t.icon)} alt="" className="h-5 w-5 rounded object-cover" />
+                ) : t.accent ? (
+                  <span className="h-4 w-4 rounded" style={{ background: t.accent }} />
+                ) : (
+                  <Palette className="h-4 w-4" />
+                )}
+                <span className="max-w-[160px] truncate">{t.name}</span>
+                {t.is_prism_folder && <span className="text-[9px] opacity-70">Prism</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <textarea value={cssDraft} onChange={e => { setCssDraft(e.target.value); setCssSaved(false); }}
         spellCheck={false} rows={10}
         placeholder={':root { --color-primary: #DA2A3F; }\n.scroll-area { padding: 12px; }'}
@@ -791,7 +844,18 @@ function AppearanceSection() {
           style={{ background: cssSaved ? 'rgba(46,204,113,0.15)' : 'var(--color-primary)', color: cssSaved ? '#2ECC71' : 'var(--color-primary-text)' }}>
           {cssSaved ? <><Check className="w-3.5 h-3.5" />Применено</> : <><Save className="w-3.5 h-3.5" />Применить CSS</>}
         </button>
-        <button onClick={() => { ui.set('customCss', ''); ui.set('customCssName', ''); setCssDraft(''); }}
+        <button onClick={async () => {
+            // Чистим не только состояние, но и файл: adoptUiCssFileFromDisk
+            // при пустом customCss заново читал custom.css с диска, и текст
+            // возвращался в поле сразу после очистки.
+            try { await invoke('clear_ui_css'); } catch (e) { console.warn('clear_ui_css failed', e); }
+            ui.set('customCssOptOut', true);
+            ui.set('customCssEnabled', false);
+            ui.set('customCss', '');
+            ui.set('customCssName', '');
+            setCssDraft('');
+            setCssSaved(false);
+          }}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold"
           style={{ background: 'rgba(231,76,60,0.1)', color: 'var(--color-error)' }}>
           <Trash2 className="w-3.5 h-3.5" />Очистить

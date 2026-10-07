@@ -25,6 +25,82 @@ export function readThemeFile(file: File): Promise<string> {
   });
 }
 
+/** Тема в формате Prism Launcher. */
+export interface PrismTheme {
+  id: string;
+  name: string;
+  css: string;
+  /** Палитра из theme.json: роли Qt в значениях вида #RRGGBB. */
+  palette: [string, string][];
+  /** Папка `resources` темы — там иконки и картинки. */
+  resources_dir?: string | null;
+  icon?: string | null;
+  is_prism_folder?: boolean;
+}
+
+/**
+ * Переводит роли палитры Qt из theme.json Prism в наши CSS-переменные.
+ *
+ * Prism оперирует ролями QPalette, у нас свои --color-*. Сопоставление
+ * взято по смыслу ролей, а не по совпадению имён: Window — это фон окна,
+ * Highlight — акцент, Base — поверхность полей ввода и так далее.
+ */
+const PRISM_ROLE_MAP: Record<string, string[]> = {
+  Window: ['--color-bg', '--color-background'],
+  WindowText: ['--color-text'],
+  Text: ['--color-text'],
+  ButtonText: ['--color-text'],
+  BrightText: ['--color-text'],
+  Base: ['--color-surface-2'],
+  AlternateBase: ['--color-surface'],
+  Button: ['--color-surface'],
+  ToolTipBase: ['--color-surface-2'],
+  ToolTipText: ['--color-text'],
+  Highlight: ['--color-primary'],
+  HighlightedText: ['--color-primary-text'],
+  Link: ['--color-primary'],
+};
+
+/**
+ * Qt понимает #AARRGGBB, CSS — #RRGGBB. Если в теме альфа приписана в начало
+ * (так пишет сам Qt), её надо убрать, иначе цвет станет другим.
+ */
+function normaliseQtColor(value: string): string | null {
+  const raw = value.trim();
+  if (!raw) return null;
+  if (/^#[0-9a-f]{8}$/i.test(raw)) {
+    return `#${raw.slice(3)}`;
+  }
+  if (/^#[0-9a-f]{3}$/i.test(raw) || /^#[0-9a-f]{6}$/i.test(raw)) return raw.toLowerCase();
+  // Названия цветов оставляем: браузер их понимает.
+  return /^[a-z]+$/i.test(raw) ? raw.toLowerCase() : null;
+}
+
+/** Собирает CSS из палитры темы Prism: переменные + её собственный стиль. */
+export function prismThemeToCss(theme: PrismTheme): string {
+  const lines: string[] = [];
+  const grouped: Record<string, string[]> = {};
+  for (const [role, value] of theme.palette ?? []) {
+    const colour = normaliseQtColor(value);
+    const targets = PRISM_ROLE_MAP[role];
+    if (!colour || !targets) continue;
+    for (const target of targets) {
+      (grouped[target] ??= []).push(colour);
+    }
+  }
+  const names = Object.keys(grouped);
+  if (names.length) {
+    lines.push(`:root {`);
+    for (const name of names) {
+      const values = [...new Set(grouped[name])];
+      lines.push(`  ${name}: ${values.join('; ')};`);
+    }
+    lines.push('}');
+    lines.push('');
+  }
+  return lines.join('\n') + (theme.css || '');
+}
+
 /** CSS-файл пользователя, найденный на диске. */
 export interface UiCssFile {
   css: string;

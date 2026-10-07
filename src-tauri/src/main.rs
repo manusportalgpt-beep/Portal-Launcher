@@ -242,6 +242,8 @@ fn main() {
             commands::themes::open_themes_folder,
             commands::themes::load_ui_css,
             commands::themes::save_ui_css,
+            commands::themes::clear_ui_css,
+            commands::themes::import_prism_theme,
             // Авторы модов
             commands::authors::get_modrinth_author,
             commands::authors::get_curseforge_author,

@@ -22,6 +22,118 @@ pub struct PrTheme {
     pub accent: Option<String>,
     pub css: String,
     pub file: String,
+    /// Цвета из `colors` манифеста темы Prism. Это палитра Qt-ролей
+    /// (Window, WindowText, Base, Highlight, ...), а не готовые CSS-переменные.
+    #[serde(default)]
+    pub palette: Vec<(String, String)>,
+    /// Путь к папке `resources` темы Prism — там лежат иконки и картинки.
+    #[serde(default)]
+    pub resources_dir: Option<String>,
+    /// Иконка темы для превью: первый файл в `resources` верхнего уровня.
+    #[serde(default)]
+    pub icon: Option<String>,
+    /// Папка это тема Prism (theme.json + qss + resources) или наш плоский
+    /// .prtheme-файл. От этого зависит, как она удаляется и импортируется.
+    #[serde(default)]
+    pub is_prism_folder: bool,
+}
+
+/// Цвет из `colors` манифеста Prism. Ключи — роли палитры Qt, значения — любой
+/// формат, который понимает Qt: #RGB, #RRGGBB, #AARRGGBB или название цвета.
+fn read_prism_colors(css: &str, key: &str) -> Vec<(String, String)> {
+    let mut out = vec![];
+    if let Ok(json) = serde_json::from_str::<serde_json::Value>(css) {
+        if let Some(colors) = json.get("colors").and_then(|v| v.as_object()) {
+            for (name, value) in colors {
+                if let Some(text) = value.as_str() {
+                    if !text.trim().is_empty() {
+                        out.push((name.clone(), text.trim().to_string()));
+                    }
+                }
+            }
+        }
+        // logColors держим отдельно: имена пересекаются с палитрой, но
+        // применяются к консоли, а не к интерфейсу.
+        let _ = key;
+    }
+    out
+}
+
+/// Первое изображение верхнего уровня `resources` — для превью темы.
+fn prism_theme_icon(theme_dir: &std::path::Path) -> Option<String> {
+    let res = theme_dir.join("resources");
+    let mut files: Vec<PathBuf> = std::fs::read_dir(&res)
+        .ok()?
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.is_file()
+                && matches!(
+                    p.extension().map(|e| e.to_string_lossy().to_lowercase()).as_deref(),
+                    Some("png") | Some("svg") | Some("webp") | Some("jpg") | Some("jpeg")
+                )
+        })
+        .collect();
+    files.sort();
+    files.first().map(|p| p.to_string_lossy().to_string())
+}
+
+/// Тема Prism: папка themes/<id> с theme.json, файлом стилей и resources.
+fn parse_prism_folder(theme_dir: &PathBuf) -> Option<PrTheme> {
+    let manifest_path = theme_dir.join("theme.json");
+    let json_text = std::fs::read_to_string(&manifest_path).ok()?;
+    let json: serde_json::Value = serde_json::from_str(&json_text).ok()?;
+
+    let id = theme_dir
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())?;
+    let name = json
+        .get("name")
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| id.clone());
+
+    // Путь к стилям задаётся в манифесте, по умолчанию themeStyle.css.
+    let qss_name = json
+        .get("qssFilePath")
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "themeStyle.css".to_string());
+    // Название файла может содержать подпапку — тогда склеиваем.
+    let qss_path = theme_dir.join(&qss_name);
+    let css = std::fs::read_to_string(&qss_path).unwrap_or_default();
+
+    let resources = theme_dir.join("resources");
+    let resources_dir = if resources.is_dir() {
+        Some(resources.to_string_lossy().to_string())
+    } else {
+        None
+    };
+    let icon = prism_theme_icon(theme_dir);
+
+    Some(PrTheme {
+        id: format!("prism:{id}"),
+        name,
+        author: None,
+        background: json
+            .get("colors")
+            .and_then(|c| c.get("Window"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        accent: json
+            .get("colors")
+            .and_then(|c| c.get("Highlight"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        palette: read_prism_colors(&json_text, "colors"),
+        resources_dir,
+        icon,
+        is_prism_folder: true,
+        css,
+        file: theme_dir.to_string_lossy().to_string(),
+    })
 }
 
 pub fn themes_dir() -> PathBuf {
@@ -46,6 +158,7 @@ fn meta(css: &str, key: &str) -> Option<String> {
     None
 }
 
+/// Плоский файл нашей разновидности темы: обычный CSS с шапкой метаданных.
 fn parse(path: &PathBuf) -> Option<PrTheme> {
     let css = std::fs::read_to_string(path).ok()?;
     let stem = path.file_stem()?.to_string_lossy().to_string();
@@ -55,6 +168,10 @@ fn parse(path: &PathBuf) -> Option<PrTheme> {
         author: meta(&css, "author"),
         background: meta(&css, "background"),
         accent: meta(&css, "accent"),
+        palette: vec![],
+        resources_dir: None,
+        icon: None,
+        is_prism_folder: false,
         css,
         file: path.to_string_lossy().to_string(),
     })
@@ -75,6 +192,24 @@ pub fn list_prthemes() -> Result<Vec<PrTheme>, String> {
             .unwrap_or_default();
         if ext == "prtheme" || ext == "css" {
             if let Some(t) = parse(&p) {
+                out.push(t);
+            }
+        }
+    }
+    // Темы Prism — это ПАПКИ: themes/<id>/theme.json + файл стилей +
+    // resources/ с иконками. Раньше мы проходили только по файлам в корне,
+    // поэтому папка с темой Prism молча игнорировалась, и в списке тем её
+    // просто не было. Заходим в каждый подкаталог с theme.json.
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if !p.is_dir() {
+                continue;
+            }
+            if !p.join("theme.json").is_file() {
+                continue;
+            }
+            if let Some(t) = parse_prism_folder(&p) {
                 out.push(t);
             }
         }
@@ -158,6 +293,61 @@ pub fn open_themes_folder() -> Result<(), String> {
     Ok(())
 }
 
+/// Удаляет CSS пользователя с диска.
+///
+/// Кнопка «Очистить» в настройках чистила только состояние в памяти, но файл
+/// `custom.css` оставался. Дальше adoptUiCssFileFromDisk при пустом customCss
+/// снова читал этот файл и возвращал текст в поле — выглядело так, будто
+/// очистка не сработала. Поэтому файл надо удалять, а не просто забыть.
+#[tauri::command]
+pub fn clear_ui_css() -> Result<Vec<String>, String> {
+    let base = crate::commands::version_manager::mc_base_dir();
+    let mut removed = vec![];
+    for name in ["custom.css", "portal.css", "ui.css"] {
+        let p = base.join(name);
+        if p.is_file() {
+            std::fs::remove_file(&p).map_err(|e| e.to_string())?;
+            removed.push(name.to_string());
+        }
+    }
+    Ok(removed)
+}
+
+/// Тема Prism вместе с её файлами — папка целиком.
+#[tauri::command]
+pub fn import_prism_theme(source_path: String) -> Result<PrTheme, String> {
+    let src = PathBuf::from(&source_path);
+    if !src.is_dir() {
+        return Err("Тема Prism — это папка с theme.json".into());
+    }
+    if !src.join("theme.json").is_file() {
+        return Err("В папке нет theme.json — это не тема Prism".into());
+    }
+    let name = src
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .ok_or("нет имени папки")?;
+    let dest = themes_dir().join(&name);
+    if dest.exists() {
+        std::fs::remove_dir_all(&dest).map_err(|e| e.to_string())?;
+    }
+    copy_dir_recursive(&src, &dest).map_err(|e| e.to_string())?;
+    parse_prism_folder(&dest).ok_or_else(|| "Не удалось прочитать тему".into())
+}
+
+fn copy_dir_recursive(from: &std::path::Path, to: &std::path::Path) -> Result<(), String> {
+    std::fs::create_dir_all(to).map_err(|e| e.to_string())?;
+    for entry in std::fs::read_dir(from).map_err(|e| e.to_string())?.flatten() {
+        let target = to.join(entry.file_name());
+        if entry.path().is_dir() {
+            copy_dir_recursive(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), &target).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 /// Готовый CSS пользователя, который лежит файлом на диске.
 ///
 /// Раньше CSS жил только в localStorage: файл, который пользователь положил
@@ -178,25 +368,12 @@ pub struct UiCssFile {
 #[tauri::command]
 pub fn load_ui_css() -> Result<Option<UiCssFile>, String> {
     let base = crate::commands::version_manager::mc_base_dir();
-    for name in ["custom.css", "portal.css", "ui.css"] {
-        let p = base.join(name);
-        if p.is_file() {
-            if let Ok(css) = std::fs::read_to_string(&p) {
-                return Ok(Some(UiCssFile {
-                    css,
-                    name: name.to_string(),
-                    path: p.to_string_lossy().to_string(),
-                    origin: "data".to_string(),
-                }));
-            }
-        }
-    }
-    // В папке тем берём самый свежий по времени изменения.
+    // Сначала папка themes. Раньше порядок был обратный, и из-за этого файл,
+    // который пользователь положил в themes/, переставал читаться, стоило один
+    // раз нажать «Сохранить файлом»: save_ui_css писал custom.css в корень
+    // данных, и тот навсегда перебивал папку тем при следующей загрузке.
     let mut best: Option<(std::time::SystemTime, PathBuf)> = None;
-    for entry in std::fs::read_dir(themes_dir())
-        .map_err(|e| e.to_string())?
-        .flatten()
-    {
+    for entry in std::fs::read_dir(themes_dir()).map_err(|e| e.to_string())?.flatten() {
         let p = entry.path();
         let ext = p
             .extension()
@@ -213,20 +390,33 @@ pub fn load_ui_css() -> Result<Option<UiCssFile>, String> {
             best = Some((modified, p));
         }
     }
-    let Some((_, path)) = best else {
-        return Ok(None);
-    };
-    let css = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_else(|| "custom.css".to_string());
-    Ok(Some(UiCssFile {
-        css,
-        name,
-        path: path.to_string_lossy().to_string(),
-        origin: "themes".to_string(),
-    }))
+    if let Some((_, path)) = best {
+        let css = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "custom.css".to_string());
+        return Ok(Some(UiCssFile {
+            css,
+            name,
+            path: path.to_string_lossy().to_string(),
+            origin: "themes".to_string(),
+        }));
+    }
+    for name in ["custom.css", "portal.css", "ui.css"] {
+        let p = base.join(name);
+        if p.is_file() {
+            if let Ok(css) = std::fs::read_to_string(&p) {
+                return Ok(Some(UiCssFile {
+                    css,
+                    name: name.to_string(),
+                    path: p.to_string_lossy().to_string(),
+                    origin: "data".to_string(),
+                }));
+            }
+        }
+    }
+    Ok(None)
 }
 
 /// Сохраняет CSS пользователя файлом в корень данных лаунчера, чтобы правки
@@ -242,3 +432,4 @@ pub fn save_ui_css(css: String) -> Result<UiCssFile, String> {
         origin: "data".to_string(),
     })
 }
+

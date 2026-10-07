@@ -137,6 +137,22 @@ fn all_com_mojang_dirs() -> Result<Vec<PathBuf>, String> {
     Ok(dirs.into_iter().filter(|d| d.exists()).collect())
 }
 
+/// Кладёт запись в ту корзину, к которой относится пак. Отдельная функция
+/// нужна, чтобы не держать две изменяемые ссылки на один Vec в структуре
+/// данных — компилятор такое не пропускает (E0499).
+fn behaviour_or_resource_push(
+    is_behaviour: bool,
+    behaviour: &mut Vec<WorldPackRef>,
+    resources: &mut Vec<WorldPackRef>,
+    entry: WorldPackRef,
+) {
+    if is_behaviour {
+        behaviour.push(entry);
+    } else {
+        resources.push(entry);
+    }
+}
+
 /// Запись активации пака в мире. Формат — тот же, что Bedrock пишет сама:
 /// ```json
 /// { "pack_id": "…", "subpack": "…", "version": [1, 1, 24] }
@@ -182,11 +198,12 @@ pub fn activate_packs_on_disk() -> Result<BedrockActivationResult, String> {
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for dir in all_com_mojang_dirs()? {
-        for (kind, bucket) in [
-            ("behavior_packs", &mut behaviour),
-            ("resource_packs", &mut resources),
-            ("skin_packs", &mut resources),
-        ] {
+        // Раньше здесь был массив пар ("поле", &mut bucket), и в нём
+        // skin_packs и resource_packs ссылались на один и тот же Vec — две
+        // изменяемые ссылки на `resources` одновременно компилятор не даёт
+        // (E0499). Поэтому перебираем только строки и выбираем корзину в теле
+        // цикла, а не держа две ссылки в структуре данных.
+        for kind in ["behavior_packs", "resource_packs", "skin_packs"] {
             let Ok(entries) = std::fs::read_dir(dir.join(kind)) else {
                 continue;
             };
@@ -209,12 +226,6 @@ pub fn activate_packs_on_disk() -> Result<BedrockActivationResult, String> {
                 else {
                     continue;
                 };
-                // У одного пака бывает несколько копий (наши старые папки по
-                // имени и новые по UUID) — берём каждую уникальную пару.
-                let guard = format!("{kind}:{pack_id}");
-                if !seen.insert(guard) {
-                    continue;
-                }
                 let version = json["header"]["version"]
                     .as_array()
                     .map(|arr| {
@@ -224,7 +235,18 @@ pub fn activate_packs_on_disk() -> Result<BedrockActivationResult, String> {
                     })
                     .filter(|v| !v.is_empty())
                     .unwrap_or_else(|| vec![1, 0, 0]);
-                bucket.push(WorldPackRef {
+                // Ключ дедупликации считаем до перемещения pack_id в структуру.
+                // skin_packs и resource_packs попадают в один и тот же файл
+                // world_resource_packs.json, поэтому дедуплицируем их вместе.
+                let is_behaviour = kind == "behavior_packs";
+                let guard = format!(
+                    "{}{pack_id}",
+                    if is_behaviour { "behavior:" } else { "resources:" }
+                );
+                if !seen.insert(guard) {
+                    continue;
+                }
+                behaviour_or_resource_push(is_behaviour, &mut behaviour, &mut resources, WorldPackRef {
                     pack_id,
                     subpack: None,
                     version,

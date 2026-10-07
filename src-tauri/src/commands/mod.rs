@@ -26,6 +26,7 @@ pub mod settings;
 pub mod shortcuts;
 pub mod skins;
 pub mod themes;
+pub mod bookmarks;
 pub mod token_manager;
 pub mod update;
 pub mod version_manager;

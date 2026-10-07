@@ -244,6 +244,13 @@ fn main() {
             commands::themes::save_ui_css,
             commands::themes::clear_ui_css,
             commands::themes::import_prism_theme,
+            commands::bookmarks::get_bookmarks,
+            commands::bookmarks::create_bookmark,
+            commands::bookmarks::rename_bookmark,
+            commands::bookmarks::delete_bookmark,
+            commands::bookmarks::list_deleted_bookmarks,
+            commands::bookmarks::restore_deleted_bookmark,
+            commands::bookmarks::permanently_delete_bookmark,
             // Авторы модов
             commands::authors::get_modrinth_author,
             commands::authors::get_curseforge_author,

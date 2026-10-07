@@ -29,7 +29,15 @@ export function readThemeFile(file: File): Promise<string> {
 export interface PrismTheme {
   id: string;
   name: string;
+  author?: string | null;
+  /** Цвет фона из роли Window — показываем плашкой в списке. */
+  background?: string | null;
+  /** Цвет акцента из роли Highlight. */
+  accent?: string | null;
+  /** Собственный CSS темы (themeStyle.css). */
   css: string;
+  /** Путь на диске: файл для плоских тем, папка для тем Prism. */
+  file: string;
   /** Палитра из theme.json: роли Qt в значениях вида #RRGGBB. */
   palette: [string, string][];
   /** Папка `resources` темы — там иконки и картинки. */

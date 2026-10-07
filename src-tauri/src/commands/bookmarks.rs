@@ -263,7 +263,7 @@ pub fn list_deleted_bookmarks() -> Result<Vec<DeletedBookmark>, String> {
             .rsplit('-')
             .next()
             .and_then(|ts| ts.parse::<i64>().ok())
-            .and_then(|ms| chrono::DateTime::from_timestamp_millis(ms))
+            .and_then(|ms| chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms))
             .map(|d| d.to_rfc3339())
             .unwrap_or_default();
         out.push(DeletedBookmark {

@@ -251,6 +251,10 @@ fn main() {
             commands::bookmarks::list_deleted_bookmarks,
             commands::bookmarks::restore_deleted_bookmark,
             commands::bookmarks::permanently_delete_bookmark,
+            commands::bookmarks::add_mod_to_bookmark,
+            commands::bookmarks::remove_mod_from_bookmark,
+            commands::bookmarks::bookmark_compatibility,
+            commands::bookmarks::apply_bookmark,
             // Авторы модов
             commands::authors::get_modrinth_author,
             commands::authors::get_curseforge_author,

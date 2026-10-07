@@ -817,16 +817,28 @@ pub async fn export_instance_zip(
 
     app.emit("instance-progress", serde_json::json!({"stage":"exporting","name":inst.name,"percent":10,"message":"Packing files..."})).ok();
 
-    let dest = if dest_path.is_empty() {
-        let n = inst
-            .name
-            .replace(|c: char| !c.is_alphanumeric() && c != '-', "_");
-        instances_dir()
-            .parent()
-            .unwrap_or(&src_dir)
-            .join(format!("{}-export.zip", n))
+    // Без указанного пути архив уезжал в корень данных лаунчера
+    // (%APPDATA%\PortalLauncher) и к имени сборки добавлялось «-export».
+    // Это место не для пользовательских файлов: оно ими перестаёт управляться,
+    // а экспорт mrpack рядом уже ходит в «Загрузки». Здесь поведение стало
+    // таким же — архив попадает в «Загрузки» и называется именем сборки.
+    let safe_name = inst
+        .name
+        .replace(|c: char| !c.is_alphanumeric() && c != '-' && c != '_', "_");
+    let dest = if dest_path.trim().is_empty() {
+        let downloads = dirs_next::download_dir()
+            .or_else(|| dirs_next::home_dir().map(|home| home.join("Downloads")))
+            .ok_or("Не удалось найти папку «Загрузки»")?;
+        downloads.join(format!("{safe_name}.zip"))
     } else {
-        PathBuf::from(&dest_path)
+        let requested = PathBuf::from(dest_path.trim());
+        // Указанную папку не считаем за имя файла: дописываем имя сборки,
+        // иначе архив лёг бы как «Downloads» без расширения.
+        if requested.extension().and_then(|v| v.to_str()).map(|v| v.eq_ignore_ascii_case("zip")).unwrap_or(false) {
+            requested
+        } else {
+            requested.join(format!("{safe_name}.zip"))
+        }
     };
 
     let file = std::fs::File::create(&dest).map_err(|e| format!("Create zip: {e}"))?;

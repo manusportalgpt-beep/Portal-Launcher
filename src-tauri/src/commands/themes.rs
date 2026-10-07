@@ -302,12 +302,20 @@ pub fn open_themes_folder() -> Result<(), String> {
 #[tauri::command]
 pub fn clear_ui_css() -> Result<Vec<String>, String> {
     let base = crate::commands::version_manager::mc_base_dir();
+    let themes = themes_dir();
     let mut removed = vec![];
-    for name in ["custom.css", "portal.css", "ui.css"] {
-        let p = base.join(name);
-        if p.is_file() {
-            std::fs::remove_file(&p).map_err(|e| e.to_string())?;
-            removed.push(name.to_string());
+    // Чистим в обоих местах: старые файлы оставались в корне данных, откуда
+    // их больше никто не читает, но они и дальше занимали место.
+    for (dir, names) in [
+        (themes, vec!["custom.css", "portal.css", "ui.css"]),
+        (base, vec!["custom.css", "portal.css", "ui.css"]),
+    ] {
+        for name in names {
+            let path = dir.join(name);
+            if path.is_file() {
+                std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+                removed.push(path.to_string_lossy().to_string());
+            }
         }
     }
     Ok(removed)
@@ -423,13 +431,19 @@ pub fn load_ui_css() -> Result<Option<UiCssFile>, String> {
 /// не потерялись и файл можно было положить рядом вручную.
 #[tauri::command]
 pub fn save_ui_css(css: String) -> Result<UiCssFile, String> {
-    let path = crate::commands::version_manager::mc_base_dir().join("custom.css");
+    // Кладём в папку themes, а не в корень данных. load_ui_css читает папку
+    // тем первой, поэтому файл, сохранённый в корень, просто не подхватывался:
+    // кнопка «Сохранить файлом» как будто ничего не делала, а рядом лежал
+    // бесполезный custom.css. Пользователю файлы тем ищутся именно в themes.
+    let dir = themes_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.join("custom.css");
     std::fs::write(&path, css).map_err(|e| e.to_string())?;
     Ok(UiCssFile {
         css: std::fs::read_to_string(&path).unwrap_or_default(),
         name: "custom.css".to_string(),
         path: path.to_string_lossy().to_string(),
-        origin: "data".to_string(),
+        origin: "themes".to_string(),
     })
 }
 

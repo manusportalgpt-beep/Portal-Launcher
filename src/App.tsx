@@ -6,6 +6,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { HomePage } from '@/pages/HomePage';
 import { DiscoverPage } from '@/pages/DiscoverPage';
 import { LibraryPage } from '@/pages/LibraryPage';
+import BookmarksPage from '@/pages/BookmarksPage';
 import { InstancesPage } from '@/pages/InstancesPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { InstanceSettings } from '@/pages/InstanceSettings';
@@ -219,6 +220,7 @@ function App() {
             <Route path="/author/:source/:name" element={<AuthorPage />} />
             <Route path="/library" element={layoutMode === 'innovative' ? <InnovativeLibrary /> : <LibraryPage />} />
             <Route path="/library/:id" element={<LibraryPage />} />
+            <Route path="/bookmarks" element={<BookmarksPage />} />
             <Route path="/instances" element={<InstancesPage />} />
             <Route path="/instances/:id/settings" element={<InstanceSettings />} />
             <Route path="/skins" element={layoutMode === 'innovative' ? <InnovativeSkins /> : <SkinSelectorPage />} />
@@ -246,3 +248,4 @@ function App() {
 }
 
 export default App;
+

@@ -7,7 +7,7 @@ import {
   Search, RefreshCw, Download, Trash2, ChevronDown, MoreVertical, X,
   Copy, Folder, FileText, Check, Terminal, ClipboardCopy, Trash,
   Globe, Skull, FolderPlus, Home, Upload, ArrowLeft, ArrowRight, Clock, Layers, Box, Wrench, MonitorPlay, Link2,
-  Zap, ZapOff,
+  Zap, ZapOff, Bookmark,
 } from 'lucide-react';
 import { useInstanceStore, Instance } from '@/stores/instanceStore';
 import { useCurrentUser } from '@/stores/authStore';
@@ -1210,6 +1210,11 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
           className="dbtn dbtn-ghost flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold"
           style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
           <FolderPlus className="w-4 h-4" />{t('libraryRuntime.newGroup')}
+        </button>
+        <button onClick={() => navigate('/bookmarks')}
+          className="dbtn dbtn-ghost flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold"
+          style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
+          <Bookmark className="w-4 h-4" />Закладки
         </button>
         <button onClick={onOpenDeleted}
           className="dbtn dbtn-ghost flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold"
@@ -2618,3 +2623,4 @@ export function LibraryPage() {
     </div>
   );
 }
+

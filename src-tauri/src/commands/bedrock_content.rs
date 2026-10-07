@@ -118,11 +118,25 @@ fn modern_com_mojang_dirs() -> Result<(PathBuf, Vec<PathBuf>), String> {
 /// плодить папки у тех, кто давно перешёл на новую сборку.
 fn install_targets(family: &str) -> Result<Vec<PathBuf>, String> {
     let (shared, personal) = modern_com_mojang_dirs()?;
+    // Ставим только в личный каталог — тот, откуда игра реально читает пак.
+    //
+    // Раньше писали сразу в три места (личный, Shared и старый UWP), чтобы
+    // «наверстака нашлось». Побочный эффект: один и тот же пак оказывался в
+    // трёх копиях, и список установленного показывал его трижды — в UI
+    // названия повторялись. Заодно это тройное дублирование на диске.
+    // Если окажется, что у Bedrock бывают сборки, читающие Shared, это
+    // вернётся точечно, но по умолчанию — одно место.
     let mut targets: Vec<PathBuf> = personal;
-    targets.push(shared);
     let legacy = com_mojang_dir(family)?;
     if legacy.exists() {
-        targets.push(legacy);
+        // Старый UWP-путь тоже не трогаем, если он есть и игра им пользуется,
+        // но только при отсутствии личных каталогов.
+        if targets.is_empty() {
+            targets.push(legacy);
+        }
+    }
+    if targets.is_empty() {
+        targets.push(shared);
     }
     for dir in &targets {
         std::fs::create_dir_all(dir)
@@ -745,10 +759,178 @@ pub struct BedrockContentEntry {
     /// отображаемому имени, поэтому держим отдельно.
     pub dir: String,
     pub kind: String, // "behavior_packs" | "resource_packs" | "skin_packs"
+    pub uuid: String,
+    /// UUID зависимостей, которых нет среди установленных. Зависимости лежат
+    /// в корне manifest.json, а не в modules[], и без проверки пак выглядит
+    /// установленным, хотя работать не может.
+    pub missing_dependencies: Vec<String>,
+}
+
+/// Настоящее имя для пака с шаблонным манифестом: убираем расширение и
+/// типичные хвосты вида " [4.0.0] - V26.50", которые CurseForge добавляет к
+/// имени файла. Порядок UUID не важен — сравниваем с тем, что уже собрано.
+fn fallback_display_name(dir_name: &str, json: Option<&serde_json::Value>) -> String {
+    if dir_name.chars().any(|c| c.is_ascii_hexdigit() || c == '-') && dir_name.len() >= 32 {
+        if let Some(version) = json
+            .and_then(|j| j["header"]["version"].as_array())
+            .and_then(|v| v.first())
+            .and_then(|v| v.as_i64())
+        {
+            return format!("Пак {version} ({})", &dir_name[..8]);
+        }
+        return format!("Пак ({})", &dir_name[..8]);
+    }
+    let mut name = dir_name.to_string();
+    for suffix in [".mcpack", ".mcaddon", ".zip"] {
+        if name.to_lowercase().ends_with(suffix) {
+            name.truncate(name.len() - suffix.len());
+        }
+    }
+    if let Some(idx) = name.find(" [") {
+        name.truncate(idx);
+    }
+    let trimmed = name.trim().to_string();
+    if trimmed.is_empty() {
+        "Без названия".to_string()
+    } else {
+        trimmed
+    }
+}
+
+/// UUID зависимостей из корня manifest.json, которых нет в already.
+fn missing_dependencies_for(
+    json: Option<&serde_json::Value>,
+    already: &[BedrockContentEntry],
+) -> Vec<String> {
+    let Some(json) = json else {
+        return vec![];
+    };
+    let mut missing = vec![];
+    if let Some(deps) = json["dependencies"].as_array() {
+        for dep in deps {
+            // Зависимости по module_name (например @minecraft/server) — это
+            // встроенные модули игры, их качать не нужно.
+            let Some(uuid) = dep["uuid"].as_str().map(|s| s.trim().to_lowercase()) else {
+                continue;
+            };
+            if uuid.is_empty() {
+                continue;
+            }
+            if already.iter().any(|e| e.uuid == uuid) {
+                continue;
+            }
+            if !missing.contains(&uuid) {
+                missing.push(uuid);
+            }
+        }
+    }
+    missing
 }
 
 /// Список уже установленного Bedrock-контента (сканирует папки на диске —
 /// это не наша выдумка, а то же самое место, куда сама игра кладёт паки).
+/// Убирает копии паков из каталогов, куда мы больше не ставим, и папки без
+/// содержимого. Запуск вручную: сам список чинит только отображение, а мусор
+/// на диске остаётся и занимает место.
+#[tauri::command]
+pub async fn cleanup_bedrock_content() -> Result<BedrockActivationResult, String> {
+    let mut result = BedrockActivationResult {
+        packs: 0,
+        worlds: 0,
+        updated: vec![],
+        failed: vec![],
+    };
+    let (shared, personal) = modern_com_mojang_dirs()?;
+    // Личные каталоги — те, куда ставим сейчас. Всё остальное считаем мусором.
+    let keep: Vec<PathBuf> = personal.iter().filter(|p| p.exists()).cloned().collect();
+    let stale: Vec<PathBuf> = std::iter::once(shared)
+        .chain(std::iter::empty())
+        .filter(|p| p.exists())
+        .collect();
+
+    // 1. Папки без файлов — следы неудачной распаковки.
+    for root in keep.iter().chain(stale.iter()) {
+        for kind in ["behavior_packs", "resource_packs", "skin_packs"] {
+            let Ok(entries) = std::fs::read_dir(root.join(kind)) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_dir() {
+                    continue;
+                }
+                let empty = std::fs::read_dir(&path)
+                    .map(|it| it.flatten().count() == 0)
+                    .unwrap_or(false);
+                if empty {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    match std::fs::remove_dir_all(&path) {
+                        Ok(()) => result.updated.push(format!("пустая {kind}/{name}")),
+                        Err(e) => result.failed.push(format!("{kind}/{name}: {e}")),
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Копии одного пака в устаревших каталогах: оставляем копию в личном,
+    //    из Shared и UWP удаляем — там игра всё равно не смотрит.
+    let live_uuids = live_pack_uuids(&keep);
+    for root in &stale {
+        for kind in ["behavior_packs", "resource_packs", "skin_packs"] {
+            let Ok(entries) = std::fs::read_dir(root.join(kind)) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_dir() {
+                    continue;
+                }
+                let Some(uuid) = read_uuid(&path.join("manifest.json")) else {
+                    continue;
+                };
+                if live_uuids.contains(&uuid) {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    match std::fs::remove_dir_all(&path) {
+                        Ok(()) => result.updated.push(format!("дубль {kind}/{name}")),
+                        Err(e) => result.failed.push(format!("{kind}/{name}: {e}")),
+                    }
+                }
+            }
+        }
+    }
+
+    result.packs = live_uuids.len();
+    Ok(result)
+}
+
+/// UUID всех паков в переданных корнях.
+fn live_pack_uuids(roots: &[PathBuf]) -> std::collections::HashSet<String> {
+    let mut uuids = std::collections::HashSet::new();
+    for root in roots {
+        for kind in ["behavior_packs", "resource_packs", "skin_packs"] {
+            let Ok(entries) = std::fs::read_dir(root.join(kind)) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                if let Some(uuid) = read_uuid(&entry.path().join("manifest.json")) {
+                    uuids.insert(uuid);
+                }
+            }
+        }
+    }
+    uuids
+}
+
+fn read_uuid(manifest_path: &std::path::Path) -> Option<String> {
+    let text = std::fs::read_to_string(manifest_path).ok()?;
+    let json = serde_json::from_str::<serde_json::Value>(&text).ok()?;
+    json["header"]["uuid"]
+        .as_str()
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+}
+
 #[tauri::command]
 pub async fn list_bedrock_content() -> Result<Vec<BedrockContentEntry>, String> {
     // family больше не нужен: пак ищут по всем корням Bedrock, иначе список
@@ -768,25 +950,56 @@ pub async fn list_bedrock_content() -> Result<Vec<BedrockContentEntry>, String> 
                 let Some(dir_name) = e.file_name().to_str().map(|s| s.to_string()) else {
                     continue;
                 };
-                if !seen.insert(format!("{kind}/{dir_name}")) {
+                // Дедуплицируем по UUID из манифеста, а не по имени папки.
+                //
+                // Один и тот же пак лежит сразу в нескольких корнях (личный,
+                // Shared, старый UWP) — установщик пишет во все, чтобы игра
+                // нашла его где угодно. Список показывал все копии, и в UI
+                // названия повторялись трижды. Имя папки для этого годится
+                // плохо: часть папок названа по имени, часть — по UUID, так
+                // что один пак давал разные ключи и не склеивался.
+                let manifest_path = e.path().join("manifest.json");
+                let json = std::fs::read_to_string(&manifest_path)
+                    .ok()
+                    .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok());
+                let uuid = json
+                    .as_ref()
+                    .and_then(|j| j["header"]["uuid"].as_str())
+                    .map(|s| s.trim().to_lowercase())
+                    .filter(|s| !s.is_empty());
+                let key = format!("{kind}/{}", uuid.as_deref().unwrap_or(&dir_name));
+                if !seen.insert(key) {
                     continue;
                 }
-                // Показываем человекочитаемое имя из manifest.json: после
-                // перехода на UUID-папки имя папки больше ничего не значит
-                // для человека. Если манифеста нет — отдаём имя папки как есть.
-                let manifest_path = e.path().join("manifest.json");
-                let name = std::fs::read_to_string(&manifest_path)
-                    .ok()
-                    .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
-                    .and_then(|json| {
-                        json["header"]["name"].as_str().map(|s| s.trim().to_string())
-                    })
-                    .filter(|value| !value.is_empty())
-                    .unwrap_or_else(|| dir_name.clone());
+                // Пустая папка без манифеста — это неудачная распаковка, а не
+                // пак. Такие папки занимают место и только путают список.
+                let files = std::fs::read_dir(&e.path())
+                    .map(|it| it.flatten().count())
+                    .unwrap_or(0);
+                if json.is_none() && files == 0 {
+                    std::fs::remove_dir(&e.path()).ok();
+                    seen.remove(&key);
+                    continue;
+                }
+                // Имя пакета: некоторые авторы заливают в манифест шаблон
+                // ("name": "pack.name"), и в UI такое бесполезно. Если в имени
+                // есть префикс "pack.", берём имя файла пака, из которого он и
+                // пришёл, — оно настоящее.
+                let mut name = json
+                    .as_ref()
+                    .and_then(|j| j["header"]["name"].as_str())
+                    .map(|s| s.trim().to_string())
+                    .filter(|v| !v.is_empty() && !v.starts_with("pack."))
+                    .unwrap_or_default();
+                if name.is_empty() {
+                    name = fallback_display_name(&dir_name, json.as_ref());
+                }
                 out.push(BedrockContentEntry {
                     name,
                     dir: dir_name,
                     kind: kind.to_string(),
+                    uuid: uuid.unwrap_or_default(),
+                    missing_dependencies: missing_dependencies_for(json.as_ref(), &out),
                 });
             }
         }

@@ -1814,12 +1814,12 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
   // list_bedrock_content раньше принимал family и смотрел только в устаревший
   // UWP-путь, поэтому список был пуст. Теперь команда читает все корни сама.
   const isBedrock = inst.modLoader === 'bedrock';
-  const [bedrockPacks, setBedrockPacks] = useState<{ name: string; dir: string; kind: string }[]>([]);
+  const [bedrockPacks, setBedrockPacks] = useState<{ name: string; dir: string; kind: string; uuid?: string; missing_dependencies?: string[] }[]>([]);
   const [bedrockBusy, setBedrockBusy] = useState(false);
   const [bedrockNote, setBedrockNote] = useState('');
   const loadBedrockPacks = useCallback(async () => {
     try {
-      const list = await invoke<{ name: string; dir: string; kind: string }[]>('list_bedrock_content');
+      const list = await invoke<{ name: string; dir: string; kind: string; uuid?: string; missing_dependencies?: string[] }[]>('list_bedrock_content');
       setBedrockPacks(Array.isArray(list) ? list : []);
     } catch (e) {
       setBedrockPacks([]);
@@ -2343,13 +2343,23 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
           {bedrockPacks.length>0 && (
             <div className="flex flex-wrap gap-1.5">
               {bedrockPacks.map(p => (
-                <span key={p.kind + '/' + p.dir} title={p.dir}
+                <span key={p.kind + '/' + p.dir} title={p.uuid ? `UUID: ${p.uuid}` : p.dir}
                   className="flex max-w-[240px] items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-semibold"
-                  style={{ background:'var(--color-surface)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
+                  style={{ background:'var(--color-surface)', color: p.missing_dependencies?.length ? 'var(--color-warning)' : 'var(--color-text-secondary)', border:`1px solid ${p.missing_dependencies?.length ? 'var(--color-warning)' : 'var(--color-border)'}` }}>
                   {p.kind === 'behavior_packs' ? <Box className="w-3 h-3 shrink-0" /> : <Image className="w-3 h-3 shrink-0" />}
                   <span className="truncate">{p.name}</span>
+                  {p.missing_dependencies?.length ? (
+                    <span title={`Не хватает зависимостей: ${p.missing_dependencies.join(', ')}`} className="shrink-0 font-bold">
+                      −{p.missing_dependencies.length}
+                    </span>
+                  ) : null}
                 </span>
               ))}
+            </div>
+          )}
+          {bedrockPacks.some(p => p.missing_dependencies?.length) && (
+            <div className="mt-2 text-[10px]" style={{ color:'var(--color-warning)' }}>
+              Пак со значком −N зависит от паков, которых нет: без них он не запустится. Зависимости лежат в манифесте пака — их нужно поставить отдельно.
             </div>
           )}
           <div className="mt-2 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>

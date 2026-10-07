@@ -247,6 +247,43 @@ pub fn build_launch_args(
         }
     }
 
+    // Финальная зачистка classpath ПО ПУТИ, уже после добавления jar загрузчика
+    // и модов. Раньше дедупликация стояла только внутри build_classpath, до
+    // этих добавлений, поэтому один и тот же файл всё равно мог попасть в
+    // список дважды: один раз библиотекой, второй раз jar'ом загрузчика.
+    // NeoForge собирает classpath через Collectors.toMap по пути файла и падает
+    // с «Duplicate key» до загрузки модов.
+    {
+        let mut unique: Vec<String> = Vec::with_capacity(classpath.len());
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut duplicates: Vec<String> = Vec::new();
+        for entry in classpath.into_iter() {
+            let key = entry.to_lowercase();
+            if seen.insert(key) {
+                unique.push(entry);
+            } else {
+                duplicates.push(entry);
+            }
+        }
+        // Отчёт пишем файлом: log::info уходит в stderr, а из Tauri-приложения
+        // туда не попадает, поэтому в логе игры диагностики не видно. Файл
+        // рядом с логами сборки можно прочитать после неудачного запуска.
+        let report = format!(
+            "Classpath: {} записей после зачистки.\nДубликаты ({}): {}\n\nПолный список:\n{}",
+            unique.len(),
+            duplicates.len(),
+            duplicates.join("\n  "),
+            unique.iter().map(|e| format!("  {e}")).collect::<Vec<_>>().join("\n")
+        );
+        let logs_dir = instance_dir.join(".minecraft").join("portal-logs");
+        std::fs::create_dir_all(&logs_dir).ok();
+        std::fs::write(logs_dir.join("classpath-report.txt"), &report).ok();
+        if !duplicates.is_empty() {
+            log::warn!("Classpath: убрано дублей {}", duplicates.len());
+        }
+        classpath = unique;
+    }
+
     // 3. Главный класс
     let main_class = loader.main_class().to_string();
 

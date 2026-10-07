@@ -175,24 +175,98 @@ pub struct BedrockActivationResult {
     pub failed: Vec<String>,
 }
 
-/// Включает все установленные пакы во всех мирах разом — то самое «открыть
-/// всё сразу по клику».
+/// Все миры во всех корнях Bedrock. Отдельная функция, потому что и включение,
+/// и выключение обходят их одинаково.
+fn collect_worlds() -> Vec<PathBuf> {
+    let mut worlds = vec![];
+    for dir in all_com_mojang_dirs().unwrap_or_default() {
+        let worlds_dir = dir.join("minecraftWorlds");
+        let Ok(entries) = std::fs::read_dir(&worlds_dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            // level.dat — признак настоящего мира; папки без него игнорируем.
+            if entry.path().join("level.dat").is_file() {
+                worlds.push(entry.path());
+            }
+        }
+    }
+    worlds
+}
+
+/// Выключает пакы во всех мирах: убирает из world_*_packs.json те записи,
+/// чей UUID совпадает с установленными паками. Записи, сделанные руками в
+/// самой игре, остаются нетронутыми.
 ///
-/// Bedrock хранит включённые пакы не в папке пака, а в самих мирах:
-/// `minecraftWorlds\<мир>\world_behavior_packs.json` и
-/// `world_resource_packs.json` со списком UUID. Поэтому «установить» и
-/// «включить» — разные действия, и второе без записи этих файлов не делается.
+/// Пустой список не пишем: Minecraft ждёт отсутствие файла для «ничего не
+/// включено», а не пустой массив — иначе мир потеряет настройку.
+#[tauri::command]
+pub async fn disable_all_bedrock_packs() -> Result<BedrockActivationResult, String> {
+    let (behaviour, resources) = collect_pack_refs()?;
+    let known_ids: std::collections::HashSet<String> = behaviour
+        .iter()
+        .chain(resources.iter())
+        .map(|p| p.pack_id.clone())
+        .collect();
+    let mut result = BedrockActivationResult {
+        packs: known_ids.len(),
+        worlds: 0,
+        updated: vec![],
+        failed: vec![],
+    };
+
+    for world in collect_worlds() {
+        result.worlds += 1;
+        let name = world
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        for file in ["world_behavior_packs.json", "world_resource_packs.json"] {
+            let path = world.join(file);
+            let Ok(text) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            let Ok(mut items) = serde_json::from_str::<Vec<WorldPackRef>>(&text) else {
+                continue;
+            };
+            let before = items.len();
+            items.retain(|item| !known_ids.contains(&item.pack_id));
+            if items.len() == before {
+                continue;
+            }
+            if items.is_empty() {
+                match std::fs::remove_file(&path) {
+                    Ok(()) => result.updated.push(format!("{name}/{file} (очищен)")),
+                    Err(e) => result.failed.push(format!("{name}/{file}: {e}")),
+                }
+                continue;
+            }
+            match serde_json::to_string_pretty(&items) {
+                Ok(out) => match std::fs::write(&path, out) {
+                    Ok(()) => result.updated.push(format!("{name}/{file}")),
+                    Err(e) => result.failed.push(format!("{name}/{file}: {e}")),
+                },
+                Err(e) => result.failed.push(format!("{name}/{file}: {e}")),
+            }
+        }
+    }
+    Ok(result)
+}
+
 #[tauri::command]
 pub async fn activate_all_bedrock_packs() -> Result<BedrockActivationResult, String> {
     activate_packs_on_disk()
 }
 
-/// Та же логика без обёртки команды: используется при запуске игры, чтобы
-/// «включить всё сразу» происходило по клику «Запустить».
-pub fn activate_packs_on_disk() -> Result<BedrockActivationResult, String> {
-    // Собираем уникальные UUID по типу пака. Файл на диске — источник истины,
-    // поэтому истина читается из его manifest.json, а не из того, что мы
-    // ставили: так работает и с паками, установленными вручную.
+/// Читает UUID всех установленных паков, разложенных по типу.
+///
+/// Файл на диске — источник истины: UUID берётся из его manifest.json, а не
+/// из того, что ставили мы. Так это работает и с паками, установленными руками.
+///
+/// Параллельно с этим переименовывает папки, названные не по UUID: такие
+/// остаются от старых установок, Minecraft их не видит, и каждый следующий
+/// запуск лаунчера добавлял бы ещё одну копию того же пака.
+fn collect_pack_refs() -> Result<(Vec<WorldPackRef>, Vec<WorldPackRef>), String> {
     let mut behaviour: Vec<WorldPackRef> = vec![];
     let mut resources: Vec<WorldPackRef> = vec![];
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -247,14 +321,37 @@ pub fn activate_packs_on_disk() -> Result<BedrockActivationResult, String> {
                     continue;
                 }
                 behaviour_or_resource_push(is_behaviour, &mut behaviour, &mut resources, WorldPackRef {
-                    pack_id,
+                    pack_id: pack_id.clone(),
                     subpack: None,
                     version,
                 });
+                // Если папка названа не по UUID, поднимаем её: Minecraft читает
+                // только <uuid>\. Старую копию удаляем, чтобы не плодить дубли.
+                if let Some(wrong) = entry.file_name().to_str() {
+                    if wrong != pack_id {
+                        let target = entry.path().with_file_name(&pack_id);
+                        if !target.exists() && std::fs::rename(&entry.path(), &target).is_ok() {
+                            // После переименования drop_stale_copies в
+                            // extract_mcpack больше не найдёт старых копий.
+                        } else if target.exists() {
+                            std::fs::remove_dir_all(&entry.path()).ok();
+                        }
+                    }
+                }
             }
         }
     }
 
+    Ok((behaviour, resources))
+}
+
+/// Та же логика без обёртки команды: используется при запуске игры, чтобы
+/// «включить всё сразу» происходило по клику «Запустить».
+pub fn activate_packs_on_disk() -> Result<BedrockActivationResult, String> {
+    // Собираем уникальные UUID по типу пака. Файл на диске — источник истины,
+    // поэтому истина читается из его manifest.json, а не из того, что мы
+    // ставили: так работает и с паками, установленными вручную.
+    let (behaviour, resources) = collect_pack_refs()?;
     let pack_count = behaviour.len() + resources.len();
     let mut result = BedrockActivationResult {
         packs: pack_count,
@@ -266,20 +363,7 @@ pub fn activate_packs_on_disk() -> Result<BedrockActivationResult, String> {
         return Ok(result);
     }
 
-    let mut worlds = vec![];
-    for dir in all_com_mojang_dirs()? {
-        let worlds_dir = dir.join("minecraftWorlds");
-        let Ok(entries) = std::fs::read_dir(&worlds_dir) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            if entry.path().join("level.dat").is_file() {
-                worlds.push(entry.path());
-            }
-        }
-    }
-
-    for world in worlds {
+    for world in collect_worlds() {
         result.worlds += 1;
         let name = world
             .file_name()
@@ -731,4 +815,5 @@ pub async fn remove_bedrock_content(
         Err(format!("Не удалось удалить: {last_err}"))
     }
 }
+
 

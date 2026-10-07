@@ -7,6 +7,7 @@ import {
   Search, RefreshCw, Download, Trash2, ChevronDown, MoreVertical, X,
   Copy, Folder, FileText, Check, Terminal, ClipboardCopy, Trash,
   Globe, Skull, FolderPlus, Home, Upload, ArrowLeft, ArrowRight, Clock, Layers, Box, Wrench, MonitorPlay, Link2,
+  Zap, ZapOff,
 } from 'lucide-react';
 import { useInstanceStore, Instance } from '@/stores/instanceStore';
 import { useCurrentUser } from '@/stores/authStore';
@@ -1809,6 +1810,42 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
 
   useEffect(() => { loadContent(); }, [loadContent]);
 
+  // ── Bedrock: установленные пакы и включение их во всех мирах ──────────────
+  // list_bedrock_content раньше принимал family и смотрел только в устаревший
+  // UWP-путь, поэтому список был пуст. Теперь команда читает все корни сама.
+  const isBedrock = inst.modLoader === 'bedrock';
+  const [bedrockPacks, setBedrockPacks] = useState<{ name: string; dir: string; kind: string }[]>([]);
+  const [bedrockBusy, setBedrockBusy] = useState(false);
+  const [bedrockNote, setBedrockNote] = useState('');
+  const loadBedrockPacks = useCallback(async () => {
+    try {
+      const list = await invoke<{ name: string; dir: string; kind: string }[]>('list_bedrock_content');
+      setBedrockPacks(Array.isArray(list) ? list : []);
+    } catch (e) {
+      setBedrockPacks([]);
+    }
+  }, []);
+  useEffect(() => { if (isBedrock) void loadBedrockPacks(); }, [isBedrock, loadBedrockPacks]);
+
+  // «Включить всё сразу»: пишет UUID всех установленных паков в
+  // world_*_packs.json каждого мира. Отдельная кнопка нужна потому, что
+  // активация при запуске игры не видна пользователю — он не знает, что
+  // она вообще произошла.
+  const activateAllBedrockPacks = useCallback(async () => {
+    setBedrockBusy(true);
+    try {
+      const res = await invoke<{ packs: number; worlds: number; updated: string[]; failed: string[] }>('activate_all_bedrock_packs');
+      if (!res.packs) setBedrockNote('Нет установленных паков Bedrock.');
+      else if (!res.updated.length) setBedrockNote(`Все ${res.packs} паков уже включены в ${res.worlds} мирах.`);
+      else setBedrockNote(`Включено ${res.packs} паков в ${res.worlds} мирах (${res.updated.length} файлов обновлено).${res.failed.length ? ' Ошибки: ' + res.failed.join('; ') : ''}`);
+      await loadBedrockPacks();
+    } catch (e) {
+      setBedrockNote('Не удалось включить пакы: ' + String(e));
+    } finally {
+      setBedrockBusy(false);
+    }
+  }, [loadBedrockPacks]);
+
   useEffect(() => {
     let off: (() => void) | undefined;
     void listen<any>('mod-progress', event => {
@@ -2256,6 +2293,29 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
             <FolderPlus className="w-3.5 h-3.5" />{t('instancePage.addFiles')}
           </button>
         )}
+        {isBedrock && tab==='content' && (
+          <button onClick={() => void activateAllBedrockPacks()} disabled={bedrockBusy}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold disabled:opacity-60"
+            style={{ background:'var(--color-primary)',color:'var(--color-primary-text)' }}>
+            {bedrockBusy ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+            {bedrockBusy ? 'Включаем…' : `Включить всё сразу (${bedrockPacks.length})`}
+          </button>
+        )}
+        {isBedrock && tab==='content' && bedrockPacks.some(p => p.kind === 'resource_packs') && (
+          <button onClick={async () => {
+            setBedrockBusy(true);
+            try {
+              await invoke('disable_all_bedrock_packs');
+              setBedrockNote('Все пак�� выключены.');
+              await loadBedrockPacks();
+            } catch (e) { setBedrockNote('Не удалось выключить пакы: ' + String(e)); }
+            finally { setBedrockBusy(false); }
+          }} disabled={bedrockBusy}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold disabled:opacity-60"
+            style={{ background:'var(--color-surface-2)',color:'var(--color-text-secondary)',border:'1px solid var(--color-border)' }}>
+            <ZapOff className="w-3.5 h-3.5" />Выключить всё
+          </button>
+        )}
         {tab==='content' && updateItems.length>0 && (
           <button onClick={async () => {
             setUpdatingAll(true); setUpdateProgress({ percent: 0, message: t('instancePage.preparingUpdates') });
@@ -2276,6 +2336,27 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
           <RefreshCw className={`w-3.5 h-3.5 ${loadingContent ? 'animate-spin' : ''}`} />
         </button>
       </div>
+
+      {isBedrock && tab==='content' && (bedrockPacks.length>0 || bedrockNote) && (
+        <div className="mx-4 mt-2 rounded-xl px-3 py-2.5" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+          {bedrockNote && <div className="mb-2 text-[11px]" style={{ color:'var(--color-text-secondary)' }}>{bedrockNote}</div>}
+          {bedrockPacks.length>0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {bedrockPacks.map(p => (
+                <span key={p.kind + '/' + p.dir} title={p.dir}
+                  className="flex max-w-[240px] items-center gap-1.5 rounded-lg px-2 py-1 text-[10px] font-semibold"
+                  style={{ background:'var(--color-surface)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
+                  {p.kind === 'behavior_packs' ? <Box className="w-3 h-3 shrink-0" /> : <Image className="w-3 h-3 shrink-0" />}
+                  <span className="truncate">{p.name}</span>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="mt-2 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>
+            Bedrock хранит включённые пакы в самих мирах, поэтому список выше — это файлы на диске, а включение пишет их в каждый мир. Перезапусти игру, чтобы она подхватила изменения.
+          </div>
+        </div>
+      )}
 
       {tab==='content' && contentFilter==='updates' && updateItems.length>0 && (
         <div className="mx-4 mt-2 rounded-xl px-3 py-2" style={{ background:'var(--color-primary-dim)', border:'1px solid var(--color-primary)' }}>

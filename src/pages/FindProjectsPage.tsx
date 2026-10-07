@@ -1039,17 +1039,36 @@ export function FindProjectsPage() {
       });
       const mappedAll = (res.data || []).map(m => fromCurseForge(m, pt));
       // Фильтр по вкладке делаем на клиенте по слагам категорий. classId у
-      // Bedrock недоступны (эндпоинт таксономии отдаёт 404), а отдавать все
-      // вкладки одинаковыми тоже нельзя было — поэтому CurseForge отдаёт в
-      // каждом проекте список категорий со слагами, и мы режем выдачу сами.
-      const activeSlugs = new Set(
-        BEDROCK_CATEGORIES.filter(c => c.slug === bedrockCat).map(c => c.slug),
+      // Bedrock недоступны (эндпоинт таксономии отдаёт 404), поэтому CurseForge
+      // отдаёт в каждом проекте категории со слагами, и мы режем выдачу сами.
+      //
+      // Сравнение регистронезависимое и по слагу ИЛИ по названию: точные слаги
+      // на CurseForge неизвестны, это зашитые нами предположения. Если после
+      // фильтра не осталось ничего, показываем всё найденное — пустая страница
+      // из-за неверного строкового сравнения хуже, чем лишние результаты.
+      const activeSlugs = BEDROCK_CATEGORIES
+        .filter(c => c.slug === bedrockCat)
+        .map(c => c.slug.toLowerCase());
+      const wanted = new Set(activeSlugs);
+      const labels = new Set(
+        BEDROCK_CATEGORIES
+          .filter(c => c.slug === bedrockCat)
+          .map(c => c.label.toLowerCase().replace(/\s+/g, '-')),
       );
-      const mapped = activeSlugs.size === 1
-        ? mappedAll.filter(p => (p.categorySlugs ?? []).some(s => activeSlugs.has(s)))
-        : mappedAll;
+      let mapped = mappedAll;
+      if (wanted.size === 1 && mappedAll.length > 0) {
+        const filtered = mappedAll.filter(p => {
+          const slugs = (p.categorySlugs ?? []).map(s => s.toLowerCase());
+          if (slugs.some(s => wanted.has(s))) return true;
+          return (p.categories ?? []).some(name => {
+            const n = name.toLowerCase().replace(/\s+/g, '-');
+            return wanted.has(n) || labels.has(n);
+          });
+        });
+        if (filtered.length > 0) mapped = filtered;
+      }
       setResults(pg === 0 ? mapped : previous => dedupeCombinedProjects([...previous, ...mapped]));
-      setTotal(activeSlugs.size === 1 ? mapped.length : (res.pagination?.total_count ?? 0));
+      setTotal(res.pagination?.total_count ?? 0);
       setReachableTotal(res.reachable_count ?? null);
       setCapped(!!res.capped);
       setNetError(false);
@@ -1273,7 +1292,16 @@ export function FindProjectsPage() {
                   applyInstanceCompatibility(id as ProjectType);
                 }
                 setPage(0);
-                setResults([]);
+setResults([]);
+                // Для Bedrock список не должен оставаться пустым до
+                // перезагрузки страницы: раньше переключение вкладки только
+                // чистило выдачу, а effect ниже не срабатывал, потому что его
+                // зависимости не менялись. Поэтому запускаем поиск явно.
+                if (bedrockMode) {
+                  window.setTimeout(() => {
+                    trigger(true);
+                  }, 0);
+                }
                 // Поиск здесь намеренно НЕ вызываем: смену projectType и так
                 // подхватывает эффект ниже. Раньше тут стоял лишний вызов
                 // doSearch со старым projectType (замыкание ещё не обновилось),

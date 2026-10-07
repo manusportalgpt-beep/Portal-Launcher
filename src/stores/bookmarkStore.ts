@@ -21,6 +21,7 @@ export interface Bookmark {
   name: string;
   loader: string;
   mc_version: string;
+  loader_version: string;
   created_at: string;
   mods: BookmarkMod[];
 }
@@ -68,7 +69,7 @@ interface BookmarkState {
   /** Итог последнего применения — показывается после завершения. */
   applied: BookmarkApplyResult | null;
   refresh: () => Promise<void>;
-  create: (name: string, loader: string, mcVersion: string) => Promise<Bookmark>;
+  create: (name: string, loader: string, mcVersion: string, loaderVersion: string) => Promise<Bookmark>;
   rename: (id: string, name: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
   select: (id: string | null) => void;
@@ -105,9 +106,9 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     }
   },
 
-  create: async (name, loader, mcVersion) => {
+  create: async (name, loader, mcVersion, loaderVersion) => {
     const bookmark = await invoke<Bookmark>('create_bookmark', {
-      name, loader, mcVersion,
+      name, loader, mcVersion, loaderVersion,
     });
     await get().refresh();
     set({ activeId: bookmark.id });

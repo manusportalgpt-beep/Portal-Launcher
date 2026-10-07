@@ -157,7 +157,12 @@ pub fn get_bookmarks() -> Result<Vec<Bookmark>, String> {
 /// Создание закладки. Лоадер обязателен: без него набор не к чему прикладывать,
 /// и версия при этом может быть пустой — «любая».
 #[tauri::command]
-pub fn create_bookmark(name: String, loader: String, mc_version: String) -> Result<Bookmark, String> {
+pub fn create_bookmark(
+    name: String,
+    loader: String,
+    mc_version: String,
+    loader_version: String,
+) -> Result<Bookmark, String> {
     let name = name.trim().to_string();
     if name.is_empty() {
         return Err("Назовите закладку".into());
@@ -177,6 +182,7 @@ pub fn create_bookmark(name: String, loader: String, mc_version: String) -> Resu
         name,
         loader,
         mc_version: mc_version.trim().to_string(),
+        loader_version: loader_version.trim().to_string(),
         created_at: chrono::Utc::now().to_rfc3339(),
         mods: vec![],
     };

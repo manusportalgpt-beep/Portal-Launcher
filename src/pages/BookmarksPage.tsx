@@ -5,6 +5,8 @@ import {
   Trash2, TriangleAlert, X,
 } from 'lucide-react';
 import { useInstanceStore } from '@/stores/instanceStore';
+import { invoke } from '@/lib/invoke-shim';
+import { fetchMcVersionIds } from '@/lib/mc-versions';
 import {
   useBookmarkStore, type Bookmark, type BookmarkModReport, type BookmarkCompatReport,
 } from '@/stores/bookmarkStore';
@@ -136,7 +138,7 @@ export function BookmarksPage() {
               <h2 className="text-base font-black" style={{ color: 'var(--color-text)' }}>{active.name}</h2>
               <p className="mt-0.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
                 Версия: <span style={{ color: 'var(--color-text)' }}>{active.mc_version || 'любая'}</span>
-                {' · '}Лоадер: <span style={{ color: 'var(--color-text)' }}>{loaderLabel(active.loader)}</span>
+                {' '}Лоадер: <span style={{ color: 'var(--color-text)' }}>{loaderLabel(active.loader)}{active.loader_version ? ' ' + active.loader_version : ''}</span>
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -339,36 +341,79 @@ function ModRow({ mod, onRemove }: { mod: Bookmark['mods'][number]; onRemove: ()
 }
 
 function CreateDialog({ onClose, onCreate }: {
+function CreateDialog({ onClose, onCreate }: {
   onClose: () => void;
-  onCreate: (name: string, loader: string, mcVersion: string) => Promise<unknown>;
+  onCreate: (name: string, loader: string, mcVersion: string, loaderVersion: string) => Promise<unknown>;
 }) {
-  const [name, setName] = useState('');
+  const [name, setName] = useState(');
   const [loader, setLoader] = useState('fabric');
-  const [version, setVersion] = useState('');
+  const [mcVersion, setMcVersion] = useState('');
+  const [loaderVersion, setLoaderVersion] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Списки тянутся теми же командами, что и при создании сборки, иначе
+  // набор версий в закладке и в сборке разошлись бы.
+  const [mcVersions, setMcVersions] = useState<string[]>([]);
+  const [showSnapshots, setShowSnapshots] = useState(false);
+  const [loaderVersions, setLoaderVersions] = useState<string[]>([]);
+  const [loaderVersionsBusy, setLoaderVersionsBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void invoke<boolean>('should_show_snapshots').then(v => { if (alive) setShowSnapshots(Boolean(v)); }).catch(() => {});
+    void fetchMcVersionIds(false).then(list => { if (alive) setMcVersions(list); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!showSnapshots) {
+      void fetchMcVersionIds(false).then(list => setMcVersions(prev => prev.length ? prev : list)).catch(() => {});
+    }
+  }, [showSnapshots]);
+
+  // Версии загрузчика зависят от его вида и версии Minecraft.
+  useEffect(() => {
+    if (!loader || loader === 'vanilla') { setLoaderVersions([]); return; }
+    let alive = true;
+    setLoaderVersionsBusy(true);
+    setLoaderVersion('');
+    const command =
+      loader === 'fabric' ? 'get_fabric_versions'
+        : loader === 'neoforge' ? 'get_neoforge_versions'
+          : loader === 'quilt' ? 'get_quilt_versions'
+            : loader === 'forge' ? 'get_forge_versions'
+              : null;
+    if (!command) { setLoaderVersionsBusy(false); return () => { alive = false; }; }
+    void invoke<any>(command, { mcVersion: mcVersion || undefined })
+      .then(raw => {
+        if (!alive) return;
+        const list = (Array.isArray(raw) ? raw : [])
+          .map((v: any) => (typeof v === 'string' ? v : v?.loader?.version ?? v?.version))
+          .filter((v: any): v is string => typeof v === 'string' && v.length > 0);
+        setLoaderVersions([...new Set(list)].slice(0, 80));
+      })
+      .catch(() => { if (alive) setLoaderVersions([]); })
+      .finally(() => { if (alive) setLoaderVersionsBusy(false); });
+    return () => { alive = false; };
+  }, [loader, mcVersion]);
+
+  const snapshot = (v: string) => /[a-zA-Z]/.test(v.replace(/\./g, ''));
 
   return (
     <Overlay onClose={onClose}>
-      <div className="w-full max-w-md rounded-2xl p-5" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl p-5"
+        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
         <h3 className="text-base font-black" style={{ color: 'var(--color-text)' }}>Новая закладка</h3>
         <Field label="Название">
           <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Оптимизация для RTX"
-            autoFocus
+            value={name} onChange={e => setName(e.target.value)} placeholder="Оптимизация для RTX" autoFocus
             className="w-full rounded-lg px-3 py-2 text-sm outline-none"
-            style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
-          />
+            style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
         </Field>
         <Field label="Загрузчик" hint="обязательно">
           <div className="flex flex-wrap gap-1.5">
             {LOADERS.map(l => (
-              <button
-                key={l.id}
-                onClick={() => setLoader(l.id)}
-                className="rounded-lg px-3 py-1.5 text-xs font-bold"
+              <button key={l.id} onClick={() => setLoader(l.id)} className="rounded-lg px-3 py-1.5 text-xs font-bold"
                 style={{
                   background: loader === l.id ? 'var(--color-primary)' : 'var(--color-surface-2)',
                   color: loader === l.id ? 'var(--color-primary-text)' : 'var(--color-text-secondary)',
@@ -380,32 +425,54 @@ function CreateDialog({ onClose, onCreate }: {
           </div>
         </Field>
         <Field label="Версия Minecraft" hint="необязательно — если пусто, берутся любые версии">
-          <input
-            value={version}
-            onChange={e => setVersion(e.target.value)}
-            placeholder="1.21.1"
+          <select
+            value={mcVersion} onChange={e => { setMcVersion(e.target.value); setLoaderVersion(''); }}
             className="w-full rounded-lg px-3 py-2 text-sm outline-none"
-            style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
-          />
+            style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
+            <option value="">Любая</option>
+            {mcVersions.map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+          <label className="mt-2 flex items-center gap-2 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+            <input type="checkbox" checked={showSnapshots} onChange={e => {
+              setShowSnapshots(e.target.checked);
+              void fetchMcVersionIds(e.target.checked).then(setMcVersions).catch(() => {});
+            }} />
+            Показывать снапшоты
+          </label>
+        </Field>
+        <Field label="Версия загрузчика" hint={loaderVersionsBusy ? 'загрузка…' : 'необязательно'}>
+          {loader === 'vanilla' || !loader ? (
+            <p className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>У ванильного загрузчика нет версий.</p>
+          ) : loaderVersions.length === 0 ? (
+            <p className="text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+              {!mcVersion ? 'Сначала выберите версию Minecraft.' : 'Список пуст — можно создать и без неё.'}
+            </p>
+          ) : (
+            <select
+              value={loaderVersion} onChange={e => setLoaderVersion(e.target.value)}
+              className="w-full rounded-lg px-3 py-2 text-sm outline-none"
+              style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
+              <option value="">Любая</option>
+              {loaderVersions.map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          )}
         </Field>
         {error && <p className="text-xs" style={{ color: 'var(--color-error)' }}>{error}</p>}
         <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-xl px-3.5 py-2 text-xs font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+          <button onClick={onClose} className="rounded-xl px-3.5 py-2 text-xs font-bold"
+            style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
             Отмена
           </button>
           <button
             disabled={busy}
             onClick={async () => {
-              setBusy(true);
-              setError('');
+              setBusy(true); setError('');
               try {
-                await onCreate(name, loader, version);
+                await onCreate(name, loader, mcVersion, loaderVersion);
                 onClose();
               } catch (e) {
-                setError(String(e));
-              } finally {
-                setBusy(false);
-              }
+                setError(e instanceof Error ? e.message : String(e));
+              } finally { setBusy(false); }
             }}
             className="flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold disabled:opacity-60"
             style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
@@ -415,6 +482,7 @@ function CreateDialog({ onClose, onCreate }: {
       </div>
     </Overlay>
   );
+}
 }
 
 function InstancePicker({ instances, busy, onClose, onPick }: {
@@ -592,3 +660,5 @@ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: ()
 }
 
 export default BookmarksPage;
+
+

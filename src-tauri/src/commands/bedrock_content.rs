@@ -75,7 +75,40 @@ fn safe_dir_name(name: &str) -> String {
 /// Раньше manifest.json искался строго в корне архива, и любой .mcpack с
 /// вложенной структурой (а такие встречаются на CurseForge постоянно) отвергался
 /// с «не валидный Bedrock-пак». Теперь, как и в extract_mcaddon, допускается
-/// один уровень вложенности: если в корне манифеста нет, ищем
+/// Удаляет папки того же пакета, названные не по UUID: такие остаются от
+/// старых установок и от дубликатов, и Minecraft показывает каждый отдельно.
+/// Сопоставляем по header.uuid внутри manifest.json, а не по имени папки.
+fn drop_stale_copies(parent: &std::path::Path, uuid: &str) {
+    let Ok(entries) = std::fs::read_dir(parent) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        if entry.file_name().to_string_lossy() == uuid {
+            continue;
+        }
+        let manifest_path = path.join("manifest.json");
+        let Ok(text) = std::fs::read_to_string(&manifest_path) else {
+            continue;
+        };
+        let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else {
+            continue;
+        };
+        let same = json["header"]["uuid"]
+            .as_str()
+            .map(|value| value.trim() == uuid)
+            .unwrap_or(false);
+        if same {
+            std::fs::remove_dir_all(&path).ok();
+        }
+    }
+}
+
+/// .mcpack — zip, в корне которого лежит manifest.json пакета. Встречается
+/// и вариант с одной вложенной папкой: если в корне манифеста нет, ищем
 /// `<папка>/manifest.json` и вытаскиваем содержимое этой папки.
 fn extract_mcpack(
     bytes: &[u8],
@@ -131,8 +164,22 @@ let root_manifest: Option<serde_json::Value> = match archive.by_name("manifest.j
 
     let subfolder = target_subfolder_for_manifest(&manifest);
     let pack_name = manifest["header"]["name"].as_str().unwrap_or(fallback_name);
-    let dir_name = safe_dir_name(pack_name);
-    let out_dir = com_mojang.join(subfolder).join(&dir_name);
+    // Minecraft Bedrock ждёт папку, названную по UUID пакета из
+    // header.uuid, и никак иначе. Раньше мы называли её по header.name —
+    // то есть «TACZ Behavior v1.0.3 …». Такие папки игра просто не видит,
+    // хотя файлы на диске лежат и установка отчитывается успехом.
+    let pack_uuid = manifest["header"]["uuid"].as_str().unwrap_or("").trim().to_string();
+    let dir_name = if pack_uuid.is_empty() {
+        // UUID обязателен, но если его нет — лучше хоть что-то, чем отказ.
+        safe_dir_name(pack_name)
+    } else {
+        pack_uuid.clone()
+    };
+    let sub_dir = com_mojang.join(&subfolder);
+    if !pack_uuid.is_empty() {
+        drop_stale_copies(&sub_dir, &pack_uuid);
+    }
+    let out_dir = sub_dir.join(&dir_name);
     std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
 
     for i in 0..archive.len() {
@@ -342,6 +389,9 @@ pub async fn install_bedrock_content(
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BedrockContentEntry {
     pub name: String,
+    /// Имя папки на диске (= header.uuid). Удалять надо по нему, а не по
+    /// отображаемому имени, поэтому держим отдельно.
+    pub dir: String,
     pub kind: String, // "behavior_packs" | "resource_packs" | "skin_packs"
 }
 
@@ -355,14 +405,29 @@ pub async fn list_bedrock_content(family: String) -> Result<Vec<BedrockContentEn
         let dir = com_mojang.join(kind);
         if let Ok(entries) = std::fs::read_dir(&dir) {
             for e in entries.flatten() {
-                if e.path().is_dir() {
-                    if let Some(name) = e.file_name().to_str() {
-                        out.push(BedrockContentEntry {
-                            name: name.to_string(),
-                            kind: kind.to_string(),
-                        });
-                    }
+                if !e.path().is_dir() {
+                    continue;
                 }
+                let Some(dir) = e.file_name().to_str().map(|s| s.to_string()) else {
+                    continue;
+                };
+                // Показываем человекочитаемое имя из manifest.json: после
+                // перехода на UUID-папки имя папки больше ничего не значит
+                // для человека. Если манифеста нет — отдаём имя папки как есть.
+                let manifest_path = e.path().join("manifest.json");
+                let name = std::fs::read_to_string(&manifest_path)
+                    .ok()
+                    .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+                    .and_then(|json| {
+                        json["header"]["name"].as_str().map(|s| s.trim().to_string())
+                    })
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or_else(|| dir.clone());
+                out.push(BedrockContentEntry {
+                    name,
+                    dir,
+                    kind: kind.to_string(),
+                });
             }
         }
     }

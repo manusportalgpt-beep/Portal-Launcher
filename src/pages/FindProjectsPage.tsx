@@ -977,7 +977,12 @@ export function FindProjectsPage() {
   const [netError, setNetError] = useState(false);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 20;
-  const searchTimeout = useRef<ReturnType<typeof setTimeout>|null>(null);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout>|null>(null)
+// Флаг одного авто-повтора при пустой выдаче Bedrock. Сбрасывается, как только
+// пришёл непустой ответ, чтобы следующая genuinely пустая вкладка снова могла
+// попробовать один раз.
+const bedrockRetryRef = useRef(false)
+const [bedrockNote, setBedrockNote] = useState('');
   const resultsScrollRef = useRef<HTMLDivElement | null>(null);
   // Per-tab scroll positions: сохраняем позицию скролла для каждой вкладки.
   // Сбрасывается при уходе со страницы (new session).
@@ -1152,6 +1157,26 @@ export function FindProjectsPage() {
       setNetError(false);
       setLoading(false);
       writeFindProjectsCache(bedrockCacheKey, { savedAt: Date.now(), results: mapped, total: res.pagination?.total_count ?? 0, reachableTotal: res.reachable_count ?? null, capped: !!res.capped });
+
+      // Пустая выдача у Bedrock — почти всегда сбойный ответ: доходит ответ
+      // CurseForge без данных, пока не подгрузилась таксономия классов, и
+      // тогда подсказка в classId уезжает в несуществующую категорию.
+      // Перезапрашиваем автоматически.
+      //
+      // Повторов не больше одного: иначе при genuinely пустом результате
+      // (например, вкладка без модов) страница будет перезапрашивать сама
+      // себя бесконечно. Счётчик живёт в ref, чтобы новый поиск его сбросил.
+      if (pg === 0 && mapped.length === 0) {
+        if (!bedrockRetryRef.current) {
+          bedrockRetryRef.current = true;
+          setBedrockNote('Пустой ответ CurseForge — повторяем запрос.');
+          searchTimeout.current = setTimeout(() => {
+            void doSearch(q, pt, pl, s, pg, cats, ldrs, vers);
+          }, 900);
+        }
+      } else {
+        bedrockRetryRef.current = false;
+      }
       return;
     }
     const cacheKey = findProjectsCacheKey(q, pt, pl, s, pg, cats, ldrs, vers);
@@ -1253,6 +1278,11 @@ export function FindProjectsPage() {
 
   const trigger = useCallback((immediate = false) => {
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    // Новый поиск от пользователя — сбрасываем счётчик авто-повторов, иначе
+    // после одного пустого ответа на прошлую вкладку новый запрос уже не
+    // получил бы своей попытки.
+    bedrockRetryRef.current = false;
+    setBedrockNote('');
     searchTimeout.current = setTimeout(() => {
       setPage(0);
       doSearch(query, projectType, platform, sort, 0, selectedCats, selectedLoaders, selectedVersions);
@@ -1407,10 +1437,15 @@ if (bedrockMode) {
           </button>
         )}
 
+{bedrockMode && bedrockNote && (
+          <span className="text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>
+            {bedrockNote}
+          </span>
+        )}
         {bedrockMode && bedrockTaxError && (
           <span className="text-[10px]" style={{ color: 'var(--color-warning)' }}
             title={bedrockTaxError}>
-            Категории взяты из запасного списка: {bedrockTaxError}
+            Таксономия не загрузилась, показываем без фильтра по классу: {bedrockTaxError}
           </span>
         )}
 

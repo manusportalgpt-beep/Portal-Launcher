@@ -60,6 +60,27 @@ fn target_subfolder_for_manifest(manifest: &serde_json::Value) -> &'static str {
     } // по умолчанию — аддон/поведение, самый частый случай
 }
 
+/// Читает запись архива как текст, не падая на «stream did not contain valid
+/// UTF-8».
+///
+/// `read_to_string` требует строго валидный UTF-8 и возвращает ошибку от самой
+/// stdio, из-за чего установка падала с непонятным сообщением. На практике в
+/// .mcpack попадаются манифесты с BOM, в Windows-1251 и с одиночными битыми
+/// байтами — для разбора JSON это несущественно, поэтому декодируем мягко.
+fn read_zip_text(reader: &mut impl Read) -> String {
+    let mut bytes = Vec::new();
+    if reader.read_to_end(&mut bytes).is_err() {
+        return String::new();
+    }
+    let bytes = if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
+        // BOM UTF-8: serde_json такой манифест не принимает.
+        bytes[3..].to_vec()
+    } else {
+        bytes
+    };
+    String::from_utf8_lossy(&bytes).into_owned()
+}
+
 fn safe_dir_name(name: &str) -> String {
     name.chars()
         .map(|c| if "\\/:*?\"<>|".contains(c) { '_' } else { c })
@@ -488,8 +509,7 @@ fn extract_mcpack(
 // завершено.
 let root_manifest: Option<serde_json::Value> = match archive.by_name("manifest.json") {
         Ok(mut f) => {
-            let mut s = String::new();
-            f.read_to_string(&mut s).map_err(|e| e.to_string())?;
+            let s = read_zip_text(&mut f);
             Some(serde_json::from_str(&s).map_err(|e| format!("manifest.json битый: {e}"))?)
         }
         Err(_) => None,
@@ -515,8 +535,7 @@ let root_manifest: Option<serde_json::Value> = match archive.by_name("manifest.j
             let mut f = archive
                 .by_name(&format!("{prefix}manifest.json"))
                 .map_err(|e| format!("Не читается manifest.json: {e}"))?;
-            let mut s = String::new();
-            f.read_to_string(&mut s).map_err(|e| e.to_string())?;
+            let s = read_zip_text(&mut f);
             root_prefix = prefix;
             serde_json::from_str(&s).map_err(|e| format!("manifest.json битый: {e}"))?
         }
@@ -611,8 +630,7 @@ fn extract_mcaddon(
             let mut f = outer
                 .by_name(&format!("{top}/manifest.json"))
                 .map_err(|e| e.to_string())?;
-            let mut s = String::new();
-            f.read_to_string(&mut s).map_err(|e| e.to_string())?;
+            let s = read_zip_text(&mut f);
             serde_json::from_str(&s).map_err(|e| format!("manifest.json в {top} битый: {e}"))?
         };
         let subfolder = target_subfolder_for_manifest(&manifest);

@@ -108,8 +108,8 @@ type FindProjectsCache = {
 };
 const FIND_PROJECTS_CACHE_TTL = 5 * 60_000;
 const FIND_PROJECTS_STALE_TTL = 30 * 60_000;
-function findProjectsCacheKey(query: string, pt: ProjectType, pl: Platform, sort: SortOrder, page: number, cats: string[], loaders: string[], versions: string[]) {
-  return `portal-find-projects-cache:v2:${JSON.stringify({ query, pt, pl, sort, page, cats, loaders, versions })}`;
+function findProjectsCacheKey(query: string, pt: ProjectType, pl: Platform, sort: SortOrder, page: number, cats: string[], loaders: string[], versions: string[], bedrockClass?: number | null) {
+  return `portal-find-projects-cache:v2:${JSON.stringify({ query, pt, pl, sort, page, cats, loaders, versions, bedrockClass: bedrockClass ?? null })}`;
 }
 function readFindProjectsCache(key: string): FindProjectsCache | null {
   try {
@@ -1088,6 +1088,25 @@ export function FindProjectsPage() {
     // настоящей игрой Bedrock + её категорией. Версии и загрузчики — это
     // понятия Java, поэтому фильтры сюда не передаются вовсе.
     if (bedrockMode) {
+      // К��ш и skeleton — как у Java. Раньше Bedrock шёл в сеть при каждом
+      // переключении вкладки, поэтому страница «думала» и результаты
+      // подставлялись рывками, а на слабой сети выглядело зависанием.
+      const bedrockCacheKey = findProjectsCacheKey(q, pt, pl, s, pg, cats, ldrs, vers, bedrockClassId);
+      const bedrockCached = readFindProjectsCache(bedrockCacheKey);
+      if (bedrockCached) {
+        setResults(pg === 0 ? bedrockCached.results : previous => dedupeCombinedProjects([...previous, ...bedrockCached.results]));
+        setTotal(bedrockCached.total);
+        setReachableTotal(bedrockCached.reachableTotal);
+        setCapped(bedrockCached.capped);
+        setNetError(false);
+        if (Date.now() - bedrockCached.savedAt < FIND_PROJECTS_CACHE_TTL) {
+          setLoading(false);
+          return;
+        }
+      }
+      setLoading(!bedrockCached);
+      if (!bedrockCached) setSearchLoaderTick(t => t + 1);
+      setNetError(false);
       const sortField = s === 'downloads' ? 6 : s === 'newest' ? 11 : s === 'updated' ? 3 : 2;
       const res = await invoke<CfResult>('search_curseforge', {
         query: q, limit: PAGE_SIZE, offset: pg * PAGE_SIZE,
@@ -1100,11 +1119,7 @@ export function FindProjectsPage() {
       // Фильтр по вкладке делаем на клиенте по слагам категорий. classId у
       // Bedrock недоступны (эндпоинт таксономии отдаёт 404), поэтому CurseForge
       // отдаёт в каждом проекте категории со слагами, и мы режем выдачу сами.
-      //
-      // Сравнение регистронезависимое и по слагу ИЛИ по названию: точные слаги
-      // на CurseForge неизвестны, это зашитые нами предположения. Если после
-      // фильтра не осталось ничего, показываем всё найденное — пустая страница
-      // из-за неверного строкового сравнения хуже, чем лишние результаты.
+      // Кэш записываем ниже, уже после возможной фильтрации.
       const activeSlugs = BEDROCK_CATEGORIES
         .filter(c => c.slug === bedrockCat)
         .map(c => c.slug.toLowerCase());
@@ -1136,6 +1151,7 @@ export function FindProjectsPage() {
       setCapped(!!res.capped);
       setNetError(false);
       setLoading(false);
+      writeFindProjectsCache(bedrockCacheKey, { savedAt: Date.now(), results: mapped, total: res.pagination?.total_count ?? 0, reachableTotal: res.reachable_count ?? null, capped: !!res.capped });
       return;
     }
     const cacheKey = findProjectsCacheKey(q, pt, pl, s, pg, cats, ldrs, vers);
@@ -1344,7 +1360,7 @@ export function FindProjectsPage() {
             const active = bedrockMode ? bedrockCat === id : projectType === id;
             return (
               <button key={id} onClick={() => {
-                if (bedrockMode) {
+if (bedrockMode) {
                   setBedrockCat(id as string);
                 } else {
                   if (resultsScrollRef.current) {
@@ -1355,16 +1371,10 @@ export function FindProjectsPage() {
                   applyInstanceCompatibility(id as ProjectType);
                 }
                 setPage(0);
-setResults([]);
-                // Для Bedrock список не должен оставаться пустым до
-                // перезагрузки страницы: раньше переключение вкладки только
-                // чистило выдачу, а effect ниже не срабатывал, потому что его
-                // зависимости не менялись. Поэтому запускаем поиск явно.
-                if (bedrockMode) {
-                  window.setTimeout(() => {
-                    trigger(true);
-                  }, 0);
-                }
+                // Для Bedrock список не чистим: doSearch сразу подставит
+                // кэш или скелетон. Раньше здесь стоял setResults([]), из-за
+                // чего между кликом и ответом был пустой экран — ровно то,
+                // чем Bedrock раздражал по сравнению с Java.
                 // Поиск здесь намеренно НЕ вызываем: смену projectType и так
                 // подхватывает эффект ниже. Раньше тут стоял лишний вызов
                 // doSearch со старым projectType (замыкание ещё не обновилось),

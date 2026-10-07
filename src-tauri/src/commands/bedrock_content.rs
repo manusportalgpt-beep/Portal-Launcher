@@ -105,15 +105,21 @@ fn modern_com_mojang_dirs() -> Result<(PathBuf, Vec<PathBuf>), String> {
     Ok((shared, personal))
 }
 
-/// Куда класть пак: современный общий путь — основной. Устаревший UWP-путь
-/// добавляем, только если он уже существует, чтобы не плодить папки у тем, кто
-/// давно перешёл на новую сборку.
+/// Куда класть пак. Порядок важен, и он исправлен по факту на диске:
+///
+/// Персональные каталоги — основные. Именно там Bedrock держит свои п��ки:
+/// в `Users\<id>\games\com.mojang` лежат «aPortal Gun», «PrizmaVisuals» и мир
+/// игрока, а в `Users\Shared` — только служебные заготовки от самой игры.
+///
+/// Раньше мы начинали с Shared, поэтому наши пакы оказывались рядом с миром,
+/// но не в том каталоге, откуда игра их читает.
+///
+/// Устаревший UWP-путь добавляем, только если он уже существует, чтобы не
+/// плодить папки у тех, кто давно перешёл на новую сборку.
 fn install_targets(family: &str) -> Result<Vec<PathBuf>, String> {
     let (shared, personal) = modern_com_mojang_dirs()?;
-    let mut targets = vec![shared];
-    for dir in personal {
-        targets.push(dir);
-    }
+    let mut targets: Vec<PathBuf> = personal;
+    targets.push(shared);
     let legacy = com_mojang_dir(family)?;
     if legacy.exists() {
         targets.push(legacy);
@@ -132,8 +138,8 @@ fn install_targets(family: &str) -> Result<Vec<PathBuf>, String> {
 /// Без family, потому что для чтения и удаления он не нужен.
 fn all_com_mojang_dirs() -> Result<Vec<PathBuf>, String> {
     let (shared, personal) = modern_com_mojang_dirs()?;
-    let mut dirs = vec![shared];
-    dirs.extend(personal);
+    let mut dirs = personal;
+    dirs.push(shared);
     Ok(dirs.into_iter().filter(|d| d.exists()).collect())
 }
 

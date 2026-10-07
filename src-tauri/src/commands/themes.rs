@@ -228,7 +228,7 @@ pub fn import_prtheme(source_path: String) -> Result<PrTheme, String> {
     let name = src
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
-        .ok_or("нет имени файла")?;
+        .ok_or("нет имени файла".to_string())?;
     let dest = themes_dir().join(&name);
     std::fs::copy(&src, &dest).map_err(|e| e.to_string())?;
     parse(&dest).ok_or_else(|| "Не удалось прочитать тему".into())
@@ -326,7 +326,7 @@ pub fn import_prism_theme(source_path: String) -> Result<PrTheme, String> {
     let name = src
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
-        .ok_or("нет имени папки")?;
+        .ok_or("нет имени папки".to_string())?;
     let dest = themes_dir().join(&name);
     if dest.exists() {
         std::fs::remove_dir_all(&dest).map_err(|e| e.to_string())?;

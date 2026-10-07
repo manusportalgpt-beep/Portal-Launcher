@@ -434,7 +434,7 @@ pub async fn add_mod_to_bookmark(
     let mut bookmark = scan()
         .into_iter()
         .find(|b| b.id == bookmark_id)
-        .ok_or("Закладка не найдена")?;
+        .ok_or("Закладка не найдена".to_string())?;
 
     // Один заход на проект: иначе цикл зависимостей будет крутиться вечно.
     let mut visited: std::collections::HashSet<String> = bookmark
@@ -474,7 +474,7 @@ pub async fn add_mod_to_bookmark(
             .iter()
             .find(|f| f["primary"].as_bool().unwrap_or(false))
             .or_else(|| files.first())
-            .ok_or("У версии нет файлов")?;
+            .ok_or("У версии нет файлов".to_string())?;
         let file_url = primary["url"].as_str().unwrap_or("").to_string();
         let file_name = safe_file_name(
             primary["fileName"].as_str().unwrap_or(&format!("{current_project}.jar")),
@@ -552,7 +552,7 @@ pub fn remove_mod_from_bookmark(
     let mut bookmark = scan()
         .into_iter()
         .find(|b| b.id == bookmark_id)
-        .ok_or("Закладка не найдена")?;
+        .ok_or("Закладка не найдена".to_string())?;
     let dir = bookmark_dir(&bookmark_id);
     bookmark.mods.retain(|m| {
         if m.project_id != project_id {
@@ -609,7 +609,7 @@ pub async fn bookmark_compatibility(
     let bookmark = scan()
         .into_iter()
         .find(|b| b.id == bookmark_id)
-        .ok_or("Закладка не найдена")?;
+        .ok_or("Закладка не найдена".to_string())?;
     let meta = instance_meta(&instance_id)?;
     let client = http_client()?;
 
@@ -711,7 +711,7 @@ pub async fn apply_bookmark(
     let bookmark = scan()
         .into_iter()
         .find(|b| b.id == bookmark_id)
-        .ok_or("Закладка не найдена")?;
+        .ok_or("Закладка не найдена".to_string())?;
     let meta = instance_meta(&instance_id)?;
     let report = bookmark_compatibility(bookmark_id.clone(), instance_id.clone()).await?;
     let client = http_client()?;

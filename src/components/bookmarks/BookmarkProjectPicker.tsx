@@ -172,7 +172,7 @@ export function BookmarkProjectPicker({ bookmark, onClose, onAdded }: {
                         await addMod(bookmark.id, id, section.id);
                         onAdded();
                       } catch (e) {
-                        setError(String(e?.message ?? e));
+setError(e instanceof Error ? e.message : String(e));
                       } finally {
                         setBusyId('');
                       }

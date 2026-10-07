@@ -190,11 +190,18 @@ pub fn rename_bookmark(id: String, name: String) -> Result<Vec<Bookmark>, String
     if name.is_empty() {
         return Err("Название не может быть пустым".into());
     }
+    let mut updated = false;
     for mut bookmark in scan() {
         if bookmark.id == id {
-            bookmark.name = name;
+            // name копируется: цикл может встретить больше одной закладки, а
+            // перемещение строки обнулило бы её для следующих итераций.
+            bookmark.name = name.clone();
             write_manifest(&bookmark)?;
+            updated = true;
         }
+    }
+    if !updated {
+        return Err("Закладка не найдена".into());
     }
     Ok(scan())
 }

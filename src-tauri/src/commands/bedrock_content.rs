@@ -996,7 +996,9 @@ pub async fn list_bedrock_content() -> Result<Vec<BedrockContentEntry>, String> 
                     .unwrap_or(0);
                 if json.is_none() && files == 0 {
                     std::fs::remove_dir(&e.path()).ok();
-                    seen.remove(&key);
+                    // Ключ из seen намеренно НЕ убирается: если такая же пустая
+                    // папка есть в другом корне, она тоже должна отсеяться, а
+                    // не проскочить в список на повторной итерации.
                     continue;
                 }
                 // Имя пакета: некоторые авторы заливают в манифест шаблон

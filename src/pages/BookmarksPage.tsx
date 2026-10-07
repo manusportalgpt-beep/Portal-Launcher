@@ -341,11 +341,10 @@ function ModRow({ mod, onRemove }: { mod: Bookmark['mods'][number]; onRemove: ()
 }
 
 function CreateDialog({ onClose, onCreate }: {
-function CreateDialog({ onClose, onCreate }: {
   onClose: () => void;
   onCreate: (name: string, loader: string, mcVersion: string, loaderVersion: string) => Promise<unknown>;
 }) {
-  const [name, setName] = useState(');
+  const [name, setName] = useState('');
   const [loader, setLoader] = useState('fabric');
   const [mcVersion, setMcVersion] = useState('');
   const [loaderVersion, setLoaderVersion] = useState('');

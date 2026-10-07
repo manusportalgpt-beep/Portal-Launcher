@@ -305,14 +305,20 @@ export function SkinStand3D({
       st.tex = tex;
 
       const solid = () => new THREE.MeshStandardMaterial({ map: tex, roughness: 0.58, metalness: 0 });
+      // Второй слой скина отсекаем по альфе, а не смешиваем.
+      //
+      // Раньше стояло transparent: true + alphaTest: 0.02 + depthWrite: false.
+      // Порог 0.02 пропускает почти любой пиксель, поэтому полупрозрачный
+      // слой рисовался целиком и смешивался с телом — отсюда «мутная» плёнка
+      // поверх туловища и видимость плаща сквозь игрока. С alphaTest: 0.5
+      // дырки в слое отбрасываются, и сквозь них видно основной слой, как в игре.
       const layer = () => new THREE.MeshStandardMaterial({
         map: tex,
         roughness: 0.58,
         metalness: 0,
-        transparent: true,
-        alphaTest: 0.02,
+        transparent: false,
+        alphaTest: 0.5,
         side: THREE.DoubleSide,
-        depthWrite: false,
         polygonOffset: true,
         polygonOffsetFactor: -4,
         polygonOffsetUnits: -4,
@@ -409,11 +415,17 @@ export function SkinStand3D({
         // Узкие рёбра (1 пиксель) берём прозрачный участок текстуры, иначе
         // по краям плаща видны обрезки соседних областей.
         const clear: [number, number, number, number] = [0, 1, 1 / texW, 1];
+        // Ключевой момент: куб стоит спиной к зрителю, поэтому внешней
+        // (видимой сзади) стороне соответствует грань +Z, а не -Z.
+        // Раньше внешней назначалась -Z, и рисунок плаща оказывался вывернут
+        // наизнанку: спереди и сзади показывалось не то, и игрок просвечивал
+        // сквозь плащ. Для внешней грани +Z нужна область x=1..11 (та, что
+        // лежит ближе к началу текстуры), для внутренней -Z — x=12..22.
         const faces: [number, number, number, number][] = [
           clear, clear,        // +X, -X — боковины
           clear, clear,        // +Y, -Y — верх и низ
-          back,                // +Z — спина (плащ со спины)
-          front,               // -Z — лицо (плащ спереди)
+          front,               // +Z — внешняя сторона плаща (видна сзади)
+          back,                // -Z — внутренняя сторона (видна спереди)
         ];
         for (let f = 0; f < 6; f++) {
           const [u0, v0, u1, v1] = faces[f];
@@ -432,11 +444,14 @@ export function SkinStand3D({
         pivot.position.set(0, 8, -2);
         pivot.rotation.y = Math.PI;
         st.player.add(pivot);
+        // Плащ — пиксельная графика, поэтому альфа отсекается, а не смешивается.
+        // При transparent: true плащ становился полупрозрачным: игрок
+        // просвечивал сквозь него, а сам он просвечивал сквозь тело.
         const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({
           map: capeTex,
           side: THREE.DoubleSide,
-          transparent: true,
-          alphaTest: 0.02,
+          transparent: false,
+          alphaTest: 0.5,
         }));
         mesh.position.set(0, -8, 0.5);
         mesh.userData.regionId = 'cape';

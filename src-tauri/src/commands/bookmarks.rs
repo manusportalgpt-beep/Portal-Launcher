@@ -49,6 +49,13 @@ pub struct Bookmark {
     pub loader: String,
     /// Версия Minecraft опциональна: пустая строка означает «любая».
     pub mc_version: String,
+    /// Версия загрузчика — Fabric 0.15.11, Forge 47.2.0 и так далее. Как и
+    /// версия Minecraft, может быть пустой: тогда подойдёт любой.
+    ///
+    /// default обязателен: закладки, созданные до появления этого поля, не
+    /// должны переставать читаться, иначе они просто исчезли бы из списка.
+    #[serde(default)]
+    pub loader_version: String,
     pub created_at: String,
     pub mods: Vec<BookmarkMod>,
 }

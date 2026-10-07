@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, Globe, Loader2, X } from 'lucide-react';
+import { Check, Copy, Globe, Loader2, X } from 'lucide-react';
 
 export type SharePhase = 'scan' | 'hash' | 'lookup' | 'upload' | 'done' | 'error';
 
@@ -48,7 +48,28 @@ export function shareProgressListener(set: React.Dispatch<React.SetStateAction<S
 export function ShareProgressOverlay({ state, onClose }: { state: ShareState; onClose: () => void }) {
   const [elapsed, setElapsed] = useState(0);
   const [stalled, setStalled] = useState(false);
+  // Состояние кнопки копирования: после клика иконка меняется на галочку,
+  // чтобы было видно, что ссылка действительно попала в буфер.
+  const [copied, setCopied] = useState(false);
   const lastEvent = useRef(Date.now());
+
+  // navigator.clipboard есть не всегда (например, в небезопасном контексте),
+  // поэтому есть запасной путь через временный textarea.
+  const copyShareUrl = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const field = document.createElement('textarea');
+      field.value = url;
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      field.select();
+      try { document.execCommand('copy'); } catch { /* буфер недоступен */ }
+      document.body.removeChild(field);
+    }
+    setCopied(true);
+  };
 
   useEffect(() => {
     if (!state?.open) { setElapsed(0); setStalled(false); return; }
@@ -136,7 +157,28 @@ export function ShareProgressOverlay({ state, onClose }: { state: ShareState; on
                 </div>
               )}
               {state.url && (
-                <p className="mt-2 break-all text-[11px]" style={{ color: 'var(--color-primary)' }}>{state.url}</p>
+                <div
+                  className="group mt-2 flex items-start gap-2"
+                  onMouseEnter={() => setCopied(false)}>
+                  <a
+                    href={state.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="min-w-0 flex-1 break-all text-[11px] underline decoration-dotted underline-offset-2"
+                    style={{ color: 'var(--color-primary)' }}>
+                    {state.url}
+                  </a>
+                  <button
+                    onClick={() => copyShareUrl(state.url)}
+                    title={copied ? 'Скопировано' : 'Скопировать ссылку'}
+                    aria-label={copied ? 'Скопировано' : 'Скопировать ссылку'}
+                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+                    style={{ background: 'var(--color-surface-2)', color: copied ? 'var(--color-success)' : 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
+                    {copied
+                      ? <Check className="h-3.5 w-3.5" />
+                      : <Copy className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
               )}
             </div>
           </motion.div>

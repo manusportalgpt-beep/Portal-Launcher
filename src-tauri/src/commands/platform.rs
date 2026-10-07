@@ -171,6 +171,22 @@ pub async fn launch_bedrock(family: Option<String>) -> Result<(), String> {
             Some(f) if !f.is_empty() => format!("shell:appsFolder\\{}", f),
             _ => "minecraft://".to_string(),
         };
+        // Перед запуском включаем все установленные пакы во всех мирах. Bedrock
+        // читает список включённых из world_*_packs.json, поэтому без этого
+        // пак лежит на диске, но в игре его нет. Ошибку не глушим: запуск
+        // продолжаем, активация не обязана быть успешной.
+        match crate::commands::bedrock_content::activate_packs_on_disk() {
+            Ok(result) if result.updated.is_empty() => {
+                println!("[bedrock] nothing to activate: {} packs", result.packs);
+            }
+            Ok(result) => println!(
+                "[bedrock] activated {} packs in {} worlds ({})",
+                result.packs,
+                result.worlds,
+                result.updated.join(", ")
+            ),
+            Err(e) => println!("[bedrock] activation failed: {e}"),
+        }
         crate::utils::create_hidden_command("explorer.exe")
             .arg(&target)
             .spawn()

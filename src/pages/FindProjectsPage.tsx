@@ -497,6 +497,15 @@ function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
             fileName: String(selectedFile.fileName),
           });
           console.log('[Bedrock install]', installProject.title, res.installed);
+          // Установить и включить — разные вещи: Bedrock читает список
+          // включённых паков из самих миров. Сразу включаем всё, что стоит,
+          // иначе пак лежит на диске, но в игре его нет.
+          try {
+            const activation = await invoke<{ packs: number; worlds: number; updated: string[]; failed: string[] }>('activate_all_bedrock_packs');
+            console.log('[Bedrock activate]', activation);
+          } catch (e) {
+            console.warn('Bedrock: не удалось включить пакы в мирах', e);
+          }
           // Помечаем установленным, иначе после перезахода страницы тот же
           // аддон снова предлагался бы поставить.
           useInstalledStore.getState().mark(instanceId, [installProject.id, installProject.title, installProject.slug]);

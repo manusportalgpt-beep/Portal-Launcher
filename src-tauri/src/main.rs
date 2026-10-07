@@ -334,6 +334,7 @@ fn main() {
             commands::bedrock_content::install_bedrock_content,
             commands::bedrock_content::list_bedrock_content,
             commands::bedrock_content::remove_bedrock_content,
+            commands::bedrock_content::activate_all_bedrock_packs,
             commands::platform::list_bedrock_versions,
             commands::platform::launch_bedrock,
             // Audio

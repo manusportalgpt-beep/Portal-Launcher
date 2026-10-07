@@ -22,12 +22,10 @@ fn com_mojang_dir(family: &str) -> Result<PathBuf, String> {
             .join("LocalState")
             .join("games")
             .join("com.mojang");
-        // Раньше здесь стояла проверка «папка должна существовать», и установка
-        // падала на ровном месте: com.mojang создаётся самой игрой при первом
-        // запуске, поэтому у только что установленного Bedrock её ещё нет.
-        // Создаём сами — игра этот путь всё равно читает.
-        std::fs::create_dir_all(&dir)
-            .map_err(|e| format!("Не удалось создать папку com.mojang для {pkg_family}: {e}"))?;
+        // Здесь намеренно НЕ создаём папку. Это устаревший путь, и
+        // install_targets добавляет его в цели только если он уже существует.
+        // Если бы мы создавали его здесь, проверка «а существует ли он» всегда
+        // была бы истинной и старый путь попадал бы в установку всегда.
         Ok(dir)
     }
     #[cfg(not(target_os = "windows"))]
@@ -68,6 +66,242 @@ fn safe_dir_name(name: &str) -> String {
         .collect::<String>()
         .trim()
         .to_string()
+}
+
+/// Настоящий корень данных Bedrock, а не устаревшего UWP-пакета.
+///
+/// Мы годами писали в %LOCALAPPDATA%\Packages\<family>\LocalState\games\com.mojang
+/// и считали это правильным путём. Ошибка была в доказательстве: папка там
+/// существовала, но её создавали мы сами при установке, а не игра. Реально
+/// Bedrock (не-UWP сборка) читает
+/// %APPDATA%\Minecraft Bedrock\Users\<user>\games\com.mojang,
+/// причём пакы живут в Users\Shared, а миры и их активации — в папке
+/// конкретного пользователя.
+fn bedrock_users_root() -> Result<PathBuf, String> {
+    let roaming = std::env::var("APPDATA").map_err(|_| "APPDATA не найден".to_string())?;
+    Ok(PathBuf::from(roaming)
+        .join("Minecraft Bedrock")
+        .join("Users"))
+}
+
+/// Все com.mojang современной Bedrock: общий для паков и персональные.
+/// Возвращает (общий, список персональных).
+fn modern_com_mojang_dirs() -> Result<(PathBuf, Vec<PathBuf>), String> {
+    let users = bedrock_users_root()?;
+    let shared = users.join("Shared").join("games").join("com.mojang");
+    let mut personal = vec![];
+    if let Ok(entries) = std::fs::read_dir(&users) {
+        for entry in entries.flatten() {
+            if !entry.path().is_dir() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.eq_ignore_ascii_case("shared") {
+                continue;
+            }
+            personal.push(entry.path().join("games").join("com.mojang"));
+        }
+    }
+    Ok((shared, personal))
+}
+
+/// Куда класть пак: современный общий путь — основной. Устаревший UWP-путь
+/// добавляем, только если он уже существует, чтобы не плодить папки у тем, кто
+/// давно перешёл на новую сборку.
+fn install_targets(family: &str) -> Result<Vec<PathBuf>, String> {
+    let (shared, personal) = modern_com_mojang_dirs()?;
+    let mut targets = vec![shared];
+    for dir in personal {
+        targets.push(dir);
+    }
+    let legacy = com_mojang_dir(family)?;
+    if legacy.exists() {
+        targets.push(legacy);
+    }
+    for dir in &targets {
+        std::fs::create_dir_all(dir)
+            .map_err(|e| format!("Не удалось создать {}: {e}", dir.display()))?;
+    }
+    Ok(targets)
+}
+
+/// Заглушка-обёртка удалена: и установка, и чтение, и удаление работают через
+/// install_targets / all_com_mojang_dirs.
+
+/// Существующие каталоги com.mojang: общий, персональные и устаревший UWP.
+/// Без family, потому что для чтения и удаления он не нужен.
+fn all_com_mojang_dirs() -> Result<Vec<PathBuf>, String> {
+    let (shared, personal) = modern_com_mojang_dirs()?;
+    let mut dirs = vec![shared];
+    dirs.extend(personal);
+    Ok(dirs.into_iter().filter(|d| d.exists()).collect())
+}
+
+/// Запись активации пака в мире. Формат — тот же, что Bedrock пишет сама:
+/// ```json
+/// { "pack_id": "…", "subpack": "…", "version": [1, 1, 24] }
+/// ```
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct WorldPackRef {
+    #[serde(rename = "pack_id")]
+    pack_id: String,
+    #[serde(rename = "subpack", skip_serializing_if = "Option::is_none", default)]
+    subpack: Option<String>,
+    #[serde(rename = "version")]
+    version: Vec<i64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BedrockActivationResult {
+    pub packs: usize,
+    pub worlds: usize,
+    pub updated: Vec<String>,
+    pub failed: Vec<String>,
+}
+
+/// Включает все установленные пакы во всех мирах разом — то самое «открыть
+/// всё сразу по клику».
+///
+/// Bedrock хранит включённые пакы не в папке пака, а в самих мирах:
+/// `minecraftWorlds\<мир>\world_behavior_packs.json` и
+/// `world_resource_packs.json` со списком UUID. Поэтому «установить» и
+/// «включить» — разные действия, и второе без записи этих файлов не делается.
+#[tauri::command]
+pub async fn activate_all_bedrock_packs() -> Result<BedrockActivationResult, String> {
+    activate_packs_on_disk()
+}
+
+/// Та же логика без обёртки команды: используется при запуске игры, чтобы
+/// «включить всё сразу» происходило по клику «Запустить».
+pub fn activate_packs_on_disk() -> Result<BedrockActivationResult, String> {
+    // Собираем уникальные UUID по типу пака. Файл на диске — источник истины,
+    // поэтому истина читается из его manifest.json, а не из того, что мы
+    // ставили: так работает и с паками, установленными вручную.
+    let mut behaviour: Vec<WorldPackRef> = vec![];
+    let mut resources: Vec<WorldPackRef> = vec![];
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for dir in all_com_mojang_dirs()? {
+        for (kind, bucket) in [
+            ("behavior_packs", &mut behaviour),
+            ("resource_packs", &mut resources),
+            ("skin_packs", &mut resources),
+        ] {
+            let Ok(entries) = std::fs::read_dir(dir.join(kind)) else {
+                continue;
+            };
+            for entry in entries.flatten() {
+                if !entry.path().is_dir() {
+                    continue;
+                }
+                let manifest_path = entry.path().join("manifest.json");
+                let Ok(text) = std::fs::read_to_string(&manifest_path) else {
+                    continue;
+                };
+                let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) else {
+                    continue;
+                };
+                let Some(pack_id) = json["header"]["uuid"]
+                    .as_str()
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty())
+                    .map(String::from)
+                else {
+                    continue;
+                };
+                // У одного пака бывает несколько копий (наши старые папки по
+                // имени и новые по UUID) — берём каждую уникальную пару.
+                let guard = format!("{kind}:{pack_id}");
+                if !seen.insert(guard) {
+                    continue;
+                }
+                let version = json["header"]["version"]
+                    .as_array()
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_i64())
+                            .collect::<Vec<i64>>()
+                    })
+                    .filter(|v| !v.is_empty())
+                    .unwrap_or_else(|| vec![1, 0, 0]);
+                bucket.push(WorldPackRef {
+                    pack_id,
+                    subpack: None,
+                    version,
+                });
+            }
+        }
+    }
+
+    let pack_count = behaviour.len() + resources.len();
+    let mut result = BedrockActivationResult {
+        packs: pack_count,
+        worlds: 0,
+        updated: vec![],
+        failed: vec![],
+    };
+    if pack_count == 0 {
+        return Ok(result);
+    }
+
+    let mut worlds = vec![];
+    for dir in all_com_mojang_dirs()? {
+        let worlds_dir = dir.join("minecraftWorlds");
+        let Ok(entries) = std::fs::read_dir(&worlds_dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            if entry.path().join("level.dat").is_file() {
+                worlds.push(entry.path());
+            }
+        }
+    }
+
+    for world in worlds {
+        result.worlds += 1;
+        let name = world
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+        for (file, wanted) in [
+            ("world_behavior_packs.json", &behaviour),
+            ("world_resource_packs.json", &resources),
+        ] {
+            if wanted.is_empty() {
+                continue;
+            }
+            let path = world.join(file);
+            // Сохраняем то, что уже включено: наш список не должен стирать
+            // пак, включённый вручную в самой игре.
+            let mut merged = std::fs::read_to_string(&path)
+                .ok()
+                .and_then(|text| serde_json::from_str::<Vec<WorldPackRef>>(&text).ok())
+                .unwrap_or_default();
+            let mut added = 0usize;
+            for pack in wanted {
+                let already = merged
+                    .iter()
+                    .any(|item| item.pack_id == pack.pack_id && item.subpack == pack.subpack);
+                if already {
+                    continue;
+                }
+                merged.push(pack.clone());
+                added += 1;
+            }
+            if added == 0 {
+                continue;
+            }
+            match serde_json::to_string_pretty(&merged) {
+                Ok(text) => match std::fs::write(&path, text) {
+                    Ok(()) => result.updated.push(format!("{name}/{file} (+{added})")),
+                    Err(e) => result.failed.push(format!("{name}/{file}: {e}")),
+                },
+                Err(e) => result.failed.push(format!("{name}/{file}: {e}")),
+            }
+        }
+    }
+
+    Ok(result)
 }
 
 /// Извлекает один .mcpack в нужную подпапку com.mojang.
@@ -316,8 +550,7 @@ pub async fn install_bedrock_content(
     download_url: String,
     file_name: String,
 ) -> Result<BedrockInstallResult, String> {
-    let com_mojang = com_mojang_dir(&family)?;
-
+    let targets = install_targets(&family)?;
     // Раньше файл качался ровно по одному адресу, и если основной хост CDN
     // отдавал 403 или 404, установка падала. У CurseForge три зеркала одного
     // хранилища, поэтому перебираем их по очереди — как уже сделано для
@@ -371,17 +604,24 @@ pub async fn install_bedrock_content(
         .trim_end_matches(".zip")
         .to_string();
 
-    let installed = if lower.ends_with(".mcworld") {
-        vec![extract_mcworld(&bytes, &com_mojang, &base_name)?]
-    } else if lower.ends_with(".mcaddon") {
-        extract_mcaddon(&bytes, &com_mojang, &base_name)?
-    } else if lower.ends_with(".mcpack") || lower.ends_with(".zip") {
-        vec![extract_mcpack(&bytes, &com_mojang, &base_name)?]
-    } else {
-        return Err(format!(
-            "Неизвестный формат файла Bedrock-контента: {file_name}"
-        ));
-    };
+// Раскладываем по всем целям: общий каталог Bedrock, персональные каталоги
+    // и, если он ещё есть, устаревший UWP-путь. Раньше писали ровно в одну
+    // папку, и именно поэтому игра ничего не видела.
+    let mut installed: Vec<String> = vec![];
+    for com_mojang in &targets {
+        let placed = if lower.ends_with(".mcworld") {
+            vec![extract_mcworld(&bytes, com_mojang, &base_name)?]
+        } else if lower.ends_with(".mcaddon") {
+            extract_mcaddon(&bytes, com_mojang, &base_name)?
+        } else if lower.ends_with(".mcpack") || lower.ends_with(".zip") {
+            vec![extract_mcpack(&bytes, com_mojang, &base_name)?]
+        } else {
+            return Err(format!(
+                "Неизвестный формат файла Bedrock-контента: {file_name}"
+            ));
+        };
+        installed.extend(placed);
+    }
 
     Ok(BedrockInstallResult { installed })
 }
@@ -398,19 +638,27 @@ pub struct BedrockContentEntry {
 /// Список уже установленного Bedrock-контента (сканирует папки на диске —
 /// это не наша выдумка, а то же самое место, куда сама игра кладёт паки).
 #[tauri::command]
-pub async fn list_bedrock_content(family: String) -> Result<Vec<BedrockContentEntry>, String> {
-    let com_mojang = com_mojang_dir(&family)?;
+pub async fn list_bedrock_content() -> Result<Vec<BedrockContentEntry>, String> {
+    // family больше не нужен: пак ищут по всем корням Bedrock, иначе список
+    // показывал бы пустоту при новом расположении данных.
     let mut out = vec![];
-    for kind in ["behavior_packs", "resource_packs", "skin_packs"] {
-        let dir = com_mojang.join(kind);
-        if let Ok(entries) = std::fs::read_dir(&dir) {
+    let mut seen = std::collections::HashSet::new();
+    for com_mojang in all_com_mojang_dirs()? {
+        for kind in ["behavior_packs", "resource_packs", "skin_packs"] {
+            let dir = com_mojang.join(kind);
+            let Ok(entries) = std::fs::read_dir(&dir) else {
+                continue;
+            };
             for e in entries.flatten() {
                 if !e.path().is_dir() {
                     continue;
                 }
-                let Some(dir) = e.file_name().to_str().map(|s| s.to_string()) else {
+                let Some(dir_name) = e.file_name().to_str().map(|s| s.to_string()) else {
                     continue;
                 };
+                if !seen.insert(format!("{kind}/{dir_name}")) {
+                    continue;
+                }
                 // Показываем человекочитаемое имя из manifest.json: после
                 // перехода на UUID-папки имя папки больше ничего не значит
                 // для человека. Если манифеста нет — отдаём имя папки как есть.
@@ -422,10 +670,10 @@ pub async fn list_bedrock_content(family: String) -> Result<Vec<BedrockContentEn
                         json["header"]["name"].as_str().map(|s| s.trim().to_string())
                     })
                     .filter(|value| !value.is_empty())
-                    .unwrap_or_else(|| dir.clone());
+                    .unwrap_or_else(|| dir_name.clone());
                 out.push(BedrockContentEntry {
                     name,
-                    dir,
+                    dir: dir_name,
                     kind: kind.to_string(),
                 });
             }
@@ -436,11 +684,29 @@ pub async fn list_bedrock_content(family: String) -> Result<Vec<BedrockContentEn
 
 #[tauri::command]
 pub async fn remove_bedrock_content(
-    family: String,
     kind: String,
     name: String,
 ) -> Result<(), String> {
-    let com_mojang = com_mojang_dir(&family)?;
-    let dir = com_mojang.join(&kind).join(&name);
-    std::fs::remove_dir_all(&dir).map_err(|e| format!("Не удалось удалить: {e}"))
+    // Удаляем по имени папки во всех известных корнях Bedrock: раньше команда
+    // принимала family и трогала только устаревший UWP-путь, поэтому удаление
+    // из нового расположения было невозможно.
+    let mut removed = 0usize;
+    let mut last_err = String::new();
+    for dir in all_com_mojang_dirs().unwrap_or_default() {
+        let target = dir.join(&kind).join(&name);
+        if target.is_dir() {
+            match std::fs::remove_dir_all(&target) {
+                Ok(()) => removed += 1,
+                Err(e) => last_err = format!("{}: {e}", target.display()),
+            }
+        }
+    }
+    if removed > 0 {
+        Ok(())
+    } else if last_err.is_empty() {
+        Err(format!("Папка {kind}/{name} не найдена ни в одном каталоге Bedrock"))
+    } else {
+        Err(format!("Не удалось удалить: {last_err}"))
+    }
 }
+

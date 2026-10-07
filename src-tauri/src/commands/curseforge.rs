@@ -518,10 +518,20 @@ pub async fn get_curseforge_file_download_url(
 // даже если CurseForge когда-нибудь поменяет внутренние ID.
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BedrockClass {
+    pub id: u64,
+    pub name: String,
+    pub slug: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BedrockTaxonomy {
     pub game_id: u64,
     /// slug ("addons","texture-packs","scripts","skins","maps") → classId
     pub classes: std::collections::HashMap<String, u64>,
+    /// Полный список категорий Bedrock, как его отдаёт CurseForge. Фронт
+    /// строит вкладки из него, а не из выдуманных вручную слагов.
+    pub class_list: Vec<BedrockClass>,
 }
 
 #[tauri::command]
@@ -563,8 +573,45 @@ pub async fn get_bedrock_curseforge_taxonomy(
     // Возвращаем пустую карту: интерфейс тогда не передаёт classId вовсе и
     // показывает весь Bedrock-контент. Категория как вкладка ведёт на сайт
     // CurseForge, где фильтр уже применён по slug.
-    let classes: std::collections::HashMap<String, u64> =
+    let gid = game_id.to_string();
+    let mut classes: std::collections::HashMap<String, u64> =
         std::collections::HashMap::new();
+    let mut class_list: Vec<BedrockClass> = Vec::new();
 
-    Ok(BedrockTaxonomy { game_id, classes })
+    match cf_json_response(
+        client
+            .get("https://api.curseforge.com/v1/categories")
+            .query(&[("gameId", gid.as_str())]),
+        "categories lookup",
+    )
+    .await
+    {
+        Ok(cats) => {
+            if let Some(arr) = cats["data"].as_array() {
+                for c in arr {
+                    let id = match c["id"].as_u64() {
+                        Some(v) => v,
+                        None => continue,
+                    };
+                    let slug = c["slug"].as_str().unwrap_or("").trim().to_lowercase();
+                    let name = c["name"].as_str().unwrap_or("").trim().to_string();
+                    if slug.is_empty() && name.is_empty() {
+                        continue;
+                    }
+                    if !slug.is_empty() {
+                        classes.insert(slug.clone(), id);
+                    }
+                    classes.insert(name.to_lowercase(), id);
+                    class_list.push(BedrockClass { id, name, slug });
+                }
+            }
+        }
+        Err(e) => {
+            // Таксономия вспомогательная: без неё вкладки останутся
+            // клиентскими, но ломать весь поиск из-за неё нельзя.
+            eprintln!("[bedrock] categories lookup failed: {e}");
+        }
+    }
+
+    Ok(BedrockTaxonomy { game_id, classes, class_list })
 }

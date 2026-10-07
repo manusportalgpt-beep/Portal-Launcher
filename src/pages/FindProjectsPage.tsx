@@ -149,6 +149,57 @@ const TYPE_DEFS: Record<ProjectType, { modrinthFacet: string; cfClass: number; l
 // Bedrock не совпадает ни с чем и поиск возвращал пустую выдачу. Вместо этого
 // показываем весь Bedrock-контент, а вкладка категории ведёт на сайт
 // CurseForge с уже применённым фильтром.
+/** Категория Bedrock, как её отдаёт CurseForge. */
+type BedrockClass = { id: number; name: string; slug: string };
+type BedrockTaxonomy = { game_id: number; classes: Record<string, number>; class_list?: BedrockClass[] };
+
+/**
+ * Наши вкладки названы по-человечески, а CurseForge использует свои слага
+ * («Worlds» вместо «maps», «Texture Packs» с другим написанием). Поэтому
+ * сопоставляем вкладку с настоящей категорией по нескольким признакам:
+ * точному слагау, имени из наших же настроек, алиасу и — последним —
+ * совпадению по общему слову. Порядок важен: чем строже признак, тем
+ * надёжнее результат.
+ */
+const BEDROCK_CATEGORY_ALIASES: Record<string, string[]> = {
+  addons: ['add-ons', 'addons', 'addon', 'add-on', 'add on', 'mods', 'mod'],
+  maps: ['maps', 'map', 'worlds', 'world'],
+  'texture-packs': ['texture-packs', 'texture packs', 'texture pack', 'resource-packs', 'resource packs'],
+  scripts: ['scripts', 'script', 'script-api', 'script api'],
+  skins: ['skins', 'skin', 'players', 'character'],
+};
+
+function normaliseCategory(value: string): string {
+  return value.toLowerCase().trim().replace(/[\s_]+/g, '-').replace(/-+/g, '-');
+}
+
+/** Ищет настоящий classId для вкладки. null, если категория не найдена. */
+function resolveBedrockClassId(tax: BedrockTaxonomy | null, slug: string): number | null {
+  const direct = tax?.classes?.[slug] ?? tax?.classes?.[slug.toLowerCase()] ?? null;
+  if (direct) return direct;
+  const list = tax?.class_list ?? [];
+  if (!list.length) return null;
+
+  const wanted = normaliseCategory(slug);
+  const aliases = (BEDROCK_CATEGORY_ALIASES[slug] ?? []).map(normaliseCategory);
+  const byNorm = (value: string) => list.find(c => normaliseCategory(c.slug) === normaliseCategory(value)
+    || normaliseCategory(c.name) === normaliseCategory(value));
+
+  for (const candidate of [wanted, ...aliases]) {
+    const found = byNorm(candidate);
+    if (found) return found.id;
+  }
+
+  // Последний довод: общее слово, но только если совпадение единственное,
+  // иначе это уже догадка и лучше не фильтровать вовсе.
+  const words = [...aliases, wanted].flatMap(a => a.split('-')).filter(w => w.length > 2);
+  const hits = list.filter(c => {
+    const haystack = `${normaliseCategory(c.slug)} ${normaliseCategory(c.name)}`;
+    return words.some(w => haystack.includes(w));
+  });
+  return hits.length === 1 ? hits[0].id : null;
+}
+
 const BEDROCK_CATEGORIES: { slug: string; label: string; fallbackClass: number | null; icon: any }[] = [
   { slug: 'addons', label: 'Addons', fallbackClass: null, icon: Package },
   { slug: 'maps', label: 'Maps', fallbackClass: null, icon: Map },
@@ -167,7 +218,6 @@ function curseforgeProjectUrl(gameSection: 'minecraft' | 'minecraft-bedrock', sl
   return `https://www.curseforge.com/${gameSection}/${slug}`;
 }
 
-type BedrockTaxonomy = { game_id: number; classes: Record<string, number> };
 
 const SORT_OPTIONS = [
   { value:'relevance', labelKey:'relevance' },
@@ -884,7 +934,7 @@ export function FindProjectsPage() {
   // classId у Bedrock намеренно не передаётся: номера категорий там свои, а
   // взять их неоткуда (см. BEDROCK_CATEGORIES). Фильтр по java-номеру давал
   // пустую выдачу. Ищем по gameId, этого достаточно, чтобы список был не пуст.
-  const bedrockClassId = bedrockTax?.classes?.[bedrockCat] ?? null;
+  const bedrockClassId = resolveBedrockClassId(bedrockTax, bedrockCat);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortOrder>('relevance');
   const [view, setView] = useState<'grid'|'list'>('list');
@@ -1056,7 +1106,11 @@ export function FindProjectsPage() {
           .map(c => c.label.toLowerCase().replace(/\s+/g, '-')),
       );
       let mapped = mappedAll;
-      if (wanted.size === 1 && mappedAll.length > 0) {
+      // Клиентская фильтрация — только запасной путь. Если настоящий classId
+      // найден, CurseForge уже отфильтровал выдачу на сервере, и резать её
+      // ещё раз по слагам нельзя: наш слаг может не совпадать с серверным,
+      // и результат снова схлопнется в пустую страницу.
+      if (!bedrockClassId && wanted.size === 1 && mappedAll.length > 0) {
         const filtered = mappedAll.filter(p => {
           const slugs = (p.categorySlugs ?? []).map(s => s.toLowerCase());
           if (slugs.some(s => wanted.has(s))) return true;
@@ -1178,13 +1232,13 @@ export function FindProjectsPage() {
       setPage(0);
       doSearch(query, projectType, platform, sort, 0, selectedCats, selectedLoaders, selectedVersions);
     }, immediate ? 0 : 350);
-  }, [query, projectType, platform, sort, selectedCats, selectedLoaders, selectedVersions, doSearch]);
+  }, [query, projectType, platform, sort, selectedCats, selectedLoaders, selectedVersions, doSearch, bedrockCat, bedrockClassId]);
 
   useEffect(() => {
     trigger();
     return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, projectType, platform, sort, selectedCats, selectedLoaders, selectedVersions]);
+  }, [query, projectType, platform, sort, selectedCats, selectedLoaders, selectedVersions, bedrockCat, bedrockClassId]);
 
   const pageMounted = useRef(false);
   useEffect(() => {
@@ -1550,3 +1604,4 @@ setResults([]);
     </div>
   );
 }
+

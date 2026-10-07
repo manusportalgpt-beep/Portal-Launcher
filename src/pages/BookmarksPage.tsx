@@ -482,7 +482,6 @@ function CreateDialog({ onClose, onCreate }: {
     </Overlay>
   );
 }
-}
 
 function InstancePicker({ instances, busy, onClose, onPick }: {
   instances: { id: string; name: string; modLoader?: string; minecraftVersion?: string }[];

@@ -1327,6 +1327,25 @@ pub async fn launch_instance(
     );
     log::info!("Launch: {printable}");
 
+    // Полная команда запуска в файл. log::info уходит в stderr и из
+    // Tauri-приложения никуда не попадает, поэтому разбор велся вслепую:
+    // мы знали содержимое classpath, но не знали, какие ещё флаги доехали
+    // до JVM. Здесь видно всё, что передаётся, включая -p, -cp и аргументы
+    // профиля. Файл перезаписывается на каждый запуск.
+    {
+        let mut dump = String::new();
+        dump.push_str("=== executable ===\n");
+        dump.push_str(&format!("{}\n", game_java_path));
+        dump.push_str("=== args (по одному на строку) ===\n");
+        for arg in cmd.get_args() {
+            dump.push_str(arg.to_string_lossy().as_ref());
+            dump.push('\n');
+        }
+        let dump_dir = game_dir.join("portal-logs");
+        std::fs::create_dir_all(&dump_dir).ok();
+        std::fs::write(dump_dir.join("launch-command.txt"), &dump).ok();
+    }
+
     status("starting", "Запускаю Minecraft…");
     let mut child = cmd
         .spawn()

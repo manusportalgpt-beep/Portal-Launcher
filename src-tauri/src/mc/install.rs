@@ -348,6 +348,32 @@ fn include_neoforge_runtime(profile: &mut serde_json::Value) {
         return;
     };
 
+    // Проверка делается ДО взятия изменяемой ссылки на libraries: пока жив
+    // `libraries`, обращаться к profile на чтение уже нельзя (E0502).
+    //
+    // Официальный профиль NeoForge (проверено на 21.1.256) содержит в
+    // arguments.jvm:
+    //   -DlibraryDirectory=${library_directory}
+    //   -DignoreList=client-extra,${version_name}.jar
+    //   -p <bootstraplauncher, securejarhandler, asm, JarJarFileSystems>
+    // и НЕ перечисляет :client среди libraries — FML сам находит этот jar в
+    // libraryDirectory. Мы дописывали :client в libraries, откуда он попадал
+    // в -cp, и FML находил его же при обходе libraryDirectory. Один файл
+    // дважды с разными FileChannel — Collectors.toMap падал до загрузки модов.
+    //
+    // Поэтому при наличии -DlibraryDirectory вход добавляться не должен:
+    // classpath тут лишний, библиотеки FML разрешает сам.
+    let uses_library_directory = profile["arguments"]["jvm"]
+        .as_array()
+        .map(|args| {
+            args.iter().any(|arg| {
+                arg.as_str()
+                    .map(|value| value.contains("library_directory"))
+                    .unwrap_or(false)
+            })
+        })
+        .unwrap_or(false);
+
     if !profile["libraries"].is_array() {
         profile["libraries"] = serde_json::Value::Array(Vec::new());
     }
@@ -412,26 +438,6 @@ fn include_neoforge_runtime(profile: &mut serde_json::Value) {
     //
     // Официальный профиль NeoForge (проверено на 21.1.256) содержит в
     // arguments.jvm:
-    //   -DlibraryDirectory=${library_directory}
-    //   -DignoreList=client-extra,${version_name}.jar
-    //   -p <bootstraplauncher, securejarhandler, asm, JarJarFileSystems>
-    // и НЕ перечисляет :client среди libraries — FML сам находит этот jar в
-    // libraryDirectory. Мы дописывали :client в libraries, откуда он попадал
-    // в -cp, и FML находил его же при обходе libraryDirectory. Один файл
-    // дважды с разными FileChannel — Collectors.toMap падал до загрузки модов.
-    //
-    // Поэтому при наличии -DlibraryDirectory вход добавляться не должен:
-    // classpath тут вообще лишний, библиотеки FML разрешает сам.
-    let uses_library_directory = profile["arguments"]["jvm"]
-        .as_array()
-        .map(|args| {
-            args.iter().any(|arg| {
-                arg.as_str()
-                    .map(|value| value.contains("library_directory"))
-                    .unwrap_or(false)
-            })
-        })
-        .unwrap_or(false);
     let client_coord = format!("net.neoforged:neoforge:{version}:client");
     let client_path = format!("net/neoforged/neoforge/{version}/neoforge-{version}-client.jar");
     // Ищем и по имени координаты, и по пути файла.

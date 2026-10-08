@@ -59,10 +59,22 @@ export interface BookmarkApplyResult {
   failed: string[];
 }
 
+/** Закладка в корзине: папка переехала в recovery, манифест остался целым. */
+export interface DeletedBookmark {
+  id: string;
+  name: string;
+  loader: string;
+  mc_version: string;
+  deleted_at: string;
+  mods: number;
+}
+
 interface BookmarkState {
   bookmarks: Bookmark[];
   activeId: string | null;
   loading: boolean;
+  /** Закладки в корзине — восстанавливаются или удаляются окончательно. */
+  deleted: DeletedBookmark[];
   /** Отчёт совместимости для выбранной сборки, показывается в подтверждении. */
   report: BookmarkCompatReport | null;
   reportLoading: boolean;
@@ -77,6 +89,9 @@ interface BookmarkState {
   removeMod: (id: string, projectId: string) => Promise<void>;
   checkCompatibility: (id: string, instanceId: string) => Promise<BookmarkCompatReport | null>;
   apply: (id: string, instanceId: string, force: boolean) => Promise<BookmarkApplyResult | null>;
+  refreshDeleted: () => Promise<void>;
+  restoreDeleted: (id: string) => Promise<void>;
+  purgeDeleted: (id: string) => Promise<void>;
   clearReport: () => void;
 }
 
@@ -90,6 +105,7 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
   bookmarks: [],
   activeId: null,
   loading: false,
+  deleted: [],
   report: null,
   reportLoading: false,
   applied: null,
@@ -125,6 +141,8 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     const next = { ...get(), activeId: get().activeId === id ? null : get().activeId };
     set({ report: null, applied: null });
     await next.refresh();
+    // Удаление переносит закладку в корзину, её счётчик должен обновиться сразу.
+    await next.refreshDeleted();
   },
 
   select: (id) => set({ activeId: id, report: null, applied: null }),
@@ -171,6 +189,31 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
       console.warn('apply_bookmark failed', e);
       return null;
     }
+  },
+
+  refreshDeleted: async () => {
+    try {
+      const list = await invoke<DeletedBookmark[]>('list_deleted_bookmarks');
+      set({ deleted: Array.isArray(list) ? list : [] });
+    } catch {
+      set({ deleted: [] });
+    }
+  },
+
+  restoreDeleted: async (id) => {
+    // Бэкенд возвращает перечитанный список: восстановленная закладка уже
+    // получила новое уникальное имя папки, а не то, что было в корзине.
+    const list = await invoke<Bookmark[]>('restore_deleted_bookmark', { id });
+    set({
+      bookmarks: Array.isArray(list) ? list : get().bookmarks,
+      deleted: get().deleted.filter(item => item.id !== id),
+      activeId: null,
+    });
+  },
+
+  purgeDeleted: async (id) => {
+    const list = await invoke<DeletedBookmark[]>('permanently_delete_bookmark', { id });
+    set({ deleted: Array.isArray(list) ? list : get().deleted.filter(item => item.id !== id) });
   },
 
   clearReport: () => set({ report: null, applied: null }),

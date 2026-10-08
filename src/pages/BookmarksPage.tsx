@@ -9,6 +9,7 @@ import { invoke } from '@/lib/invoke-shim';
 import { fetchMcVersionIds } from '@/lib/mc-versions';
 import {
   useBookmarkStore, type Bookmark, type BookmarkModReport, type BookmarkCompatReport,
+  type DeletedBookmark,
 } from '@/stores/bookmarkStore';
 import { BookmarkProjectPicker } from '@/components/bookmarks/BookmarkProjectPicker';
 
@@ -25,8 +26,9 @@ const PAGE_SIZE = 6;
 
 export function BookmarksPage() {
   const {
-    bookmarks, activeId, loading, report, reportLoading, applied,
+    bookmarks, activeId, loading, report, reportLoading, applied, deleted,
     refresh, create, select, remove, checkCompatibility, apply, clearReport,
+    refreshDeleted, restoreDeleted, purgeDeleted,
   } = useBookmarkStore();
   const instances = useInstanceStore(s => s.instances);
   const navigate = useNavigate();
@@ -41,8 +43,10 @@ export function BookmarksPage() {
   const [page, setPage] = useState(0);
   const [query, setQuery] = useState('');
   const [section, setSection] = useState('all');
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [trashError, setTrashError] = useState('');
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { void refresh(); void refreshDeleted(); }, [refresh, refreshDeleted]);
 
   const active = useMemo(
     () => bookmarks.find(b => b.id === activeId) ?? null,
@@ -90,8 +94,26 @@ export function BookmarksPage() {
             style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
             <Plus className="h-4 w-4" />Создать закладку
           </button>
+          {deleted.length > 0 && (
+            <button
+              onClick={() => setShowDeleted(true)}
+              className="ml-2 mt-5 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold"
+              style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}>
+              <Trash2 className="h-4 w-4" />Удалённые · {deleted.length}
+            </button>
+          )}
         </div>
-        {creating && <CreateDialog onClose={() => setCreating(false)} onCreate={create} />}
+        {showDeleted && (
+          <DeletedBookmarksPanel
+            items={deleted}
+            error={trashError}
+            onError={setTrashError}
+            onBack={() => setShowDeleted(false)}
+            onRestore={restoreDeleted}
+            onPurge={purgeDeleted}
+          />
+        )}
+        {!showDeleted && creating && <CreateDialog onClose={() => setCreating(false)} onCreate={create} />}
       </div>
     );
   }
@@ -101,14 +123,39 @@ export function BookmarksPage() {
       <div className="mx-auto max-w-4xl px-6 py-6">
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-xl font-black" style={{ color: 'var(--color-text)' }}>Закладки</h1>
-          <button
-            onClick={() => setCreating(true)}
-            className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold"
-            style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
-            <Plus className="h-3.5 w-3.5" />Создать
-          </button>
+          <div className="flex items-center gap-2">
+            {deleted.length > 0 && (
+              <button
+                onClick={() => setShowDeleted(s => !s)}
+                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold"
+                style={{
+                  background: showDeleted ? 'var(--color-surface-active)' : 'var(--color-surface-2)',
+                  color: showDeleted ? 'var(--color-text)' : 'var(--color-text-secondary)',
+                  border: '1px solid var(--color-border)',
+                }}>
+                <Trash2 className="h-3.5 w-3.5" />Удалённые · {deleted.length}
+              </button>
+            )}
+            <button
+              onClick={() => setCreating(true)}
+              disabled={showDeleted}
+              className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold disabled:opacity-40"
+              style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+              <Plus className="h-3.5 w-3.5" />Создать
+            </button>
+          </div>
         </div>
 
+        {showDeleted ? (
+          <DeletedBookmarksPanel
+            items={deleted}
+            error={trashError}
+            onError={setTrashError}
+            onBack={() => setShowDeleted(false)}
+            onRestore={restoreDeleted}
+            onPurge={purgeDeleted}
+          />
+        ) : (
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           {bookmarks.map(b => (
             <button
@@ -129,9 +176,10 @@ export function BookmarksPage() {
             </button>
           ))}
         </div>
+        )}
       </div>
 
-      {active && (
+      {active && !showDeleted && (
         <div className="mx-auto max-w-4xl px-6 pb-16">
           <div className="mt-6 flex flex-wrap items-end justify-between gap-3">
             <div>
@@ -247,7 +295,7 @@ export function BookmarksPage() {
         </div>
       )}
 
-      {creating && <CreateDialog onClose={() => setCreating(false)} onCreate={create} />}
+      {creating && !showDeleted && <CreateDialog onClose={() => setCreating(false)} onCreate={create} />}
 
       {picking && active && (
         <BookmarkProjectPicker
@@ -311,6 +359,96 @@ function sectionLabel(kind: string): string {
 
 function loaderLabel(id: string): string {
   return LOADERS.find(l => l.id === id)?.label ?? id;
+}
+
+/**
+ * Корзина закладок. Папка не стирается сразу, а переезжает в recovery, поэтому
+ * восстановление возможно. Ошибки показываем строкой, а не модалкой: список
+ * может обновиться после клика, и молчание выглядело бы как баг.
+ */
+function DeletedBookmarksPanel({ items, error, onError, onBack, onRestore, onPurge }: {
+  items: DeletedBookmark[];
+  error: string;
+  onError: (value: string) => void;
+  onBack: () => void;
+  onRestore: (id: string) => Promise<void>;
+  onPurge: (id: string) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState('');
+
+  const run = async (id: string, action: (value: string) => Promise<void>, fallback: string) => {
+    setBusy(id);
+    onError('');
+    try {
+      await action(id);
+    } catch (e) {
+      onError(e instanceof Error && e.message ? e.message : fallback);
+    } finally {
+      setBusy('');
+    }
+  };
+
+  return (
+    <div className="mt-5">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onBack}
+          className="flex h-8 w-8 items-center justify-center rounded-lg"
+          style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+          title="Назад к закладкам">
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <h2 className="text-base font-black" style={{ color: 'var(--color-text)' }}>Удалённые закладки</h2>
+      </div>
+
+      {error && (
+        <p className="mt-3 text-xs" style={{ color: 'var(--color-error)' }}>{error}</p>
+      )}
+
+      {items.length === 0 ? (
+        <p className="py-10 text-center text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+          Удалённых закладок нет.
+        </p>
+      ) : (
+        <div className="mt-3">
+          {items.map((item, index) => (
+            <div
+              key={item.id}
+              className="flex items-center gap-3 py-3"
+              style={{ borderBottom: index < items.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
+              <Layers className="h-4 w-4 shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold" style={{ color: 'var(--color-text)' }}>{item.name}</span>
+                <span className="block truncate text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                  {loaderLabel(item.loader)} · {item.mc_version || 'любая версия'} · {item.mods} мод.
+                  {item.deleted_at ? ` · ${new Date(item.deleted_at).toLocaleString()}` : ''}
+                </span>
+              </span>
+              <button
+                onClick={() => void run(item.id, onRestore, 'Не удалось восстановить закладку')}
+                disabled={busy === item.id}
+                className="rounded-xl px-3 py-2 text-xs font-bold disabled:opacity-50"
+                style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+                Восстановить
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm(`Удалить закладку «${item.name}» без возможности восстановления?`)) {
+                    void run(item.id, onPurge, 'Не удалось удалить закладку');
+                  }
+                }}
+                disabled={busy === item.id}
+                className="flex h-8 w-8 items-center justify-center rounded-xl disabled:opacity-50"
+                style={{ background: 'var(--color-surface-2)', color: 'var(--color-error)', border: '1px solid var(--color-border)' }}
+                title="Удалить безвозвратно">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ModRow({ mod, onRemove }: { mod: Bookmark['mods'][number]; onRemove: () => void }) {

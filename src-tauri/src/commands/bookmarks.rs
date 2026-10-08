@@ -415,6 +415,21 @@ async fn fetch_project(
         .map_err(|e| format!("Ответ Modrinth не разобран: {e}"))
 }
 
+/// Автор проекта по ответу Modrinth v2. В v2 автора нет отдельной строкой:
+/// это массив `authors`, где у каждого объекта своё `name`. Поле `author`
+/// осталось только в v1, поэтому проверяем оба — иначе автор молча пустой.
+fn project_author(meta: &serde_json::Value) -> Option<String> {
+    meta.get("authors")
+        .and_then(|list| list.as_array())
+        .and_then(|list| {
+            list.iter()
+                .find_map(|entry| entry.get("name").and_then(|n| n.as_str()))
+        })
+        .or_else(|| meta.get("author").and_then(|a| a.as_str()))
+        .map(|name| name.trim().to_string())
+        .filter(|name| !name.is_empty())
+}
+
 fn safe_file_name(value: &str) -> String {
     let cleaned: String = value
         .chars()
@@ -520,7 +535,7 @@ pub async fn add_mod_to_bookmark(
                 .map(String::from)
                 .or_else(|| version["name"].as_str().map(String::from))
                 .unwrap_or_else(|| current_project.clone()),
-            author: meta.as_ref().and_then(|m| m["author"].as_str()).map(String::from),
+            author: meta.as_ref().and_then(project_author),
             icon_url: meta
                 .as_ref()
                 .and_then(|m| m["icon_url"].as_str())
@@ -619,7 +634,7 @@ pub async fn bookmark_compatibility(
     bookmark_id: String,
     instance_id: String,
 ) -> Result<BookmarkCompatReport, String> {
-    let bookmark = scan()
+    let mut bookmark = scan()
         .into_iter()
         .find(|b| b.id == bookmark_id)
         .ok_or("Закладка не найдена".to_string())?;
@@ -631,7 +646,11 @@ pub async fn bookmark_compatibility(
     let exact_match = loader_match && version_match;
 
     let mut mods = vec![];
-    for m in &bookmark.mods {
+    // Закладки, созданные до исправления чтения авторов, лежат с author: null.
+    // Дописываем им метаданные и сохраняем обратно, иначе пустота останется
+    // навсегда и придётся пересоздавать закладки вручную.
+    let mut repaired: Vec<(usize, Option<String>, Option<String>)> = vec![];
+    for (index, m) in bookmark.mods.iter().enumerate() {
         let mut report = BookmarkModReport {
             project_id: m.project_id.clone(),
             name: m.name.clone(),
@@ -669,7 +688,40 @@ pub async fn bookmark_compatibility(
             }
             Err(e) => report.reason = e,
         }
+        if report.author.is_none() || report.icon_url.is_none() {
+            if let Ok(project) = fetch_project(&client, &m.project_id).await {
+                let author = project_author(&project);
+                let icon = project
+                    .get("icon_url")
+                    .and_then(|i| i.as_str())
+                    .map(String::from);
+                if report.author.is_none() {
+                    report.author = author.clone();
+                }
+                if report.icon_url.is_none() {
+                    report.icon_url = icon.clone();
+                }
+                if report.author.is_some() || report.icon_url.is_some() {
+                    repaired.push((index, author, icon));
+                }
+            }
+        }
         mods.push(report);
+    }
+
+    if !repaired.is_empty() {
+        for (index, author, icon) in repaired {
+            if let Some(entry) = bookmark.mods.get_mut(index) {
+                if entry.author.is_none() {
+                    entry.author = author;
+                }
+                if entry.icon_url.is_none() {
+                    entry.icon_url = icon;
+                }
+            }
+        }
+        // Не срываем отчёт, если метаданные записать не вышло: это кэш.
+        let _ = write_manifest(&bookmark);
     }
 
     // Описание тянем отдельным запросом: в отчёте оно нужно, чтобы «Подробнее»

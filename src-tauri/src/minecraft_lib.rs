@@ -267,7 +267,8 @@ pub fn build_launch_args(
         }
         // Отчёт пишем файлом: log::info уходит в stderr, а из Tauri-приложения
         // туда не попадает, поэтому в логе игры диагностики не видно. Файл
-        // рядом с логами сборки можно прочитать после неудачного запуска.
+        // рядом с логами сборки можно прочитать после неудачного запуска —
+        // но только если разбор запуска включён через PORTAL_LAUNCH_DEBUG.
         let report = format!(
             "Classpath: {} записей после зачистки.\nДубликаты ({}): {}\n\nПолный список:\n{}",
             unique.len(),
@@ -275,11 +276,15 @@ pub fn build_launch_args(
             duplicates.join("\n  "),
             unique.iter().map(|e| format!("  {e}")).collect::<Vec<_>>().join("\n")
         );
-        let logs_dir = instance_dir.join(".minecraft").join("portal-logs");
-        std::fs::create_dir_all(&logs_dir).ok();
-        std::fs::write(logs_dir.join("classpath-report.txt"), &report).ok();
+        if crate::mc::launch::launch_debug_enabled() {
+            let logs_dir = instance_dir.join(".minecraft").join("portal-logs");
+            std::fs::create_dir_all(&logs_dir).ok();
+            std::fs::write(logs_dir.join("classpath-report.txt"), &report).ok();
+        }
         if !duplicates.is_empty() {
             log::warn!("Classpath: убрано дублей {}", duplicates.len());
+        } else if crate::mc::launch::launch_debug_enabled() {
+            log::info!("{report}");
         }
         classpath = unique;
     }

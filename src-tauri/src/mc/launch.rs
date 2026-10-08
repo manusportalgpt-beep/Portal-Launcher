@@ -27,6 +27,16 @@ lazy_static::lazy_static! {
     pub static ref CANCELLED: Arc<Mutex<std::collections::HashSet<String>>> = Arc::new(Mutex::new(std::collections::HashSet::new()));
 }
 
+/// Писать ли отчёты о запуске в `portal-logs`. Разбор запуска нужен редко и
+/// только когда что-то сломалось, поэтому по умолчанию файлы не создаются:
+/// `PORTAL_LAUNCH_DEBUG=1` их включает.
+pub fn launch_debug_enabled() -> bool {
+    matches!(
+        std::env::var("PORTAL_LAUNCH_DEBUG").as_deref(),
+        Ok("1") | Ok("true")
+    )
+}
+
 const MAX_LOG_LINES: usize = 2000;
 const ELYBY_INJECTOR_URL: &str = "https://github.com/yushijinhun/authlib-injector/releases/download/v1.2.8/authlib-injector-1.2.8.jar";
 const ELYBY_INJECTOR_SHA256: &str =
@@ -985,7 +995,11 @@ pub async fn launch_instance(
     // Отчёт в файл, а не в log: stderr из Tauri-приложения никуда не
     // попадает, поэтому прошлый вариант диагностики был не виден нигде.
     // Файл лежит рядом с логами сборки и читается после неудачного запуска.
-    {
+    //
+    // Пишем только по запросу: NeoForge уже запускается, а файлы на каждый
+    // запуск — это мусор. Включается переменной окружения, когда разбор
+    // запуска понадобится снова.
+    if launch_debug_enabled() {
         let mut counts: std::collections::HashMap<String, usize> =
             std::collections::HashMap::new();
         for entry in &classpath {
@@ -1331,8 +1345,9 @@ pub async fn launch_instance(
     // Tauri-приложения никуда не попадает, поэтому разбор велся вслепую:
     // мы знали содержимое classpath, но не знали, какие ещё флаги доехали
     // до JVM. Здесь видно всё, что передаётся, включая -p, -cp и аргументы
-    // профиля. Файл перезаписывается на каждый запуск.
-    {
+    // профиля. Файл перезаписывается на каждый запуск — но только если
+    // включён PORTAL_LAUNCH_DEBUG, иначе это лишняя работа на каждой игре.
+    if launch_debug_enabled() {
         let mut dump = String::new();
         dump.push_str("=== executable ===\n");
         dump.push_str(&format!("{}\n", game_java_path));

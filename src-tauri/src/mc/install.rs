@@ -395,10 +395,23 @@ fn include_neoforge_runtime(profile: &mut serde_json::Value) {
     // NeoForge dev dist-cleaner. Официальный version.json для этих версий
     // universal вообще не перечисляет.
     let new_model = neoform_patched_client_jar_exist(&version);
-    if !new_model {
-        // Always include the universal system-mod — it carries the NeoForge
-        // launch layer and must be on the classpath even when the profile omits
-        // it (classic lines, where the game lives inside the universal jar).
+    // universal на classpath НЕ добавляем, если профиль сам объявляет
+    // library_directory.
+    //
+    // Раньше здесь стояло обратное условие, и комментарий утверждал, что «на
+    // классической линии игра живёт внутри universal.jar». Проверка показала
+    // обратное: в neoforge-21.1.256-universal.jar 2521 запись и НОЛЬ из них
+    // в net/minecraft/. Игры там нет.
+    //
+    // В логе FML видно, что клиентскую игру он находит сам:
+    //   Found mod file "client-1.21.1-20240808.144430-srg.jar"
+    //     [locator: production client provider +net.neoforged:neoforge:...:client]
+    // То есть и клиент, и universal FML подтягивает через libraryDirectory
+    // сам. А наш universal в java.class.path создавал ВТОРОЙ модуль neoforge,
+    // и ModLauncher падал на разрешении модулей:
+    //   ResolutionException: Module minecraft contains package net.minecraft,
+    //   module neoforge exports package net.minecraft to minecraft
+    if !new_model && !uses_library_directory {
         let universal = format!("net.neoforged:neoforge:{version}:universal");
         let has_universal = libraries.iter().any(|library| {
             library["name"]

@@ -403,13 +403,39 @@ fn build_classpath(version: &serde_json::Value, mc_id: &str) -> Vec<String> {
     if owns_client && neoforge_new_model_client_jar(version).is_some() {
         return cp;
     }
-    if let Some(patched) = neoforge_patched_client_jar(version) {
-        // Классическая линия: profile json может не перечислять `:client` —
-        // добавляем патченный клиент вручную, чтобы он гарантированно попал
-        // на classpath (того ждёт старый FML-механизм joined-конфига).
-        let patched_str = patched.to_string_lossy().to_string();
-        if !cp.iter().any(|entry| *entry == patched_str) && seen_paths.insert(patched_str.clone()) {
-            cp.push(patched_str);
+    // Если профиль объявляет library_directory, FML сам находит клиентский
+    // jar — в логе это видно прямо:
+    //   Found mod file "client-1.21.1-...-srg.jar"
+    //     [locator: production client provider +net.neoforged:neoforge:...:client]
+    //
+    // Наш -cp с этим файлом создавал рядом второй модуль minecraft, и
+    // разрешение модулей падало на разделении пакета:
+    //   ResolutionException: Module minecraft contains package
+    //   net.minecraft.world.level, module neoforge exports package
+    //   net.minecraft.world.level to minecraft
+    //
+    // Официальный запуск этот файл на classpath не кладёт, поэтому и мы не
+    // должны. Для профилей без library_directory поведение прежнее.
+    let profile_resolves_libraries = version["arguments"]["jvm"]
+        .as_array()
+        .map(|args| {
+            args.iter().any(|arg| {
+                arg.as_str()
+                    .map(|value| value.contains("library_directory"))
+                    .unwrap_or(false)
+            })
+        })
+        .unwrap_or(false);
+
+    if !profile_resolves_libraries {
+        if let Some(patched) = neoforge_patched_client_jar(version) {
+            // Классическая линия: profile json может не перечислять `:client` —
+            // добавляем патченный клиент вручную, чтобы он гарантированно попал
+            // на classpath (того ждёт старый FML-механизм joined-конфига).
+            let patched_str = patched.to_string_lossy().to_string();
+            if !cp.iter().any(|entry| *entry == patched_str) && seen_paths.insert(patched_str.clone()) {
+                cp.push(patched_str);
+            }
         }
     }
     // Vanilla-клиент нужен, когда на classpath нет патченного файла игры:

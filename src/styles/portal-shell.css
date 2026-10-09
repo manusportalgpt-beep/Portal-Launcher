@@ -269,6 +269,22 @@ html[data-theme="light"] {
 /* ═══ Движение ═══════════════════════════════════════════════════════════
    Меньше — не ноль. Переходы, помогающие понять, что произошло, остаются. */
 
+/* Сетка страницы скинов: три колонки на широком экране, две на среднем,
+   одна на узком. Первая колонка со стендом не должна схлопываться. */
+.skin-grid { grid-template-columns: minmax(0, 380px) minmax(0, 320px) minmax(0, 1fr); }
+
+@media (max-width: 1500px) {
+  .skin-grid { grid-template-columns: minmax(0, 360px) minmax(0, 1fr); }
+  /* Пресеты уходят вниз под две первые колонки, а не в третью узкую. */
+  .skin-grid > :last-child { grid-column: 1 / -1; }
+}
+
+@media (max-width: 900px) {
+  .skin-grid { grid-template-columns: minmax(0, 1fr); }
+  .skin-grid > :last-child { grid-column: auto; }
+}
+
+/* Модаль�� превью и редактор: стекло из обёртки, а не отдельный слой. */
 @media (prefers-reduced-motion: reduce) {
   .pg-panel, .pg-card, .pg-modal, .pg-btn-pill, .pg-btn-icon {
     animation-duration: 0.2s !important;

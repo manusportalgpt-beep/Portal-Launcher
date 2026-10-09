@@ -29,6 +29,9 @@
   --color-success: #2ECC71;
   --color-warning: #F39C12;
   --color-error: #E74C3C;
+  /* Псевдоним, который использует TopNav.tsx:191. Раньше переменной не было,
+     поэтому цвет всегда уезжал в фолбэк и кнопка теряла окраску. */
+  --color-danger: var(--color-error);
   --color-info: #3498DB;
   --color-curseforge: #F16436;
   --color-modrinth: #1BD96A;

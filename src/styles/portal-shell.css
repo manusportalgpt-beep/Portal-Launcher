@@ -1,0 +1,279 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   PORTAL SHELL — общая обёртка интерфейса
+
+   Подключается последним, поверх index.css. Задаёт три вещи, которых до сих
+   пор не было: настоящее стекло, защиту от вылезания текста и круглые
+   кнопки первой вёрстки. Страницы переводятся на эти классы по одной.
+
+   Стекло здесь настоящее, а не «фыррик»: полупрозрачная подложка, размытие
+   подложки, тонкая рамка и внутренняя подсветка сверху — именно эта подсветка
+   отличает стекло от просто серого полупрозрачного прямоугольника.
+
+   Радиус один, 10 px. Стекло — на панелях, карточках и оверлеях, но не на
+   каждом втором элементе: kill-ai-slop запрещает стекло как привычку.
+
+   Правила: https://killaislop.com/ и RULES.md
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Стекло ─────────────────────────────────────────────────────────────
+     Три слоя: подложка, размытие, подсветка. Прозрачность подложки
+     специально невысокая — иначе текст перестаёт читаться. */
+  --pg-blur: 18px;
+  --pg-sat: 1.55;
+  --pg-glass: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  --pg-glass-strong: color-mix(in srgb, var(--color-surface) 86%, transparent);
+  --pg-glass-line: color-mix(in srgb, var(--color-text) 9%, transparent);
+  --pg-glass-line-strong: color-mix(in srgb, var(--color-text) 16%, transparent);
+  /* Подсветка сверху: тонкая светлая полоса внутри рамки. Без неё
+     полупрозрачная панель читается как дырка, а не как стекло. */
+  --pg-glass-edge: inset 0 1px 0 var(--pg-glass-line);
+  --pg-glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.24), 0 8px 24px rgba(0, 0, 0, 0.22);
+
+  --pg-r: 10px;
+  --pg-r-sm: 8px;
+  --pg-r-lg: 14px;
+  --pg-r-pill: 9999px;
+
+  /* Движение: из animate, конкретные кривые, без ease-in на интерфейсе. */
+  --pg-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --pg-inout: cubic-bezier(0.77, 0, 0.175, 1);
+  --pg-fast: 120ms;
+  --pg-base: 180ms;
+}
+
+/* Светлая тема: на тёмном фоне стекло темнее, на светлом — светлее фона,
+   иначе панель проваливается и текст теряет контраст. */
+:root[data-theme="light"],
+html[data-theme="light"] {
+  --pg-blur: 16px;
+  --pg-sat: 1.35;
+  --pg-glass: color-mix(in srgb, var(--color-surface) 78%, transparent);
+  --pg-glass-strong: color-mix(in srgb, var(--color-surface) 92%, transparent);
+  --pg-glass-line: color-mix(in srgb, #000000 10%, transparent);
+  --pg-glass-line-strong: color-mix(in srgb, #000000 16%, transparent);
+  --pg-glass-edge: inset 0 1px 0 color-mix(in srgb, #ffffff 70%, transparent);
+  --pg-glass-shadow: 0 1px 2px rgba(20, 20, 26, 0.06), 0 8px 24px rgba(20, 20, 26, 0.10);
+}
+
+/* ═══ Стекло на оболочке: панель навигации, верхняя панель, окна ═══════════ */
+
+#root .portal-skin.portal-sidebar {
+  /* Настоящее стекло вместо прежнего backdrop-filter: none !important */
+  background: var(--pg-glass) !important;
+  backdrop-filter: blur(var(--pg-blur)) saturate(var(--pg-sat)) !important;
+  -webkit-backdrop-filter: blur(var(--pg-blur)) saturate(var(--pg-sat)) !important;
+  border-right: 1px solid var(--pg-glass-line) !important;
+  box-shadow: var(--pg-glass-edge) !important;
+  /* Панель не перекрывает содержимое: при переключении режима интерфейс
+     сжимается. Правило из RULES.md 1.7. */
+  position: relative;
+  z-index: 30;
+}
+
+/* Знак: рамка и подсветка, как у настоящего стекла, без градиента. */
+#root .portal-skin .ps-logo {
+  background: color-mix(in srgb, var(--color-surface-2) 60%, transparent) !important;
+  border: 1px solid var(--pg-glass-line-strong) !important;
+  box-shadow: var(--pg-glass-edge) !important;
+  border-radius: var(--pg-r-sm) !important;
+}
+
+/* ═══ Панели, карточки, окна ═══════════════════════════════════════════ */
+
+.pg-panel,
+.pg-card {
+  background: var(--pg-glass);
+  backdrop-filter: blur(var(--pg-blur)) saturate(var(--pg-sat));
+  -webkit-backdrop-filter: blur(var(--pg-blur)) saturate(var(--pg-sat));
+  border: 1px solid var(--pg-glass-line);
+  border-radius: var(--pg-r);
+  box-shadow: var(--pg-glass-edge), var(--pg-glass-shadow);
+}
+
+.pg-panel-solid { background: var(--pg-glass-strong); }
+
+.pg-card {
+  padding: 14px;
+  /* Изоляция: перерисовка карточки не трогает соседние. */
+  contain: layout paint;
+  transition: border-color var(--pg-fast) ease, background-color var(--pg-fast) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pg-card:hover {
+    border-color: var(--pg-glass-line-strong);
+    background: var(--pg-glass-strong);
+  }
+}
+
+/* Круглые кнопки для первого входа. Пилюля — не весь интерфейс,
+   а место, где нужно показать главное действие. */
+.pg-btn-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 22px;
+  border: 1px solid transparent;
+  border-radius: var(--pg-r-pill);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform var(--pg-fast) var(--pg-out), opacity var(--pg-fast) ease,
+              background-color var(--pg-fast) ease;
+}
+
+.pg-btn-pill:active { transform: scale(0.985); }
+.pg-btn-pill:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.pg-btn-pill[data-variant="primary"] {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+}
+
+.pg-btn-pill[data-variant="glass"] {
+  background: var(--pg-glass);
+  backdrop-filter: blur(var(--pg-blur)) saturate(var(--pg-sat));
+  -webkit-backdrop-filter: blur(var(--pg-blur)) saturate(var(--pg-sat));
+  border-color: var(--pg-glass-line-strong);
+  color: var(--color-text);
+  box-shadow: var(--pg-glass-edge);
+}
+
+.pg-btn-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--pg-glass-line-strong);
+  background: var(--pg-glass);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: transform var(--pg-fast) var(--pg-out), color var(--pg-fast) ease,
+              background-color var(--pg-fast) ease;
+}
+
+.pg-btn-icon:hover { color: var(--color-text); background: var(--pg-glass-strong); }
+.pg-btn-icon:active { transform: scale(0.94); }
+
+/* ═══ Окна ═════════════════════════════════════════════════════════════ */
+
+.pg-modal {
+  background: var(--pg-glass-strong);
+  backdrop-filter: blur(28px) saturate(1.7);
+  -webkit-backdrop-filter: blur(28px) saturate(1.7);
+  border: 1px solid var(--pg-glass-line-strong);
+  border-radius: var(--pg-r-lg);
+  box-shadow: var(--pg-glass-edge), 0 24px 64px rgba(0, 0, 0, 0.5);
+  animation: pg-modal-in var(--pg-base) var(--pg-out);
+}
+
+@keyframes pg-modal-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Затемнение под окном: подбирается под реальный фон, а не «на всякий случай
+   одно и то же». */
+.pg-scrim {
+  background: color-mix(in srgb, var(--color-bg) 72%, transparent);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+/* ═══ Защита от вылезания текста ════════════════════════════════════════
+   Три уровня. Первый — утилита, второй — поведение flex-контейнера,
+   третий — точечные места, где текст вылезал. */
+
+.pg-trunc {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pg-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Flex- и grid-родитель по умолчанию не даёт ребёнку сжиматься, из-за чего
+   длинный текст выталкивает соседей за пределы панели. */
+.pg-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pg-row > * { min-width: 0; }
+.pg-row > .pg-row-tight { flex: none; min-width: auto; }
+
+.pg-grid { display: grid; gap: 10px; min-width: 0; }
+.pg-grid > * { min-width: 0; }
+
+/* Счётчики и чипы не переносятся на вторую строку. */
+.pg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--pg-r-pill);
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+  border: 1px solid var(--pg-glass-line);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex: none;
+}
+
+/* Навигация: подпись не выдавливает иконку и не вылезает в узком режиме. */
+#root .portal-skin .ps-nav-item .ps-label,
+#root .portal-skin .ps-inst .ps-inst-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#root .portal-skin .ps-nav-item,
+#root .portal-skin .ps-inst {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Иконки: один размер в слое, обводка одна, выравнивание по рамке. */
+#root .portal-skin .ps-ico,
+.pg-ico {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+}
+
+#root .portal-skin .ps-ico svg,
+.pg-ico svg { width: 17px; height: 17px; display: block; }
+
+/* ═══ Фокус ═════════════════════════════════════════════════════════════
+   Виден всегда, не только мышью. Акцент кнопок в index.css его гасит —
+   поэтому здесь объявлено сразу для всего приложения. */
+
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 70%, var(--color-text));
+  outline-offset: 2px;
+  border-radius: var(--pg-r-sm);
+}
+
+/* ═══ Движение ═══════════════════════════════════════════════════════════
+   Меньше — не ноль. Переходы, помогающие понять, что произошло, остаются. */
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-panel, .pg-card, .pg-modal, .pg-btn-pill, .pg-btn-icon {
+    animation-duration: 0.2s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.2s !important;
+    transition-delay: 0s !important;
+  }
+}

@@ -1377,6 +1377,43 @@ fn modrinth_ids_from_download(url: &str) -> Option<(String, String)> {
     ))
 }
 
+// Modrinth отдаёт X-Ratelimit-Limit: 300 запросов в минуту. Раньше любой ответ
+// проглатывался через if let Ok, поэтому превышение лимита выглядело как
+// вечная загрузка: заглушка оставалась, иконки не приходили. Здесь 429 и
+// сетевые сбои ждут сброса лимита и повторяются.
+async fn fetch_json_with_retry(
+    client: &reqwest::Client,
+    url: &str,
+    attempts: usize,
+) -> Option<serde_json::Value> {
+    for attempt in 0..attempts.max(1) {
+        let backoff = std::time::Duration::from_millis(400 * (attempt as u64 + 1));
+        let response = match client.get(url).send().await {
+            Ok(response) => response,
+            Err(_) => {
+                tokio::time::sleep(backoff).await;
+                continue;
+            }
+        };
+        if response.status().as_u16() == 429 {
+            let wait = response
+                .headers()
+                .get("x-ratelimit-reset-after")
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(2)
+                .clamp(1, 60);
+            tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+            continue;
+        }
+        match response.error_for_status() {
+            Ok(response) => return response.json::<serde_json::Value>().await.ok(),
+            Err(_) => tokio::time::sleep(backoff).await,
+        }
+    }
+    None
+}
+
 async fn hydrate_modrinth_instance_mods(client: &reqwest::Client, mods: &mut [InstanceMod]) {
     let lookup: Vec<(usize, String, String)> = mods
         .iter()
@@ -1732,68 +1769,154 @@ pub async fn preview_remote_modpack(
 
     pp(65, "Получаю метаданные модов…");
     if is_modrinth {
-        modrinth_lookup
-            .sort_by(|a, b| (a.1.as_str(), a.2.as_str()).cmp(&(b.1.as_str(), b.2.as_str())));
-        modrinth_lookup.dedup_by(|a, b| a.1 == b.1 && a.2 == b.2);
-        for chunk in modrinth_lookup.chunks(8) {
-            let results = futures::future::join_all(chunk.iter().map(|(index, project_id, version_id)| {
-                let client = client.clone();
-                let index = *index;
-                let project_id = project_id.clone();
-                let version_id = version_id.clone();
-                async move {
-                    let mut name = None;
-                    let mut author = None;
-                    let mut author_url = None;
-                    let mut author_avatar_url = None;
-                    let mut icon_url = None;
-                    let mut version = None;
-                    if let Ok(response) = client.get(format!("https://api.modrinth.com/v2/project/{project_id}")).send().await {
-                        if let Ok(response) = response.error_for_status() {
-                            if let Ok(project) = response.json::<serde_json::Value>().await {
-                                name = project["title"].as_str().map(String::from);
-                                icon_url = project["icon_url"].as_str().map(String::from);
-                                if let Some(team_id) = project["team"].as_str() {
-                                    if let Ok(response) = client.get(format!("https://api.modrinth.com/v2/team/{team_id}/members")).send().await {
-                                        if let Ok(response) = response.error_for_status() {
-                                            if let Ok(members) = response.json::<serde_json::Value>().await {
-                                                if let Some(member) = members.as_array().and_then(|members| members.iter().find(|member| member["role"].as_str() == Some("Owner")).or_else(|| members.first())) {
-                                                    author = member["user"]["username"].as_str().map(String::from);
-                                                    author_url = author.as_ref().map(|name| format!("https://modrinth.com/user/{}", urlencoding::encode(name)));
-                                                    author_avatar_url = member["user"]["avatar_url"].as_str().map(String::from);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+        // Раньше на каждый мод уходило три запроса: проект, состав команды и
+        // версия. На сборке в 150 модов это 450 запросов при лимите 300 в
+        // минуту — лимит выбивался гарантированно. Теперь название и иконка
+        // приходят одним запросом на 50 модов, версии и авторы укладываются в
+        // остаток лимита, а всё недоступное подписывается честно.
+        let mut by_project: std::collections::BTreeMap<String, Vec<usize>> =
+            std::collections::BTreeMap::new();
+        for (index, project_id, _version_id) in &modrinth_lookup {
+            by_project
+                .entry(project_id.clone())
+                .or_default()
+                .push(*index);
+        }
+
+        let project_ids: Vec<String> = by_project.keys().cloned().collect();
+        let mut projects: std::collections::HashMap<String, serde_json::Value> =
+            std::collections::HashMap::new();
+        for chunk in project_ids.chunks(50) {
+            // Неизвестные id Modrinth пропускает молча и не возвращает в ответе,
+            // поэтому сопоставляем по полю id, а не по порядку.
+            let ids = chunk
+                .iter()
+                .map(|id| format!("\"{id}\""))
+                .collect::<Vec<_>>()
+                .join(",");
+            let url = format!(
+                "https://api.modrinth.com/v2/projects?ids={}",
+                urlencoding::encode(&format!("[{ids}]"))
+            );
+            if let Some(value) = fetch_json_with_retry(&client, &url, 3).await {
+                if let Some(list) = value.as_array() {
+                    for project in list {
+                        if let Some(id) = project["id"].as_str() {
+                            projects.insert(id.to_string(), project.clone());
                         }
                     }
-                    if let Ok(response) = client.get(format!("https://api.modrinth.com/v2/version/{version_id}")).send().await {
-                        if let Ok(response) = response.error_for_status() {
-                            if let Ok(version_data) = response.json::<serde_json::Value>().await {
-                                version = version_data["version_number"].as_str().map(String::from);
-                            }
-                        }
-                    }
-                    (index, name, version, author, author_url, author_avatar_url, icon_url)
                 }
-            })).await;
-            for (index, name, version, author, author_url, author_avatar_url, icon_url) in results {
-                if let Some(entry) = entries.get_mut(index) {
-                    if let Some(value) = name {
-                        entry.name = value;
+            }
+            pp(70, "Получаю метаданные модов…");
+        }
+
+        for (project_id, indices) in &by_project {
+            let project = projects.get(project_id);
+            for index in indices {
+                if let Some(entry) = entries.get_mut(*index) {
+                    if let Some(project) = project {
+                        if let Some(title) = project["title"].as_str() {
+                            entry.name = title.to_string();
+                        }
+                        entry.icon_url = project["icon_url"].as_str().map(String::from);
                     }
+                }
+            }
+        }
+
+        // Версии — в пределах остатка лимита, блоками по восемь.
+        let mut budget: usize = 180;
+        for chunk in modrinth_lookup.chunks(8) {
+            if budget == 0 {
+                break;
+            }
+            budget = budget.saturating_sub(chunk.len());
+            let results =
+                futures::future::join_all(chunk.iter().map(|(index, _project_id, version_id)| {
+                    let client = client.clone();
+                    let version_id = version_id.clone();
+                    let index = *index;
+                    async move {
+                        let url = format!("https://api.modrinth.com/v2/version/{version_id}");
+                        let version = fetch_json_with_retry(&client, &url, 2)
+                            .await
+                            .and_then(|value| value["version_number"].as_str().map(String::from));
+                        (index, version)
+                    }
+                }))
+                .await;
+            for (index, version) in results {
+                if let Some(entry) = entries.get_mut(index) {
                     if let Some(value) = version {
                         entry.version = value;
                     }
+                }
+            }
+            pp(80, "Уточняю версии…");
+        }
+
+        // Авторы — последними, тоже с ограничением по лимиту.
+        let author_targets: Vec<(usize, String)> = by_project
+            .iter()
+            .filter_map(|(project_id, indices)| {
+                projects
+                    .get(project_id)
+                    .and_then(|project| project["team"].as_str())
+                    .and_then(|team| indices.first().map(|index| (*index, team.to_string())))
+            })
+            .take(60)
+            .collect();
+        for chunk in author_targets.chunks(8) {
+            let results =
+                futures::future::join_all(chunk.iter().map(|(index, team_id)| {
+                    let client = client.clone();
+                    let team_id = team_id.clone();
+                    let index = *index;
+                    async move {
+                        let url = format!("https://api.modrinth.com/v2/team/{team_id}/members");
+                        // Участника копируем: вернуть ссылку на элемент локального
+                        // value из замыкания нельзя, компилятор такое не пропустит.
+                        let members = fetch_json_with_retry(&client, &url, 2).await;
+                        let member = members.as_ref().and_then(|value| {
+                            value
+                                .as_array()
+                                .and_then(|members| {
+                                    members
+                                        .iter()
+                                        .find(|member| member["role"].as_str() == Some("Owner"))
+                                        .or_else(|| members.first())
+                                })
+                                .cloned()
+                        });
+                        let author = member
+                            .as_ref()
+                            .and_then(|member| member["user"]["username"].as_str().map(String::from));
+                        let author_url = author.as_ref().map(|name| {
+                            format!("https://modrinth.com/user/{}", urlencoding::encode(name))
+                        });
+                        let author_avatar_url = member
+                            .as_ref()
+                            .and_then(|member| member["user"]["avatar_url"].as_str().map(String::from));
+                        (index, author, author_url, author_avatar_url)
+                    }
+                }))
+                .await;
+            for (index, author, author_url, author_avatar_url) in results {
+                if let Some(entry) = entries.get_mut(index) {
                     if let Some(value) = author {
                         entry.author = value;
                     }
                     entry.author_url = author_url;
                     entry.author_avatar_url = author_avatar_url;
-                    entry.icon_url = icon_url;
                 }
+            }
+        }
+
+        // Заглушка не должна доживать до готового списка: она читалась как
+        // бесконечная загрузка.
+        for entry in entries.iter_mut() {
+            if entry.author.starts_with("Loading metadata") {
+                entry.author = "метаданные недоступны".to_string();
             }
         }
     } else if let Some(key) = api_key.as_deref() {

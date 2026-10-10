@@ -1191,7 +1191,13 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
       onDrop={event => { event.preventDefault(); dragDepthRef.current = 0; void importDroppedArchives(event.dataTransfer.files); }}>
       {dragOver && <motion.div initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.985 }} transition={{ duration: 0.16 }} className="pointer-events-none absolute inset-4 z-[140] flex items-center justify-center rounded-xl border-2 border-dashed" style={{ background:'color-mix(in srgb, var(--color-primary) 14%, transparent)', borderColor:'var(--color-primary)', color:'var(--color-primary)', boxShadow:'0 0 0 6px color-mix(in srgb, var(--color-primary) 8%, transparent)' }}><div className="max-w-md rounded-2xl px-6 py-5 text-center" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-lg)' }}><Upload className={`mx-auto mb-2 h-8 w-8 ${importing ? 'animate-bounce' : ''}`} /><p className="text-sm font-black">{importing ? 'Импортирую сборку…' : 'Перенесите .mrpack или .zip в эту зону'}</p><p className="mt-1 text-xs leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>{importing ? 'Немного подождите: крупные модпаки могут читать manifest и скачивать модификации несколько минут.' : 'Лаунчер прочитает manifest и начнёт установку автоматически.'}</p></div></motion.div>}
       {/* Toolbar */}
-      <div className="flex items-center gap-2 mb-6 flex-wrap">
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
+        <div className="flex min-w-[220px] flex-1 items-center gap-2 px-3 py-2 rounded-lg"
+          style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+          <Search className="w-4 h-4 shrink-0" style={{ color:'var(--color-text-tertiary)' }} />
+          <input data-library-search="true" className="min-w-0 flex-1 bg-transparent text-sm" placeholder={t('libraryRuntime.smartSearch')}
+            value={filter} onChange={e => setFilter(e.target.value)} style={{ color:'var(--color-text)' }} />
+        </div>
         <button onClick={onNew}
           className="dbtn dbtn-accent flex items-center gap-1.5 px-4 py-2.5 text-sm">
           <Plus className="w-4 h-4" />{t('libraryRuntime.create')}
@@ -1221,12 +1227,6 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
           style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
           <Trash className="w-4 h-4" />Удалённые
         </button>
-        <div className="flex-1 min-w-[140px] flex items-center gap-1.5 px-3 py-2.5 rounded-xl ml-auto"
-          style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', maxWidth: 260 }}>
-          <Search className="w-3.5 h-3.5 shrink-0" style={{ color:'var(--color-text-tertiary)' }} />
-          <input data-library-search="true" className="flex-1 min-w-0 bg-transparent text-sm" placeholder={t('libraryRuntime.smartSearch')}
-            value={filter} onChange={e => setFilter(e.target.value)} style={{ color:'var(--color-text)' }} />
-        </div>
       </div>
 
       {instances.length === 0 ? (

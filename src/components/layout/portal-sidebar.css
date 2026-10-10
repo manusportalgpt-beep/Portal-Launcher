@@ -140,17 +140,19 @@
   transition: background-color 170ms ease, color 160ms ease;
 }
 .portal-skin .ps-nav-item:hover { background: color-mix(in srgb, var(--ps-accent) 8%, transparent); color: var(--color-text); }
-.portal-skin .ps-nav-item.active { color: var(--ps-accent); background: color-mix(in srgb, var(--ps-accent) 12%, transparent); }
-.portal-skin .ps-nav-item.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 22px;
-  border-radius: 2px;
+/* Активный пункт по образцу Portal-App: значок в залитом кружке акцентом,
+   без полоски слева. Полоса была своя придумка и визуально спорила
+   с кружком. */
+.portal-skin .ps-nav-item.active {
+  color: var(--color-text);
+  background: transparent;
+}
+.portal-skin .ps-nav-item.active::before { display: none; }
+.portal-skin .ps-nav-item.active .ps-nav-icon {
+  border-radius: 9999px;
   background: var(--ps-accent);
+  border-color: var(--ps-accent);
+  color: var(--color-primary-text);
 }
 .portal-skin .ps-nav-icon {
   display: flex;

@@ -1,15 +1,13 @@
 /* ============================================================
    Palitra Modrinth App celikom.
-   Sgenerirovano iz packages/assets/styles/variables.scss.
-   Znacheniya ne perepechatyvalis ruku - razbor ishodnika.
+   Sgenerirovano razborom packages/assets/styles/variables.scss.
+   Znacheniya ne perapechatyvalis ruku.
 
-   Pochemu eto ne lomaet nashi temy: u html[data-theme]
-   specifichnost vyshe, chem u :root, poehtomy presety oformleniya
-   prodolzhayut pereopredelyat znacheniya poverh palitry.
+   Mnogostrochnye znacheniya skleeny v odnu stroku, inache
+   ostanutsya oborvannye obyavleniya i sborka frontenda padaet.
    ============================================================
 
 :root {
-  /* Temnaya tema. Bazovaya, kak i bylo v launchere. */
   --surface-1: #16181c;
   --surface-1-5: #1a1c20;
   --surface-2: #1d1f23;
@@ -123,7 +121,7 @@
   --shadow-inset-sm: inset 0px -1px 1px hsla(221, 39%, 11%, 0.25);
   --shadow-raised-lg: 0px 2px 4px hsla(221, 39%, 11%, 0.2);
   --shadow-raised: 0px -2px 4px hsla(221, 39%, 11%, 0.1);
-  --shadow-floating:
+  --shadow-floating: hsla(0, 0%, 0%, 0) 0px 0px 0px 0px, hsla(0, 0%, 0%, 0) 0px 0px 0px 0px, hsla(0, 0%, 0%, 0.1) 0px 4px 6px -1px, rgba(0, 0, 0, 0.06) 0px 2px 4px -1px;
   --shadow-card: rgba(0, 0, 0, 0.25) 0px 2px 4px 0px;
   --brand-gradient-bg: linear-gradient(0deg, rgba(14, 35, 19, 0.2) 0%, rgba(55, 137, 73, 0.1) 100%);
   --brand-gradient-strong-bg: linear-gradient(270deg, #09110d 10%, #131f17 100%);
@@ -160,7 +158,6 @@
 }
 
 html[data-theme="light"] {
-  /* Svetlaya tema Modrinth: surface-1 #ebebeb ... surface-4 #ffffff */
   --surface-1: #ebebeb;
   --surface-1-5: #ededed;
   --surface-2: #f5f5f5;
@@ -273,11 +270,11 @@ html[data-theme="light"] {
   --shadow-inset: inset 0px -2px 2px hsla(221, 39%, 91%, 0.05);
   --shadow-inset-sm: inset 0px -1px 2px hsla(221, 39%, 91%, 0.15);
   --shadow-raised-lg: 0px 2px 4px hsla(221, 39%, 11%, 0.2);
-  --shadow-raised:
-  --shadow-floating:
+  --shadow-raised: 0.3px 0.5px 0.6px hsl(var(--shadow-color) / 0.15), 1px 2px 2.2px -1.7px hsl(var(--shadow-color) / 0.12), 4.4px 8.8px 9.7px -3.4px hsl(var(--shadow-color) / 0.09);
+  --shadow-floating: hsla(0, 0%, 0%, 0) 0px 0px 0px 0px, hsla(0, 0%, 0%, 0) 0px 0px 0px 0px, hsla(0, 0%, 0%, 0.1) 0px 4px 6px -1px, hsla(0, 0%, 0%, 0.1) 0px 2px 4px -1px;
   --shadow-card: rgba(50, 50, 100, 0.1) 0px 2px 4px 0px;
-  --brand-gradient-bg: linear-gradient(
-  --brand-gradient-strong-bg: linear-gradient(
+  --brand-gradient-bg: linear-gradient( 0deg, rgba(68, 182, 138, 0.175) 0%, rgba(58, 250, 112, 0.125) 100% );
+  --brand-gradient-strong-bg: linear-gradient( 270deg, rgba(68, 182, 138, 0.175) 0%, rgba(36, 225, 91, 0.12) 100% );
   --brand-gradient-button: rgba(255, 255, 255, 0.5);
   --brand-gradient-border: rgba(32, 64, 32, 0.15);
   --brand-gradient-fade-out-color: linear-gradient(to bottom, rgba(213, 235, 224, 0), #d0ece0 70%);
@@ -310,7 +307,7 @@ html[data-theme="light"] {
   --hover-brightness: 0.9;
 }
 
-/* OLED: poverkhnosti skhlopyvayutsya v cherny. Vklyuchaetsya atributom na <html>. */
+/* OLED: poverkhnosti skhlopyvayutsya v cherny. */
 html[data-display="oled"] {
   --surface-1: #000000;
   --surface-1-5: #050506;
@@ -320,12 +317,12 @@ html[data-display="oled"] {
   --surface-4: #1b1b20;
   --surface-5: #25262b;
   --color-ad: #0d1828;
-  --brand-gradient-bg: linear-gradient(
-  --brand-gradient-strong-bg: linear-gradient(
+  --brand-gradient-bg: linear-gradient( 0deg, rgba(22, 66, 51, 0.15) 0%, rgba(55, 137, 73, 0.1) 100% );
+  --brand-gradient-strong-bg: linear-gradient( 270deg, rgba(9, 18, 14, 0.6) 10%, rgba(19, 31, 23, 0.5) 100% );
   --color-gradient-button-bg: linear-gradient(180deg, #1b1b20 0%, #25262b 100%);
 }
 
-/* Retro: otkat k bolee teplym, menshe kontrastnym poverkhnostyam. */
+/* Retro: teplee i menee kontrastno. */
 html[data-display="retro"] {
   --surface-1: #191917;
   --surface-2: rgb(22, 22, 21);

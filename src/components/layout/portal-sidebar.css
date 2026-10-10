@@ -7,17 +7,31 @@
    в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ */
 
 .portal-skin {
-  /* Токены цветов НЕ переопределяются: панель берёт общие --color-* из :root,
-     иначе тема, Prism, акцент и пользовательский CSS на панели не работают.
-     Раньше здесь был свой синий набор из 14 переменных, который молча ломал
-     всё оформление. Осталось только то, что действительно принадлежит скину. */
-  --ps-accent: var(--color-primary, #DA2A3F);
-  --ps-font-ui: var(--font-ui);
-  --ps-font-display: var(--font-ui);
+  --ps-accent: #4a90e2;
+  --ps-font-ui: 'Space Grotesk', 'Inter', sans-serif;
+  --ps-font-display: 'Oswald', 'Space Grotesk', 'Inter', sans-serif;
 
-  --radius-button: 10px;
-  --radius-card: 14px;
-  --radius-modal: 16px;
+  /* РЎРёРЅРµ-РіСЂР°С„РёС‚РѕРІР°СЏ РїР°РЅРµР»СЊ РїРѕРґ СЃС‚РёР»СЊ OreUI: РЅРµ СЃРµСЂС‹Р№, РЅРµ С‡С‘СЂРЅС‹Р№ */
+  --color-bg: #0b1220;
+  --color-surface: #131d2e;
+  --color-surface-2: #1b2840;
+  --color-surface-hover: #223252;
+  --color-surface-active: #2b3d63;
+  --color-border: #26344f;
+  --color-border-strong: #3a4d73;
+  --color-text: #EEF3FB;
+  --color-text-secondary: #A6B4CC;
+  --color-text-tertiary: #64748F;
+  --color-primary: var(--ps-accent);
+  --color-primary-hover: color-mix(in srgb, var(--ps-accent) 88%, #ffffff);
+  --color-primary-dim: color-mix(in srgb, var(--ps-accent) 15%, transparent);
+  --color-primary-text: #eae7dc;
+
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-button: 8px;
 }
 
 /* в”Ђв”Ђ РњР°С‚РµСЂРёР°Р» РїР°РЅРµР»Рё: РїРѕР±РµР¶РґР°РµС‚ РїСЂРµСЃРµС‚С‹ (glass/clean/modern/standard) в”Ђв”Ђ */

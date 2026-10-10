@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, ChevronRight, Download, Star, Calendar, Code, Camera,
   ExternalLink, Zap, X, Check, AlertCircle, TriangleAlert,
-  Loader2, Package, User,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { invoke } from '@/lib/invoke-shim';
@@ -170,11 +169,10 @@ function InstancePickerModal({
 
 function DependencyAuthorAvatar({ author, source }: { author?: string; source?: string }) {
   const avatar = useAuthorAvatar(author, source);
-  // Заглушка «первая буква имени» убрана: это буква вместо иконки.
-  // Если аватара нет — иконка пользователя из lucide.
+  const initials = (author || '?').trim().slice(0, 1).toUpperCase();
   return avatar
     ? <img src={avatar} alt="" className="h-4 w-4 rounded-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} />
-    : <span className="flex h-4 w-4 items-center justify-center rounded-full" style={{ background:'var(--color-surface-2)', color:'var(--color-text-tertiary)' }}><User className="w-2.5 h-2.5" /></span>;
+    : <span className="flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-black" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>{initials}</span>;
 }
 
 function DependencyGroup({ title, tone, entries, depInfo, navigate, contextInstanceId, contextMcVersion, contextLoader, source }: {
@@ -201,7 +199,7 @@ function DependencyGroup({ title, tone, entries, depInfo, navigate, contextInsta
   return (
     <section style={{ borderTop:'1px solid var(--color-border)' }}>
       <div className="mb-1 flex items-center justify-between py-3">
-        <p className="text-xs font-semibold" style={{ color: 'var(--color-text)' }}>{title}</p>
+        <p className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>{title}</p>
         <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>{entries.length}</span>
       </div>
       <div className="space-y-2">
@@ -236,13 +234,13 @@ function ModpackPreviewModal({ preview, onClose, onInstall }: { preview: Modpack
     <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background:'rgba(0,0,0,0.75)', backdropFilter:'blur(6px)' }} initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }} onClick={e => { if (e.target===e.currentTarget) onClose(); }}>
       <motion.div className="w-full max-w-2xl rounded-2xl overflow-hidden" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-lg)' }} initial={{ opacity:0, y:12, scale:0.97 }} animate={{ opacity:1, y:0, scale:1 }} exit={{ opacity:0, y:12, scale:0.97 }}>
         <div className="px-5 py-4 flex items-start justify-between" style={{ borderBottom:'1px solid var(--color-border)' }}>
-          <div className="min-w-0 flex-1"><p className="text-[11px] font-semibold" style={{ color:'var(--color-text)' }}>Предпросмотр установки</p><div className="mt-1 flex items-center gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ background:'var(--color-surface-2)' }}>{preview.icon_url ? <img src={preview.icon_url} alt="" className="h-full w-full object-cover" /> : <Code className="h-4 w-4" style={{ color:'var(--color-primary)' }} />}</div><div className="min-w-0"><h2 className="truncate font-black text-lg" style={{ color:'var(--color-text)' }}>{preview.name}</h2>{preview.author && <div className="flex items-center gap-1.5 text-[11px]" style={{ color:'var(--color-text-secondary)' }}><span className="flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full" style={{ background:'var(--color-surface-2)' }}>{preview.author_avatar_url ? <img src={preview.author_avatar_url} alt="" className="h-full w-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /> : preview.author.trim().slice(0, 1).toUpperCase()}</span>{preview.author_url ? <a href={preview.author_url} target="_blank" rel="noreferrer" className="font-semibold hover:underline" style={{ color:'var(--color-primary)' }}>{preview.author}</a> : <span>{preview.author}</span>}</div>}</div></div><p className="text-xs mt-2" style={{ color:'var(--color-text-secondary)' }}>{preview.minecraft_version} · {preview.loader} · {preview.entries.length} файлов из манифеста</p></div>
+          <div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-wider" style={{ color:'var(--color-primary)' }}>Предпросмотр установки</p><div className="mt-1 flex items-center gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl" style={{ background:'var(--color-surface-2)' }}>{preview.icon_url ? <img src={preview.icon_url} alt="" className="h-full w-full object-cover" /> : <Code className="h-4 w-4" style={{ color:'var(--color-primary)' }} />}</div><div className="min-w-0"><h2 className="truncate font-black text-lg" style={{ color:'var(--color-text)' }}>{preview.name}</h2>{preview.author && <div className="flex items-center gap-1.5 text-[11px]" style={{ color:'var(--color-text-secondary)' }}><span className="flex h-4 w-4 shrink-0 items-center justify-center overflow-hidden rounded-full" style={{ background:'var(--color-surface-2)' }}>{preview.author_avatar_url ? <img src={preview.author_avatar_url} alt="" className="h-full w-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /> : preview.author.trim().slice(0, 1).toUpperCase()}</span>{preview.author_url ? <a href={preview.author_url} target="_blank" rel="noreferrer" className="font-semibold hover:underline" style={{ color:'var(--color-primary)' }}>{preview.author}</a> : <span>{preview.author}</span>}</div>}</div></div><p className="text-xs mt-2" style={{ color:'var(--color-text-secondary)' }}>{preview.minecraft_version} · {preview.loader} · {preview.entries.length} файлов из манифеста</p></div>
           <button onClick={onClose} className="ore-flat w-8 h-8 rounded-xl flex items-center justify-center" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}><X className="w-4 h-4" /></button>
         </div>
         <div className="max-h-[52vh] overflow-y-auto p-3 space-y-4">
           {grouped.map(group => (
             <section key={group.kind}>
-              <div className="flex items-center justify-between mb-1.5 px-1"><p className="text-[11px] font-semibold" style={{ color:'var(--color-text)' }}>{group.label}</p><span className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{group.entries.length}</span></div>
+              <div className="flex items-center justify-between mb-1.5 px-1"><p className="text-[10px] font-black uppercase tracking-wider" style={{ color:'var(--color-primary)' }}>{group.label}</p><span className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{group.entries.length}</span></div>
               <div className="space-y-1.5">
                 {group.entries.map((entry, index) => (
                   <div key={`${entry.path}-${index}`} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
@@ -801,6 +799,7 @@ export function ModDetail() {
 
 
   const color = project?.color ? '#' + project.color.toString(16).padStart(6, '0') : '#6C5CE7';
+  const letter = project?.title?.[0]?.toUpperCase() ?? '?';
   const allDeps = versions[0]?.dependencies ?? [];
   const LOADER_PROJECTS = ['neoforge', 'forge', 'fabric', 'quilt', 'fabric-api', 'cloth-config', 'architectury', 'forge-config-api-port', 'fabric-language-kotlin'];
   const requiredDeps = allDeps.filter(d => d.dependency_type === 'required' && d.project_id && !LOADER_PROJECTS.includes(d.project_id.toLowerCase()));
@@ -963,7 +962,7 @@ export function ModDetail() {
             {project?.icon_url
               ? <img src={project.icon_url} alt="" className="w-full h-full object-cover rounded-sm"
                   onError={e => { (e.target as any).style.display = 'none'; }} />
-              : <Package className="w-6 h-6" style={{ color: 'var(--color-text-tertiary)' }} />}
+              : letter}
           </div>
 
           <div className="flex-1 min-w-0">
@@ -978,7 +977,7 @@ export function ModDetail() {
                     title={`Открыть профиль ${project.author}`}
                   >
                     <span className="h-5 w-5 overflow-hidden rounded-sm" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
-                      {authorAvatar ? <img src={authorAvatar} alt="" className="h-full w-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /> : <span className="flex h-full w-full items-center justify-center" style={{ color: 'var(--color-text-tertiary)' }}><User className="w-3 h-3" /></span>}
+                      {authorAvatar ? <img src={authorAvatar} alt="" className="h-full w-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /> : <span className="flex h-full w-full items-center justify-center text-[10px] font-black" style={{ color: 'var(--color-primary)' }}>{project.author[0]?.toUpperCase()}</span>}
                     </span>
                     <span className="text-xs font-bold" style={{ color: 'var(--color-primary)' }}>{project.author}</span>
                   </button>
@@ -988,7 +987,7 @@ export function ModDetail() {
               <div className="flex flex-col items-end gap-2 shrink-0">
                 {contextInstance && !installing && !installed && (
                   <p className="text-[10px] font-semibold px-2.5 py-1 rounded-lg"
-                    style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
+                    style={{ background:'rgba(108,92,231,0.1)', color:'var(--color-primary)' }}>
                     → {contextInstance.name}
                   </p>
                 )}
@@ -1009,7 +1008,7 @@ export function ModDetail() {
                     ? { background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-border)' }
                     : { background: 'transparent', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', opacity: installing ? 0.75 : 1 }}>
                   {installing || previewLoading
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />{previewLoading ? 'Читаю манифест…' : (installMessage || 'Устанавливаю…')}</>
+                    ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />{previewLoading ? 'Читаю манифест…' : (installMessage || 'Устанавливаю…')}</>
                     : installed
                     ? <><Check className="w-4 h-4" />Установлено</>
                     : <><Zap className="w-4 h-4" />Установить</>}
@@ -1025,7 +1024,7 @@ export function ModDetail() {
                 <Download className="w-4 h-4" />{(project?.downloads ?? 0).toLocaleString('ru-RU')} загрузок
               </span>
               <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                <Star className="w-4 h-4" style={{ color: 'var(--color-warning)' }} />
+                <Star className="w-4 h-4 fill-current" style={{ color: '#f59e0b' }} />
                 {(project?.follows ?? 0).toLocaleString('ru-RU')} подписчиков
               </span>
               {project?.date_modified && (
@@ -1033,8 +1032,8 @@ export function ModDetail() {
                   <Calendar className="w-4 h-4" />Обновлено {new Date(project.date_modified).toLocaleDateString('ru-RU')}
                 </span>
               )}
-              <span className="flex h-4 w-4 items-center justify-center" title={source === 'modrinth' ? 'Modrinth' : 'CurseForge'}>
-                {source === 'modrinth' ? <img src={modrinthWrench} alt="Modrinth" className="h-4 w-4 object-contain" /> : <img src={curseforgeAnvil} alt="CurseForge" className="h-4 w-4 object-contain" />}
+              <span className="flex h-6 w-6 items-center justify-center" title={source === 'modrinth' ? 'Modrinth' : 'CurseForge'} style={{ border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}>
+                {source === 'modrinth' ? <img src={modrinthWrench} alt="Modrinth" className="h-3.5 w-3.5 object-contain" /> : <img src={curseforgeAnvil} alt="CurseForge" className="h-3.5 w-3.5 object-contain" />}
               </span>
               {project?.source_url && (
                 <a href={project.source_url} target="_blank" rel="noreferrer"

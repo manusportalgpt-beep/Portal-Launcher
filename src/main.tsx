@@ -7,6 +7,10 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 // Компоненты uiverse.io: CSS заскоупин и перекрашен под палитру лаунчера.
 import './styles/uiverse.css';
+// Палитра Modrinth App целиком, обе темы плюс OLED и retro. Импортируется
+// после index.css, поэтому её :root перекрывает базовые значения, но наши
+// темы html[data-theme] выше по специфичности и работают как раньше.
+import './styles/palette.css';
 // Общие панели, вкладки и строки списка. Только ссылки на токены index.css.
 import './styles/shell.css';
 import './i18n';

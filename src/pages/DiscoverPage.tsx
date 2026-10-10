@@ -197,23 +197,22 @@ function PlatformToggleBtn({ platform, onToggle }: { platform: Platform; onToggl
 
 function ProjectCard({ p, view, onClick }: { p: Project; view: 'grid'|'list'; onClick: ()=>void }) {
   const color = p.color || colorFromStr(p.title);
-  const letter = p.title[0]?.toUpperCase() ?? '?';
 
   const Icon = (
-    <div className="rounded-sm flex items-center justify-center font-black overflow-hidden shrink-0"
+    <div className="rounded-lg flex items-center justify-center overflow-hidden shrink-0"
       style={{ width: view==='list'?48:40, height: view==='list'?48:40,
                background: p.iconUrl ? 'transparent' : `${color}1A`, color }}>
         {p.iconUrl
           ? <>
-              <img src={p.iconUrl} alt="" className="w-full h-full object-cover rounded-sm"
+              <img src={p.iconUrl} alt="" className="w-full h-full object-cover rounded-lg"
                 onError={e => {
                   const image = e.currentTarget;
                   image.style.display = 'none';
                   image.parentElement?.querySelector('[data-icon-fallback]')?.removeAttribute('hidden');
                 }} />
-              <span data-icon-fallback hidden className={view==='list'?'text-lg':'text-sm'}>{letter}</span>
+              <Box data-icon-fallback hidden className="w-5 h-5" />
             </>
-          : <span className={view==='list'?'text-lg':'text-sm'}>{letter}</span>}
+          : <Box className="w-5 h-5" />}
     </div>
   );
 
@@ -622,7 +621,7 @@ export function DiscoverPage() {
         style={{ borderBottom:'1px solid var(--color-border)', background:'color-mix(in srgb, var(--color-surface) 92%, transparent)' }}>
 
         {/* Type tabs */}
-        <div className="flex gap-1 flex-wrap">
+        <div className="flex gap-1 p-1 rounded-xl" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
           {(Object.entries(PLATFORM_TYPES) as [ProjectType, typeof PLATFORM_TYPES[ProjectType]][]).map(([projectTypeId, def]) => {
             const Icon = def.icon;
             return (
@@ -631,10 +630,10 @@ export function DiscoverPage() {
                 setSelectedCats([]);
                 if (projectTypeId !== 'mods' && projectTypeId !== 'modpacks') setSelectedLoaders([]);
               }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors"
                 style={projectType===projectTypeId
-                  ? { background:'var(--color-primary-dim)', color:'var(--color-primary)', border:'1px solid color-mix(in srgb, var(--color-primary) 46%, var(--color-border))', boxShadow:'0 5px 16px color-mix(in srgb, var(--color-primary) 12%, transparent)' }
-                  : { color:'var(--color-text-secondary)', border:'1px solid transparent' }}>
+                  ? { background:'var(--color-surface-2)', color:'var(--color-primary)' }
+                  : { color:'var(--color-text-secondary)' }}>
                 <Icon className="w-3.5 h-3.5" />{t(def.labelKey)}
               </button>
             );
@@ -643,9 +642,10 @@ export function DiscoverPage() {
         <div className="flex-1" />
 
         {/* Sort */}
-        <div className="relative shrink-0">
+        <div className="relative shrink-0 flex items-center gap-2">
+          <span className="text-xs font-semibold whitespace-nowrap" style={{ color:'var(--color-text-secondary)' }}>{t('discover.sortBy')}:</span>
           <select value={sort} onChange={e => setSort(e.target.value as SortOrder)}
-            className="appearance-none pl-3 pr-7 py-1.5 rounded-xl text-xs font-semibold cursor-pointer"
+            className="appearance-none pl-3 pr-7 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
             style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }}>
             {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{t(o.labelKey)}</option>)}
           </select>

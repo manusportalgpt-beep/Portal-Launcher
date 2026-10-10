@@ -11,25 +11,43 @@
   letter-spacing: -0.015em;
 }
 
+/* Шкала поверхностей и текста Modrinth App, реальные значения из их
+   packages/assets/styles/variables.scss. Поверх неё живут наши темы:
+   объявления ниже только задают соответствие имён, поэтому темы
+   html[data-design-system] продолжают переопределять значения как раньше. */
 :root {
-  --color-bg: #16161A;
-  --color-surface: #1D1D22;
-  --color-surface-2: #26262C;
-  --color-surface-hover: #26262C;
-  --color-surface-active: #2E2E35;
-  --color-border: #2E2E35;
-  --color-border-strong: #45454F;
-  --color-text: #EDEDF0;
-  --color-text-secondary: #9A9AA5;
-  --color-text-tertiary: #5C5C68;
+  --surface-1: #16181c;
+  --surface-1-5: #1a1c20;
+  --surface-2: #1d1f23;
+  --surface-2-5: #222429;
+  --surface-3: #27292e;
+  --surface-4: #34363c;
+  --surface-5: #42444a;
+  --color-text-primary: #ffffff;
+  --color-text-default: #b0bac5;
+  --color-text-tertiary: #96a2b0;
+  --color-button-border: rgba(193, 190, 209, 0.12);
+}
+
+:root {
+  --color-bg: var(--surface-1);
+  --color-surface: var(--surface-3);
+  --color-surface-2: var(--surface-4);
+  --color-surface-hover: var(--surface-3);
+  --color-surface-active: var(--surface-4);
+  --color-border: var(--surface-5);
+  --color-border-strong: var(--surface-5);
+  --color-text: var(--color-text-default);
+  --color-text-secondary: var(--color-text-tertiary);
+  --color-text-tertiary: var(--surface-5);
   --color-primary: #DA2A3F;
   --color-primary-hover: #EE3A50;
   --color-primary-dim: rgba(218,42,63,0.15);
   --color-primary-text: #FFFFFF;
-  --color-success: #2ECC71;
-  --color-warning: #F39C12;
-  --color-error: #E74C3C;
-  --color-info: #3498DB;
+  --color-success: #1bd96a;
+  --color-warning: #fe7e11;
+  --color-error: #ff496e;
+  --color-info: #4f9cff;
   --color-curseforge: #F16436;
   --color-modrinth: #1BD96A;
   --radius-xs: 2px;

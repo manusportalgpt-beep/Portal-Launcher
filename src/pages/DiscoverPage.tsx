@@ -210,7 +210,7 @@ function ProjectCard({ p, view, onClick }: { p: Project; view: 'grid'|'list'; on
                   image.style.display = 'none';
                   image.parentElement?.querySelector('[data-icon-fallback]')?.removeAttribute('hidden');
                 }} />
-              <Box data-icon-fallback hidden className="w-5 h-5" />
+              <span data-icon-fallback hidden><Box className="w-5 h-5" /></span>
             </>
           : <Box className="w-5 h-5" />}
     </div>

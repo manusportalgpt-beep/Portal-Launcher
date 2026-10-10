@@ -1,0 +1,171 @@
+/* Общие панели и вкладки. Значения берутся из шкалы Modrinth App
+   (packages/assets/styles/variables.scss), которая уже объявлена в index.css
+   как --surface-1..5 и --color-text-*. Здесь нет своих цветов: только
+   ссылки на токены, поэтому темы html[data-design-system] продолжают работать
+   так же, как работают поверх index.css. */
+
+/* --- Панели --- */
+
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.panel-raised {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+/* Панель, лежащая на другой панели: без своей рамки, разница только
+   в высоте фона. Вложенные рамки Modrinth не рисует. */
+.panel-inset {
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+}
+
+.panel-quiet {
+  background: var(--color-surface);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius-lg);
+}
+
+/* --- Заголовки --- */
+
+.panel-title {
+  color: var(--color-text);
+  font-weight: 700;
+  font-size: 0.875rem;
+  line-height: 1.25;
+}
+
+.panel-subtitle {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+/* --- Вкладки --- */
+
+.tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--color-divider, var(--color-border));
+}
+
+.tab {
+  position: relative;
+  padding: 0.5rem 0.75rem;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-bottom: 2px solid transparent;
+  transition: color var(--motion-fast, 160ms) var(--motion-ease, ease),
+    border-color var(--motion-fast, 160ms) var(--motion-ease, ease);
+}
+
+.tab:hover {
+  color: var(--color-text);
+}
+
+.tab[aria-selected="true"] {
+  color: var(--color-text);
+  border-bottom-color: var(--color-primary);
+}
+
+/* --- Мелкие элементы --- */
+
+.divider {
+  height: 1px;
+  background: var(--color-border);
+  border: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.1875rem 0.5rem;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+/* Иконка без подписи: квадрат, чтобы подписи в соседних элементах
+   не съезжали по высоте. */
+.chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+/* --- Строка списка --- */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-md);
+  transition: background-color var(--motion-fast, 160ms) var(--motion-ease, ease);
+}
+
+.row-interactive:hover {
+  background: var(--color-surface-hover);
+}
+
+.row-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.row-title {
+  color: var(--color-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-meta {
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Обрезка в одну строку: длинные названия модов не растягивают сетку. */
+.truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Доступность --- */
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab,
+  .row {
+    transition: none;
+  }
+}

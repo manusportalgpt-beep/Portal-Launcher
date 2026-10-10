@@ -7,6 +7,8 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import './index.css';
 // Компоненты uiverse.io: CSS заскоупин и перекрашен под палитру лаунчера.
 import './styles/uiverse.css';
+// Общие панели, вкладки и строки списка. Только ссылки на токены index.css.
+import './styles/shell.css';
 import './i18n';
 import { playClick, playNav } from './lib/soundEngine';
 import { initRangeFill } from './lib/range-fill';

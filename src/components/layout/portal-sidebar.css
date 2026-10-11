@@ -7,31 +7,11 @@
    в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ */
 
 .portal-skin {
-  --ps-accent: #4a90e2;
-  --ps-font-ui: 'Space Grotesk', 'Inter', sans-serif;
-  --ps-font-display: 'Oswald', 'Space Grotesk', 'Inter', sans-serif;
-
-  /* РЎРёРЅРµ-РіСЂР°С„РёС‚РѕРІР°СЏ РїР°РЅРµР»СЊ РїРѕРґ СЃС‚РёР»СЊ OreUI: РЅРµ СЃРµСЂС‹Р№, РЅРµ С‡С‘СЂРЅС‹Р№ */
-  --color-bg: #0b1220;
-  --color-surface: #131d2e;
-  --color-surface-2: #1b2840;
-  --color-surface-hover: #223252;
-  --color-surface-active: #2b3d63;
-  --color-border: #26344f;
-  --color-border-strong: #3a4d73;
-  --color-text: #EEF3FB;
-  --color-text-secondary: #A6B4CC;
-  --color-text-tertiary: #64748F;
-  --color-primary: var(--ps-accent);
-  --color-primary-hover: color-mix(in srgb, var(--ps-accent) 88%, #ffffff);
-  --color-primary-dim: color-mix(in srgb, var(--ps-accent) 15%, transparent);
-  --color-primary-text: #eae7dc;
-
-  --radius-xs: 3px;
-  --radius-sm: 5px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-button: 8px;
+  /* Keep Portal's active theme intact: the source shell supplies hierarchy,
+     not a competing palette or font stack. */
+  --ps-accent: var(--color-primary);
+  --ps-font-ui: var(--font-ui);
+  --ps-font-display: var(--font-ui);
 }
 
 /* в”Ђв”Ђ РњР°С‚РµСЂРёР°Р» РїР°РЅРµР»Рё: РїРѕР±РµР¶РґР°РµС‚ РїСЂРµСЃРµС‚С‹ (glass/clean/modern/standard) в”Ђв”Ђ */
@@ -336,3 +316,271 @@
   border-radius: 2px !important;
 }
 .portal-skin .ps-label::before { background: var(--ore-green, #3a8527) !important; }
+
+/* Portal-App navigation treatment, adapted to the Portal shell. Keep the
+   user's Portal identity, navigation choices and appearance controls intact. */
+#root .portal-skin.portal-sidebar {
+  border-right: 1px solid var(--color-border) !important;
+  box-shadow: none !important;
+  background: color-mix(in srgb, var(--color-bg) var(--ps-alpha, 96%), transparent) !important;
+}
+.portal-skin .ps-label {
+  letter-spacing: 0.12em;
+  padding-top: 10px;
+}
+.portal-skin .ps-label::before { background: var(--color-border-strong) !important; }
+.portal-skin .ps-nav-item,
+.portal-skin .ps-nav-item:not(.active) {
+  border-radius: var(--radius-button) !important;
+  box-shadow: none !important;
+}
+.portal-skin .ps-nav-item.active {
+  color: var(--color-text) !important;
+  background: var(--color-surface-2) !important;
+  border-radius: var(--radius-button) !important;
+  box-shadow: inset 2px 0 0 var(--color-primary) !important;
+}
+.portal-skin .ps-nav-item.active::before { display: none !important; }
+.portal-skin .ps-nav-item.active .ps-nav-icon,
+.portal-skin .ps-nav-item .ps-nav-icon {
+  background: transparent !important;
+  border-color: transparent !important;
+  border-radius: var(--radius-sm) !important;
+  box-shadow: none !important;
+}
+.portal-skin .ps-nav-item.active .ps-nav-label { color: var(--color-text) !important; }
+.portal-skin .ps-nav-item.active .ps-nav-chev { color: var(--color-text-secondary) !important; }
+.portal-skin .ps-nav-item:not(.active):hover {
+  color: var(--color-text) !important;
+  background: var(--color-surface-hover) !important;
+  box-shadow: none !important;
+}
+.portal-skin .ps-nav-item:not(.active):active {
+  transform: none;
+  box-shadow: none !important;
+}
+.portal-skin .ps-inst {
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: none !important;
+}
+.portal-skin .ps-inst:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-border-strong) !important;
+  background: var(--color-surface-hover) !important;
+  box-shadow: none !important;
+}
+.portal-skin .ps-logo {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 50%, var(--color-border)) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-skin .ps-inst,
+  .portal-skin .ps-inst:hover { transform: none; }
+}
+
+/* Portal-App's app-grid navbar is a compact action rail. Portal keeps its
+   configurable wide mode and instance shortcuts, while the narrow mode maps
+   the same controls to the source's 48 px icon rhythm. */
+#root .portal-skin.portal-sidebar {
+  padding: 8px !important;
+  gap: 4px !important;
+}
+
+.portal-skin .ps-brand {
+  padding: 8px 4px;
+}
+
+.portal-skin .ps-nav-toggle {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  width: 100%;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-button);
+  background: transparent;
+  color: var(--color-text-secondary);
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.portal-skin .ps-nav-toggle:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.portal-skin .ps-nav-toggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.portal-skin .ps-toggle-close { display: block; }
+.portal-skin .ps-toggle-open { display: none; }
+.portal-skin .ps-nav-toggle[data-state="compact"] .ps-toggle-close { display: none; }
+.portal-skin .ps-nav-toggle[data-state="compact"] .ps-toggle-open { display: block; }
+
+@media (hover: hover) and (pointer: fine) {
+  .portal-skin .ps-nav-toggle[data-state="expanded"]:hover .ps-toggle-close { display: none; }
+  .portal-skin .ps-nav-toggle[data-state="expanded"]:hover .ps-toggle-open { display: block; }
+  .portal-skin .ps-nav-toggle[data-state="compact"]:hover .ps-toggle-open { display: none; }
+  .portal-skin .ps-nav-toggle[data-state="compact"]:hover .ps-toggle-close { display: block; }
+}
+
+.portal-skin .ps-nav {
+  gap: 4px;
+  padding: 0;
+}
+
+.portal-skin .ps-nav-item {
+  min-height: 40px;
+  padding-inline: 8px;
+}
+
+.portal-skin .ps-nav-item.active {
+  background: color-mix(in srgb, var(--color-primary) 16%, var(--color-surface-2)) !important;
+  box-shadow: none !important;
+}
+
+.portal-skin .ps-nav-item.active .ps-nav-label {
+  color: var(--color-text) !important;
+}
+
+.portal-skin .ps-logo {
+  background: var(--color-surface-2) !important;
+}
+
+.portal-skin .ps-inst .letter {
+  color: var(--color-text);
+}
+
+.portal-skin :is(.ps-nav-item, .ps-inst, .ps-account button):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .portal-skin .ps-nav-item:hover {
+    background: var(--color-surface-hover) !important;
+  }
+
+  .portal-skin .ps-nav-item.active:hover {
+    background: color-mix(in srgb, var(--color-primary) 22%, var(--color-surface-2)) !important;
+  }
+}
+
+.portal-sidebar[data-compact="true"] {
+  align-items: center;
+}
+
+#root .portal-sidebar[data-compact="true"] {
+  padding: 4px !important;
+}
+
+.portal-sidebar[data-compact="true"] .ps-brand {
+  display: flex;
+  width: 48px;
+  justify-content: center;
+  padding: 4px 0;
+}
+
+.portal-sidebar[data-compact="true"] .ps-brandname {
+  display: none;
+}
+
+.portal-sidebar[data-compact="true"] .ps-logo {
+  width: 32px;
+  height: 32px;
+}
+
+.portal-sidebar[data-compact="true"] .ps-nav-toggle {
+  width: 48px;
+  min-height: 48px;
+  justify-content: center;
+  padding: 0;
+}
+
+.portal-sidebar[data-compact="true"] .ps-toggle-label {
+  display: none;
+}
+
+.portal-sidebar[data-compact="true"] .ps-label {
+  align-self: stretch;
+  justify-content: center;
+  height: 12px;
+  padding: 6px 0;
+  font-size: 0;
+}
+
+.portal-sidebar[data-compact="true"] .ps-label::before {
+  width: 24px;
+  background: var(--color-border-strong) !important;
+}
+
+.portal-sidebar[data-compact="true"] .ps-nav,
+.portal-sidebar[data-compact="true"] .ps-footer,
+.portal-sidebar[data-compact="true"] .ps-instances {
+  width: 48px;
+}
+
+.portal-sidebar[data-compact="true"] .ps-nav-item {
+  justify-content: center;
+  width: 48px;
+  height: 48px !important;
+  min-height: 48px;
+  padding: 0;
+  border-radius: var(--radius-full) !important;
+}
+
+.portal-sidebar[data-compact="true"] .ps-nav-icon {
+  width: 48px;
+  height: 48px;
+}
+
+.portal-sidebar[data-compact="true"] .ps-nav-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.portal-sidebar[data-compact="true"] .ps-nav-label,
+.portal-sidebar[data-compact="true"] .ps-nav-chev,
+.portal-sidebar[data-compact="true"] .ps-account-name,
+.portal-sidebar[data-compact="true"] .ps-account-provider {
+  display: none;
+}
+
+.portal-sidebar[data-compact="true"] .ps-instances {
+  grid-template-columns: 1fr;
+  gap: 4px;
+  padding: 0;
+}
+
+.portal-sidebar[data-compact="true"] .ps-footer {
+  margin: 8px 0 0;
+  padding-top: 8px;
+}
+
+.portal-sidebar[data-compact="true"] .ps-account {
+  justify-content: center;
+  padding: 0;
+}
+
+.portal-sidebar[data-compact="true"] .ps-account > div,
+.portal-sidebar[data-compact="true"] .ps-account button {
+  width: 48px !important;
+  height: 48px !important;
+}
+
+.portal-sidebar[data-compact="true"] .ps-account button {
+  border-radius: var(--radius-full);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-skin .ps-nav-item,
+  .portal-skin .ps-inst,
+  .portal-skin .ps-nav-toggle {
+    transition: none;
+  }
+}

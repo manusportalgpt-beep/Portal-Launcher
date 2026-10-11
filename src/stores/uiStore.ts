@@ -172,7 +172,7 @@ const defaults = {
   stylePreset: 'standard' as StylePreset,
   accentColor: null as string | null,
   loaderStyle: 'standard' as 'standard' | 'random',
-  navMode: 'notch' as NavMode,
+  navMode: 'sidebar' as NavMode,
   notchSide: 'top' as NotchSide,
   notchHotzone: 46,
   notchPinned: false,

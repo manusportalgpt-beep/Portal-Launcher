@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { TopNav } from './TopNav';
 import { useUiStore } from '@/stores/uiStore';
 import { loadBackgroundMedia } from '@/lib/background-media';
-import { DotField } from '@/components/effects/DotField';
+import { PixelField } from '@/components/effects/PixelField';
 
 export function MainLayout({ children, extendedAccent, extendedCompact, extendedIcons, extendedOrder }: {
   children: ReactNode;
@@ -16,11 +16,11 @@ export function MainLayout({ children, extendedAccent, extendedCompact, extended
   const backgroundImage = useUiStore(s => s.backgroundImage);
   const [backgroundSrc, setBackgroundSrc] = useState('');
   const location = useLocation();
-  // Сетка точек рисуется здесь, а не внутри страницы чата. Раньше канвас
+  // Сетка пикселей рисуется здесь, а не внутри страницы чата. Раньше канвас
   // лежал внутри <main class="relative z-10">, а это собственный контекст
   // наложения, поэтому сетка всегда оказывалась поверх сайдбара. Здесь она
   // обычный слой под навигацией и содержимым.
-  const showDotField = location.pathname === '/openportal';
+  const showPixelField = location.pathname === '/openportal';
 
   useEffect(() => {
     let active = true;
@@ -46,7 +46,7 @@ export function MainLayout({ children, extendedAccent, extendedCompact, extended
         transform: 'scale(var(--custom-bg-scale, 1))',
       }} />
       <div aria-hidden className="portal-background-scrim pointer-events-none absolute inset-0" style={{ background:'rgba(4, 6, 12, var(--custom-bg-readability, 0.48))' }} />
-      {showDotField && <DotField className="pointer-events-none absolute inset-0 z-0 h-full w-full" />}
+      {showPixelField && <PixelField className="pointer-events-none absolute inset-0 z-0 h-full w-full" />}
       {navMode === 'sidebar' && <TopNav extendedAccent={extendedAccent} extendedCompact={extendedCompact} extendedIcons={extendedIcons} extendedOrder={extendedOrder} />}
       <main className="flex-1 min-w-0 min-h-0 overflow-hidden relative z-10">
         <div className="h-full min-h-0 w-full">

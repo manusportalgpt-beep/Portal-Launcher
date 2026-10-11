@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Send, X, ChevronDown, Loader2, Copy, Check, Paperclip, Image as ImageIcon, Download, FileText, File, Plus, MessageSquare, Trash } from 'lucide-react';
+import { Bot, Send, X, ChevronDown, Loader2, Copy, Check, Search, Paperclip, Image as ImageIcon, Download, FileText, File, Plus, MessageSquare, Trash } from 'lucide-react';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { useAuthStore } from '@/stores/authStore';
 import { invoke } from '@/lib/invoke-shim';
 import { useChatHistory, type ChatMessage as StoredMessage } from '@/components/ai/ChatHistory';
 import { toastSuccess, toastError } from '@/components/ai/FileToast';
-import { PROVIDERS, endpointFor, defaultModelFor, modelGroups, type ProviderPreset } from '@/lib/ai-providers';
+import { PROVIDERS, endpointFor, defaultModelFor, fetchProviderModels, type ProviderPreset, type ModelInfo } from '@/lib/ai-providers';
 
 
 interface Attachment {
@@ -279,6 +279,10 @@ export function AIAgent({ onClose }: AIAgentProps) {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [showProviderMenu, setShowProviderMenu] = useState(false);
+const [modelPickerOpen, setModelPickerOpen] = useState(false);
+const [modelQuery, setModelQuery] = useState('');
+const [hoveredModel, setHoveredModel] = useState<ModelInfo | null>(null);
+const [liveModels, setLiveModels] = useState<ModelInfo[]>([]);
   const [showSessions, setShowSessions] = useState(false);
   const [showInstanceMenu, setShowInstanceMenu] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -305,6 +309,28 @@ export function AIAgent({ onClose }: AIAgentProps) {
 
   const [settings, setSettings] = useState(getSettings);
   const currentProvider = PROVIDERS.find(p => p.id === settings.provider) ?? PROVIDERS[0];
+
+  // Модели берём у провайдера, а не из захардкоженного списка: новые
+  // появляются сами, недоступные исчезают. Пустой ответ - сигнал, что
+  // ключа нет или сеть недоступна, тогда показываем встроенный список.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const fetched = await fetchProviderModels(currentProvider.id, settings.apiKey);
+      if (!cancelled) setLiveModels(fetched);
+    };
+    void load();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProvider.id, settings.apiKey]);
+
+  // Поиск по модели и группировка: бесплатные идут первыми.
+  const filteredModels = liveModels.filter(m =>
+    !modelQuery.trim() ||
+    m.id.toLowerCase().includes(modelQuery.trim().toLowerCase()) ||
+    (m.name ?? '').toLowerCase().includes(modelQuery.trim().toLowerCase()));
+  const freeModels = filteredModels.filter(m => m.free);
+  const paidModels = filteredModels.filter(m => !m.free);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
   useEffect(() => {
@@ -462,21 +488,75 @@ export function AIAgent({ onClose }: AIAgentProps) {
                       </span>
                     </button>
                   ))}
-                  {currentProvider.models.length > 0 && (
-                    <>
-                      <div className="px-3 pt-2 pb-1 text-[9px] font-black uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Модель</div>
-                      <div className="px-2 pb-1.5">
-                        <select value={settings.model || currentProvider.models[0] || ''} onChange={event => updateSetting('model', event.target.value)}
-                          className="w-full px-2 py-1.5 text-[11px] outline-none"
+                  {liveModels.length > 0 && (
+                    <div className="px-2 pb-1.5">
+                      <div className="relative">
+                        <button onClick={() => setModelPickerOpen(v => !v)}
+                          className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left text-[11px]"
                           style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 3 }}>
-                          {modelGroups(currentProvider).map(group => (
-                            <optgroup key={group.label} label={group.label}>
-                              {group.models.map(m => <option key={m} value={m}>{m}{group.label === 'Бесплатные' ? ' · Free' : ''}</option>)}
-                            </optgroup>
-                          ))}
-                        </select>
+                          <span className="min-w-0 flex-1 truncate">{settings.model || liveModels[0]?.id}</span>
+                          <ChevronDown className="h-3 w-3 shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />
+                        </button>
+                        {modelPickerOpen && (
+                          <div className="absolute bottom-full left-0 z-50 mb-1 w-72 overflow-hidden rounded-lg"
+                            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+                            <div className="flex items-center gap-1.5 px-2" style={{ borderBottom: '1px solid var(--color-border)' }}>
+                              <Search className="h-3 w-3 shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />
+                              <input
+                                value={modelQuery}
+                                onChange={event => setModelQuery(event.target.value)}
+                                placeholder="Поиск модели"
+                                className="w-full bg-transparent py-1.5 text-[11px] outline-none"
+                                style={{ color: 'var(--color-text)' }}
+                              />
+                            </div>
+                            <div className="max-h-56 overflow-y-auto py-1">
+                              {freeModels.length > 0 && (
+                                <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>Бесплатные</div>
+                              )}
+                              {freeModels.map(m => (
+                                <button key={m.id} onMouseEnter={() => setHoveredModel(m)} onMouseLeave={() => setHoveredModel(null)}
+                                  onClick={() => { updateSetting('model', m.id); setModelPickerOpen(false); setModelQuery(''); }}
+                                  className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-[11px] hover:bg-[var(--color-surface-2)]"
+                                  style={{ color: settings.model === m.id ? 'var(--color-primary)' : 'var(--color-text)' }}>
+                                  <span className="min-w-0 flex-1 truncate">{m.name || m.id}</span>
+                                  {settings.model === m.id && <Check className="h-3 w-3 shrink-0" />}
+                                </button>
+                              ))}
+                              {paidModels.length > 0 && (
+                                <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>Остальные</div>
+                              )}
+                              {paidModels.map(m => (
+                                <button key={m.id} onMouseEnter={() => setHoveredModel(m)} onMouseLeave={() => setHoveredModel(null)}
+                                  onClick={() => { updateSetting('model', m.id); setModelPickerOpen(false); setModelQuery(''); }}
+                                  className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-[11px] hover:bg-[var(--color-surface-2)]"
+                                  style={{ color: settings.model === m.id ? 'var(--color-primary)' : 'var(--color-text)' }}>
+                                  <span className="min-w-0 flex-1 truncate">{m.name || m.id}</span>
+                                  {settings.model === m.id && <Check className="h-3 w-3 shrink-0" />}
+                                </button>
+                              ))}
+                              {filteredModels.length === 0 && (
+                                <p className="px-2 py-3 text-center text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>Ничего не найдено</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </>
+                      {/* Карточка модели под наведением: провайдер, входные данные
+                          и контекст. Раньше этих сведств в интерфейсе не было
+                          вовсе, хотя провайдер их отдаёт. */}
+                      {hoveredModel && (
+                        <div className="mt-1.5 rounded-lg px-2.5 py-2 text-[10px]" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+                          <p className="truncate font-semibold" style={{ color: 'var(--color-text)' }}>{hoveredModel.name || hoveredModel.id}</p>
+                          <dl className="mt-1.5 space-y-1">
+                            <div className="flex gap-2"><dt style={{ color: 'var(--color-text-tertiary)' }}>Модель</dt><dd className="min-w-0 flex-1 truncate" style={{ color: 'var(--color-text-secondary)' }}>{hoveredModel.id}</dd></div>
+                            <div className="flex gap-2"><dt style={{ color: 'var(--color-text-tertiary)' }}>Провайдер</dt><dd className="min-w-0 flex-1 truncate" style={{ color: 'var(--color-text-secondary)' }}>{currentProvider.name}</dd></div>
+                            <div className="flex gap-2"><dt style={{ color: 'var(--color-text-tertiary)' }}>Контекст</dt><dd style={{ color: 'var(--color-text-secondary)' }}>{hoveredModel.contextLength ? `${hoveredModel.contextLength.toLocaleString('ru')} токенов` : 'не указан'}</dd></div>
+                            <div className="flex gap-2"><dt style={{ color: 'var(--color-text-tertiary)' }}>Тариф</dt><dd style={{ color: 'var(--color-text-secondary)' }}>{hoveredModel.free ? 'Бесплатно' : 'Платный'}</dd></div>
+                          </dl>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

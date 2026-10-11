@@ -4,6 +4,8 @@
  * и модели менялись одинаково при выборе провайдера.
  */
 
+import { invoke } from '@tauri-apps/api/core';
+
 export interface ProviderPreset {
   id: string;
   name: string;
@@ -96,4 +98,62 @@ export function modelGroups(preset?: ProviderPreset): Array<{ label: string; mod
   if (free.length) groups.push({ label: 'Бесплатные', models: free });
   if (rest.length) groups.push({ label: 'Остальные', models: rest });
   return groups;
+}
+
+export interface ModelInfo {
+  id: string;
+  name?: string;
+  /** Бесплатный тариф: слоты не тратят деньги, их показываем первыми. */
+  free: boolean;
+  contextLength?: number;
+}
+
+/**
+ * Адрес списка моделей выводится из адреса чата: у всех провайдеров
+ * это один и тот же префикс, отличается только последний сегмент.
+ */
+export function modelsListFor(providerId: string, endpointOverride?: string): string {
+  const base = endpointOverride || PROVIDERS.find(p => p.id === providerId)?.endpoint || '';
+  if (!base) return '';
+  if (base.includes('/chat/completions')) return base.replace('/chat/completions', '/models');
+  if (base.includes('/messages')) return base.replace('/messages', '/models');
+  return `${base.replace(/\/+$/, '')}/models`;
+}
+
+/**
+ * Живой список моделей провайдера.
+ *
+ * Раньше в интерфейсе был захардкоженный массив строк, из-за чего новые
+ * модели не появлялись, а устаревшие оставались висеть годами. Теперь
+ * список приходит от провайдера, и пропавшие модели уходят вместе с ним.
+ * Без ключа или при ошибке сети отдаём встроенный список — выбор модели
+ * не должен ломаться из-за недоступной сети.
+ */
+export async function fetchProviderModels(providerId: string, apiKey?: string | null): Promise<ModelInfo[]> {
+  const preset = PROVIDERS.find(p => p.id === providerId);
+  if (!preset) return [];
+  const url = modelsListFor(providerId);
+  if (url && apiKey) {
+    try {
+      const list = await invoke<{ id: string; name?: string | null; context_length?: number | null }[]>('op_list_models', {
+        url,
+        apiKey,
+      });
+      if (Array.isArray(list) && list.length > 0) {
+        return list
+          .filter(item => item && typeof item.id === 'string' && item.id.length > 0)
+          .map(item => ({
+            id: item.id,
+            name: item.name || undefined,
+            free: item.id.endsWith('-free') || item.id.includes(':free') || /free/i.test(item.id),
+            contextLength: item.context_length ?? undefined,
+          }))
+          .sort((a, b) => Number(b.free) - Number(a.free) || a.id.localeCompare(b.id));
+      }
+    } catch {
+      // нет ключа, нет сети или провайдер не ответил - уходим на встроенный список
+    }
+  }
+  const free = new Set(preset.freeModels ?? []);
+  return preset.models.map(id => ({ id, free: free.has(id) }));
 }

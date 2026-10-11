@@ -1104,22 +1104,21 @@ html[data-ui-mode="modern"] .dbtn:not(.dbtn-primary):not(.dbtn-accent):not(.dbtn
   border-color: var(--modern-border-hover) !important;
 }
 
-/* Primary actions follow the source app's restrained button treatment:
-   solid accent, no colored glow or decorative edge. */
+/* primary / accent / play: цветной акцент, мягкая подсветка при наведении */
 html[data-ui-mode="modern"] .dbtn-primary,
 html[data-ui-mode="modern"] .dbtn-accent,
 html[data-ui-mode="modern"] .dbtn-play {
   background: var(--color-primary) !important;
   color: var(--color-primary-text, #fff) !important;
   border-color: transparent !important;
-  box-shadow: none !important;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-primary) 34%, transparent) !important;
 }
 html[data-ui-mode="modern"] .dbtn-primary:hover,
 html[data-ui-mode="modern"] .dbtn-accent:hover,
 html[data-ui-mode="modern"] .dbtn-play:hover {
   background: var(--color-primary-hover, var(--color-primary)) !important;
-  box-shadow: none !important;
-  transform: none;
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--color-primary) 44%, transparent) !important;
+  transform: translateY(-1px);
 }
 
 /* danger: красная заливка */
@@ -1151,9 +1150,9 @@ html[data-ui-mode="modern"] :is(.dbtn, .dbtn-primary, .dbtn-accent, .dbtn-play, 
   filter: none !important;
 }
 
-/* Keep keyboard focus visible without turning it into a red edge stripe. */
+/* focus: мягкое кольцо акцентом */
 html[data-ui-mode="modern"] :is(.dbtn, button, [role="button"], input, select, textarea):focus-visible {
-  outline: 2px solid var(--color-text-secondary);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -1178,7 +1177,7 @@ html[data-ui-mode="modern"] .portal-sidebar [data-testid^="nav-"][aria-current="
   background: var(--modern-surface) !important;
   border-radius: var(--modern-radius) !important;
   color: var(--color-text) !important;
-  box-shadow: none !important;
+  box-shadow: inset 2px 0 0 var(--color-primary) !important;
 }
 html[data-ui-mode="modern"] .portal-sidebar [data-testid^="nav-"]:hover {
   background: var(--modern-surface-hover) !important;

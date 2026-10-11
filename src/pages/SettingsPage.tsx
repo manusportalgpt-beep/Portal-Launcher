@@ -59,12 +59,6 @@ const SECTIONS: SectionDef[] = [
   { id:'about',      icon:Shield,  label:'О лаунчере',  desc:'Версия, лицензия и системная информация' },
 ];
 
-const SECTION_GROUPS: { label: string; ids: Section[] }[] = [
-  { label:'Приложение', ids:['appearance','controls','audio','language','update','advanced','about'] },
-  { label:'Аккаунт', ids:['account'] },
-  { label:'Экземпляры', ids:['minecraft'] },
-];
-
 const THEMES: { id: ThemeId; name: string; preview: string; accent: string }[] = [
   { id:'dark',         name:'Dark',        preview:'linear-gradient(135deg,#16161A,#26262C)',          accent:'#DA2A3F' },
   { id:'oled',         name:'OLED',        preview:'linear-gradient(135deg,#000000,#141414)',          accent:'#DA2A3F' },
@@ -1423,35 +1417,26 @@ export function SettingsPage({ initialSection }: { initialSection?: Section } = 
             <img src="/launcher-icon.png" alt="Portal Launcher" className="h-8 w-8 rounded-md object-cover" />
             <div className="min-w-0"><p className="truncate text-sm font-black" style={{ color:'var(--color-text)' }}>Portal Launcher</p><p className="text-[10px]" style={{ color:'var(--color-text-secondary)' }}>Центр управления</p></div>
           </div>
-          <nav aria-label="Разделы настроек" className="flex flex-col gap-3">
-            {SECTION_GROUPS.map(group => (
-              <div key={group.label}>
-                <p className="mb-1 px-2 text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color:'var(--color-text-tertiary)' }}>{group.label}</p>
-                <div className="space-y-0.5">
-                  {group.ids.map(id => {
-                    const sec = SECTIONS.find(item => item.id === id)!;
-                    const Icon = sec.icon;
-                    const active = activeSection === sec.id;
-                    return (
-                      <button key={sec.id} type="button"
-                        aria-current={active ? 'page' : undefined}
-                        onClick={() => {
-                          setActiveSection(sec.id);
-                          navigate(`/settings/${sec.id}`);
-                        }}
-                        className="group relative flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left transition-colors"
-                        style={active
-                          ? { background:'var(--color-surface-2)', color:'var(--color-text)', boxShadow:'inset 2px 0 0 var(--color-primary)' }
-                          : { color:'var(--color-text-secondary)', background:'transparent' }}>
-                        <Icon className="h-4 w-4 shrink-0" style={{ color:active?'var(--color-primary)':'var(--color-text-secondary)' }} />
-                        <span className="min-w-0 flex-1 truncate text-xs font-medium">{sec.label}</span>
-                        {active && <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background:'var(--color-primary)' }} />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+          <p className="mb-1 px-2 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-text-tertiary)' }}>Настройки</p>
+          <nav className="space-y-0.5">
+            {SECTIONS.map(sec => {
+              const Icon = sec.icon;
+              const active = activeSection === sec.id;
+              return (
+                <button key={sec.id}
+                  onClick={() => {
+                    setActiveSection(sec.id);
+                    navigate(`/settings/${sec.id}`);
+                  }}
+                  className="group relative flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors"
+                  style={active
+                    ? { background:'transparent', color:'var(--color-text)', border:'1px solid var(--color-primary)' }
+                    : { color:'var(--color-text-secondary)', border:'1px solid transparent' }}>
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm" style={{ background:'transparent', color:active?'var(--color-primary)':'var(--color-text-secondary)' }}><Icon className="h-4 w-4" /></span>
+                  <span className="min-w-0"><span className="block text-xs font-black">{sec.label}</span><span className="block truncate text-[10px]" style={{ color:active?'var(--color-text-secondary)':'var(--color-text-tertiary)' }}>{sec.desc}</span></span>
+                </button>
+              );
+            })}
           </nav>
           <div className="mt-auto px-2 py-3" style={{ background:'transparent', border:'0' }}>
             <p className="text-[10px] font-black uppercase tracking-wide" style={{ color:'var(--color-primary)' }}>Сохраняется автоматически</p>
@@ -1481,3 +1466,4 @@ export function SettingsPage({ initialSection }: { initialSection?: Section } = 
     </div>
   );
 }
+

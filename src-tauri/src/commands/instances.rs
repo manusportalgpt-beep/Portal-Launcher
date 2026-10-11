@@ -197,7 +197,6 @@ fn local_instance_icon(id: &str) -> Option<String> {
         ("icon.png", "image/png"),
         ("icon.jpg", "image/jpeg"),
         ("icon.jpeg", "image/jpeg"),
-        ("icon.webp", "image/webp"),
         ("pack.png", "image/png"),
     ] {
         if let Ok(bytes) = std::fs::read(root.join(name)) {
@@ -523,43 +522,6 @@ pub async fn update_instance(id: String, updates: serde_json::Value) -> Result<I
     }
     if let Some(v) = updates["color"].as_str() {
         inst.color = Some(v.to_string());
-    }
-    if let Some(icon) = updates.get("icon") {
-        let instance_dir = instances_dir().join(&id);
-        if icon.is_null() || icon.as_str().is_some_and(str::is_empty) {
-            for name in ["icon.png", "icon.jpg", "icon.jpeg", "icon.webp"] {
-                let _ = std::fs::remove_file(instance_dir.join(name));
-            }
-            inst.icon = None;
-        } else if let Some(data_url) = icon.as_str() {
-            let (mime, extension) = if data_url.starts_with("data:image/png;base64,") {
-                ("image/png", "png")
-            } else if data_url.starts_with("data:image/jpeg;base64,") {
-                ("image/jpeg", "jpg")
-            } else if data_url.starts_with("data:image/webp;base64,") {
-                ("image/webp", "webp")
-            } else {
-                return Err("Иконка должна быть изображением PNG, JPEG или WebP.".to_string());
-            };
-            use base64::Engine as _;
-            let encoded = data_url
-                .split_once(',')
-                .map(|(_, value)| value)
-                .ok_or("Некорректный формат иконки")?;
-            let bytes = base64::engine::general_purpose::STANDARD
-                .decode(encoded)
-                .map_err(|error| format!("Не удалось прочитать иконку: {error}"))?;
-            if bytes.is_empty() || bytes.len() > 8 * 1024 * 1024 {
-                return Err("Размер иконки должен быть не более 8 МБ.".to_string());
-            }
-            std::fs::create_dir_all(&instance_dir).map_err(|error| error.to_string())?;
-            for name in ["icon.png", "icon.jpg", "icon.jpeg", "icon.webp"] {
-                let _ = std::fs::remove_file(instance_dir.join(name));
-            }
-            std::fs::write(instance_dir.join(format!("icon.{extension}")), bytes)
-                .map_err(|error| format!("Не удалось сохранить иконку: {error}"))?;
-            inst.icon = Some(data_url.to_string());
-        }
     }
     save_instance(&inst)?;
     Ok(inst)

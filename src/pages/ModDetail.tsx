@@ -954,10 +954,10 @@ export function ModDetail() {
           {location.state?.fromFindProjects ? 'К проектам' : 'Назад к поиску'}
         </button>
 
-        <section className="mb-5 border p-5 sm:p-6"
-          style={{ background: 'var(--color-surface)', borderColor:'var(--color-border)', borderRadius:'var(--radius-card)' }}>
-          <div className="flex items-start gap-4">
-          <div className="h-16 w-16 rounded-lg flex items-center justify-center text-2xl font-bold shrink-0 overflow-hidden"
+        <section className="mb-4 border p-4 sm:p-5"
+          style={{ background: 'var(--color-bg)', borderColor:'var(--color-border)', borderRadius:'var(--radius-card)' }}>
+
+          <div className="w-12 h-12 rounded-sm flex items-center justify-center text-lg font-bold shrink-0 overflow-hidden"
             style={{ background: project?.icon_url ? 'transparent' : 'var(--color-surface-2)', color, border:'1px solid var(--color-border)' }}>
             {project?.icon_url
               ? <img src={project.icon_url} alt="" className="w-full h-full object-cover rounded-sm"
@@ -965,11 +965,11 @@ export function ModDetail() {
               : letter}
           </div>
 
-          <div className="min-w-0 flex-1">
+          <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-semibold tracking-tight mb-1" style={{ color: 'var(--color-text)' }}>{project?.title}</h1>
-                <p className="max-w-3xl text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{project?.description}</p>
+                <h1 className="text-xl font-bold mb-1" style={{ color: 'var(--color-text)' }}>{project?.title}</h1>
+                <p className="max-w-2xl text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>{project?.description}</p>
                 {project?.author && (
                   <button
                     onClick={() => navigate(`/author/${source === 'curseforge' ? 'curseforge' : 'modrinth'}/${encodeURIComponent(project.author!)}`)}
@@ -986,8 +986,8 @@ export function ModDetail() {
 
               <div className="flex flex-col items-end gap-2 shrink-0">
                 {contextInstance && !installing && !installed && (
-                  <p className="text-xs font-medium px-2.5 py-1 rounded-md"
-                    style={{ background:'var(--color-primary-dim)', color:'var(--color-primary)' }}>
+                  <p className="text-[10px] font-semibold px-2.5 py-1 rounded-lg"
+                    style={{ background:'rgba(108,92,231,0.1)', color:'var(--color-primary)' }}>
                     → {contextInstance.name}
                   </p>
                 )}
@@ -1003,10 +1003,10 @@ export function ModDetail() {
                     }
                   }}
                   disabled={installing || installed}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-md font-semibold text-sm transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 rounded-sm font-semibold text-sm transition-colors"
                   style={installed
-                    ? { background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }
-                    : { background: 'var(--color-primary)', color: 'var(--color-primary-text)', border: '1px solid var(--color-primary)', opacity: installing ? 0.75 : 1 }}>
+                    ? { background: 'transparent', color: 'var(--color-text)', border: '1px solid var(--color-border)' }
+                    : { background: 'transparent', color: 'var(--color-primary)', border: '1px solid var(--color-primary)', opacity: installing ? 0.75 : 1 }}>
                   {installing || previewLoading
                     ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />{previewLoading ? 'Читаю манифест…' : (installMessage || 'Устанавливаю…')}</>
                     : installed
@@ -1019,7 +1019,7 @@ export function ModDetail() {
               </div>
             </div>
 
-            <div className="mt-4 flex items-center gap-x-5 gap-y-2 flex-wrap border-t pt-3" style={{ borderColor:'var(--color-border)' }}>
+            <div className="mt-3 flex items-center gap-x-4 gap-y-2 flex-wrap border px-3 py-2" style={{ background:'transparent', borderColor:'var(--color-border)', borderRadius:'var(--radius-button)' }}>
               <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
                 <Download className="w-4 h-4" />{(project?.downloads ?? 0).toLocaleString('ru-RU')} загрузок
               </span>
@@ -1063,7 +1063,6 @@ export function ModDetail() {
                 </span>
               )}
             </div>
-          </div>
           </div>
         </section>
 

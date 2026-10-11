@@ -2199,16 +2199,25 @@ export function OpenPortalPage() {
                   Проекты
                 </p>
               )}
-              {projects.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => { setNewMenuOpen(false); void useOpenCoreStore.getState().openProject(p.id); }}
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px]"
-                  style={{ color: p.id === activeProjectId ? 'var(--color-primary)' : 'var(--color-text)' }}>
-                  <FolderTree size={12} />
-                  {p.name}
-                </button>
-              ))}
+              {projects.map(p => {
+                const on = p.id === activeProjectId;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setNewMenuOpen(false);
+                      // Повторное нажатие выходит из проекта обратно в обычные чаты.
+                      if (on) useOpenCoreStore.getState().leaveProject();
+                      else void useOpenCoreStore.getState().openProject(p.id);
+                    }}
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px]"
+                    style={{ color: on ? 'var(--color-primary)' : 'var(--color-text)' }}>
+                    <FolderTree size={12} className="shrink-0" />
+                    <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                    {on && <Check size={12} className="shrink-0" />}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

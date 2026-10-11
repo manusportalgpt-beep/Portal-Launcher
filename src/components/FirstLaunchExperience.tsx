@@ -30,7 +30,7 @@ const INSTALL_CONFIRMATIONS: Array<{ question: string; yesLabel: string; noLabel
   { question: 'Вы абсолютно уверены?', yesLabel: 'Да', noLabel: 'Нет' },
   { question: 'Серьёзно? Вы хотите установить лаунчер?', yesLabel: 'Да', noLabel: 'Нет' },
   { question: 'А вдруг он вирусы?', yesLabel: 'Нет вирусов', noLabel: 'Страшно' },
-  { question: 'Ну ладно... Вы точно хотите?', yesLabel: 'ДА', noLabel: 'Хз' },
+  { question: 'Ну ладно... Вы точно хотите?', yesLabel: 'ДА', noLabel: 'Отмена' },
   { question: 'Вы понимаете что это лаунчер для Minecraft?', yesLabel: 'Да', noLabel: 'А?' },
   { question: 'В последний раз спрашиваю...', yesLabel: 'Ставь уже', noLabel: 'Нет' },
   { question: 'Хорошо, устанавливаю! (на самом деле ещё нет)', yesLabel: 'ВПЕРЁД', noLabel: 'Подожди' },

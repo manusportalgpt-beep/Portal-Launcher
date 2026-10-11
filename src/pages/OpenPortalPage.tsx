@@ -1030,7 +1030,7 @@ function AgentModes() {
   const deepThinking = useOpenCoreStore(s => s.config.deepThinking ?? false);
   const items: { key: 'webSearch' | 'deepThinking'; label: string; title: string; Icon: LucideIcon }[] = [
     { key: 'webSearch', label: 'Веб-поиск', title: 'Проверять факты в интернете самому, не дожидаясь просьбы', Icon: Globe2 },
-    { key: 'deepThinking', label: 'Глубокое мышление', title: 'Строить план, проверять каждый пункт, отвечать после этого', Icon: Brain },
+    { key: 'deepThinking', label: 'Мышление', title: 'Строить план, проверять каждый пункт, отвечать после этого', Icon: Brain },
   ];
   return (
     <div className="flex shrink-0 items-center gap-1">

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { DotField } from '@/components/effects/DotField';
 import {
@@ -15,7 +15,7 @@ import { MicrosoftAuthChoice } from '@/components/auth/MicrosoftAuthChoice';
 const SETUP_KEY = 'portal-first-launch-complete-v1';
 
 const THEME_CHOICES: Array<{ id: ThemeId; label: string; preview: string }> = [
-  { id: 'dark', label: '╨в╤С╨╝╨╜╨░╤П', preview: 'linear-gradient(135deg, #16161A, #26262C)' },
+  { id: 'dark', label: 'Тёмная', preview: 'linear-gradient(135deg, #16161A, #26262C)' },
   { id: 'oled', label: 'OLED', preview: 'linear-gradient(135deg, #000000, #141414)' },
 ];
 
@@ -24,16 +24,16 @@ const STYLE_THEME: Record<StylePreset, ThemeId> = {
 };
 
 const INSTALL_CONFIRMATIONS: Array<{ question: string; yesLabel: string; noLabel: string }> = [
-  { question: '╨Т╤Л ╤Е╨╛╤В╨╕╤В╨╡ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М Portal Launcher?', yesLabel: '╨Ф╨░', noLabel: '╨Э╨╡╤В' },
-  { question: '╨Т╤Л ╤Г╨▓╨╡╤А╨╡╨╜╤Л?', yesLabel: '╨Ф╨░', noLabel: '╨Э╨╡╤В' },
-  { question: '╨Т╤Л ╤В╨╛╤З╨╜╨╛ ╤Г╨▓╨╡╤А╨╡╨╜╤Л?', yesLabel: '╨Ф╨░', noLabel: '╨Э╨╡╤В' },
-  { question: '╨Т╤Л ╨░╨▒╤Б╨╛╨╗╤О╤В╨╜╨╛ ╤Г╨▓╨╡╤А╨╡╨╜╤Л?', yesLabel: '╨Ф╨░', noLabel: '╨Э╨╡╤В' },
-  { question: '╨б╨╡╤А╤М╤С╨╖╨╜╨╛? ╨Т╤Л ╤Е╨╛╤В╨╕╤В╨╡ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М ╨╗╨░╤Г╨╜╤З╨╡╤А?', yesLabel: '╨Ф╨░', noLabel: '╨Э╨╡╤В' },
-  { question: '╨Р ╨▓╨┤╤А╤Г╨│ ╨╛╨╜ ╨▓╨╕╤А╤Г╤Б╤Л?', yesLabel: '╨Э╨╡╤В ╨▓╨╕╤А╤Г╤Б╨╛╨▓', noLabel: '╨б╤В╤А╨░╤И╨╜╨╛' },
-  { question: '╨Э╤Г ╨╗╨░╨┤╨╜╨╛... ╨Т╤Л ╤В╨╛╤З╨╜╨╛ ╤Е╨╛╤В╨╕╤В╨╡?', yesLabel: '╨Ф╨Р', noLabel: '╨е╨╖' },
-  { question: '╨Т╤Л ╨┐╨╛╨╜╨╕╨╝╨░╨╡╤В╨╡ ╤З╤В╨╛ ╤Н╤В╨╛ ╨╗╨░╤Г╨╜╤З╨╡╤А ╨┤╨╗╤П Minecraft?', yesLabel: '╨Ф╨░', noLabel: '╨Р?' },
-  { question: '╨Т ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╣ ╤А╨░╨╖ ╤Б╨┐╤А╨░╤И╨╕╨▓╨░╤О...', yesLabel: '╨б╤В╨░╨▓╤М ╤Г╨╢╨╡', noLabel: '╨Э╨╡╤В' },
-  { question: '╨е╨╛╤А╨╛╤И╨╛, ╤Г╤Б╤В╨░╨╜╨░╨▓╨╗╨╕╨▓╨░╤О! (╨╜╨░ ╤Б╨░╨╝╨╛╨╝ ╨┤╨╡╨╗╨╡ ╨╡╤Й╤С ╨╜╨╡╤В)', yesLabel: '╨Т╨Я╨Х╨а╨Б╨Ф', noLabel: '╨Я╨╛╨┤╨╛╨╢╨┤╨╕' },
+  { question: 'Вы хотите установить Portal Launcher?', yesLabel: 'Да', noLabel: 'Нет' },
+  { question: 'Вы уверены?', yesLabel: 'Да', noLabel: 'Нет' },
+  { question: 'Вы точно уверены?', yesLabel: 'Да', noLabel: 'Нет' },
+  { question: 'Вы абсолютно уверены?', yesLabel: 'Да', noLabel: 'Нет' },
+  { question: 'Серьёзно? Вы хотите установить лаунчер?', yesLabel: 'Да', noLabel: 'Нет' },
+  { question: 'А вдруг он вирусы?', yesLabel: 'Нет вирусов', noLabel: 'Страшно' },
+  { question: 'Ну ладно... Вы точно хотите?', yesLabel: 'ДА', noLabel: 'Хз' },
+  { question: 'Вы понимаете что это лаунчер для Minecraft?', yesLabel: 'Да', noLabel: 'А?' },
+  { question: 'В последний раз спрашиваю...', yesLabel: 'Ставь уже', noLabel: 'Нет' },
+  { question: 'Хорошо, устанавливаю! (на самом деле ещё нет)', yesLabel: 'ВПЕРЁД', noLabel: 'Подожди' },
 ];
 
 function LanguageStep({ onNext }: { onNext: () => void }) {
@@ -51,9 +51,9 @@ function LanguageStep({ onNext }: { onNext: () => void }) {
         style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
         <Globe className="h-8 w-8" />
       </div>
-      <h1 className="text-2xl font-black tracking-tight">╨Т╤Л╨▒╨╡╤А╨╕╤В╨╡ ╤П╨╖╤Л╨║</h1>
+      <h1 className="text-2xl font-black tracking-tight">Выберите язык</h1>
       <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-        ╨Т╤Л╨▒╨╡╤А╨╕╤В╨╡ ╤П╨╖╤Л╨║ ╨╕╨╜╤В╨╡╤А╤Д╨╡╨╣╤Б╨░. ╨н╤В╨╛ ╨╝╨╛╨╢╨╜╨╛ ╨╕╨╖╨╝╨╡╨╜╨╕╤В╤М ╨┐╨╛╨╖╨╢╨╡ ╨▓ ╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨░╤Е.
+        Выберите язык интерфейса. Это можно изменить позже в настройках.
       </p>
       <div className="mt-6 flex gap-3">
         {(['ru', 'en'] as Lang[]).map(l => (
@@ -65,7 +65,7 @@ function LanguageStep({ onNext }: { onNext: () => void }) {
               color: selected === l ? 'var(--color-primary-text)' : 'var(--color-text)',
               border: `1px solid ${selected === l ? 'var(--color-primary)' : 'var(--color-border)'}`,
             }}>
-            {l === 'ru' ? '╨а╤Г╤Б╤Б╨║╨╕╨╣' : 'English'}
+            {l === 'ru' ? 'Русский' : 'English'}
           </button>
         ))}
       </div>
@@ -91,9 +91,9 @@ function StyleStep({ onNext }: { onNext: () => void }) {
         style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
         <Palette className="h-8 w-8" />
       </div>
-      <h1 className="text-2xl font-black tracking-tight">╨б╤В╨╕╨╗╤М ╨╕ ╨╛╤Д╨╛╤А╨╝╨╗╨╡╨╜╨╕╨╡</h1>
+      <h1 className="text-2xl font-black tracking-tight">Стиль и оформление</h1>
       <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-        ╨Т╤Л╨▒╨╡╤А╨╕╤В╨╡ ╤Д╨╛╤А╨╝╤Г ╨╕╨╜╤В╨╡╤А╤Д╨╡╨╣╤Б╨░ ╨╕ ╤Ж╨▓╨╡╤В╨╛╨▓╤Г╤О ╨┐╨░╨╗╨╕╤В╤А╤Г. ╨Т╤Б╤С ╨╝╨╛╨╢╨╜╨╛ ╨╕╨╖╨╝╨╡╨╜╨╕╤В╤М ╨▓ ╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨░╤Е.
+        Выберите форму интерфейса и цветовую палитру. Всё можно изменить в настройках.
       </p>
 
       <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-2 w-full">
@@ -120,7 +120,7 @@ function StyleStep({ onNext }: { onNext: () => void }) {
       </div>
 
       <div className="mt-4 w-full">
-        <p className="text-xs font-bold mb-2" style={{ color: 'var(--color-text-secondary)' }}>╨в╨╡╨╝╨░</p>
+        <p className="text-xs font-bold mb-2" style={{ color: 'var(--color-text-secondary)' }}>Тема</p>
         <div className="flex gap-2 flex-wrap justify-center">
           {THEME_CHOICES.map(t => (
             <button key={t.id} onClick={() => setSelectedTheme(t.id)}
@@ -137,7 +137,7 @@ function StyleStep({ onNext }: { onNext: () => void }) {
 
       <button onClick={apply} className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold"
         style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 'var(--radius-button)' }}>
-        ╨Я╤А╨╕╨╝╨╡╨╜╨╕╤В╤М <ArrowRight className="h-4 w-4" />
+        Применить <ArrowRight className="h-4 w-4" />
       </button>
     </div>
   );
@@ -145,10 +145,10 @@ function StyleStep({ onNext }: { onNext: () => void }) {
 
 function SecurityStep({ onNext }: { onNext: () => void }) {
   const items = [
-    { icon: ShieldCheck, text: '╨Ы╨╕╤Ж╨╡╨╜╨╖╨╕╤П GPL-3.0 ╨╜╨░ GitHub тАФ ╨▓╨╡╤Б╤М ╨║╨╛╨┤ ╨╛╤В╨║╤А╤Л╤В', color: 'var(--color-success)' },
-    { icon: X, text: '╨С╨╡╨╖ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨║╨╕ ╨п╨╜╨┤╨╡╨║╤Б ╨С╤А╨░╤Г╨╖╨╡╤А╨░', color: 'var(--color-text-secondary)' },
-    { icon: Skull, text: '╨С╨╡╨╖ ╤Б╨║╨░╤З╨╕╨▓╨░╨╜╨╕╤П MAX тАФ ╨╜╨╡ ╨╗╨╛╨▓╨╕╤В ╨┤╨░╨╢╨╡ ╨╜╨░ ╨┐╨░╤А╨║╨╛╨▓╨║╨╡', color: 'var(--color-text-secondary)' },
-    { icon: Bug, text: '╨С╨╡╨╖ 360 Total Security ╨╕ ╨┐╤А╨╛╤З╨╡╨│╨╛ ╨╝╤Г╤Б╨╛╤А╨░', color: 'var(--color-text-secondary)' },
+    { icon: ShieldCheck, text: 'Лицензия GPL-3.0 на GitHub — весь код открыт', color: 'var(--color-success)' },
+    { icon: X, text: 'Без установки Яндекс Браузера', color: 'var(--color-text-secondary)' },
+    { icon: Skull, text: 'Без скачивания MAX — не ловит даже на парковке', color: 'var(--color-text-secondary)' },
+    { icon: Bug, text: 'Без 360 Total Security и прочего мусора', color: 'var(--color-text-secondary)' },
   ];
 
   return (
@@ -157,9 +157,9 @@ function SecurityStep({ onNext }: { onNext: () => void }) {
         style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
         <Shield className="h-8 w-8" />
       </div>
-      <h1 className="text-2xl font-black tracking-tight">╨С╨╡╨╖╨╛╨┐╨░╤Б╨╜╨╛╤Б╤В╤М</h1>
+      <h1 className="text-2xl font-black tracking-tight">Безопасность</h1>
       <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-        ╨Ь╤Л ╨╜╨╡ ╤Г╤Б╤В╨░╨╜╨░╨▓╨╗╨╕╨▓╨░╨╡╨╝ ╨╝╤Г╤Б╨╛╤А. ╨Ъ╨╛╨┤ ╨╗╨░╤Г╨╜╤З╨╡╤А╨░ ╨┐╨╛╨╗╨╜╨╛╤Б╤В╤М╤О ╨╛╤В╨║╤А╤Л╤В.
+        Мы не устанавливаем мусор. Код лаунчера полностью открыт.
       </p>
       <div className="mt-6 space-y-3 w-full text-left">
         {items.map((item, i) => (
@@ -181,9 +181,9 @@ function AccountStep({ onNext }: { onNext: () => void }) {
         style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
         <Sparkles className="h-8 w-8" />
       </div>
-      <h1 className="text-2xl font-black tracking-tight">╨Т╨╛╨╣╨┤╨╕╤В╨╡ ╨▓ ╨░╨║╨║╨░╤Г╨╜╤В</h1>
+      <h1 className="text-2xl font-black tracking-tight">Войдите в аккаунт</h1>
       <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-        ╨Т╤Л╨▒╨╡╤А╨╕╤В╨╡ ╤Б╨┐╨╛╤Б╨╛╨▒ ╨▓╤Е╨╛╨┤╨░. ╨Ь╨╛╨╢╨╜╨╛ ╨┐╤А╨╛╨┐╤Г╤Б╤В╨╕╤В╤М ╨╕ ╨┤╨╛╨▒╨░╨▓╨╕╤В╤М ╨┐╨╛╨╖╨╢╨╡ ╨▓ ╨╜╨░╤Б╤В╤А╨╛╨╣╨║╨░╤Е.
+        Выберите способ входа. Можно пропустить и добавить позже в настройках.
       </p>
       <div className="mt-6 w-full" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', padding: 16 }}>
         <MicrosoftAuthChoice onSuccess={onNext} />
@@ -205,13 +205,13 @@ function InstallStep({ onComplete }: { onComplete: () => void }) {
           style={{ background: 'var(--color-success)', color: '#fff' }}>
           <Check className="h-10 w-10" />
         </motion.div>
-        <h1 className="text-2xl font-black tracking-tight">╨У╨╛╤В╨╛╨▓╨╛!</h1>
+        <h1 className="text-2xl font-black tracking-tight">Готово!</h1>
         <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          Portal Launcher ╤Г╤Б╨┐╨╡╤И╨╜╨╛ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜. ╨Э╨░╤Б╨╗╨░╨╢╨┤╨░╨╣╤В╨╡╤Б╤М!
+          Portal Launcher успешно установлен. Наслаждайтесь!
         </p>
         <button onClick={onComplete} className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold"
           style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 'var(--radius-button)' }}>
-          ╨Э╨░╤З╨░╤В╤М <Rocket className="h-4 w-4" />
+          Начать <Rocket className="h-4 w-4" />
         </button>
       </div>
     );
@@ -227,7 +227,7 @@ function InstallStep({ onComplete }: { onComplete: () => void }) {
         </div>
         <h1 className="text-xl font-black tracking-tight">{c.question}</h1>
         <p className="mt-2 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-          {confirmStage + 1} ╨╕╨╖ {INSTALL_CONFIRMATIONS.length}
+          {confirmStage + 1} из {INSTALL_CONFIRMATIONS.length}
         </p>
         <div className="mt-6 flex gap-3">
           <button onClick={() => {
@@ -260,24 +260,24 @@ function InstallStep({ onComplete }: { onComplete: () => void }) {
         style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
         <Package className="h-8 w-8" />
       </div>
-      <h1 className="text-2xl font-black tracking-tight">╨г╤Б╤В╨░╨╜╨╛╨▓╨║╨░</h1>
+      <h1 className="text-2xl font-black tracking-tight">Установка</h1>
       <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-        ╨а╨░╨╖╨╝╨╡╤А ╨╗╨░╤Г╨╜╤З╨╡╤А╨░: ~16 ╨Ь╨С. ╨г╤Б╤В╨░╨╜╨╛╨▓╨║╨░ ╨╖╨░╨╣╨╝╤С╤В ╨╜╨╡╤Б╨║╨╛╨╗╤М╨║╨╛ ╤Б╨╡╨║╤Г╨╜╨┤.
+        Размер лаунчера: ~16 МБ. Установка займёт несколько секунд.
       </p>
       <div className="mt-4 p-4 w-full text-left"
         style={{ borderRadius: 'var(--radius-card)', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
         <div className="flex items-center justify-between text-xs">
-          <span style={{ color: 'var(--color-text-secondary)' }}>╨а╨░╨╖╨╝╨╡╤А</span>
-          <span className="font-bold" style={{ color: 'var(--color-text)' }}>~16 ╨Ь╨С</span>
+          <span style={{ color: 'var(--color-text-secondary)' }}>Размер</span>
+          <span className="font-bold" style={{ color: 'var(--color-text)' }}>~16 МБ</span>
         </div>
         <div className="flex items-center justify-between text-xs mt-2">
-          <span style={{ color: 'var(--color-text-secondary)' }}>╨Ы╨╕╤Ж╨╡╨╜╨╖╨╕╤П</span>
+          <span style={{ color: 'var(--color-text-secondary)' }}>Лицензия</span>
           <span className="font-bold" style={{ color: 'var(--color-text)' }}>GPL-3.0</span>
         </div>
       </div>
       <button onClick={() => setConfirmStage(0)} className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold"
         style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 'var(--radius-button)' }}>
-        ╨г╤Б╤В╨░╨╜╨╛╨▓╨╕╤В╤М <ArrowRight className="h-4 w-4" />
+        Установить <ArrowRight className="h-4 w-4" />
       </button>
     </div>
   );
@@ -328,20 +328,20 @@ export function FirstLaunchExperience() {
           ['--radius-button' as string]: '3px',
         }}
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-        {/* Живое поле точек и пикселей. Раньше его здесь не было: мастер
-            первого запуска задаёт цвета жёстко, своими значениями, поэтому
-            поле рисуется отдельным слоем поверх основы и под содержимым.
-            Размер задан явно: у canvas есть собственный размер 300x150,
-            и при width:auto абсолютное позиционирование его не растягивает. */}
+        {/* Живое поле точек и пикселей. Мастер задаёт цвета жёстко,
+            своими значениями, поэтому поле рисуется отдельным слоем
+            поверх основы и под содержимым. Размер задан явно: у canvas
+            есть собственный размер 300x150, и при width:auto
+            абсолютное позиционирование его не растягивает. */}
         <DotField profile="edges" className="pointer-events-none absolute inset-0 h-full w-full" />
         {/* Title bar */}
         <div className="flex items-center justify-between px-4 py-2"
           style={{ borderBottom: '1px solid var(--color-border)', height: 'var(--titlebar-height, 32px)' }}>
           <div className="flex items-center gap-2">
             <img src="/launcher-icon.png" alt="" className="w-5 h-5 rounded" draggable={false} />
-            <span className="text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>Portal Launcher тАФ ╨Я╨╡╤А╨▓╤Л╨╣ ╨╖╨░╨┐╤Г╤Б╨║</span>
+            <span className="text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>Portal Launcher — Первый запуск</span>
           </div>
-          <button onClick={finishSetup} className="p-1 rounded hover:bg-white/5" title="╨Я╤А╨╛╨┐╤Г╤Б╤В╨╕╤В╤М">
+          <button onClick={finishSetup} className="p-1 rounded hover:bg-white/5" title="Пропустить">
             <X className="h-4 w-4" style={{ color: 'var(--color-text-tertiary)' }} />
           </button>
         </div>
@@ -379,13 +379,13 @@ export function FirstLaunchExperience() {
             className="ore-flat px-3 py-2 text-xs font-bold disabled:opacity-0"
             style={{ color: 'var(--color-text-secondary)' }}
             disabled={step === 0}>
-            ╨Э╨░╨╖╨░╨┤
+            Назад
           </button>
           {step < steps.length - 1 && (
             <button onClick={() => setStep(s => s + 1)}
               className="px-3 py-2 text-xs font-bold"
               style={{ color: 'var(--color-text-secondary)' }}>
-              ╨Ф╨░╨╗╨╡╨╡
+              Далее
             </button>
           )}
         </div>

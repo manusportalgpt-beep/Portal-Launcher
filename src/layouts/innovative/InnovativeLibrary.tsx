@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import {
   Play, Plus, Upload, Settings, FolderOpen, Search, MoreVertical,
   StopCircle, Clock3, Box, ChevronRight, ArrowUpRight, Filter as FilterIcon,
-  X, Check, ImagePlus, Layers3, Sparkles, Hammer, Gamepad2,
+  X, Check, ImagePlus, Layers3, Sparkles, Hammer, Gamepad2, Wrench, Download,
 } from 'lucide-react';
 import { useInstanceStore, type Instance } from '@/stores/instanceStore';
 import { useCurrentUser } from '@/stores/authStore';
@@ -53,7 +53,9 @@ function fmtMinutes(mins: number) {
 }
 
 function InnovativeCreateModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const navigate = useNavigate();
   const user = useCurrentUser();
+  const [step, setStep] = useState<'type' | 'custom'>('type');
   const [loader, setLoader] = useState<(typeof CREATION_LOADERS)[number]['id']>('fabric');
   const [name, setName] = useState('');
   const [version, setVersion] = useState('');
@@ -103,12 +105,22 @@ function InnovativeCreateModal({ onClose, onCreated }: { onClose: () => void; on
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-5" style={{ background: 'rgba(0,0,0,.78)' }} onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <motion.div initial={{ opacity: 0, y: 16, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="w-full max-w-2xl overflow-hidden rounded-[28px]" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: '0 28px 90px rgba(0,0,0,.5)' }}>
+      <motion.div initial={{ opacity: 0, y: 16, scale: .97 }} animate={{ opacity: 1, y: 0, scale: 1 }} className="w-full max-w-[520px] overflow-hidden rounded-[20px]" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: '0 28px 90px rgba(0,0,0,.5)' }}>
         <div className="flex items-start justify-between gap-4 border-b px-6 py-5" style={{ borderColor: 'var(--color-border)' }}>
-          <div><p className="text-[10px] font-black uppercase tracking-[.22em]" style={{ color: 'var(--color-primary)' }}>Portal-App style setup</p><h2 className="mt-1 text-xl font-black" style={{ color: 'var(--color-text)' }}>Новая сборка</h2><p className="mt-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>Выберите ядро, версию и иконку — остальные функции лаунчера сохраняются.</p></div>
+          <div><h2 className="text-base font-black" style={{ color: 'var(--color-text)' }}>Создать сборку</h2>{step === 'type' ? <p className="mt-5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>Выберите способ создания сборки</p> : <p className="mt-1 text-xs" style={{ color: 'var(--color-text-secondary)' }}>Выберите Minecraft, ядро, версию ядра и свою иконку.</p>}</div>
           <button type="button" onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ color: 'var(--color-text-tertiary)', background: 'var(--color-surface-2)' }}><X size={16} /></button>
         </div>
         <div className="max-h-[70vh] overflow-y-auto px-6 py-5">
+          {step === 'type' ? <div className="space-y-3">
+            <button type="button" onClick={() => setStep('custom')} className="group flex w-full items-center gap-4 rounded-2xl p-4 text-left transition-all hover:scale-[1.01]" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--color-primary)' }}><Wrench size={19} /></span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-black" style={{ color: 'var(--color-text)' }}>Своя сборка</span><span className="mt-1 block text-xs" style={{ color: 'var(--color-text-secondary)' }}>Выберите Minecraft, ядро, версию ядра и свою иконку.</span></span><ChevronRight size={17} className="opacity-0 transition-opacity group-hover:opacity-100" style={{ color: 'var(--color-primary)' }} />
+            </button>
+            <button type="button" onClick={() => navigate('/library?import=1')} className="group flex w-full items-center gap-4 rounded-2xl p-4 text-left transition-all hover:scale-[1.01]" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ color: 'var(--color-primary)' }}><Download size={19} /></span>
+              <span className="min-w-0 flex-1"><span className="block text-sm font-black" style={{ color: 'var(--color-text)' }}>Установить или импортировать сборку</span><span className="mt-1 block text-xs" style={{ color: 'var(--color-text-secondary)' }}>Найдите модпак в Discover, откройте .mrpack / .zip или перенесите сборку.</span></span><ChevronRight size={17} className="opacity-0 transition-opacity group-hover:opacity-100" style={{ color: 'var(--color-primary)' }} />
+            </button>
+          </div> : <>
           <div className="flex items-center gap-3">
             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl" style={{ background: icon.color }}><img src={makeInstanceIcon(icon)} alt="" className="h-full w-full" /></div>
             <div className="min-w-0 flex-1"><label className="mb-1.5 block text-xs font-bold" style={{ color: 'var(--color-text)' }}>Название сборки</label><input autoFocus value={name} onChange={event => setName(event.target.value)} placeholder={`${selectedLoader.label} ${version || ''}`} className="w-full rounded-xl px-3 py-2.5 text-sm font-semibold outline-none" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} /></div>
@@ -119,8 +131,9 @@ function InnovativeCreateModal({ onClose, onCreated }: { onClose: () => void; on
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{CREATION_LOADERS.map(item => { const selected = loader === item.id; const disabled = item.id === 'bedrock' && !(user?.provider === 'microsoft' || (!user?.provider && !user?.isDemo)); return <button type="button" key={item.id} disabled={disabled} onClick={() => setLoader(item.id)} className="flex items-center gap-2 rounded-2xl p-3 text-left transition-all hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-35" style={{ background: selected ? `${LOADER_COLORS[item.id] || 'var(--color-primary)'}18` : 'var(--color-surface-2)', border: `1px solid ${selected ? (LOADER_COLORS[item.id] || 'var(--color-primary)') : 'var(--color-border)'}` }}><span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ color: LOADER_COLORS[item.id] || 'var(--color-primary)', background: 'rgba(255,255,255,.04)' }}><item.Icon size={17} /></span><span className="min-w-0"><span className="block truncate text-xs font-black" style={{ color: 'var(--color-text)' }}>{item.label}</span><span className="block truncate text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>{item.description}</span></span>{selected && <Check size={14} className="ml-auto shrink-0" style={{ color: 'var(--color-primary)' }} />}</button>; })}</div>
           {loader === 'bedrock' ? <div className="mt-4 rounded-2xl p-4" style={{ background: 'rgba(46,204,113,.08)', border: '1px solid rgba(46,204,113,.25)' }}><p className="text-xs font-bold" style={{ color: 'var(--color-text)' }}>Установленное издание Bedrock</p><p className="mt-1 text-[10px]" style={{ color: 'var(--color-text-secondary)' }}>Bedrock запускается через Microsoft Store и не требует Java.</p>{bedrock.length ? <select value={bedrockFamily} onChange={event => setBedrockFamily(event.target.value)} className="mt-3 w-full rounded-xl px-3 py-2.5 text-xs font-bold" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}>{bedrock.map(pkg => <option key={pkg.family} value={pkg.family}>{pkg.display_name} · {pkg.version}</option>)}</select> : <p className="mt-3 text-xs font-bold" style={{ color: 'var(--color-warning)' }}>Bedrock Edition не найден на этом ПК.</p>}</div> : <div className="mt-4"><label className="mb-2 block text-xs font-bold" style={{ color: 'var(--color-text)' }}>Версия Minecraft</label><select value={version} onChange={event => setVersion(event.target.value)} className="w-full rounded-xl px-3 py-2.5 text-sm font-bold" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}><option value="">Выберите версию</option>{versions.slice(0, 80).map(item => <option key={item} value={item}>{item}</option>)}</select></div>}
           {error && <p className="mt-4 rounded-xl px-3 py-2 text-xs font-bold" style={{ color: 'var(--color-error)', background: 'rgba(231,76,60,.1)', border: '1px solid rgba(231,76,60,.25)' }}>{error}</p>}
+          </>}
         </div>
-        <div className="flex items-center justify-between gap-3 border-t px-6 py-4" style={{ borderColor: 'var(--color-border)' }}><span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>Иконку можно изменить позже в настройках сборки</span><button type="button" onClick={() => void create()} disabled={busy} className="flex items-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-black disabled:opacity-50" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>{busy ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Plus size={15} />} Создать сборку</button></div>
+        {step === 'custom' && <div className="flex items-center justify-between gap-3 border-t px-6 py-4" style={{ borderColor: 'var(--color-border)' }}><button type="button" onClick={() => setStep('type')} className="text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>Назад</button><button type="button" onClick={() => void create()} disabled={busy} className="flex items-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-black disabled:opacity-50" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>{busy ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Plus size={15} />} Создать сборку</button></div>}
       </motion.div>
     </div>
   );

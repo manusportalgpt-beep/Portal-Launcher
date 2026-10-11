@@ -1931,14 +1931,11 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
         console.warn('ensure_instance failed:', e);
       }
       update(inst.id, { lastPlayed: new Date().toISOString() });
-      
       // Validate auth data before launch
       if (!user || !user.uuid || !user.username) {
         throw new Error('Authentication data missing. Please sign in again in Settings → Account.');
       }
-      
       console.log(`🚀 Launching with auth: username=${user.username}, uuid=${user.uuid}, token_len=${(user.accessToken || '').length}`);
-      
       const result = await invoke<{ pid?: number | null; message?: string }>('launch_instance', {
           instance_id: inst.id,
           access_token: user.accessToken || '',

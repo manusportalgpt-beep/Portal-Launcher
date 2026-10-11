@@ -79,7 +79,8 @@ export function FirstLaunchExperience() {
   const [created, setCreated] = useState(false);
   const [error, setError] = useState('');
 
-  const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
+  // Ссылки висят на section, а не на div, поэтому тип HTMLElement.
+  const sectionRefs = useRef<(HTMLElement | null)[]>([]);
   const sections = useMemo(
     () => [
       { id: 'lang', label: 'Язык', Icon: Globe },

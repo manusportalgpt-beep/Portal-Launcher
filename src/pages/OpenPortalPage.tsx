@@ -5,8 +5,8 @@ import {
   Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Boxes, Check, Copy, Download,
   Gauge, Minimize2, CornerDownRight, Shield, ShieldCheck, ShieldAlert, Globe, ExternalLink,
   Package, Wand2, Image as ImageIcon, Search, X, Brain,
-  FileCode2, FolderTree, Globe2, ListChecks, CircleAlert, Loader2,
-} from 'lucide-react';
+FileCode2, FolderTree, Globe2, ListChecks, CircleAlert, Loader2, type LucideIcon,
+  } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
 import { useOpenCoreStore, activeProviders, isProviderEnabled, isModelEnabled, firstConnectedProvider } from '@/stores/opencoreStore';
@@ -1028,7 +1028,7 @@ function EffortPicker({ value, onChange }: { value: 'default' | 'minimal' | 'low
 function AgentModes() {
   const webSearch = useOpenCoreStore(s => s.config.webSearch ?? false);
   const deepThinking = useOpenCoreStore(s => s.config.deepThinking ?? false);
-  const items: { key: 'webSearch' | 'deepThinking'; label: string; title: string; Icon: React.ComponentType<{ size?: number }> }[] = [
+  const items: { key: 'webSearch' | 'deepThinking'; label: string; title: string; Icon: LucideIcon }[] = [
     { key: 'webSearch', label: 'Веб-поиск', title: 'Проверять факты в интернете самому, не дожидаясь просьбы', Icon: Globe2 },
     { key: 'deepThinking', label: 'Глубокое мышление', title: 'Строить план, проверять каждый пункт, отвечать после этого', Icon: Brain },
   ];

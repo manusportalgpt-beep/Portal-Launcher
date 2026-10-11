@@ -373,8 +373,10 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
               самой строке. Без них при трёх уровнях не видно, что файл
               лежит в папке внутри папки. */}
           {depth > 0 && (<>
-            <span aria-hidden className="pointer-events-none absolute inset-y-0"
-              style={{ left: 6, width: depth * 14, backgroundImage: 'repeating-linear-gradient(to right, var(--color-border) 0 1px, transparent 1px 14px)', backgroundRepeat: 'no-repeat' }} />
+            {Array.from({ length: depth }, (_, level) => (
+              <span key={level} aria-hidden className="pointer-events-none absolute w-px"
+                style={{ left: 6 + level * 14, top: 0, bottom: 0, background: 'var(--color-border)' }} />
+            ))}
             <span aria-hidden className="pointer-events-none absolute h-px"
               style={{ left: 6 + (depth - 1) * 14, width: 14, top: '50%', background: 'var(--color-border)' }} />
           </>)}

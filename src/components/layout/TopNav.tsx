@@ -272,7 +272,6 @@ function SidebarNav() {
     : 'Microsoft';
   return (
     <aside className={`portal-sidebar clean-nav portal-skin shrink-0 flex flex-col z-40${appearance.blur > 0 ? ' ps-blurred' : ''}${railCollapsed ? ' ps-collapsed' : ''}`}
-      onMouseLeave={() => setRailCollapsed(false)}
       style={{
         width: railCollapsed ? 66 : Math.max(84, sidebarWidth),
         padding: '10px 10px',
@@ -284,11 +283,16 @@ function SidebarNav() {
         boxShadow: appearance.shadow === 'strong' ? '3px 0 20px rgba(0,0,0,.35)' : appearance.shadow === 'soft' ? '1px 0 14px rgba(0,0,0,.22)' : 'none',
         transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease',
       } as React.CSSProperties}>
-      <div
-        className="ps-brand ps-brand-collapse"
-        title={railCollapsed ? 'Наведи, чтобы развернуть' : 'Наведи, чтобы свернуть'}
-        onMouseEnter={() => setRailCollapsed(true)}
-      >
+<div className="ps-brand ps-brand-collapse">
+        <button
+          type="button"
+          onClick={() => setRailCollapsed(v => !v)}
+          title={railCollapsed ? 'Развернуть меню' : 'Свернуть меню'}
+          aria-label={railCollapsed ? 'Развернуть меню' : 'Свернуть меню'}
+          className="ps-rail-toggle"
+        >
+          <ChevronLeft size={14} className={railCollapsed ? 'rotate-180' : ''} />
+        </button>
         <span className="ps-logo"><img src="/launcher-icon.png?rev=portal-square-1" alt="Portal Launcher" draggable={false} /></span>
         <span className="ps-brandname">Portal<small>Launcher</small></span>
       </div>

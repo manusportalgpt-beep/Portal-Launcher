@@ -7,7 +7,7 @@
    в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ */
 
 .portal-skin {
-  --ps-accent: #4a90e2;
+  --ps-accent: var(--color-primary, #4a90e2);
   --ps-font-ui: 'Space Grotesk', 'Inter', sans-serif;
   --ps-font-display: 'Oswald', 'Space Grotesk', 'Inter', sans-serif;
 
@@ -360,17 +360,48 @@
 .portal-skin .ps-nav-item:hover .ps-nav-icon {
   color: var(--color-text) !important;
 }
+/* ===== Свёртывание рельса =====
+   Иконка появляется при наведении и сворачивает по нажатию. Раньше я
+   сделал сворачивание по самому наведению на логотип - это было не
+   то, о чём просили, и к тому же в свёрнутом виде пункты меню
+   становились недоступны: курсор уходил с логотипа, рельс
+   разворачивался.
 
-/* ===== Свёрнутый рельс =====
-   Состояние ставится наведением на логотип: по требованию пользователя
-   отдельной кнопки-свертки не нужно. Подписи, названия разделов и
-   имена аккаунта в узком виде убираются - иначе текст вылезет за
-   ширину рельса. Ширина и переход заданы инлайном в TopNav. */
+   Состояние локальное и не сохраняется: при следующем запуске меню
+   должно быть развёрнуто. */
+.portal-skin .ps-brand { position: relative; }
+.portal-skin .ps-rail-toggle {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 2px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  opacity: 0;
+  pointer-events: none;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-2);
+  transition: opacity 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.portal-skin:hover .ps-rail-toggle {
+  opacity: 1;
+  pointer-events: auto;
+}
+.portal-skin .ps-rail-toggle:hover { color: var(--color-text); }
+
+/* Свёрнутый вид: 66 пикселей, всё по центру. Раньше выравнивались
+   только часть контейнеров, из-за чего «Сборки» уезжали вбок, а
+   «Настройки» растягивалась во всю ширину. */
 .portal-skin.ps-collapsed :is(.ps-nav-label, .ps-brandname, .ps-label, .ps-nav-chev, .ps-account-name, .ps-account-provider) {
   display: none !important;
 }
-.portal-skin.ps-collapsed :is(.ps-nav, .ps-footer, .ps-brand, .ps-account) {
+.portal-skin.ps-collapsed :is(.ps-brand, .ps-nav, .ps-footer, .ps-account, .ps-instances) {
   align-items: center;
   justify-content: center;
+  width: 100%;
 }
 .portal-skin.ps-collapsed .ps-logo { margin-inline: auto; }

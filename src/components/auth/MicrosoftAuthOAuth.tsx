@@ -259,7 +259,7 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel, preview = false }: {
   };
 
   return (
-    <div className="flex flex-col items-center text-center w-full">
+    <div className="ms-panel flex flex-col items-center text-center w-full">
       <AnimatePresence mode="wait">
 
         {/* IDLE: Start button */}

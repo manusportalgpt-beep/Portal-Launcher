@@ -3010,3 +3010,28 @@ html[data-accent-mode="vertical"] {
     animation: none;
   }
 }
+
+/* ===== Панель входа по образцу Microsoft =====
+   Функциональность не тронута - меняется только вид. Текст и поля
+   выровнены по левому краю, поле ввода подчёркнуто линией вместо
+   рамки-коробки, кнопки - плоские прямоугольники.
+
+   Правила с !important: элементы задают фон и рамку инлайном, и без
+   этого инлайн перебил бы стиль. */
+.ms-panel { align-items: stretch !important; text-align: left !important; }
+.ms-panel :is(input) {
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--color-border-strong) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  text-align: left !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  transition: border-color 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.ms-panel :is(input):focus-visible {
+  border-bottom-color: var(--color-primary) !important;
+  outline: none !important;
+}
+.ms-panel :is(p, h1, h2, h3, span, label) { text-align: left !important; }

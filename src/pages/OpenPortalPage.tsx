@@ -2095,14 +2095,6 @@ export function OpenPortalPage() {
       {/* Sidebar */}
       <aside className="flex w-64 shrink-0 flex-col border-r" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
         <div className="flex items-center gap-2.5 px-3.5 pt-3.5 pb-2.5">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-[11px] font-black"
-            style={{ background: 'var(--grad)', color: '#FFFFFF' }}>OP</div>
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[13px] font-black leading-4" style={{ color: 'var(--color-text)' }}>OpenPortal</h2>
-            <p className="truncate text-[10px] leading-3" style={{ color: 'var(--color-text-tertiary)' }}>
-              {sessions.length > 0 ? `${sessions.length} ${plural(sessions.length, 'чат', 'чата', 'чатов')}` : 'История пуста'}
-            </p>
-          </div>
           <button onClick={() => void store.newSession()} title="Новый чат"
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded transition-colors hover:bg-[var(--color-surface-2)]"
             style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>

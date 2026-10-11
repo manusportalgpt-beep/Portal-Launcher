@@ -57,17 +57,17 @@ export function WindowControls() {
   if (!win) return null;
 
   const btn =
-    'ore-flat relative inline-flex h-full min-h-6 w-8 items-center justify-center text-[var(--color-text-secondary)] transition-[background-color,color] duration-150 hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-primary)]';
+    'ore-flat relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--color-text-secondary)] transition-[background-color,color] duration-150 hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text)] focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]';
 
   return (
     <section
       aria-label="Управление окном"
-      className="flex h-full shrink-0 items-center gap-1 border-l px-1 select-none"
+      className="flex h-full shrink-0 items-center gap-2 rounded-bl-2xl border-l px-1.5 select-none"
       data-tauri-drag-region-exclude
       style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
     >
       <button type="button" className={btn} aria-label="Свернуть окно" title="Свернуть" onClick={() => win.minimize()}>
-        <Minus size={14} strokeWidth={2} />
+        <Minus size={18} strokeWidth={1.8} />
       </button>
       <button
         type="button"
@@ -80,10 +80,10 @@ export function WindowControls() {
           setMaximized(await win.isMaximized());
         }}
       >
-        {maximized ? <Copy size={13} /> : <Square size={13} />}
+        {maximized ? <Copy size={16} strokeWidth={1.8} /> : <Square size={16} strokeWidth={1.8} />}
       </button>
-      <button type="button" className={`${btn} hover:bg-[var(--color-error)] hover:text-[var(--color-primary-text)] focus-visible:bg-[var(--color-error)] focus-visible:text-[var(--color-primary-text)]`} aria-label="Закрыть окно" title="Закрыть" onClick={() => win.close()}>
-        <X size={14} strokeWidth={2} />
+      <button type="button" className={`${btn} hover:bg-[var(--color-error)] hover:text-white focus-visible:bg-[var(--color-error)] focus-visible:text-white`} aria-label="Закрыть окно" title="Закрыть" onClick={() => win.close()}>
+        <X size={18} strokeWidth={1.8} />
       </button>
     </section>
   );
@@ -136,7 +136,7 @@ export function TitleBar({ title = 'Portal Launcher' }: { title?: string }) {
   return (
     <div
       className="relative z-[200] flex shrink-0 items-center justify-between pl-2 pr-0"
-      style={{ height: titlebarHeight, backgroundColor: adaptiveTitlebarColor ? pageColor : 'var(--color-surface)', backgroundImage:'none', isolation:'isolate', borderBottom: `1px solid ${adaptiveTitlebarColor ? `color-mix(in srgb, var(--color-primary) ${routeTone * 4}%, var(--color-border))` : 'var(--color-border)'}`, transition:'background-color 180ms var(--ease-out, ease), border-color 180ms var(--ease-out, ease)' }}
+      style={{ height: titlebarHeight, backgroundColor: adaptiveTitlebarColor ? pageColor : 'var(--color-surface)', backgroundImage:'none', isolation:'isolate', borderBottom: '1px solid var(--color-border)', transition:'background-color 180ms var(--ease-out, ease), border-color 180ms var(--ease-out, ease)' }}
     >
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
       <div

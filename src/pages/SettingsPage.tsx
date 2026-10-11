@@ -1195,6 +1195,23 @@ function AboutSection() {
           <p className="text-sm font-semibold" style={{ color: r.label === 'Создатель' ? 'var(--color-primary)' : 'var(--color-text)' }}>{r.value}</p>
         </div>
       ))}
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <div className="min-w-0"><p className="text-sm" style={{ color:'var(--color-text)' }}>Первый запуск</p><p className="mt-0.5 text-[11px]" style={{ color:'var(--color-text-secondary)' }}>Показать окно настройки заново. Полезно, чтобы посмотреть, как оно выглядит.</p></div>
+        <button
+          type="button"
+          onClick={() => {
+            // Снимаются все три ключа: текущий и два устаревших, которые
+            // всё ещё проверяются при запуске.
+            localStorage.removeItem('portal-first-launch-complete-v1');
+            localStorage.removeItem('portal-first-launch-complete');
+            localStorage.removeItem('portal-onboarding-done');
+            location.reload();
+          }}
+          className="shrink-0 px-3 py-2 text-xs font-semibold"
+          style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)', color:'var(--color-text)' }}>
+          Показать снова
+        </button>
+      </div>
     </div>
   );
 }

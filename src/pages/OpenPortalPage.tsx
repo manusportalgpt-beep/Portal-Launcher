@@ -2194,7 +2194,11 @@ export function OpenPortalPage() {
             </p>
           )}
           {messages.length === 0 ? (
-            <div className="openportal-thread mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center gap-5 py-8">
+            <div className="openportal-thread relative mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center gap-5 py-8">
+              {/* Фон и в пустом состоянии: ветки тернарника рисуются по
+                  очереди, поэтому слой нужен в обеих. Без него на пустом
+                  чате поля было не видно вовсе. */}
+              <DotField className="pointer-events-none absolute inset-0" />
               <div className="flex flex-col gap-2">
                 <h1 className="text-xl font-black" style={{ color: 'var(--color-text)' }}>С чем помочь?</h1>
                 <p className="max-w-xl text-[13px] leading-6" style={{ color: 'var(--color-text-secondary)' }}>

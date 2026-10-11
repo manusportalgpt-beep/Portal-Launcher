@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { DotField } from '@/components/effects/DotField';
+import { useUiStore } from '@/stores/uiStore';
 import {
   ArrowRight, Check, Compass, Globe, Shield, Sparkles, Palette, X, Package,
   ShieldCheck, Skull, Bug, Rocket,
@@ -284,6 +285,7 @@ function InstallStep({ onComplete }: { onComplete: () => void }) {
 }
 
 export function FirstLaunchExperience() {
+  const particleFieldEnabled = useUiStore(s => s.particleFieldEnabled);
   const [step, setStep] = useState(0);
   const [dismissed, setDismissed] = useState(() => {
     // Check all possible keys from older versions
@@ -333,7 +335,11 @@ export function FirstLaunchExperience() {
             поверх основы и под содержимым. Размер задан явно: у canvas
             есть собственный размер 300x150, и при width:auto
             абсолютное позиционирование его не растягивает. */}
-        <DotField profile="edges" className="pointer-events-none absolute inset-0 h-full w-full" />
+        {/* Точки в первом запуске подчиняются тому же выключателю, что и в чате:
+            если человек выключил их в Оформлении, здесь их тоже нет. */}
+        {particleFieldEnabled && (
+          <DotField profile="edges" className="pointer-events-none absolute inset-0 h-full w-full" />
+        )}
         {/* Title bar */}
         <div className="flex items-center justify-between px-4 py-2"
           style={{ borderBottom: '1px solid var(--color-border)', height: 'var(--titlebar-height, 32px)' }}>

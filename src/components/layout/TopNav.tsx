@@ -89,7 +89,7 @@ function PortalSidebarItem({ item, scale = 100 }: { item: NavItem; scale?: numbe
       end={item.end}
       title={label}
       data-testid={`nav-${item.labelKey}`}
-      className="ps-nav-item group"
+      className={({ isActive }) => `ps-nav-item group${isActive ? ' active' : ''}`}
       style={{ height }}
     >
       {({ isActive }) => (

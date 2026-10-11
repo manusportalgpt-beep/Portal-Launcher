@@ -140,19 +140,20 @@
   transition: background-color 170ms ease, color 160ms ease;
 }
 .portal-skin .ps-nav-item:hover { background: color-mix(in srgb, var(--ps-accent) 8%, transparent); color: var(--color-text); }
-/* Активный пункт по образцу Portal-App: значок в залитом кружке акцентом,
-   без полоски слева. Полоса была своя придумка и визуально спорила
-   с кружком. */
+/* Активный пункт по макету из RULES.md 12.5: под значком появляется
+   светлая скруглённая подложка, значок становится акцентным. Раньше
+   здесь был залитый кружок акцентом и полоска слева - на макете
+   подложка светлая, а не залитая. */
 .portal-skin .ps-nav-item.active {
   color: var(--color-text);
   background: transparent;
 }
 .portal-skin .ps-nav-item.active::before { display: none; }
 .portal-skin .ps-nav-item.active .ps-nav-icon {
-  border-radius: 9999px;
-  background: var(--ps-accent);
-  border-color: var(--ps-accent);
-  color: var(--color-primary-text);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  border-color: var(--color-surface-2);
+  color: var(--color-primary);
 }
 .portal-skin .ps-nav-icon {
   display: flex;

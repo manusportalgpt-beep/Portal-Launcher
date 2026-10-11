@@ -5,8 +5,8 @@ import {
   Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Boxes, Check, Copy, Download,
   Gauge, Minimize2, CornerDownRight, Shield, ShieldCheck, ShieldAlert, Globe, ExternalLink,
   Package, Wand2, Image as ImageIcon, Search, X, Brain,
-FileCode2, FolderTree, Globe2, ListChecks, CircleAlert, Loader2, Mic, History,
-  } from 'lucide-react';
+  FileCode2, FolderTree, Globe2, ListChecks, CircleAlert, Loader2,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
 import { useOpenCoreStore, activeProviders, isProviderEnabled, isModelEnabled, firstConnectedProvider } from '@/stores/opencoreStore';
@@ -976,108 +976,6 @@ function ModeToggle({ mode, onChange }: { mode: 'build' | 'plan'; onChange: (m: 
         </button>
       ))}
     </div>
-  );
-}
-
-/** Поверхность, с которой работает агент: приложение или браузер.
-    Пункт 12.1 из RULES.md - слева в поле ввода, выбранное подсвечено
-    пилюлей. Выбор хранится локально: это настройка вида, а не работа. */
-function SurfaceToggle() {
-  const [surface, setSurface] = useState<'app' | 'web'>(() => {
-    const saved = localStorage.getItem('portal-chat-surface');
-    return saved === 'web' ? 'web' : 'app';
-  });
-  const items = [
-    { id: 'app' as const, label: 'App', Icon: Boxes, title: 'Агент работает в приложении' },
-    { id: 'web' as const, label: 'Web', Icon: Globe2, title: 'Агент работает в браузере' },
-  ];
-  return (
-    <div className="flex shrink-0 items-center gap-0.5 rounded-lg p-0.5"
-      style={{ background: 'var(--color-surface)' }}>
-      {items.map(it => {
-        const active = surface === it.id;
-        return (
-          <button key={it.id} type="button" title={it.title}
-            onClick={() => {
-              setSurface(it.id);
-              localStorage.setItem('portal-chat-surface', it.id);
-            }}
-            className="flex items-center gap-1 rounded-[7px] px-2 py-1 text-[11px] font-semibold transition-colors"
-            style={{
-              background: active ? 'var(--color-surface-hover)' : 'transparent',
-              color: active ? 'var(--color-text)' : 'var(--color-text-tertiary)',
-            }}>
-            <it.Icon size={12} />
-            {it.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-interface SpeechAlt { transcript: string }
-interface SpeechResult { [index: number]: SpeechAlt }
-interface SpeechEvent { results: { length: number } & ArrayLike<SpeechResult> }
-interface SpeechRecognitionLike {
-  lang: string;
-  interimResults: boolean;
-  onend: (() => void) | null;
-  onerror: (() => void) | null;
-  onresult: ((event: SpeechEvent) => void) | null;
-  start(): void;
-  stop(): void;
-}
-
-/** Голосовой ввод, пункт 12.1 из RULES.md.
-    Кнопка появляется только если движок распознавания речи есть: иначе
-    это была бы кнопка, которая ничего не делает. Распознанный текст
-    дописывается в поле, а не заменяет его. */
-function MicButton({ onText }: { onText: (text: string) => void }) {
-  const [listening, setListening] = useState(false);
-  const recRef = useRef<{ stop: () => void } | null>(null);
-  const Ctor = (window as unknown as {
-    SpeechRecognition?: new () => SpeechRecognitionLike;
-    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-  }).SpeechRecognition
-    ?? (window as unknown as {
-      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-    }).webkitSpeechRecognition;
-
-  if (!Ctor) return null;
-
-  const toggle = () => {
-    if (listening) {
-      recRef.current?.stop();
-      setListening(false);
-      return;
-    }
-    const rec = new Ctor();
-    rec.lang = 'ru-RU';
-    rec.interimResults = false;
-    rec.onend = () => setListening(false);
-    rec.onerror = () => setListening(false);
-    rec.onresult = event => {
-      const results = event.results;
-      const parts: string[] = [];
-      for (let i = 0; i < results.length; i += 1) {
-        const alt = results[i];
-        if (alt && alt[0]) parts.push(alt[0].transcript);
-      }
-      const text = parts.join(' ').trim();
-      if (text) onText(text);
-    };
-    recRef.current = rec;
-    rec.start();
-    setListening(true);
-  };
-
-  return (
-    <button type="button" title={listening ? 'Остановить запись' : 'Голосовой ввод'} onClick={toggle}
-      className="flex h-7 w-7 shrink-0 items-center justify-center transition-colors"
-      style={{ color: listening ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
-      <Mic size={14} />
-    </button>
   );
 }
 
@@ -2413,6 +2311,7 @@ export function OpenPortalPage() {
               <ModeToggle mode={cfg.mode} onChange={m => useOpenCoreStore.getState().setMode(m)} />
               <CurrentModelPicker />
               <ContextMeter onCompact={() => void compressChat()} />
+              <EffortPicker value={cfg.effort ?? 'medium'} onChange={v => useOpenCoreStore.getState().updateConfig({ effort: v })} />
               <PresetToggle preset={cfg.permissionPreset ?? 'dfa'} onChange={p => useOpenCoreStore.getState().setPermissionPreset(p)} />
               <span className="flex-1" />
               <BuildPicker />
@@ -2426,8 +2325,6 @@ export function OpenPortalPage() {
                   <Plus size={14} />
                 </label>
               </div>
-              <SurfaceToggle />
-              <span className="flex-1" />
               {mentionList.length > 0 && (
                 <div className="absolute bottom-full left-0 right-0 z-40 mb-2 overflow-hidden rounded-lg border p-1"
                   style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>
@@ -2467,23 +2364,9 @@ export function OpenPortalPage() {
                 }}
                 rows={1}
                 placeholder={running ? 'Агент занят — отправьте сообщение, он продолжит после текущего шага' : 'Что сделать?'}
-                /* Пункт 12.1: в покое поле во всю одну строку, при вводе
-                   растёт до двух и дальше скроллится. Рост задан на самом
-                   поле, иначе композер не поднимется вместе с текстом. */
-                className={`max-h-24 flex-1 resize-none overflow-y-auto bg-transparent px-2 py-1 text-[12px] leading-5 outline-none ${input.trim() ? 'min-h-[2.5rem]' : 'min-h-8'}`}
-                style={{
-                  color: 'var(--color-text)',
-                  transition: 'min-height 180ms cubic-bezier(0.23, 1, 0.32, 1)',
-                }}
+                className="max-h-24 min-h-8 flex-1 resize-none overflow-y-auto bg-transparent px-2 py-1 text-[12px] leading-5 outline-none"
+                style={{ color: 'var(--color-text)' }}
               />
-              <button type="button" title="Показать историю диалога" onClick={() => void loadOlderHistory()}
-                disabled={loadingHistory || !hasArchive}
-                className="flex h-7 w-7 shrink-0 items-center justify-center transition-colors disabled:opacity-40"
-                style={{ color: input.trim() ? 'var(--color-text-secondary)' : 'var(--color-text-tertiary)' }}>
-                <History size={14} />
-              </button>
-              <EffortPicker value={cfg.effort ?? 'medium'} onChange={v => useOpenCoreStore.getState().updateConfig({ effort: v })} />
-              <MicButton onText={text => setInput(prev => (prev ? prev + ' ' : '') + text)} />
               {running ? (
                 <button onClick={() => {
                   // Гасим текущий запуск, а не контроллер по открытой сессии:

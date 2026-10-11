@@ -11,6 +11,7 @@ import type {
   SessionData,
   SessionMeta,
   ChatProject,
+  MemoryFact,
   PermissionsMap,
   PermissionRequest,
   PermissionPreset,
@@ -67,6 +68,8 @@ interface OpenCoreState {
   sessions: SessionMeta[];
   /** Проекты: у каждого своя общая папка, чаты внутри связаны. */
   projects: ChatProject[];
+  /** Запомненные факты, переживающие чат. Пусто, если память выключена. */
+  memory: MemoryFact[];
   /** Проект, внутри которого открыт текущий чат. null - обычный чат. */
   activeProjectId: string | null;
   currentSessionId: string | null;
@@ -113,6 +116,14 @@ interface OpenCoreState {
   backgroundMessages: Record<string, ChatMessage[]>;
 
   newSession: () => Promise<void>;
+  /** Запомнить факт. Повтор с тем же ключом перезаписывает факт. */
+  rememberFact: (key: string, text: string) => void;
+  forgetFact: (key: string) => void;
+  /** Очистить всю память. */
+  clearMemory: () => void;
+  /** Включение и выключение памяти. При выключении список стирается:
+      иначе выключенная память продолжала бы влиять на промпт. */
+  setMemoryEnabled: (enabled: boolean) => void;
   /** Создать проект и открыть в нём новый чат. */
   createProject: (name: string) => Promise<void>;
   /** Перейти в проект: его чаты и общая папка. */
@@ -163,6 +174,7 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
       permissions: {},
       sessions: [],
       projects: [],
+      memory: [],
       activeProjectId: null,
       currentSessionId: null,
       messages: [],
@@ -385,6 +397,41 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
       setPermissionsMap(map) {
         set({ permissions: map });
         void persistPermissions(map);
+      },
+
+      /** Память живёт в config, а не в отдельном файле: она уже
+          сохраняется и переживает перезапуск, отдельное хранилище было бы
+          лишним. При выключении факты стираются, иначе выключенная память
+          продолжала бы подмешиваться в промпт. */
+      rememberFact(key, text) {
+        if (!get().config.memoryEnabled) return;
+        const clean = text.trim();
+        if (!clean) return;
+        const fact: MemoryFact = { key: key.trim() || clean.slice(0, 32), text: clean, at: Date.now() };
+        const rest = get().memory.filter(f => f.key !== fact.key);
+        set({
+          memory: [fact, ...rest].slice(0, 200),
+          config: { ...get().config, memoryEnabled: true },
+        });
+        void invoke('op_save_config', { payload: JSON.stringify(get().config) });
+      },
+
+      forgetFact(key) {
+        set({ memory: get().memory.filter(f => f.key !== key) });
+        void invoke('op_save_config', { payload: JSON.stringify(get().config) });
+      },
+
+      clearMemory() {
+        set({ memory: [] });
+        void invoke('op_save_config', { payload: JSON.stringify(get().config) });
+      },
+
+      setMemoryEnabled(enabled) {
+        set({
+          config: { ...get().config, memoryEnabled: enabled },
+          memory: enabled ? get().memory : [],
+        });
+        void invoke('op_save_config', { payload: JSON.stringify(get().config) });
       },
 
       async newSession() {

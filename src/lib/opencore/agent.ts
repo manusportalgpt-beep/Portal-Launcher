@@ -5386,6 +5386,8 @@ export function buildSystemPrompt(opts: {
   webSearch?: boolean;
   /** Галочка "Глубокое мышление" в тулбаре: план перед работой. */
   deepThinking?: boolean;
+  /** Запомненные факты о пользователе. Пусто, если память выключена. */
+  memory?: { key: string; text: string }[];
 }): string {
   const rules = opts.mode === 'build'
     ? `Режим BUILD: ты полноценный агент-исполнитель. Ты достигаешь цели пользователя через инструменты: изучаешь файлы, правишь их, запускаешь команды, шаг за шагом добиваясь результата.`
@@ -5399,6 +5401,15 @@ export function buildSystemPrompt(opts: {
   // меньше накопленной переписки.
   const window = opts.contextLimit ?? 0;
   const model = opts.model?.trim();
+const memory = opts.memory?.length
+  ? [
+    '',
+    'ПАМЯТЬ ИЗ ПРОШЛЫХ ЧАТОВ:',
+    'Эти факты человек уже сообщал раньше. Учитывай их и не переспрашивай заново.',
+    ...opts.memory.map(f => `- ${f.key}: ${f.text}`),
+    'Если факт устарел или противоречит новому, спроси прямо, а не молча меняй поведение.',
+  ].join('\n')
+  : '';
 const perModel = model
   ? [
     '',
@@ -5434,6 +5445,7 @@ const deepThinking = opts.deepThinking
     `Режим: ${opts.mode === 'build' ? 'BUILD — выполнять' : 'PLAN — только план'}.`,
 rules,
 perModel,
+memory,
 webSearch,
 deepThinking,
 '',

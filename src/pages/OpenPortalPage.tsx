@@ -2007,6 +2007,9 @@ export function OpenPortalPage() {
       // добавлялись бы и переключатели ничего не меняли бы.
       webSearch: cfg.webSearch,
       deepThinking: cfg.deepThinking,
+      // Факты, которые человек уже сообщал в прошлых чатах. Без этого
+      // память сохранялась бы, но никогда не попадала бы в промпт.
+      memory: cfg.memoryEnabled === false ? [] : store.memory.map(f => ({ key: f.key, text: f.text })),
     });
 
     const abort = new AbortController();

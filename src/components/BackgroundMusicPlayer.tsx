@@ -42,6 +42,23 @@ export function BackgroundMusicPlayer() {
     };
   }, [music, autoplay]);
 
+  // Системный микшер Windows показывал имя файла mp3 - EZ_TUNZ_-...mp3 -
+  // потому что у медиасессии не было подписи и браузер подставлял путь.
+  // Имя трека уже берётся из настроек, просто оно никуда не передавалось.
+  // Отдельный эффект, чтобы не трогать очистку слушателей выше.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    if (typeof MediaMetadata === 'undefined') return;
+    navigator.mediaSession.metadata = music
+      ? new MediaMetadata({ title: name || 'Фоновая музыка', artist: 'Portal Launcher' })
+      : null;
+  }, [name, music]);
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+  }, [playing]);
+
   useEffect(() => {
     if (!audioRef.current) return;
     audioRef.current.loop = loop;

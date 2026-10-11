@@ -68,16 +68,20 @@ export const themes: Record<Exclude<ThemeId,'system'>, ThemeDefinition> = {
 };
 
 const FONT_STACKS: Record<Exclude<FontFamily, 'theme'>, string> = {
-  inter: "'Inter', system-ui, -apple-system, sans-serif",
-  'space-grotesk': "'Space Grotesk', 'Inter', system-ui, sans-serif",
-  manrope: "'Manrope', 'Inter', system-ui, sans-serif",
-  montserrat: "'Montserrat', 'Inter', system-ui, sans-serif",
-  outfit: "'Outfit', 'Inter', system-ui, sans-serif",
-  play: "'Play', 'Inter', system-ui, sans-serif",
-  comfortaa: "'Comfortaa', 'Inter', system-ui, sans-serif",
-  oswald: "'Oswald', 'Inter', system-ui, sans-serif",
-  'jetbrains-mono': "'JetBrains Mono', 'Courier New', monospace",
-  pixel: "'Press Start 2P', 'Courier New', monospace",
+  // Segoe UI стоит запасным в каждом стеке. Причина: Google Fonts
+  // отдаёт латиницу, а Comfortaa и Press Start 2P вообще не имеют
+  // кириллических глифов. Без запасного весь русский текст
+  // превращался в пустые квадраты при смене шрифта.
+  inter: "'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif",
+  'space-grotesk': "'Space Grotesk', 'Inter', 'Segoe UI', system-ui, sans-serif",
+  manrope: "'Manrope', 'Inter', 'Segoe UI', system-ui, sans-serif",
+  montserrat: "'Montserrat', 'Inter', 'Segoe UI', system-ui, sans-serif",
+  outfit: "'Outfit', 'Inter', 'Segoe UI', system-ui, sans-serif",
+  play: "'Play', 'Inter', 'Segoe UI', system-ui, sans-serif",
+  comfortaa: "'Comfortaa', 'Inter', 'Segoe UI', system-ui, sans-serif",
+  oswald: "'Oswald', 'Inter', 'Segoe UI', system-ui, sans-serif",
+  'jetbrains-mono': "'JetBrains Mono', 'Segoe UI', 'Courier New', monospace",
+  pixel: "'Press Start 2P', 'Segoe UI', 'Courier New', monospace",
 };
 
 function resolveSystemTheme(): Exclude<ThemeId,'system'> {

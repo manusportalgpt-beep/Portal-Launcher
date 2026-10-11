@@ -681,8 +681,11 @@ function AppearanceSection() {
       </div>
       <p className="mb-3 text-xs" style={{ color: 'var(--color-text-secondary)' }}>Выберите встроенный фон, загрузите своё изображение, видео или gif — либо отключите фон целиком. Настройки прозрачности и читаемости применяются сразу.</p>
       <Row label="Фоновый режим" desc="Показывать выбранный фон за интерфейсом. Выключается вместе с картинкой и видео.">
-        <Toggle value={ui.backgroundEnabled} onChange={v => ui.set('backgroundEnabled', v)} />
-      </Row>
+<Toggle value={ui.backgroundEnabled} onChange={v => ui.set('backgroundEnabled', v)} />
+          </Row>
+          <Row label="Живые пиксели" desc="Радужное поле за интерфейсом. Можно выключить, если мешает читать текст.">
+            <Toggle value={ui.particleFieldEnabled} onChange={v => ui.set('particleFieldEnabled', v)} />
+          </Row>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <input ref={backgroundImageFileRef} type="file" accept="image/*" hidden onChange={event => void importBackgroundImage(event.target.files?.[0])} />
         <button onClick={() => backgroundImageFileRef.current?.click()} className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}><Upload className="h-3.5 w-3.5" />Своё изображение / gif / скриншот</button>

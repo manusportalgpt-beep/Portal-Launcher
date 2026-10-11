@@ -14,13 +14,14 @@ export function MainLayout({ children, extendedAccent, extendedCompact, extended
 }) {
   const navMode = useUiStore(s => s.navMode);
   const backgroundImage = useUiStore(s => s.backgroundImage);
+  const particleFieldEnabled = useUiStore(s => s.particleFieldEnabled);
   const [backgroundSrc, setBackgroundSrc] = useState('');
   const location = useLocation();
   // Сетка пикселей рисуется здесь, а не внутри страницы чата. Раньше канвас
   // лежал внутри <main class="relative z-10">, а это собственный контекст
   // наложения, поэтому сетка всегда оказывалась поверх сайдбара. Здесь она
   // обычный слой под навигацией и содержимым.
-  const showPixelField = location.pathname === '/openportal';
+  const showPixelField = particleFieldEnabled && location.pathname === '/openportal';
 
   useEffect(() => {
     let active = true;

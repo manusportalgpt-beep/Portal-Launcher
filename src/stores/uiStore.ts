@@ -75,6 +75,9 @@ export interface UiState {
   compact: boolean;
   /** Главный выключатель фонового режима (картинка + видео). */
   backgroundEnabled: boolean;
+  /** Живое поле точек и пикселей за интерфейсом. По требованию
+      пользователя его можно выключить в Оформлении. */
+  particleFieldEnabled: boolean;
   /** Пользовательский background (url или data:) */
   backgroundImage: string;
   /** Загруженная картинка/gif в IndexedDB (ссылка вида indexeddb:background-image). */
@@ -191,6 +194,7 @@ const defaults = {
   blur: true,
   compact: false,
   backgroundEnabled: true,
+  particleFieldEnabled: true,
   backgroundImage: '',
   backgroundImageStored: '',
   backgroundVideo: '',

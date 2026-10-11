@@ -225,7 +225,7 @@ export function MicrosoftAuth({ onSuccess, onCancel }: {
               onKeyDown={e => e.key === 'Enter' && loginOffline()}
               placeholder="Steve"
               maxLength={16}
-              className="w-full px-4 py-3 rounded-xl text-sm font-bold text-center outline-none"
+              className="auth-nick-field w-full px-4 py-3 rounded-xl text-sm font-bold text-center outline-none"
               style={{ background:'var(--color-surface-2)', border:`1px solid ${offlineError ? 'var(--color-error)' : 'var(--color-border)'}`, color:'var(--color-text)', letterSpacing:'0.05em' }}
               autoFocus
             />

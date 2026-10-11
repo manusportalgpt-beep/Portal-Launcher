@@ -3035,3 +3035,21 @@ html[data-accent-mode="vertical"] {
   outline: none !important;
 }
 .ms-panel :is(p, h1, h2, h3, span, label) { text-align: left !important; }
+
+/* ===== Поле ника на экране входа =====
+   По требованию пользователя - круглое. Радиус 999px вместо rounded-xl,
+   поле стало выше и с большим отступом по вертикали, чтобы круг читался.
+   Рамка при ошибке красится инлайном, поэтому !important нужен только
+   на радиусе: цвет рамки и фон остаются как задаёт компонент. */
+.auth-nick-field {
+  border-radius: 999px !important;
+  padding-top: 0.95rem !important;
+  padding-bottom: 0.95rem !important;
+  font-size: 15px !important;
+  letter-spacing: 0.08em !important;
+  transition: border-color 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.auth-nick-field:focus-visible {
+  border-color: var(--color-primary) !important;
+  outline: none !important;
+}

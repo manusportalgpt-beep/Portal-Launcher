@@ -3075,3 +3075,13 @@ input[type="search"] {
   background: var(--color-surface-2) !important;
   border: 1px solid var(--color-border) !important;
 }
+
+/* ===== Первый заход: слой под контентом =====
+   Канвас с пикселями позиционирован, а блоки мастера статичные, поэтому
+   без слоёв сетка рисуется поверх текста и кнопок. Слой отдаётся
+   содержимому, а не канвасу, - так разметку править не приходится. */
+.first-launch-root > canvas { z-index: 0; }
+.first-launch-root > *:not(canvas) {
+  position: relative;
+  z-index: 1;
+}

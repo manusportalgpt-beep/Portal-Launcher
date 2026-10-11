@@ -309,7 +309,7 @@ export function FirstLaunchExperience() {
 
   return (
     <AnimatePresence>
-      <motion.div className="fixed inset-0 z-[300] flex flex-col"
+      <motion.div className="first-launch-root fixed inset-0 z-[300] flex flex-col"
         style={{
           background: '#0b0b0d',
           ['--color-bg' as string]: '#0b0b0d',

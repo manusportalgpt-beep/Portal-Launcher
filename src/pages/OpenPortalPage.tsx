@@ -2227,12 +2227,16 @@ export function OpenPortalPage() {
               <p className="text-[11px] leading-5" style={{ color: 'var(--color-text-tertiary)' }}>
                 Режим <b style={{ color: 'var(--color-text-secondary)' }}>Build</b> выполняет задачи, <b style={{ color: 'var(--color-text-secondary)' }}>Plan</b> только планирует.
               </p>
+              </div>
             </div>
           ) : (
-            <div className="openportal-thread relative mx-auto flex w-full max-w-5xl flex-col gap-3">
-              {/* Фон с провалом точек под курсором, пункт 12.2. Слой под
-                  сообщениями и не перехватывает события мыши. */}
+            <div className="openportal-thread relative mx-auto flex w-full max-w-5xl flex-col">
+              {/* Фон с провалом точек под курсором, пункт 12.2.
+                  Абсолютный слой рисуется ПОВЕРХ обычных соседей, поэтому
+                  сообщения лежат в отдельном слое выше: без этого точки
+                  ложились прямо на текст. */}
               <DotField className="pointer-events-none absolute inset-0" />
+              <div className="relative z-10 flex flex-col gap-3">
               <MentionContext.Provider value={mentionOf}>
               {groupedMessages(messages).map(row => row.kind === 'group' ? (
                 <ToolGroup key={row.key} items={row.items} onInstalled={text => void send(text)} />
@@ -2249,6 +2253,7 @@ export function OpenPortalPage() {
                 </div>
               )}
               </MentionContext.Provider>
+              </div>
             </div>
           )}
         </div>

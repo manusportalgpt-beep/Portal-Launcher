@@ -23,6 +23,12 @@ interface Props {
   maxSize?: number;
   /** Скорость перелива. 0 — статичный цвет. */
   flow?: number;
+  /**
+   * Как падает яркость.
+   * 'diagonal' — тёмная полоса по диагонали, для чата.
+   * 'edges' — по бокам светло, к центру темно, для первого запуска.
+   */
+  profile?: 'diagonal' | 'edges';
   className?: string;
 }
 
@@ -32,6 +38,7 @@ export function DotField({
   depth = 1,
   maxSize = 2.6,
   flow = 0.55,
+  profile = 'diagonal',
   className,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -82,9 +89,13 @@ export function DotField({
           let g = 196 - nx * 132;
           let b = 128 + nx * 126;
 
-          // Тёмная диагональ через середину.
+          // Тёмная полоса. В режиме edges яркость падает к центру, поэтому по
+          // бокам светлее, а в середине почти гаснет.
           const offDiagonal = Math.abs((nx + ny) / 2 - 0.5) * 2;
-          let dim = 0.32 + 0.68 * offDiagonal;
+          const fromCenter = Math.abs(nx - 0.5) * 2;
+          let dim = profile === 'edges'
+            ? 0.26 + 0.74 * fromCenter
+            : 0.32 + 0.68 * offDiagonal;
 
           // Бегущая волна яркости: диагональ ползёт, поле переливается.
           if (motion) {
@@ -176,7 +187,7 @@ export function DotField({
       canvas.removeEventListener('pointerleave', onPointerLeave);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [spacing, radius, depth, maxSize, flow]);
+  }, [spacing, radius, depth, maxSize, flow, profile]);
 
   return <canvas ref={canvasRef} className={className} aria-hidden="true" />;
 }

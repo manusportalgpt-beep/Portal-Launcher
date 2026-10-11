@@ -2404,9 +2404,6 @@ export function OpenPortalPage() {
             </div>
             </div>
           </div>
-          <p className="mt-1.5 text-center text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
-            Агент может ошибаться — проверяй важные изменения. Файлы и ключи хранятся локально в папке OpenPortal.
-          </p>
         </div>
       </main>
 

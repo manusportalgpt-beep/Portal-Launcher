@@ -171,7 +171,7 @@ export function FirstLaunchExperience() {
         className="fixed inset-0 z-[300] flex flex-col"
         style={{ background: 'var(--color-bg)' }}
       >
-        <DotField profile="edges" className="pointer-events-none absolute inset-0" />
+        <DotField profile="edges" className="pointer-events-none absolute inset-0 h-full w-full" />
 
         <div className="relative mx-auto flex h-full w-full max-w-3xl flex-col px-6 py-8">
           <header className="shrink-0">

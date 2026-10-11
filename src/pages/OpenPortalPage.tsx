@@ -1028,7 +1028,7 @@ function EffortPicker({ value, onChange }: { value: 'default' | 'minimal' | 'low
 function AgentModes() {
   const webSearch = useOpenCoreStore(s => s.config.webSearch ?? false);
   const deepThinking = useOpenCoreStore(s => s.config.deepThinking ?? false);
-  const items: { key: 'webSearch' | 'deepThinking'; label: string; title: string; Icon: LucideIcon }[] = [
+  const items: { key: 'webSearch' | 'deepThinking'; label: string; title: string; Icon: React.ComponentType<{ size?: number }> }[] = [
     { key: 'webSearch', label: 'Веб-поиск', title: 'Проверять факты в интернете самому, не дожидаясь просьбы', Icon: Globe2 },
     { key: 'deepThinking', label: 'Глубокое мышление', title: 'Строить план, проверять каждый пункт, отвечать после этого', Icon: Brain },
   ];

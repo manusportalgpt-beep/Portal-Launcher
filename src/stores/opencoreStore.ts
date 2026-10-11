@@ -10,6 +10,7 @@ import type {
   OpenPortalConfig,
   SessionData,
   SessionMeta,
+  ChatProject,
   PermissionsMap,
   PermissionRequest,
   PermissionPreset,
@@ -64,6 +65,10 @@ interface OpenCoreState {
   config: OpenPortalConfig;
   permissions: PermissionsMap;
   sessions: SessionMeta[];
+  /** Проекты: у каждого своя общая папка, чаты внутри связаны. */
+  projects: ChatProject[];
+  /** Проект, внутри которого открыт текущий чат. null - обычный чат. */
+  activeProjectId: string | null;
   currentSessionId: string | null;
   messages: ChatMessage[];
   /** Контексты по моделям внутри текущей сессии: ключ «providerId/modelId» → сообщения. */
@@ -108,6 +113,13 @@ interface OpenCoreState {
   backgroundMessages: Record<string, ChatMessage[]>;
 
   newSession: () => Promise<void>;
+  /** Создать проект и открыть в нём новый чат. */
+  createProject: (name: string) => Promise<void>;
+  /** Перейти в проект: его чаты и общая папка. */
+  openProject: (id: string) => Promise<void>;
+  /** Выйти из проекта в обычные чаты. */
+  leaveProject: () => void;
+  deleteProject: (id: string) => Promise<void>;
   openSession: (id: string) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
   appendMessages: (msgs: ChatMessage[]) => void;
@@ -150,6 +162,8 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
       config: defaultConfig(),
       permissions: {},
       sessions: [],
+      projects: [],
+      activeProjectId: null,
       currentSessionId: null,
       messages: [],
       modelContexts: {},
@@ -401,6 +415,58 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
         const meta: SessionMeta = { id, title: session.title, updated: now, message_count: 0 };
         set({ backgroundMessages: background, modelContexts: {}, sessions: [meta, ...get().sessions], currentSessionId: id, messages: [] });
         get().resetUsage();
+      },
+
+      /** Создаёт проект и сразу открывает в нём новый чат. Общая папка
+          проекта делается на диске, чтобы файлы всех чатов лежали рядом
+          и агент видел их как одну папку. */
+      async createProject(name) {
+        const clean = name.trim() || 'Проект';
+        const id = crypto.randomUUID();
+        const now = Date.now();
+        const slug = clean.toLowerCase().replace(/[^a-z0-9а-яё]+/gi, '-').replace(/^-+|-+$/g, '') || 'project';
+        const project: ChatProject = {
+          id,
+          name: clean,
+          created: now,
+          updated: now,
+          root: 'portal',
+          path: `projects/${slug}-${id.slice(0, 6)}`,
+          accent: 'var(--color-primary)',
+        };
+        // Папка создаётся на диске: если её не будет, файлы проекта
+        // агент складывать не сможет.
+        await invoke('op_project_ensure', { path: project.path }).catch(() => undefined);
+        set({
+          projects: [project, ...get().projects],
+          activeProjectId: id,
+          config: { ...get().config, cwd: { root: project.root, path: project.path } },
+        });
+        await get().newSession();
+      },
+
+      async openProject(id) {
+        const project = get().projects.find(p => p.id === id);
+        if (!project) return;
+        await invoke('op_project_ensure', { path: project.path }).catch(() => undefined);
+        set({
+          activeProjectId: id,
+          config: { ...get().config, cwd: { root: project.root, path: project.path } },
+        });
+        await get().newSession();
+      },
+
+      leaveProject() {
+        if (!get().activeProjectId) return;
+        set({ activeProjectId: null, config: { ...get().config, cwd: undefined } });
+      },
+
+      async deleteProject(id) {
+        const projects = get().projects.filter(p => p.id !== id);
+        set({ projects });
+        if (get().activeProjectId === id) get().leaveProject();
+        await invoke('op_project_remove', { path: (get().projects.find(p => p.id === id) ?? { path: '' }).path })
+          .catch(() => undefined);
       },
 
       async openSession(id) {

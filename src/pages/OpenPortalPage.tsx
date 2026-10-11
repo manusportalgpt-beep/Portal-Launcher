@@ -2135,12 +2135,66 @@ export function OpenPortalPage() {
     <div className="flex h-full min-h-0 overflow-hidden">
       {/* Sidebar */}
       <aside className="flex w-64 shrink-0 flex-col border-r" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
-        <div className="flex items-center gap-2.5 px-3.5 pt-3.5 pb-2.5">
-          <button onClick={() => void store.newSession()} title="Новый чат"
+        <div className="relative flex items-center gap-2.5 px-3.5 pt-3.5 pb-2.5">
+          <button onClick={() => setNewMenuOpen(v => !v)} title="Новый чат или проект"
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded transition-colors hover:bg-[var(--color-surface-2)]"
             style={{ color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}>
             <Plus size={14} />
           </button>
+          {newMenuOpen && (
+            <div
+              className="absolute left-3 right-3 top-full z-50 overflow-hidden rounded-lg border p-1"
+              style={{
+                background: 'var(--color-surface)',
+                borderColor: 'var(--color-border)',
+                boxShadow: 'var(--shadow-lg)',
+              }}
+            >
+              <button
+                onClick={() => { setNewMenuOpen(false); void store.newSession(); }}
+                className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-[12px]"
+                style={{ color: 'var(--color-text)' }}>
+                <Plus size={13} />
+                Новый чат
+              </button>
+              <div className="flex items-center gap-1.5 px-1 pt-1">
+                <input
+                  value={projectName}
+                  onChange={e => setProjectName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') startProject(); }}
+                  placeholder="Имя проекта"
+                  maxLength={48}
+                  className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1.5 text-[12px] outline-none"
+                  style={{
+                    background: 'var(--color-surface-2)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text)',
+                  }}
+                />
+                <button
+                  onClick={startProject}
+                  className="shrink-0 rounded-md px-2 py-1.5 text-[12px] font-bold"
+                  style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+                  Создать
+                </button>
+              </div>
+              {projects.length > 0 && (
+                <p className="px-2 pt-2 text-[10px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}>
+                  Проекты
+                </p>
+              )}
+              {projects.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => { setNewMenuOpen(false); void useOpenCoreStore.getState().openProject(p.id); }}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px]"
+                  style={{ color: p.id === activeProjectId ? 'var(--color-primary)' : 'var(--color-text)' }}>
+                  <FolderTree size={12} />
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <div className="px-3 pb-2">
           <div className="flex items-center gap-1.5 rounded px-2 py-1.5"
@@ -2166,7 +2220,21 @@ export function OpenPortalPage() {
               <p className="px-2 py-1 text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>{group.label}</p>
               {group.items.map(s => {
                 const active = s.id === currentSessionId;
-                return (
+/* Кнопка «+» открывает выбор: обычный чат или проект. Раньше она
+     сразу создавала чат, из-за чего проектов не было видно вовсе. */
+  const [newMenuOpen, setNewMenuOpen] = useState(false);
+  const [projectName, setProjectName] = useState('');
+  const projects = useOpenCoreStore(s => s.projects);
+  const activeProjectId = useOpenCoreStore(s => s.activeProjectId);
+
+  const startProject = () => {
+    const name = projectName.trim() || 'Новый проект';
+    setNewMenuOpen(false);
+    setProjectName('');
+    void useOpenCoreStore.getState().createProject(name);
+  };
+
+  return (
                   <button key={s.id} onClick={() => void store.openSession(s.id)}
                     className="group relative flex w-full items-center gap-2 rounded py-2 pl-2.5 pr-1.5 text-left transition-colors hover:bg-[var(--color-surface-2)]"
                     style={active ? { background: 'var(--color-surface-2)' } : undefined}>

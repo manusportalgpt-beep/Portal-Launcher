@@ -1566,6 +1566,40 @@ pub fn op_save_session(session_id: String, payload: String) -> Result<(), String
         .map_err(|e| format!("Запись сессии: {e}"))
 }
 
+/// Создаёт папку проекта, если её ещё нет. Файлы всех чатов проекта
+/// лежат в ней рядом, поэтому агент видит их как одну папку.
+#[tauri::command]
+pub fn op_project_ensure(path: String) -> Result<String, String> {
+    ensure_all();
+    let name = path
+        .rsplit('/')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if name.is_empty() || name.contains("..") || name.contains('\\') {
+        return Err(format!("Недопустимое имя папки проекта: {path}"));
+    }
+    let dir = projects_dir().join(&name);
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Не удалось создать папку проекта: {e}"))?;
+    Ok(dir.to_string_lossy().to_string())
+}
+
+/// Удаляет папку проекта. Само удаление best-effort: если папки уже нет
+/// или она занята, команда не должна ронять весь интерфейс.
+#[tauri::command]
+pub fn op_project_remove(path: String) -> Result<(), String> {
+    let name = path.rsplit('/').next().unwrap_or_default().trim().to_string();
+    if name.is_empty() || name.contains("..") || name.contains('\\') {
+        return Err(format!("Недопустимое имя папки проекта: {path}"));
+    }
+    let dir = projects_dir().join(&name);
+    if !dir.exists() {
+        return Ok(());
+    }
+    std::fs::remove_dir_all(&dir).map_err(|e| format!("Не удалось удалить папку проекта: {e}"))
+}
+
 #[tauri::command]
 pub fn op_load_session(session_id: String) -> Result<String, String> {
     check_id(&session_id)?;

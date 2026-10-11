@@ -216,7 +216,7 @@ export function FirstLaunchExperience() {
             </nav>
           </header>
 
-          <div className="mt-7 min-h-0 flex-1 space-y-9 overflow-y-auto pr-1">
+          <div className="first-launch-sections mt-7 min-h-0 flex-1 space-y-9 overflow-y-auto pr-1">
             {/* Язык */}
             <section ref={el => { sectionRefs.current[0] = el; }}>
               <SectionTitle icon={<Globe className="h-4 w-4" />} title="Язык интерфейса" />

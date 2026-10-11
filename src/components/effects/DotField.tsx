@@ -70,9 +70,9 @@ export function DotField({
     // глубиной в разных местах экрана.
     const spaceA = 1.7 + (spacing % 7) * 0.21;
     const spaceB = 3.1 + (spacing % 5) * 0.17;
-    const timeA = phase => Math.sin(spaceA * 1.9 + phase * 0.41);
-    const timeB = phase => Math.sin(spaceB * 1.3 - phase * 0.29 + 1.7);
-    const timeC = phase => Math.sin(2.4 - phase * 0.17);
+    const timeA = (p: number) => Math.sin(spaceA * 1.9 + p * 0.41);
+    const timeB = (p: number) => Math.sin(spaceB * 1.3 - p * 0.29 + 1.7);
+    const timeC = (p: number) => Math.sin(2.4 - p * 0.17);
 
     /** Глубина точки 0..1: соседи почти равны, поэтому границ не видно. */
     const depthAt = (nx: number, ny: number, p: number) => {

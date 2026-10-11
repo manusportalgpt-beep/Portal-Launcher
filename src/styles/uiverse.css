@@ -1616,6 +1616,18 @@
 
 /* ===== OpenPortal workspace ===== */
 .openportal-thread { width: min(100%, 1180px); }
+/* Пункт 12.2: сетка точек фоновая, текст лежит поверх неё. Canvas
+   позиционирован, а сообщения внутри статичные, поэтому без слоёв точки
+   рисуются поверх сообщений. Собранное правило вместо z-index на самих
+   элементах: разметку OpenPortalPage трогать не нужно. */
+.openportal-thread > canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+.openportal-thread > *:not(canvas) { position: relative; z-index: 1; }
 .openportal-message-wrap { max-width: 100%; }
 .openportal-message--assistant { color: var(--color-text); }
 .openportal-message--assistant .prose-mc,

@@ -63,6 +63,56 @@ export function DotField({
     const motion = flow > 0 && !reduced;
     const dip = !reduced;
 
+    // Три несинхронные фазы. Сумма синусов разной частоты даёт поле,
+    // которое меняется во времени без резких скачков: на глаз это
+    // выглядит случайно, но движется плавно. Постоянные синусы в
+    // пространстве добавляют вторую составляющую - области с разной
+    // глубиной в разных местах экрана.
+    const spaceA = 1.7 + (spacing % 7) * 0.21;
+    const spaceB = 3.1 + (spacing % 5) * 0.17;
+    const timeA = phase => Math.sin(spaceA * 1.9 + phase * 0.41);
+    const timeB = phase => Math.sin(spaceB * 1.3 - phase * 0.29 + 1.7);
+    const timeC = phase => Math.sin(2.4 - phase * 0.17);
+
+    /** Глубина точки 0..1: соседи почти равны, поэтому границ не видно. */
+    const depthAt = (nx: number, ny: number, p: number) => {
+      const spatial =
+        Math.sin(nx * 4.3 + spaceA) +
+        Math.sin(ny * 3.7 - spaceB) +
+        Math.sin((nx * 0.7 + ny * 0.7) * 5.1 + spaceB);
+      const drift = timeA(p) + timeB(p) + timeC(p);
+      const raw = (spatial + drift * 1.6) / 6.8;
+      return Math.min(1, Math.max(0, raw));
+    };
+
+    /** HSL -> rgb. Оттенок меняется плавно, поэтому полос не видно. */
+    const hsl = (h: number, s: number, l: number, out: [number, number, number]) => {
+      const hue = ((h % 360) + 360) % 360 / 360;
+      const sat = Math.min(1, Math.max(0, s));
+      const lum = Math.min(1, Math.max(0, l));
+      if (sat === 0) {
+        out[0] = out[1] = out[2] = lum * 255;
+        return out;
+      }
+      const q = lum < 0.5 ? lum * (1 + sat) : lum + sat - lum * sat;
+      const p = 2 * lum - q;
+      const channel = (t: number) => {
+        let v = t;
+        if (v < 0) v += 1;
+        if (v > 1) v -= 1;
+        if (v < 1 / 6) return p + (q - p) * 6 * v;
+        if (v < 1 / 2) return q;
+        if (v < 2 / 3) return p + (q - p) * (2 / 3 - v) * 6;
+        return p;
+      };
+      out[0] = channel(hue + 1 / 3) * 255;
+      out[1] = channel(hue) * 255;
+      out[2] = channel(hue - 1 / 3) * 255;
+      return out;
+    };
+
+    const rgb: [number, number, number] = [0, 0, 0];
+
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -84,26 +134,26 @@ export function DotField({
           const nx = x / width;
           const ny = y / height;
 
-          // Радуга: зелёный слева, синий справа.
-          let r = 24 + nx * 18;
-          let g = 196 - nx * 132;
-          let b = 128 + nx * 126;
+          // Профиль - общая рамка: в 'edges' по бокам светлее, в
+          // 'diagonal' тёмная полоса проходит по диагонали.
+          const profileDim = profile === 'edges'
+            ? 0.26 + 0.74 * Math.abs(nx - 0.5) * 2
+            : 0.32 + 0.68 * Math.abs((nx + ny) / 2 - 0.5) * 2;
 
-          // Тёмная полоса. В режиме edges яркость падает к центру, поэтому по
-          // бокам светлее, а в середине почти гаснет.
-          const offDiagonal = Math.abs((nx + ny) / 2 - 0.5) * 2;
-          const fromCenter = Math.abs(nx - 0.5) * 2;
-          let dim = profile === 'edges'
-            ? 0.26 + 0.74 * fromCenter
-            : 0.32 + 0.68 * offDiagonal;
+          // Глубина именно этой точки. Разные области экрана лежат на
+          // разной глубине: дальние тусклее и мельче, ближние ярче.
+          const depth01 = depthAt(nx, ny, phase);
+          const dim = profileDim * (0.52 + 0.72 * depth01);
 
-          // Бегущая волна яркости: диагональ ползёт, поле переливается.
-          if (motion) {
-            const wave = Math.sin((nx + ny) * 3.4 - phase);
-            dim *= 0.82 + 0.34 * (wave * 0.5 + 0.5);
-          }
+          // Оттенок дрейфует по кругу плавно: зелёный слева, синий
+          // справа, но со временем вся радуга смещается.
+          const hue = 152 - nx * 104 + (timeA(phase) + timeB(phase)) * 26;
+          hsl(hue, 0.6 + 0.18 * depth01, 0.4 + 0.22 * depth01, rgb);
+          let r = rgb[0];
+          let g = rgb[1];
+          let b = rgb[2];
 
-          let size = maxSize;
+          let size = maxSize * (0.6 + 0.58 * depth01);
 
           // Провал под курсором: расстояние, спад и уменьшение точки.
           if (usePointer) {
@@ -113,7 +163,7 @@ export function DotField({
             if (distance < radius) {
               const falloff = 1 - distance / radius;
               const eased = falloff * falloff * (3 - 2 * falloff);
-              size = maxSize * (1 - 0.72 * eased * depth);
+              size *= 1 - 0.72 * eased * depth;
               const shade = 1 - 0.78 * eased * depth;
               r *= shade;
               g *= shade;

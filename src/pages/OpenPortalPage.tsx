@@ -15,7 +15,6 @@ import { useCurrentUser } from '@/stores/authStore';
 import { toIconSrc } from '@/lib/icon-src';
 import { resolveEndpoint, runAgentTurn, buildSystemPrompt, compressHistory, callProvider, estimateTokens } from '@/lib/opencore/agent';
 import { contextWindow, BROWSER_LINKS } from '@/lib/opencore/providers';
-import { DotField } from '@/components/effects/DotField';
 import { Markdown, PortalImage, TOKEN_COLOR } from '@/components/openportal/Markdown';
 import { normalizeLang, tokenizeLine } from '@/lib/opencore/highlight';
 import { ModelManager } from '@/components/openportal/ModelManager';
@@ -1112,8 +1111,7 @@ function ChatBubble({ m, onContinue, streaming, onInstalled }: { m: ChatMessage;
         ) : (
           null
         )}
-        {m.error && <p className="mt-1 text-[11px]" style={{ color: 'var(--color-error)' }}>Это сообщение могло быть сгенерировано ошибочно. Проверь контекст и попробуй ещё раз.</p>}
-      </div>
+        </div>
     </div>
   );
 }
@@ -2198,7 +2196,7 @@ export function OpenPortalPage() {
               {/* Фон и в пустом состоянии: ветки тернарника рисуются по
                   очереди, поэтому слой нужен в обеих. Без него на пустом
                   чате поля было не видно вовсе. */}
-              <DotField className="pointer-events-none absolute inset-0" />
+              
               <div className="flex flex-col gap-2">
                 <h1 className="text-xl font-black" style={{ color: 'var(--color-text)' }}>С чем помочь?</h1>
                 <p className="max-w-xl text-[13px] leading-6" style={{ color: 'var(--color-text-secondary)' }}>
@@ -2232,7 +2230,7 @@ export function OpenPortalPage() {
             <div className="openportal-thread relative mx-auto flex w-full max-w-5xl flex-col gap-3">
               {/* Фон с провалом точек под курсором, пункт 12.2. Слой под
                   сообщениями и не перехватывает события мыши. */}
-              <DotField className="pointer-events-none absolute inset-0" />
+              
               <MentionContext.Provider value={mentionOf}>
               {groupedMessages(messages).map(row => row.kind === 'group' ? (
                 <ToolGroup key={row.key} items={row.items} onInstalled={text => void send(text)} />

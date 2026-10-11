@@ -41,6 +41,12 @@
   --color-text-secondary: var(--color-text-tertiary);
   --color-text-tertiary: var(--surface-5);
   --color-primary: #DA2A3F;
+  /* Размытие панелей. Раньше переменная была объявлена только внутри
+     пресета oreui и равнялась 0px, поэтому правила вида
+     backdrop-filter:blur(var(--portal-glass-blur)) без запасного
+     значения получали невалидный фильтр - панели не блюрили ни в
+     одном пресете. */
+  --portal-glass-blur: 20px;
   --color-primary-hover: #EE3A50;
   --color-primary-dim: rgba(218,42,63,0.15);
   --color-primary-text: #FFFFFF;
@@ -2622,7 +2628,7 @@ html[data-portal-style="oreui"] {
   --shadow-md: none;
   --shadow-lg: none;
 
-  --portal-glass-blur: 0px;
+  --portal-glass-blur: 16px;
   --portal-glass-panel: rgba(0, 0, 0, 0);
   --portal-glass-panel-strong: rgba(0, 0, 0, 0);
   --portal-glass-edge: rgba(255, 255, 255, 0.05);
@@ -2894,4 +2900,78 @@ html[data-accent-mode="vertical"] {
 @keyframes uiv-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   .uiv-spinner i { animation: none; border-top-color: var(--grad-glow); }
+}
+
+/* ===== Стандарт материала: обычный вид, размытие под собой =====
+   По требованию пользователя - панели и кнопки сохраняют свои цвета
+   и границы, но размывают то, что находится под ними. Раньше это было
+   привязано к пресету glass, а выбран был oreui, где переменная
+   размытия равнялась 0px, поэтому не блюрило вообще ничего.
+
+   Блок в конце файла, чтобы перекрывать стили пресетов. */
+:root {
+  --portal-blur-ui: 20px;
+  --portal-blur-control: 12px;
+  /* Заливка берётся из токена темы, а не задаётся белым: в тёмной
+     теме панель остаётся тёмной, в светлой - светлой. */
+  --portal-glass-fill: color-mix(in srgb, var(--color-surface) 68%, transparent);
+  --portal-glass-fill-2: color-mix(in srgb, var(--color-surface-2) 72%, transparent);
+}
+
+/* Панели: собственный вид сохранён, добавлена только полупрозрачность
+   и размытие. Без полупрозрачности размытие не видно вовсе. */
+:is(
+  .portal-sidebar,
+  .portal-notch,
+  .portal-glass-surface,
+  .soft-surface,
+  .object-frame,
+  .new-ui-header,
+  .new-ui-footer,
+  [role="dialog"],
+  dialog,
+  .openportal-message,
+  [style*="background:var(--color-surface)"],
+  [style*="background: var(--color-surface)"],
+  [style*="background:var(--color-surface-2)"],
+  [style*="background: var(--color-surface-2)"]
+) {
+  background: var(--portal-glass-fill) !important;
+  border-color: color-mix(in srgb, var(--color-border-strong) 74%, white 26%) !important;
+  backdrop-filter: blur(var(--portal-blur-ui)) saturate(1.25);
+  -webkit-backdrop-filter: blur(var(--portal-blur-ui)) saturate(1.25);
+}
+
+/* Кнопки и поля ввода остаются своего вида, размывают под собой. */
+:is(button, [role="button"], [role="tab"], input, textarea, select) {
+  backdrop-filter: blur(var(--portal-blur-control)) saturate(1.2);
+  -webkit-backdrop-filter: blur(var(--portal-blur-control)) saturate(1.2);
+}
+
+/* Панель, которая сама размывает фон, не должна размываться вместе
+   с ним - иначе содержимое внутри расплывается. */
+.portal-background-layer,
+.portal-background-scrim,
+.openportal-thread > canvas {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Уважаем системную настройку и для материала. */
+@media (prefers-reduced-transparency: reduce) {
+  :is(
+    .portal-sidebar, .portal-notch, .portal-glass-surface, .soft-surface,
+    .object-frame, .new-ui-header, .new-ui-footer, [role="dialog"], dialog,
+    .openportal-message,
+    [style*="background:var(--color-surface)"], [style*="background: var(--color-surface)"],
+    [style*="background:var(--color-surface-2)"], [style*="background: var(--color-surface-2)"]
+  ) {
+    background: var(--color-surface) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  :is(button, [role="button"], [role="tab"], input, textarea, select) {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
 }

@@ -58,9 +58,14 @@ export function DotField({
 
     const reduced =
       typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    // При включённом «меньше движения» перелив останавливается, провал
-    // отключается. Сама сетка нужна, она не анимация.
-    const motion = flow > 0 && !reduced;
+    // Раньше при включённом «меньше движения» перелив останавливался
+    // совсем: motion становился false, цикл не запускался, и сетка
+    // замирала навсегда - выглядело как сломанная, а не как
+    // специально сделанное «меньше движения». Теперь режим снижает
+    // скорость и амплитуду, но перелив продолжается.
+    const motion = flow > 0;
+    const speed = reduced ? 0.3 : 1;
+    // Провал под курсором - прямое следствие движения, его отключаем.
     const dip = !reduced;
 
     // Три несинхронные фазы. Сумма синусов разной частоты даёт поле,
@@ -81,7 +86,10 @@ export function DotField({
         Math.sin(ny * 3.7 - spaceB) +
         Math.sin((nx * 0.7 + ny * 0.7) * 5.1 + spaceB);
       const drift = timeA(p) + timeB(p) + timeC(p);
-      const raw = (spatial + drift * 1.6) / 6.8;
+      // Усиление и делитель подобраны так, чтобы сумма rarely упиралась
+      // в 0 или 1: при старых 1.6 и 6.8 поле выходило за пределы и
+      // залипало плоскими пятнами вместо плавного перепада глубины.
+      const raw = (spatial + drift * 1.15) / 7.4;
       return Math.min(1, Math.max(0, raw));
     };
 
@@ -191,7 +199,7 @@ export function DotField({
       frame = requestAnimationFrame(loop);
       if (now - lastDraw < 32) return;
       lastDraw = now;
-      phase += 0.022 * flow;
+      phase += 0.022 * flow * speed;
       if (phase > Math.PI * 2) phase -= Math.PI * 2;
       draw();
     };

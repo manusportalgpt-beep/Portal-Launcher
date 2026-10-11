@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { invoke } from '@/lib/invoke-shim';
 import { useChatHistory, type ChatMessage as StoredMessage } from '@/components/ai/ChatHistory';
 import { toastSuccess, toastError } from '@/components/ai/FileToast';
+import { DotField } from '@/components/effects/DotField';
 import { PROVIDERS, endpointFor, defaultModelFor, fetchProviderModels, type ProviderPreset, type ModelInfo } from '@/lib/ai-providers';
 
 
@@ -438,6 +439,10 @@ const [liveModels, setLiveModels] = useState<ModelInfo[]>([]);
         className="fixed bottom-5 right-5 z-[900] flex flex-col overflow-hidden"
         style={{ width: 440, height: 560, background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 8, boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}
         onDragOver={e => e.preventDefault()} onDrop={handleFileDrop}>
+
+        {/* Фон с провалом точек под курсором, пункт 12.2. Слой не ловит
+            события, иначе перестал бы работать drag and drop файлов. */}
+        <DotField className="pointer-events-none absolute inset-0" />
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: '1px solid var(--color-border)' }}>

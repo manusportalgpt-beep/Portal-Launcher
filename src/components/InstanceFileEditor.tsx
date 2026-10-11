@@ -57,6 +57,12 @@ type MclogsDiagnosis = { url: string; errors: number; lines: number; title: stri
 export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChanged }: { instanceId: string; minecraftVersion?: string; onContentChanged?: () => void | Promise<void> }) {
   const [cwd, setCwd] = useState('');
   const [entries, setEntries] = useState<FsEntry[]>([]);
+  // Дерево файлов, пункт 12.3. Раньше папка открывалась переходом в неё,
+  // то есть каждая папка была отдельным экраном. Теперь папки
+  // разворачиваются на месте, а дети грузятся лениво: при раскрытии.
+  const [childrenByPath, setChildrenByPath] = useState<Record<string, FsEntry[]>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [loadingPath, setLoadingPath] = useState<string | null>(null);
   const [selected, setSelected] = useState<FsEntry | null>(null);
   const [content, setContent] = useState('');
   const [savedContent, setSavedContent] = useState('');
@@ -117,8 +123,56 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
   };
   useEffect(() => { void loadDir(''); /* eslint-disable-next-line */ }, [instanceId]);
 
+  const parentOf = (path: string) => path.split('/').slice(0, -1).join('/');
+
+  // После переименования, удаления и переноса нужно перечитать именно ту
+  // папку, где лежал файл. Раньше перечитывался корень, потому что список
+  // был один; с деревом этого мало, иначе подпапка показывала бы
+  // удалённый файл до перезапуска.
+  const refreshTree = async (dir: string) => {
+    try {
+      const kids = await invoke<FsEntry[]>('instance_list_dir', { instanceId, path: dir });
+      if (dir === '') setEntries(kids);
+      else setChildrenByPath(prev => ({ ...prev, [dir]: kids }));
+    } catch { /* оставим прежнее содержимое */ }
+  };
+
+  // Раскрытие папки на месте. Содержимое читается один раз и кладётся в
+  // кэш по пути: повторное открытие мгновенное, и при этом всё дерево
+  // сборки в память не грузится целиком.
+  const toggleFolder = async (entry: FsEntry) => {
+    const next = !expanded[entry.path];
+    setExpanded(prev => ({ ...prev, [entry.path]: next }));
+    if (!next || childrenByPath[entry.path]) return;
+    setLoadingPath(entry.path);
+    try {
+      const kids = await invoke<FsEntry[]>('instance_list_dir', { instanceId, path: entry.path });
+      setChildrenByPath(prev => ({ ...prev, [entry.path]: kids }));
+    } catch { setChildrenByPath(prev => ({ ...prev, [entry.path]: [] })); }
+    finally { setLoadingPath(null); }
+  };
+
+  // Плоский список строк с глубиной. Рендер идёт по массиву, а вложенность
+  // показывается отступом и вертикальными линиями. Так проще, чем
+  // вкладывать списки друг в друга, и не теряются события строки.
+  const treeRows = useMemo(() => {
+    const rows: Array<{ entry: FsEntry; depth: number }> = [];
+    const walk = (list: FsEntry[], depth: number) => {
+      const sorted = [...list].sort((a, b) => {
+        if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+      for (const entry of sorted) {
+        rows.push({ entry, depth });
+        if (entry.is_dir && expanded[entry.path]) walk(childrenByPath[entry.path] ?? [], depth + 1);
+      }
+    };
+    walk(visible, 0);
+    return rows;
+  }, [visible, expanded, childrenByPath]);
+
   const open = async (entry: FsEntry) => {
-    if (entry.is_dir) { setSelected(null); setContent(''); setSavedContent(''); await loadDir(entry.path); return; }
+    if (entry.is_dir) { await toggleFolder(entry); return; }
     setSelected(entry); setError('');
     if (!isTextFile(entry.name)) { setContent(''); setSavedContent(''); return; }
     setBusy(true);
@@ -152,13 +206,13 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
       const finalPath = [cwd, cleanName].filter(Boolean).join('/');
       if (folder) await invoke('instance_mkdir', { instanceId, path: finalPath });
       else await invoke('instance_write_text', { instanceId, path: finalPath, content: '' });
-      await loadDir(cwd);
+      await refreshTree(cwd);
     } catch (e) { setError(String(e)); }
   };
   const rename = async (entry: FsEntry) => {
     const next = await dialog.prompt('Введите новое имя элемента.', entry.name, { title: 'Переименовать', confirmLabel: 'Сохранить', cancelLabel: 'Отмена' });
     if (!next?.trim() || next.trim() === entry.name) return;
-    try { await invoke('instance_rename_path', { instanceId, path: entry.path, newName: next.trim() }); if (selected?.path === entry.path) setSelected(null); await loadDir(cwd); }
+    try { await invoke('instance_rename_path', { instanceId, path: entry.path, newName: next.trim() }); if (selected?.path === entry.path) setSelected(null); await refreshTree(parentOf(entry.path)); }
     catch (e) { setError(String(e)); }
   };
   const remove = async (entry: FsEntry) => {
@@ -167,7 +221,7 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
     try {
       await invoke('instance_delete_path', { instanceId, path: entry.path });
       if (selected?.path === entry.path) { setSelected(null); setContent(''); setSavedContent(''); }
-      await loadDir(cwd);
+      await refreshTree(parentOf(entry.path));
       await onContentChanged?.();
     } catch (e) { setError(String(e)); }
   };
@@ -178,7 +232,10 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
     event.stopPropagation();
     try {
       await invoke('instance_move_path', { instanceId, from, toDir });
-      await loadDir(cwd);
+      // Перечитываем обе стороны: файл исчез из исходной папки и появился
+      // в целевой. Если обновить только одну, дерево разойдётся с диском.
+      await refreshTree(parentOf(from));
+      await refreshTree(toDir);
       await onContentChanged?.();
       const name = from.split('/').pop() || from;
       toastSuccess(`Файл «${name}» успешно перенесён`, `В папку «${toDir || '.minecraft'}»`);
@@ -191,7 +248,7 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
     try {
       const copied = await invoke<string[]>('instance_drop_files', { instanceId, files: paths, targetDir: cwd });
       if (!copied.length) throw new Error('Не удалось получить файлы из операции перетаскивания.');
-      await loadDir(cwd);
+      await refreshTree(cwd);
       await onContentChanged?.();
       const first = copied[0]?.split('/').pop() || '';
       if (copied.length === 1) {
@@ -311,8 +368,23 @@ export function InstanceFileEditor({ instanceId, minecraftVersion, onContentChan
               <button onClick={() => void open(entry)} className="rounded-md px-1.5 py-1 text-[9px] font-bold opacity-0 group-hover:opacity-100" style={{ color: 'var(--color-primary)', background: 'var(--color-primary-dim)' }}>{entry.is_dir ? 'Открыть' : 'Открыть файл'}</button>
             </div>); })}
         </>
-      ) : visible.length === 0 ? <p className="m-1 rounded-xl border border-dashed p-4 text-center text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }}>Папка пуста</p> : visible.map(entry => { const visual = entry.is_dir ? folderVisual(entry.name) : fileVisual(entry.name); const MainIcon = visual.Icon; const BadgeIcon = visual.badge; const codeLabel = 'codeLabel' in visual ? visual.codeLabel : undefined; return <div key={entry.path} draggable onDragStart={event => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', entry.path); }} onDragOver={event => { if (entry.is_dir && event.dataTransfer.types.includes('text/plain')) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; } }} onDrop={event => { if (entry.is_dir) void moveEntryIntoFolder(event, entry.path); }} className="group flex items-center gap-1 rounded-xl px-2 py-1.5 transition-all duration-200 hover:-translate-y-px hover:bg-white/5" style={{ background: selected?.path === entry.path ? 'var(--color-primary-dim)' : 'transparent', boxShadow: selected?.path === entry.path ? '0 0 0 1px color-mix(in srgb, var(--color-primary) 28%, transparent)' : undefined }}>
+      ) : treeRows.length === 0 ? <p className="m-1 rounded-xl border border-dashed p-4 text-center text-xs" style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-tertiary)' }}>Папка пуста</p> : treeRows.map(({ entry, depth }) => { const visual = entry.is_dir ? folderVisual(entry.name) : fileVisual(entry.name); const MainIcon = visual.Icon; const BadgeIcon = visual.badge; const codeLabel = 'codeLabel' in visual ? visual.codeLabel : undefined; return <div key={entry.path} draggable onDragStart={event => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', entry.path); }} onDragOver={event => { if (entry.is_dir && event.dataTransfer.types.includes('text/plain')) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; } }} onDrop={event => { if (entry.is_dir) void moveEntryIntoFolder(event, entry.path); }} className="group relative flex items-center gap-1 rounded-xl py-1.5 transition-all duration-200 hover:bg-[var(--color-surface-2)]" style={{ paddingLeft: 6 + depth * 14, paddingRight: 8, background: selected?.path === entry.path ? 'var(--color-primary-dim)' : 'transparent', boxShadow: selected?.path === entry.path ? '0 0 0 1px color-mix(in srgb, var(--color-primary) 28%, transparent)' : undefined }}>
+          {/* Линии уровней: вертикаль на каждом предке плюс отросток к
+              самой строке. Без них при трёх уровнях не видно, что файл
+              лежит в папке внутри папки. */}
+          {depth > 0 && (<>
+            <span aria-hidden className="pointer-events-none absolute inset-y-0"
+              style={{ left: 6, width: depth * 14, backgroundImage: 'repeating-linear-gradient(to right, var(--color-border) 0 1px, transparent 1px 14px)', backgroundRepeat: 'no-repeat' }} />
+            <span aria-hidden className="pointer-events-none absolute h-px"
+              style={{ left: 6 + (depth - 1) * 14, width: 14, top: '50%', background: 'var(--color-border)' }} />
+          </>)}
           <button onClick={() => void open(entry)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+            {/* Шеврон раскрытия. Поворот показывает, открыта папка или нет. */}
+            {entry.is_dir && (
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform duration-150"
+                style={{ color: 'var(--color-text-tertiary)', transform: expanded[entry.path] ? 'rotate(90deg)' : 'none' }} />
+            )}
+            {loadingPath === entry.path && <LoaderCircle className="h-3.5 w-3.5 shrink-0 animate-spin" style={{ color: 'var(--color-text-tertiary)' }} />}
             <span className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-lg" style={{ color: visual.color, background: entry.is_dir ? 'var(--color-surface-2)' : 'transparent', border: entry.is_dir ? '1px solid var(--color-border)' : undefined }}>{codeLabel ? <span className="font-mono text-[9px] font-black tracking-tighter">{codeLabel}</span> : <MainIcon className="h-3.5 w-3.5" />}{BadgeIcon && <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full" style={{ background:'var(--color-surface)', color:visual.color }}><BadgeIcon className="h-2.5 w-2.5" /></span>}</span>
             <span className="min-w-0 flex-1 truncate text-xs font-medium" style={{ color: 'var(--color-text)' }}>{entry.name}</span>
             {!entry.is_dir && <span className="text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>{formatBytes(entry.size)}</span>}

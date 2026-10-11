@@ -253,6 +253,10 @@ function AccountButton({ vertical = false }: { vertical?: boolean }) {
 function SidebarNav() {
   const order = useUiStore(s => s.navItemOrder);
   const sidebarWidth = useUiStore(s => s.sidebarWidth);
+  // Коллапс по наведению на логотип. Состояние локальное и намеренно
+  // не сохраняется: рельс должен возвращаться в развёрнутый вид при
+  // следующем запуске, иначе человек забыл бы, что интерфейс узкий.
+  const [railCollapsed, setRailCollapsed] = useState(false);
   const scale = useUiStore(s => s.navItemScale);
   const appearance = useUiStore(s => s.sidebarPanelAppearance);
   const user = useCurrentUser();
@@ -267,9 +271,10 @@ function SidebarNav() {
     : user.provider === 'offline' || user.isDemo ? 'Offline'
     : 'Microsoft';
   return (
-    <aside className={`portal-sidebar clean-nav portal-skin shrink-0 flex flex-col z-40${appearance.blur > 0 ? ' ps-blurred' : ''}`}
+    <aside className={`portal-sidebar clean-nav portal-skin shrink-0 flex flex-col z-40${appearance.blur > 0 ? ' ps-blurred' : ''}${railCollapsed ? ' ps-collapsed' : ''}`}
+      onMouseLeave={() => setRailCollapsed(false)}
       style={{
-        width: Math.max(84, sidebarWidth),
+        width: railCollapsed ? 66 : Math.max(84, sidebarWidth),
         padding: '10px 10px',
         justifyContent,
         borderRight: `1px solid ${borderColor}`,
@@ -279,7 +284,11 @@ function SidebarNav() {
         boxShadow: appearance.shadow === 'strong' ? '3px 0 20px rgba(0,0,0,.35)' : appearance.shadow === 'soft' ? '1px 0 14px rgba(0,0,0,.22)' : 'none',
         transition: 'width calc(180ms * var(--portal-motion-multiplier, 1)) ease',
       } as React.CSSProperties}>
-      <div className="ps-brand" title="Portal Launcher">
+      <div
+        className="ps-brand ps-brand-collapse"
+        title={railCollapsed ? 'Наведи, чтобы развернуть' : 'Наведи, чтобы свернуть'}
+        onMouseEnter={() => setRailCollapsed(true)}
+      >
         <span className="ps-logo"><img src="/launcher-icon.png?rev=portal-square-1" alt="Portal Launcher" draggable={false} /></span>
         <span className="ps-brandname">Portal<small>Launcher</small></span>
       </div>

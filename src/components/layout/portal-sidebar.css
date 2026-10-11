@@ -360,3 +360,17 @@
 .portal-skin .ps-nav-item:hover .ps-nav-icon {
   color: var(--color-text) !important;
 }
+
+/* ===== Свёрнутый рельс =====
+   Состояние ставится наведением на логотип: по требованию пользователя
+   отдельной кнопки-свертки не нужно. Подписи, названия разделов и
+   имена аккаунта в узком виде убираются - иначе текст вылезет за
+   ширину рельса. Ширина и переход заданы инлайном в TopNav. */
+.portal-skin.ps-collapsed :is(.ps-nav-label, .ps-brandname, .ps-label, .ps-nav-chev, .ps-account-name, .ps-account-provider) {
+  display: none !important;
+}
+.portal-skin.ps-collapsed :is(.ps-nav, .ps-footer, .ps-brand, .ps-account) {
+  align-items: center;
+  justify-content: center;
+}
+.portal-skin.ps-collapsed .ps-logo { margin-inline: auto; }

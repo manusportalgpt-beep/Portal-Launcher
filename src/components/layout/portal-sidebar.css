@@ -339,3 +339,24 @@
   border-radius: 2px !important;
 }
 .portal-skin .ps-label::before { background: var(--ore-green, #3a8527) !important; }
+/* ===== Активный пункт рельса =====
+   По RULES.md 12.5 и по образцу: подложка есть только у активного
+   пункта, он залит акцентом, а сам значок инвертируется в светлый.
+   Неактивные - обычный контур без круга.
+
+   Правило в конце файла и с !important намеренно: пресеты (oreui и
+   другие) задают свой фон иконки с !important, иначе они перебили бы
+   это правило. */
+.portal-skin .ps-nav-item .ps-nav-icon {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--color-text-secondary) !important;
+}
+.portal-skin .ps-nav-item.active .ps-nav-icon {
+  background: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary-text, #FFFFFF) !important;
+}
+.portal-skin .ps-nav-item:hover .ps-nav-icon {
+  color: var(--color-text) !important;
+}

@@ -15,6 +15,7 @@ import { useCurrentUser } from '@/stores/authStore';
 import { toIconSrc } from '@/lib/icon-src';
 import { resolveEndpoint, runAgentTurn, buildSystemPrompt, compressHistory, callProvider, estimateTokens } from '@/lib/opencore/agent';
 import { contextWindow, BROWSER_LINKS } from '@/lib/opencore/providers';
+import { DotField } from '@/components/effects/DotField';
 import { Markdown, PortalImage, TOKEN_COLOR } from '@/components/openportal/Markdown';
 import { normalizeLang, tokenizeLine } from '@/lib/opencore/highlight';
 import { ModelManager } from '@/components/openportal/ModelManager';
@@ -2224,7 +2225,10 @@ export function OpenPortalPage() {
               </p>
             </div>
           ) : (
-            <div className="openportal-thread mx-auto flex w-full max-w-5xl flex-col gap-3">
+            <div className="openportal-thread relative mx-auto flex w-full max-w-5xl flex-col gap-3">
+              {/* Фон с провалом точек под курсором, пункт 12.2. Слой под
+                  сообщениями и не перехватывает события мыши. */}
+              <DotField className="pointer-events-none absolute inset-0" />
               <MentionContext.Provider value={mentionOf}>
               {groupedMessages(messages).map(row => row.kind === 'group' ? (
                 <ToolGroup key={row.key} items={row.items} onInstalled={text => void send(text)} />
@@ -2283,7 +2287,12 @@ export function OpenPortalPage() {
           {/* Без overflow-hidden: контейнер обрезал выпадающий список модели и
               панель управления моделями, из-за чего они не открывались. */}
           <div className="uiv-chat-composer container_chat_bot mx-auto w-full max-w-3xl"
-            style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
+            style={{ background: 'var(--color-surface-2)',
+                     border: `1px solid ${input.trim() ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                     boxShadow: input.trim()
+                       ? '0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent)'
+                       : 'none',
+                     transition: 'box-shadow 200ms ease, border-color 200ms ease' }}>
             <div className="container-chat-options">
             <div className="chat">
             {attachments.length > 0 && (

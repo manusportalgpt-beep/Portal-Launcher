@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@/lib/invoke-shim';
 import { fetchMcVersionIds, MC_VERSIONS_FALLBACK } from '@/lib/mc-versions';
 import { toIconSrc } from '@/lib/icon-src';
+import { loadInstanceIconDataUrl } from '@/lib/instance-icon-catalog';
+import { InstanceIconPicker } from '@/components/InstanceIconPicker';
 import { VersionPicker } from '@/components/VersionPicker';
 import { Toggle } from '@/components/Toggle';
 import { dialog } from '@/stores/dialogStore';
@@ -260,6 +262,11 @@ export function InstanceSettings() {
     reader.readAsDataURL(file);
   };
 
+  const chooseCatalogIcon = async (src: string) => {
+    const iconPath = await loadInstanceIconDataUrl(src);
+    setForm(current => ({ ...current, iconPath }));
+  };
+
   const handleSave = async () => {
     const versionChanged = form.minecraftVersion !== inst.minecraftVersion || form.modLoader !== inst.modLoader || (form.modLoaderVersion || '') !== (inst.modLoaderVersion || '');
     if (versionChanged) {
@@ -299,7 +306,7 @@ export function InstanceSettings() {
       await invoke('update_instance', { id: inst.id, updates: {
         name: form.name, description: form.description, mc_version: form.minecraftVersion, loader: form.modLoader,
         loader_version: form.modLoaderVersion, java_path: form.javaPath, custom_jvm_args: form.jvmArgs,
-        min_ram: form.minRam, max_ram: form.maxRam,
+        min_ram: form.minRam, max_ram: form.maxRam, icon: form.iconPath || null,
       } });
       update(inst.id, form as any);
       if (gameCoreChanged) await invoke('check_mod_updates', { instanceId: inst.id }).catch(() => undefined);
@@ -342,6 +349,7 @@ export function InstanceSettings() {
                 <section className="relative overflow-hidden p-4 sm:p-5" style={{ background:'transparent', border:'1px solid var(--color-border)', borderRadius:'var(--radius-card)' }}>
                   <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center"><input ref={coverInputRef} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={event => pickCover(event.target.files?.[0])} /><button onClick={() => coverInputRef.current?.click()} className="group relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden" style={{ background:'var(--color-bg)', border:'2px dashed var(--color-border)', borderRadius:'var(--radius-card)' }}>{coverSrc ? <img src={coverSrc} alt="Обложка сборки" className="h-full w-full object-cover" /> : <Package className="h-8 w-8" style={{ color:'var(--color-text-tertiary)' }} />}<span className="absolute inset-0 flex items-center justify-center bg-black/55 opacity-0 transition-opacity group-hover:opacity-100"><ImagePlus className="h-5 w-5 text-white" /></span></button><div className="min-w-0 flex-1"><p className="text-[10px] font-black uppercase tracking-[0.16em]" style={{ color:'var(--color-primary)' }}>Профиль сборки</p><h1 className="mt-1 truncate text-xl font-black" style={{ color:'var(--color-text)' }}>{form.name || inst.name}</h1><div className="mt-2 flex flex-wrap gap-1.5"><span className="rounded-lg px-2 py-1 text-[10px] font-bold" style={{ background:'transparent', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}>Minecraft {form.minecraftVersion}</span><span className="rounded-lg px-2 py-1 text-[10px] font-bold capitalize" style={{ background:'transparent', border:'1px solid var(--color-primary)', color:'var(--color-primary)' }}>{activeLoader.label}{form.modLoaderVersion ? ` ${form.modLoaderVersion}` : ''}</span></div><div className="mt-3 flex gap-2"><button onClick={() => coverInputRef.current?.click()} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-bold" style={{ background:'transparent', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}><ImagePlus className="h-3.5 w-3.5" />Изменить обложку</button>{form.iconPath && <button onClick={() => setForm(current => ({ ...current, iconPath:'' }))} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[10px] font-bold" style={{ background:'transparent', color:'var(--color-error)', border:'1px solid var(--color-border)' }}><Trash2 className="h-3.5 w-3.5" />Убрать</button>}</div></div></div>
                 </section>
+                <InstanceIconPicker onSelect={chooseCatalogIcon} />
 
                 <div className="grid gap-3 sm:grid-cols-2"><div className="p-3.5" style={{ background:'transparent', border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}><div className="flex items-center gap-2"><Cpu className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="text-xs font-black" style={{ color:'var(--color-text)' }}>Автоматическая Java {recommendedJava}</p></div><p className="mt-1 text-[10px] leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>{form.javaPath ? 'Для этой сборки выбрана своя Java.' : `Portal Launcher выберет или скачает совместимую Java ${recommendedJava} при запуске сборки.`}</p></div><div className="p-3.5" style={{ background:'transparent', border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}><div className="flex items-center gap-2"><Info className="h-4 w-4" style={{ color:'var(--color-primary)' }} /><p className="text-xs font-black" style={{ color:'var(--color-text)' }}>Можно настроить</p></div><p className="mt-1 text-[10px] leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>Смена версии игры или загрузчика сохранит профиль сборки; перед изменением установленного контента создайте резервную копию.</p></div></div>
 

@@ -1053,35 +1053,42 @@ function InstanceCard({ inst, onClick, onDropOnGroup }: {
         if (target) onDropOnGroup(target.dataset.groupContainer || null);
       }}
       onClick={() => { if (!movedRef.current) onClick(); }}
-      whileHover={{ y: dragging ? 0 : -2, boxShadow: '0 10px 28px color-mix(in srgb, var(--color-primary) 14%, rgba(0,0,0,0.18))' }}
-      whileTap={{ scale: 0.985 }}
       transition={{ layout: { duration: 0.32, ease: [0.22, 1, 0.36, 1] } }}
-      className="portal-instance-card group flex flex-col items-start gap-2 p-2.5 rounded-lg text-left relative overflow-hidden w-full cursor-grab active:cursor-grabbing transition-all duration-200"
-      style={{ background:'var(--color-surface)', touchAction: 'none', pointerEvents: dragging ? 'none' : 'auto' }}>
-      <div className="w-full aspect-[4/3] rounded-md overflow-hidden flex items-center justify-center font-black text-xl relative pointer-events-none"
-        style={{ background: `${inst.color || '#26262C'}2b`, color: inst.color || 'var(--color-text-tertiary)' }}>
+      role="button"
+      tabIndex={0}
+      aria-label={`Открыть сборку ${inst.name}`}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className="group relative flex w-full cursor-grab flex-col items-start gap-3 overflow-hidden rounded-lg border p-3 text-left active:cursor-grabbing transition-[background-color,border-color,box-shadow] duration-150"
+      style={{ background:'var(--color-surface)', borderColor:'var(--color-border)', touchAction: 'none', pointerEvents: dragging ? 'none' : 'auto' }}>
+      <div className="relative flex w-full aspect-square items-center justify-center overflow-hidden rounded-md text-xl font-black"
+        style={{ background: `color-mix(in srgb, ${inst.color || 'var(--color-primary)'} 17%, var(--color-surface-2))`, color: inst.color || 'var(--color-text-tertiary)' }}>
         {inst.iconPath ? <img src={toIconSrc(inst.iconPath)} className="w-full h-full object-cover" alt="" draggable={false} /> : inst.name[0]?.toUpperCase()}
-        <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide"
-          style={{ background:'rgba(0,0,0,0.48)', color: LOADER_COLOR[inst.modLoader] || '#fff' }}>
-          {inst.modLoader}
+        <span className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-md border opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+          style={{ background:'var(--color-surface)', borderColor:'var(--color-border)', color:'var(--color-primary)' }} aria-hidden>
+          <ArrowRight className="h-4 w-4" />
         </span>
-        {(launchStatus !== 'idle' || inst.installStatus === 'partial') && (
-          <span className="absolute bottom-1.5 right-1.5 w-2.5 h-2.5 rounded-full"
-            style={{ background: launchStatus==='running' ? '#2ECC71' : inst.installStatus === 'partial' ? '#F39C12' : 'var(--color-primary)', boxShadow:'0 0 0 3px var(--color-surface)' }} />
+        {launchStatus !== 'idle' && (
+          <span className="absolute bottom-2 left-2 max-w-[calc(100%-3.5rem)] truncate rounded-sm px-2 py-1 text-[10px] font-semibold"
+            style={{ background:'var(--color-surface)', color:launchStatus === 'running' ? 'var(--color-success)' : 'var(--color-primary)' }}>
+            {launchStatus === 'running' ? 'Запущена' : 'Подготовка'}
+          </span>
         )}
-        <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 px-2 py-1 rounded-sm text-[9px] font-bold uppercase tracking-wide opacity-0 translate-y-0.5 transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 pointer-events-none"
-          style={{ background:'var(--color-primary)', color:'#fff', boxShadow:'0 4px 12px color-mix(in srgb, var(--color-primary) 42%, transparent)' }}>
-          <Play className="w-2.5 h-2.5 fill-current" />Играть
-        </span>
+        {launchStatus === 'idle' && inst.installStatus === 'partial' && (
+          <span className="absolute bottom-2 left-2 max-w-[calc(100%-3.5rem)] truncate rounded-sm px-2 py-1 text-[10px] font-semibold"
+            style={{ background:'var(--color-surface)', color:'var(--color-warning)' }}>Требуется установка</span>
+        )}
       </div>
-      <div className="min-w-0 w-full pointer-events-none">
-        <p className="text-sm font-bold truncate font-display" style={{ color:'var(--color-text)' }}>{inst.name}</p>
-        <div className="flex flex-wrap gap-1.5 mt-1.5">
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>{inst.minecraftVersion}</span>
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold capitalize" style={{ background:`${LOADER_COLOR[inst.modLoader] || 'var(--color-primary)'}12`, color:LOADER_COLOR[inst.modLoader] || 'var(--color-primary)' }}>{inst.modLoaderVersion ? `${inst.modLoader} ${inst.modLoaderVersion}` : inst.modLoader}</span>
-        </div>
+      <div className="w-full min-w-0">
+        <p className="truncate text-sm font-semibold" style={{ color:'var(--color-text)' }}>{inst.name}</p>
+        <p className="mt-1 truncate text-xs font-medium capitalize" style={{ color:LOADER_COLOR[inst.modLoader] || 'var(--color-text-secondary)' }}>
+          {inst.modLoader}{inst.modLoaderVersion ? ` ${inst.modLoaderVersion}` : ''} · {inst.minecraftVersion}
+        </p>
       </div>
-      <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100 rounded-md" style={{ boxShadow:'inset 0 0 0 1px color-mix(in srgb, var(--color-primary) 30%, transparent)', borderRadius:'var(--radius-md)' }} />
     </motion.div>
   );
 }
@@ -1190,44 +1197,52 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
       onDragLeave={event => { if (Array.from(event.dataTransfer.types).includes('Files')) { dragDepthRef.current = Math.max(0, dragDepthRef.current - 1); if (!dragDepthRef.current) setDragOver(false); } }}
       onDrop={event => { event.preventDefault(); dragDepthRef.current = 0; void importDroppedArchives(event.dataTransfer.files); }}>
       {dragOver && <motion.div initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.985 }} transition={{ duration: 0.16 }} className="pointer-events-none absolute inset-4 z-[140] flex items-center justify-center rounded-xl border-2 border-dashed" style={{ background:'color-mix(in srgb, var(--color-primary) 14%, transparent)', borderColor:'var(--color-primary)', color:'var(--color-primary)', boxShadow:'0 0 0 6px color-mix(in srgb, var(--color-primary) 8%, transparent)' }}><div className="max-w-md rounded-2xl px-6 py-5 text-center" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', boxShadow:'var(--shadow-lg)' }}><Upload className={`mx-auto mb-2 h-8 w-8 ${importing ? 'animate-bounce' : ''}`} /><p className="text-sm font-black">{importing ? 'Импортирую сборку…' : 'Перенесите .mrpack или .zip в эту зону'}</p><p className="mt-1 text-xs leading-relaxed" style={{ color:'var(--color-text-secondary)' }}>{importing ? 'Немного подождите: крупные модпаки могут читать manifest и скачивать модификации несколько минут.' : 'Лаунчер прочитает manifest и начнёт установку автоматически.'}</p></div></motion.div>}
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 mb-5 flex-wrap">
-        <div className="flex min-w-[220px] flex-1 items-center gap-2 px-3 py-2 rounded-lg"
-          style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
-          <Search className="w-4 h-4 shrink-0" style={{ color:'var(--color-text-tertiary)' }} />
-          <input data-library-search="true" className="min-w-0 flex-1 bg-transparent text-sm" placeholder={t('libraryRuntime.smartSearch')}
-            value={filter} onChange={e => setFilter(e.target.value)} style={{ color:'var(--color-text)' }} />
+      <header className="mb-5 flex flex-col gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight" style={{ color:'var(--color-text)' }}>{t('nav.library')}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-[220px] flex-1 items-center gap-2 rounded-md px-3"
+            style={{ minHeight:40, background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
+            <Search className="h-4 w-4 shrink-0" style={{ color:'var(--color-text-tertiary)' }} />
+            <input data-library-search="true" aria-label={t('libraryRuntime.smartSearch')}
+              className="h-9 min-w-0 flex-1 bg-transparent text-sm" placeholder={t('libraryRuntime.smartSearch')}
+              value={filter} onChange={e => setFilter(e.target.value)} style={{ color:'var(--color-text)' }} />
+            {filter && <button type="button" aria-label="Очистить поиск" onClick={() => setFilter('')}
+              className="flex h-6 w-6 items-center justify-center rounded-sm"
+              style={{ color:'var(--color-text-tertiary)' }}><X className="h-3.5 w-3.5" /></button>}
+          </div>
+          <button onClick={() => setShowNewGroup(true)}
+            className="dbtn dbtn-ghost flex h-10 items-center gap-1.5 px-3 text-sm font-semibold"
+            style={{ background:'var(--color-surface)', color:'var(--color-text)', border:'1px solid var(--color-border)' }}>
+            <FolderPlus className="h-4 w-4" />{t('libraryRuntime.newGroup')}
+          </button>
+          <button onClick={onNew}
+            className="dbtn dbtn-accent flex h-10 items-center gap-1.5 px-3.5 text-sm font-semibold">
+            <Plus className="h-4 w-4" />{t('libraryRuntime.create')}
+          </button>
         </div>
-        <button onClick={onNew}
-          className="dbtn dbtn-accent flex items-center gap-1.5 px-4 py-2.5 text-sm">
-          <Plus className="w-4 h-4" />{t('libraryRuntime.create')}
-        </button>
-        <button onClick={() => navigate('/discover')}
-          className="dbtn dbtn-ghost flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold"
-          style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-          <Download className="w-4 h-4" />{t('libraryRuntime.download')}
-        </button>
-        <button onClick={onOpenInstall}
-          className="dbtn dbtn-ghost flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold"
-          style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-          <Upload className="w-4 h-4" />{t('libraryRuntime.upload')}
-        </button>
-        <button onClick={() => setShowNewGroup(true)}
-          className="dbtn dbtn-ghost flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold"
-          style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-          <FolderPlus className="w-4 h-4" />{t('libraryRuntime.newGroup')}
-        </button>
-        <button onClick={() => navigate('/bookmarks')}
-          className="dbtn dbtn-ghost flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold"
-          style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-          <Bookmark className="w-4 h-4" />Закладки
-        </button>
-        <button onClick={onOpenDeleted}
-          className="dbtn dbtn-ghost flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold"
-          style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
-          <Trash className="w-4 h-4" />Удалённые
-        </button>
-      </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => navigate('/discover')}
+            className="dbtn dbtn-ghost flex h-8 items-center gap-1.5 px-2.5 text-xs font-semibold"
+            style={{ background:'transparent', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
+            <Download className="h-3.5 w-3.5" />{t('libraryRuntime.download')}
+          </button>
+          <button onClick={onOpenInstall}
+            className="dbtn dbtn-ghost flex h-8 items-center gap-1.5 px-2.5 text-xs font-semibold"
+            style={{ background:'transparent', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
+            <Upload className="h-3.5 w-3.5" />{t('libraryRuntime.upload')}
+          </button>
+          <button onClick={() => navigate('/bookmarks')}
+            className="dbtn dbtn-ghost flex h-8 items-center gap-1.5 px-2.5 text-xs font-semibold"
+            style={{ background:'transparent', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
+            <Bookmark className="h-3.5 w-3.5" />Закладки
+          </button>
+          <button onClick={onOpenDeleted}
+            className="dbtn dbtn-ghost flex h-8 items-center gap-1.5 px-2.5 text-xs font-semibold"
+            style={{ background:'transparent', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>
+            <Trash className="h-3.5 w-3.5" />Удалённые
+          </button>
+        </div>
+      </header>
 
       {instances.length === 0 ? (
         <div className="mx-auto mt-8 flex max-w-md flex-col items-center justify-center gap-4 px-8 py-16 text-center">
@@ -1243,36 +1258,47 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
             <Plus className="w-4 h-4" />{t('libraryRuntime.create')}
           </button>
         </div>
+      ) : visible.length === 0 ? (
+        <div className="flex min-h-[240px] flex-col items-center justify-center border-y px-6 text-center"
+          style={{ borderColor:'var(--color-border)' }}>
+          <Search className="h-5 w-5" style={{ color:'var(--color-text-tertiary)' }} />
+          <p className="mt-3 text-sm font-semibold" style={{ color:'var(--color-text)' }}>Сборки не найдены</p>
+          <p className="mt-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>Попробуйте изменить поисковый запрос.</p>
+          <button type="button" onClick={() => setFilter('')} className="mt-4 px-3 py-1.5 text-xs font-semibold"
+            style={{ color:'var(--color-primary)' }}>Очистить поиск</button>
+        </div>
       ) : (
         <>
           {allGroupNames.map(g => (
-            <div key={g} className="mb-8" data-group-container={g}>
-              <div className="dsection mb-3">
-                <p className="font-black font-display" style={{ color:'var(--color-text-tertiary)' }}>{g}</p>
-                <span className="text-xs" style={{ color:'var(--color-text-tertiary)' }}>{byGroup(g).length}</span>
+            <section key={g} className="mb-6" data-group-container={g}>
+              <div className="flex h-10 w-full items-center gap-2 border-b" style={{ borderColor:'var(--color-border)' }}>
+                <h2 className="min-w-0 truncate text-base font-semibold" style={{ color:'var(--color-text-secondary)' }}>{g}</h2>
+                <span className="inline-flex min-w-5 items-center justify-center rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
+                  style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>{byGroup(g).length}</span>
               </div>
-              <div className="grid gap-3 min-h-[80px] rounded-2xl" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(150px,1fr))' }}>
+              <div className="mt-2.5 grid min-h-[80px] gap-3" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(160px,1fr))' }}>
                 {byGroup(g).map(inst => (
                   <InstanceCard key={inst.id} inst={inst} onClick={() => onSelect(inst.id)}
                     onDropOnGroup={(grp) => dropOnGroup(inst.id, grp)} />
                 ))}
               </div>
-            </div>
+            </section>
           ))}
 
           {ungrouped.length > 0 && (
-            <div data-group-container="">
-              <div className="dsection mb-3">
-                <p className="font-black font-display" style={{ color:'var(--color-text-tertiary)' }}>Ungrouped</p>
-                <span className="text-xs" style={{ color:'var(--color-text-tertiary)' }}>{ungrouped.length}</span>
+            <section data-group-container="">
+              <div className="flex h-10 w-full items-center gap-2 border-b" style={{ borderColor:'var(--color-border)' }}>
+                <h2 className="min-w-0 truncate text-base font-semibold" style={{ color:'var(--color-text-secondary)' }}>Без группы</h2>
+                <span className="inline-flex min-w-5 items-center justify-center rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
+                  style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>{ungrouped.length}</span>
               </div>
-              <div className="grid gap-3 min-h-[80px] rounded-2xl" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(150px,1fr))' }}>
+              <div className="mt-2.5 grid min-h-[80px] gap-3" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(160px,1fr))' }}>
                 {ungrouped.map(inst => (
                   <InstanceCard key={inst.id} inst={inst} onClick={() => onSelect(inst.id)}
                     onDropOnGroup={(grp) => dropOnGroup(inst.id, grp)} />
                 ))}
               </div>
-            </div>
+            </section>
           )}
         </>
       )}
@@ -1905,14 +1931,11 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
         console.warn('ensure_instance failed:', e);
       }
       update(inst.id, { lastPlayed: new Date().toISOString() });
-      
       // Validate auth data before launch
       if (!user || !user.uuid || !user.username) {
         throw new Error('Authentication data missing. Please sign in again in Settings → Account.');
       }
-      
       console.log(`🚀 Launching with auth: username=${user.username}, uuid=${user.uuid}, token_len=${(user.accessToken || '').length}`);
-      
       const result = await invoke<{ pid?: number | null; message?: string }>('launch_instance', {
           instance_id: inst.id,
           access_token: user.accessToken || '',
@@ -2222,12 +2245,14 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 px-4 py-2 shrink-0" style={{ borderBottom:'1px solid var(--color-border)' }}>
+      <div className="flex h-11 items-end gap-1 overflow-x-auto px-4 shrink-0" style={{ borderBottom:'1px solid var(--color-border)' }}>
         {TABS.filter(() => inst.modLoader !== 'bedrock').map(({ id, Icon, labelKey }) => (
           <button key={id} onClick={() => setTab(id)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all relative"
-            style={tab===id ? { background:'var(--color-surface-2)',color:'var(--color-text)',border:'1px solid var(--color-border)' } : { color:'var(--color-text-secondary)' }}>
+            aria-current={tab === id ? 'page' : undefined}
+            className="relative flex h-10 shrink-0 items-center gap-1.5 px-3 text-xs font-semibold transition-colors"
+            style={{ color:tab === id ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
             <Icon className="w-3.5 h-3.5" />{t(`instancePage.${labelKey}`)}
+            {tab === id && <span className="absolute bottom-0 left-3 right-3 h-0.5" style={{ background:'var(--color-primary)' }} />}
             {id==='content' && unseenUpdateCount>0 && <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black text-white" style={{ background:'var(--color-error)', boxShadow:'0 0 0 2px var(--color-surface)' }}>{unseenUpdateCount}</span>}
           </button>
         ))}
@@ -2250,8 +2275,8 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
       )}
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2.5 shrink-0" style={{ borderBottom:'1px solid var(--color-border)' }}>
-        <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background:'var(--color-surface-2)',border:'1px solid var(--color-border)' }}>
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 shrink-0" style={{ borderBottom:'1px solid var(--color-border)' }}>
+        <div className="flex min-w-[180px] flex-1 items-center gap-2 px-3 py-2 rounded-xl" style={{ background:'var(--color-surface-2)',border:'1px solid var(--color-border)' }}>
           <Search className="w-3.5 h-3.5 shrink-0" style={{ color:'var(--color-text-tertiary)' }} />
           <input className="flex-1 bg-transparent text-xs"
             placeholder={
@@ -2261,28 +2286,29 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
             }
             value={search} onChange={e => setSearch(e.target.value)} style={{ color:'var(--color-text)' }} />
         </div>
-        {/* Source filter — All / Modrinth / CurseForge / Local */}
+        {/* Source filter — all four existing states remain directly reachable. */}
         {tab==='content' && (
-          <button
-            onClick={() => {
-              const order: Array<typeof sourceFilter> = ['all','modrinth','curseforge','local'];
-              setSourceFilter(order[(order.indexOf(sourceFilter)+1) % order.length]);
-            }}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all"
-            title={t('instancePage.sourceFilter')}
-            style={{
-              background: sourceFilter==='modrinth' ? 'rgba(27,217,106,0.12)'
-                        : sourceFilter==='curseforge' ? 'rgba(241,100,54,0.12)'
-                        : sourceFilter==='local' ? 'var(--color-surface-2)'
-                        : 'var(--color-surface-2)',
-              border:    `1px solid ${sourceFilter==='modrinth' ? '#1BD96A' : sourceFilter==='curseforge' ? '#F16436' : 'var(--color-border)'}`,
-              color:     sourceFilter==='modrinth' ? '#1BD96A' : sourceFilter==='curseforge' ? '#F16436' : 'var(--color-text-secondary)',
-            }}>
-            <span className="inline-block w-2 h-2 rounded-full" style={{
-              background: sourceFilter==='modrinth' ? '#1BD96A' : sourceFilter==='curseforge' ? '#F16436' : 'var(--color-text-tertiary)'
-            }} />
-            {sourceFilter==='all' ? t('instancePage.sourceAll') : sourceFilter==='modrinth' ? 'Modrinth' : sourceFilter==='curseforge' ? 'CurseForge' : t('instancePage.sourceLocal')}
-          </button>
+          <div role="group" aria-label={t('instancePage.sourceFilter')} className="flex max-w-full overflow-x-auto rounded-xl border p-0.5"
+            style={{ background:'var(--color-surface-2)', borderColor:'var(--color-border)' }}>
+            {([
+              { id:'all' as const, label:t('instancePage.sourceAll'), tone:'var(--color-primary)' },
+              { id:'modrinth' as const, label:'Modrinth', tone:'var(--color-modrinth)' },
+              { id:'curseforge' as const, label:'CurseForge', tone:'var(--color-curseforge)' },
+              { id:'local' as const, label:t('instancePage.sourceLocal'), tone:'var(--color-text-secondary)' },
+            ]).map(platform => {
+              const active = sourceFilter === platform.id;
+              return (
+                <button key={platform.id} type="button" onClick={() => setSourceFilter(platform.id)} aria-pressed={active}
+                  className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-[background-color,color]"
+                  style={{
+                    background: active ? `color-mix(in srgb, ${platform.tone} 16%, var(--color-surface))` : 'transparent',
+                    color: active ? platform.tone : 'var(--color-text-secondary)',
+                  }}>
+                  {platform.label}
+                </button>
+              );
+            })}
+          </div>
         )}
         {tab==='content' && (
           <button onClick={() => navigate(`/find-projects?instanceId=${inst.id}`)}

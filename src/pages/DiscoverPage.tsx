@@ -13,8 +13,6 @@ import { consumeSearchReturn, targetSearchScroll } from '@/lib/search-navigation
 import { useInstanceStore } from '@/stores/instanceStore';
 import { invoke } from '@/lib/invoke-shim';
 import { searchModrinthGateway } from '@/lib/modrinth-gateway';
-import curseforgeAnvil from '@/assets/curseforge-anvil.png';
-import modrinthWrench from '@/assets/modrinth-wrench-clean.png';
 
 type ProjectType = 'mods' | 'modpacks' | 'resourcepacks' | 'shaders' | 'datapacks';
 type SortOrder = 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated';
@@ -167,31 +165,30 @@ function withSearchTimeout<T>(promise: Promise<T>, ms = 20_000): Promise<T> {
   });
 }
 
-function ModrinthLogo({ size = 18 }: { size?: number }) {
-  return <img src={modrinthWrench} width={size} height={size} alt="Modrinth" className="shrink-0 object-contain" />;
-}
-
-function CurseForgeLogo({ size = 18 }: { size?: number }) {
-  return <span className="inline-flex items-center justify-center rounded-md grayscale opacity-80" style={{ width: size, height: size, background: 'var(--color-surface)' }}><img src={curseforgeAnvil} alt="" width={size - 2} height={size - 2} className="object-contain grayscale" /></span>;
-}
-
-// Small platform toggle button (icon only, next to search)
-function PlatformToggleBtn({ platform, onToggle }: { platform: Platform; onToggle: () => void }) {
-  const { t } = useTranslation();
+function PlatformSwitch({ platform, onSelect }: { platform: Platform; onSelect: (platform: Platform) => void }) {
   return (
-    <button
-      onClick={onToggle}
-      title={t('discover.runtime.switchPlatform', { platform: platform === 'modrinth' ? 'CurseForge' : 'Modrinth' })}
-      className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-colors duration-150 hover:bg-white/5 active:scale-[0.98]"
-      style={{
-        background: 'var(--color-surface-2)',
-        border: '1px solid var(--color-border)',
-        color: 'var(--color-text-secondary)',
-      }}>
-      {platform === 'modrinth'
-        ? <ModrinthLogo size={16} />
-        : <CurseForgeLogo size={16} />}
-    </button>
+    <div
+      role="group"
+      aria-label="Платформа каталога"
+      className="flex shrink-0 items-center rounded-md border p-0.5"
+      style={{ background: 'var(--color-bg)', borderColor: 'var(--color-border)' }}>
+      {(['modrinth', 'curseforge'] as const).map(option => {
+        const selected = platform === option;
+        return (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onSelect(option)}
+            className="min-h-9 rounded px-3 text-xs font-semibold transition-[background-color,color,border-color] duration-150 hover:bg-[var(--color-surface-hover)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
+            style={selected
+              ? { background: 'var(--color-primary)', color: 'var(--color-primary-text)' }
+              : { color: 'var(--color-text-secondary)' }}>
+            {option === 'modrinth' ? 'Modrinth' : 'CurseForge'}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -218,37 +215,34 @@ function ProjectCard({ p, view, onClick }: { p: Project; view: 'grid'|'list'; on
 
   if (view === 'list') {
     return (
-      <button onClick={onClick}
+      <button type="button" onClick={onClick}
         data-testid={`mod-card-${p.id}`}
-        className="group/card w-full flex items-center gap-4 p-3 rounded-md text-left transition-colors"
-        style={{ background:'transparent', border:'1px solid var(--color-border)' }}>
+        aria-label={p.title}
+        className="group/card grid w-full grid-cols-[48px_minmax(0,1fr)_auto] gap-x-3 gap-y-2 rounded-lg p-3 text-left transition-[background-color,border-color] duration-150 hover:bg-[var(--color-surface-2)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)] sm:grid-cols-[56px_minmax(0,1fr)_auto] sm:p-4"
+        style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
         {Icon}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-bold text-sm" style={{ color:'var(--color-text)' }}>{p.title}</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="truncate text-sm font-bold" title={p.title} style={{ color:'var(--color-text)' }}>{p.title}</p>
+            <span className="shrink-0 text-[10px] font-medium" style={{ color:'var(--color-text-secondary)' }}>by {p.author}</span>
           </div>
-          <p className="text-[10px] mt-0.5 font-medium" style={{ color:'var(--color-text-secondary)' }}>by {p.author}</p>
-          <p className="text-xs mt-1 truncate" style={{ color:'var(--color-text-secondary)' }}>{p.description}</p>
-          <div className="flex items-center gap-2.5 mt-1 flex-wrap">
-            {p.categories.slice(0,3).map(c => (
-              <span key={c} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md"
-                style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>{c}</span>
-            ))}
-            {p.loaders.slice(0,2).map(l => (
-              <span key={l} className="text-[9px] font-semibold px-1.5 py-0.5 rounded-md capitalize"
-                style={{ background:'var(--color-surface-2)', color:'var(--color-text-tertiary)', border:'1px solid var(--color-border)' }}>{l}</span>
-            ))}
-          </div>
+          <p className="mt-1 line-clamp-2 text-xs leading-relaxed" title={p.description} style={{ color:'var(--color-text-secondary)' }}>{p.description}</p>
         </div>
-        <div className="text-right shrink-0 space-y-1">
-          <div className="flex items-center justify-end gap-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>
+        <div className="shrink-0 space-y-1 text-right">
+          <div className="flex items-center justify-end gap-1 text-[11px] tabular-nums" style={{ color:'var(--color-text-secondary)' }}>
             <Download className="w-3 h-3" />{fmtNum(p.downloads)}
           </div>
-          <div className="flex items-center justify-end gap-1 text-xs" style={{ color:'var(--color-text-secondary)' }}>
+          <div className="flex items-center justify-end gap-1 text-[11px] tabular-nums" style={{ color:'var(--color-text-secondary)' }}>
             <Star className="w-3 h-3" />{fmtNum(p.follows)}
           </div>
           {p.gameVersions.slice(0,1).map(v => (
-            <div key={v} className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>{v}</div>
+            <div key={v} className="text-[10px] tabular-nums" style={{ color:'var(--color-text-tertiary)' }}>{v}</div>
+          ))}
+        </div>
+        <div className="col-span-3 flex flex-wrap items-center gap-1.5">
+          {[...p.categories.slice(0,3), ...p.loaders.slice(0,2)].map(tag => (
+            <span key={tag} className="rounded-md border px-1.5 py-0.5 text-[10px] font-semibold capitalize"
+              style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', borderColor:'var(--color-border)' }}>{tag}</span>
           ))}
         </div>
       </button>
@@ -256,28 +250,32 @@ function ProjectCard({ p, view, onClick }: { p: Project; view: 'grid'|'list'; on
   }
 
   return (
-    <button onClick={onClick}
+    <button type="button" onClick={onClick}
       data-testid={`mod-card-${p.id}`}
-      className="group/card p-3 rounded-md text-left transition-colors relative"
-      style={{ background:'transparent', border:'1px solid var(--color-border)' }}>
-      <div className="flex items-start justify-between gap-2 mb-3">
+      aria-label={p.title}
+      className="group/card relative flex min-h-48 flex-col rounded-lg p-4 text-left transition-[background-color,border-color] duration-150 hover:bg-[var(--color-surface-2)] focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
+      style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }}>
+      <div className="flex items-start gap-3">
         {Icon}
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold leading-tight" title={p.title} style={{ color:'var(--color-text)' }}>{p.title}</p>
+          <p className="mt-0.5 truncate text-[10px] font-medium" style={{ color:'var(--color-text-secondary)' }}>by {p.author}</p>
+        </div>
       </div>
-      <p className="font-bold text-sm leading-tight" style={{ color:'var(--color-text)' }}>{p.title}</p>
-      <p className="text-[10px] mt-0.5 font-medium" style={{ color:'var(--color-text-secondary)' }}>by {p.author}</p>
-      <p className="text-xs mt-1.5 line-clamp-2 leading-relaxed" style={{ color:'var(--color-text-tertiary)' }}>{p.description}</p>
-      <div className="flex items-center gap-3 mt-3 pt-1" style={{ borderTop:'0' }}>
-        <div className="flex items-center gap-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>
+      <p className="mt-3 line-clamp-2 text-xs leading-relaxed" title={p.description} style={{ color:'var(--color-text-secondary)' }}>{p.description}</p>
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {[...p.categories.slice(0,2), ...p.loaders.slice(0,2)].map(tag => (
+          <span key={tag} className="rounded-md border px-1.5 py-0.5 text-[10px] font-semibold capitalize"
+            style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)', borderColor:'var(--color-border)' }}>{tag}</span>
+        ))}
+      </div>
+      <div className="mt-auto flex items-center gap-3 pt-4">
+        <div className="flex items-center gap-1 text-[10px] tabular-nums" style={{ color:'var(--color-text-tertiary)' }}>
           <Download className="w-3 h-3" />{fmtNum(p.downloads)}
         </div>
-        <div className="flex items-center gap-1 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>
+        <div className="flex items-center gap-1 text-[10px] tabular-nums" style={{ color:'var(--color-text-tertiary)' }}>
           <Star className="w-3 h-3" />{fmtNum(p.follows)}
         </div>
-        <div className="flex-1" />
-        {p.loaders.slice(0,2).map(l => (
-          <span key={l} className="text-[9px] font-semibold px-1.5 py-0.5 rounded capitalize"
-            style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>{l}</span>
-        ))}
       </div>
     </button>
   );
@@ -295,7 +293,12 @@ function FilterSidebar({
   const { t } = useTranslation();
   const cats = platform === 'modrinth' ? MODRINTH_CATEGORIES[projectType] : CURSEFORGE_CATEGORIES[projectType];
   const hasFilters = selectedCats.length>0 || selectedLoaders.length>0 || selectedVersions.length>0;
-  const [expandedSection, setExpandedSection] = useState<string|null>('selected');
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    selected: true,
+    categories: true,
+    loaders: true,
+    versions: true,
+  });
 
   // Filter out snapshots if not enabled (snapshots have letters like 24w...)
   const SNAPSHOT_RE = /[a-zA-Z]/;
@@ -303,53 +306,62 @@ function FilterSidebar({
     ? mcVersions
     : mcVersions.filter(v => !SNAPSHOT_RE.test(v.replace(/\./g,'')));
 
-  const Section = ({ title, children, Icon = SlidersHorizontal }: { title:string; children:React.ReactNode; Icon?: any }) => (
-    <div className="mb-5">
-      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color:'var(--color-text-tertiary)' }}><Icon className="h-3.5 w-3.5" style={{ color:'var(--color-primary)' }} />{title}</p>
-      {children}
+  const Section = ({ id, title, children, Icon = SlidersHorizontal }: { id:string; title:string; children:React.ReactNode; Icon?: any }) => (
+    <div className="border-b py-3 last:border-b-0" style={{ borderColor:'var(--color-border)' }}>
+      <button type="button" onClick={() => setExpandedSections(sections => ({ ...sections, [id]: !sections[id] }))}
+        aria-expanded={expandedSections[id]}
+        aria-controls={`discover-filter-${id}`}
+        className="flex w-full items-center justify-between gap-2 px-3 text-left text-xs font-semibold transition-colors duration-150 hover:text-[var(--color-text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-primary)]"
+        style={{ color:'var(--color-text-secondary)' }}>
+        <span className="flex min-w-0 items-center gap-2"><Icon className="h-3.5 w-3.5 shrink-0" style={{ color:'var(--color-primary)' }} />{title}</span>
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform duration-150 ${expandedSections[id] ? 'rotate-180' : ''}`} />
+      </button>
+      {expandedSections[id] && <div id={`discover-filter-${id}`} className="mt-2 px-3">{children}</div>}
     </div>
   );
 
   return (
-    <div className="ore-plain flex flex-col h-full overflow-y-auto p-4">
+    <div className="flex h-full flex-col overflow-y-auto">
       {/* ── Active / Selected filters ── */}
       {hasFilters && (
         <div className="mb-4">
-          <button onClick={() => setExpandedSection(s => s === 'selected' ? null : 'selected')}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold"
-            style={{ background:'rgba(108,92,231,0.12)', color:'var(--color-primary)' }}>
+          <button type="button" onClick={() => setExpandedSections(sections => ({ ...sections, selected: !sections.selected }))}
+            aria-expanded={expandedSections.selected}
+            aria-controls="discover-filter-selected"
+            className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold transition-colors duration-150 hover:bg-[var(--color-surface-2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-primary)]"
+            style={{ background:'var(--color-surface-2)', color:'var(--color-primary)' }}>
             <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5" />{t('findProjects.selectedFilters')}</span>
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expandedSection === 'selected' ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${expandedSections.selected ? 'rotate-180' : ''}`} />
           </button>
-          {expandedSection === 'selected' && (
-            <div className="mt-1.5 flex flex-wrap gap-1">
+          {expandedSections.selected && (
+            <div id="discover-filter-selected" className="mt-1.5 flex flex-wrap gap-1 px-3">
               {selectedCats.map(c => (
-                <span key={`ds-c-${c}`} onClick={() => onCat(c)}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-all hover:opacity-80"
-                  style={{ background:'var(--color-primary)', color:'#fff' }}>
+                <button type="button" key={`ds-c-${c}`} onClick={() => onCat(c)}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold transition-[background-color,color] duration-150 hover:bg-[var(--color-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
+                  style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>
                   <X className="w-2.5 h-2.5" />{c}
-                </span>
+                </button>
               ))}
               {selectedLoaders.map(l => (
-                <span key={`ds-l-${l}`} onClick={() => onLoader(l)}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-all hover:opacity-80"
-                  style={{ background:'var(--color-primary)', color:'#fff' }}>
+                <button type="button" key={`ds-l-${l}`} onClick={() => onLoader(l)}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold transition-[background-color,color] duration-150 hover:bg-[var(--color-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
+                  style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>
                   <X className="w-2.5 h-2.5" />{l}
-                </span>
+                </button>
               ))}
               {selectedVersions.map(v => (
-                <span key={`ds-v-${v}`} onClick={() => onVersion(v)}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold cursor-pointer transition-all hover:opacity-80"
-                  style={{ background:'var(--color-primary)', color:'#fff' }}>
+                <button type="button" key={`ds-v-${v}`} onClick={() => onVersion(v)}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold transition-[background-color,color] duration-150 hover:bg-[var(--color-primary-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]"
+                  style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>
                   <X className="w-2.5 h-2.5" />{v}
-                </span>
+                </button>
               ))}
             </div>
           )}
-          <div className="mt-2 mb-1 h-px" style={{ background:'var(--color-border)' }} />
+          <div className="mx-3 mt-3 h-px" style={{ background:'var(--color-border)' }} />
          </div>
        )}
-      <Section Icon={platform === 'modrinth' ? Package : Layers} title={platform === 'modrinth' ? 'Modrinth categories' : 'CurseForge categories'}>
+      <Section id="categories" Icon={platform === 'modrinth' ? Package : Layers} title={platform === 'modrinth' ? 'Modrinth categories' : 'CurseForge categories'}>
 
           <div className="space-y-0.5">
             {cats.map(c => (
@@ -361,7 +373,7 @@ function FilterSidebar({
                 <div className="w-3 h-3 rounded flex items-center justify-center shrink-0"
                   style={{ background:selectedCats.includes(c)?'var(--color-primary)':'var(--color-surface-2)',
                            border:`1px solid ${selectedCats.includes(c)?'var(--color-primary)':'var(--color-border)'}` }}>
-                  {selectedCats.includes(c) && <span className="text-white text-[7px]">✓</span>}
+                  {selectedCats.includes(c) && <Check className="h-2.5 w-2.5" style={{ color:'var(--color-primary-text)' }} />}
                 </div>
                 {(() => { const CategoryIcon = CATEGORY_ICONS[c] || Package; return <span className="flex items-center gap-1.5"><CategoryIcon className="h-3.5 w-3.5 shrink-0" style={{ color: selectedCats.includes(c) ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }} />{c}</span>; })()}
               </button>
@@ -370,7 +382,7 @@ function FilterSidebar({
       </Section>
 
       {(projectType === 'mods' || projectType === 'modpacks') && (
-        <Section Icon={Cpu} title={platform === 'modrinth' ? 'Mod loaders' : 'CurseForge loaders'}>
+        <Section id="loaders" Icon={Cpu} title={platform === 'modrinth' ? 'Mod loaders' : 'CurseForge loaders'}>
           <div className="flex flex-wrap gap-1.5">
             {LOADERS.map(l => (
               <button key={l} onClick={() => onLoader(l)}
@@ -385,7 +397,7 @@ function FilterSidebar({
         </Section>
       )}
 
-      <Section Icon={Database} title={platform === 'modrinth' ? 'Game version' : 'CurseForge game version'}>
+      <Section id="versions" Icon={Database} title={platform === 'modrinth' ? 'Game version' : 'CurseForge game version'}>
         <div className="space-y-0.5">
           {versionsToShow.map(v => (
             <button key={v} onClick={() => onVersion(v)}
@@ -396,7 +408,7 @@ function FilterSidebar({
               <div className="w-3 h-3 rounded flex items-center justify-center shrink-0"
                 style={{ background:selectedVersions.includes(v)?'var(--color-primary)':'var(--color-surface-2)',
                          border:`1px solid ${selectedVersions.includes(v)?'var(--color-primary)':'var(--color-border)'}` }}>
-                {selectedVersions.includes(v) && <span className="text-white text-[7px]">✓</span>}
+                {selectedVersions.includes(v) && <Check className="h-2.5 w-2.5" style={{ color:'var(--color-primary-text)' }} />}
               </div>
               {v}
             </button>
@@ -693,8 +705,7 @@ export function DiscoverPage() {
           )}
         </div>
 
-        {/* Platform toggle button — small, icon+label, next to search */}
-        <PlatformToggleBtn platform={platform} onToggle={togglePlatform} />
+        <PlatformSwitch platform={platform} onSelect={next => { if (next !== platform) togglePlatform(); }} />
 
         {loading && <RefreshCw className="w-4 h-4 animate-spin shrink-0" style={{ color:'var(--color-text-tertiary)' }} />}
       </div>

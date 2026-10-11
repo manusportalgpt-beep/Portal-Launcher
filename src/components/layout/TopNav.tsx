@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  House, Search, Boxes, Shirt, SlidersHorizontal, PanelsTopLeft, LogIn, Pin, ChevronLeft, ChevronRight, Bot, Square,
+  House, Search, Boxes, Shirt, SlidersHorizontal, PanelsTopLeft, PanelLeftClose, PanelLeftOpen, LogIn, Pin, ChevronLeft, ChevronRight, Bot, Square,
   type LucideIcon,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -253,11 +253,13 @@ function AccountButton({ vertical = false }: { vertical?: boolean }) {
 function SidebarNav() {
   const order = useUiStore(s => s.navItemOrder);
   const sidebarWidth = useUiStore(s => s.sidebarWidth);
+  const setUi = useUiStore(s => s.set);
   const scale = useUiStore(s => s.navItemScale);
   const appearance = useUiStore(s => s.sidebarPanelAppearance);
   const user = useCurrentUser();
   const isAuthenticated = useIsAuthenticated();
   const items = orderedNav(order);
+  const compact = sidebarWidth <= 84;
   const justifyContent = appearance.alignment === 'start' ? 'flex-start' : appearance.alignment === 'end' ? 'flex-end' : 'center';
   const borderColor = appearance.border === 'none' ? 'transparent' : appearance.border === 'strong' ? 'var(--color-border-strong)' : 'var(--color-border)';
   const alpha = Math.min(appearance.opacity, 100);
@@ -268,8 +270,9 @@ function SidebarNav() {
     : 'Microsoft';
   return (
     <aside className={`portal-sidebar clean-nav portal-skin shrink-0 flex flex-col z-40${appearance.blur > 0 ? ' ps-blurred' : ''}`}
+      data-compact={sidebarWidth <= 84 ? 'true' : 'false'}
       style={{
-        width: Math.max(84, sidebarWidth),
+        width: compact ? 58 : 236,
         padding: '10px 10px',
         justifyContent,
         borderRight: `1px solid ${borderColor}`,
@@ -284,8 +287,15 @@ function SidebarNav() {
         <span className="ps-brandname">Portal<small>Launcher</small></span>
       </div>
 
+      <button type="button" className="ps-nav-toggle" data-state={compact ? 'compact' : 'expanded'} aria-label={compact ? 'Развернуть меню' : 'Свернуть меню'}
+        title={compact ? 'Развернуть меню' : 'Свернуть меню'} onClick={() => setUi('sidebarWidth', compact ? 236 : 58)}>
+        <PanelLeftOpen className="ps-toggle-open" size={17} strokeWidth={1.8} />
+        <PanelLeftClose className="ps-toggle-close" size={17} strokeWidth={1.8} />
+        <span className="ps-toggle-label">{compact ? 'Развернуть меню' : 'Свернуть меню'}</span>
+      </button>
+
       <span className="ps-label">Навигация</span>
-      <nav className="ps-nav">
+      <nav className="ps-nav" aria-label="Основная навигация">
         {items.map(item => <PortalSidebarItem key={item.to} item={item} scale={scale} />)}
       </nav>
 

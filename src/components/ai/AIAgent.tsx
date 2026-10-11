@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Send, X, ChevronDown, Loader2, Copy, Check, Search, Paperclip, Image as ImageIcon, Download, FileText, File, Plus, MessageSquare, Trash } from 'lucide-react';
+import { Bot, Send, X, ChevronDown, Loader2, Copy, Check, Search, Image as ImageIcon, Download, FileText, File, Plus, MessageSquare, Trash } from 'lucide-react';
 import { useInstanceStore } from '@/stores/instanceStore';
 import { useAuthStore } from '@/stores/authStore';
 import { invoke } from '@/lib/invoke-shim';
@@ -274,6 +274,8 @@ function InstanceIcon({ instance }: { instance: any }) {
 export function AIAgent({ onClose }: AIAgentProps) {
   const { sessions, activeSessionId, createSession, deleteSession, setActiveSession, addMessage, getActiveSession, setInstanceForSession } = useChatHistory();
   const [input, setInput] = useState('');
+  // Есть ввод или нет - этим состоянием живёт свечение рамки поля.
+  const typing = input.trim().length > 0;
   const [loading, setLoading] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
@@ -694,30 +696,48 @@ const [liveModels, setLiveModels] = useState<ModelInfo[]>([]);
           </div>
         )}
 
-        {/* Input */}
+        {/* Поле ввода. По образцу из RULES.md 12.1: сам блок и ряд кнопок
+            лежат в одном контейнере, и рамка загорается акцентом, когда
+            есть набор текста. Раньше поле и кнопки стояли рядом и рамка
+            была всегда одинаковой. */}
         <div className="shrink-0 px-3 py-3" style={{ borderTop: '1px solid var(--color-border)' }}>
-          <div className="flex items-end gap-2">
-            <button onClick={() => fileInputRef.current?.click()}
-              className="flex items-center justify-center w-9 h-9 shrink-0 hover:opacity-80"
-              style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 6, color: 'var(--color-text-secondary)' }}>
-              <Paperclip className="w-4 h-4" />
-            </button>
-            <input ref={fileInputRef} type="file" multiple className="hidden"
-              onChange={e => { Array.from(e.target.files ?? []).forEach(addAttachment); e.target.value = ''; }} />
+          <div className="flex flex-col transition-shadow duration-200"
+            style={{
+              background: 'var(--color-surface)',
+              border: `1px solid ${typing ? 'var(--color-primary)' : 'var(--color-border)'}`,
+              borderRadius: 10,
+              boxShadow: typing ? '0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent)' : 'none',
+            }}>
             <textarea ref={inputRef} value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
               onPaste={handlePaste}
               placeholder="Спросить что-нибудь..."
               rows={1}
-              className="flex-1 resize-none px-3 py-2.5 text-[13px] outline-none"
-              style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', borderRadius: 6, maxHeight: 72, minHeight: 36 }}
+              className="w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-[13px] outline-none"
+              style={{ color: 'var(--color-text)', maxHeight: 72, minHeight: 24 }}
             />
-            <button onClick={sendMessage} disabled={(!input.trim() && attachments.length === 0) || loading}
-              className="flex items-center justify-center w-9 h-9 shrink-0 disabled:opacity-40"
-              style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 6 }}>
-              <Send className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-1 px-2 pb-2">
+              <button onClick={() => fileInputRef.current?.click()} title="Прикрепить файл"
+                className="flex items-center justify-center w-7 h-7 shrink-0 rounded-lg hover:bg-[var(--color-surface-2)]"
+                style={{ color: typing ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
+                <Plus className="w-4 h-4" />
+              </button>
+              <input ref={fileInputRef} type="file" multiple className="hidden"
+                onChange={e => { Array.from(e.target.files ?? []).forEach(addAttachment); e.target.value = ''; }} />
+              {attachments.length > 0 && (
+                <span className="px-1.5 py-0.5 text-[10px] font-semibold" style={{ color: 'var(--color-text-secondary)' }}>
+                  {attachments.length}
+                </span>
+              )}
+              <span className="flex-1" />
+              <button onClick={sendMessage} disabled={(!input.trim() && attachments.length === 0) || loading}
+                title="Отправить"
+                className="flex items-center justify-center w-7 h-7 shrink-0 rounded-lg disabled:opacity-35"
+                style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <div className="flex items-center justify-between mt-1.5">
             <p className="text-[9px]" style={{ color: 'var(--color-text-tertiary)' }}>

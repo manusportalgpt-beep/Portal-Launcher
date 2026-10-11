@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { DotField } from '@/components/effects/DotField';
-import { useUiStore } from '@/stores/uiStore';
 import {
   ArrowRight, Check, Compass, Globe, Shield, Sparkles, Palette, X, Package,
   ShieldCheck, Skull, Bug, Rocket,

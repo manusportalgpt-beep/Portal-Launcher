@@ -1,17 +1,16 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * Сетка точек с эффектом глубины. Пункт 12.2 из RULES.md.
+ * Сетка точек с радужным переливом и эффектом глубины. Пункт 12.2 из
+ * RULES.md.
  *
- * Точки окрашены радужным переливом: слева зелёные, справа синие,
- * по диагонали через середину тёмная полоса. Под курсором область
- * ПРОВАЛИВАЕТСЯ: точки там мельче и тусклее, с мягким краем.
+ * Точки окрашены переливом: слева зелёные, справа синие, по диагонали
+ * через середину тёмная полоса. Цвет ЖИВОЙ - по диагонали медленно
+ * бежит волна яркости, поэтому поле переливается.
  *
- * Важно: это не подсветка под курсором. Подсветка светлеет, здесь
- * темнеет и уменьшается — так читается глубина.
- *
- * Перерисовка идёт только при движении мыши, а не постоянно: фоновый
- * слой не должен жечь батарею впустую.
+ * Под курсором область ПРОВАЛИВАЕТСЯ: точки мельче и тусклее, с мягким
+ * краем. Это не подсветка: подсветка светлеет, здесь темнеет и
+ * уменьшается - так глаз читает глубину.
  */
 interface Props {
   /** Шаг сетки в пикселях. Меньше — плотнее и дороже. */
@@ -22,6 +21,8 @@ interface Props {
   depth?: number;
   /** Максимальный размер точки в пикселях. */
   maxSize?: number;
+  /** Скорость перелива. 0 — статичный цвет. */
+  flow?: number;
   className?: string;
 }
 
@@ -30,6 +31,7 @@ export function DotField({
   radius = 150,
   depth = 1,
   maxSize = 2.6,
+  flow = 0.55,
   className,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -44,14 +46,19 @@ export function DotField({
     let frame = 0;
     let width = 0;
     let height = 0;
-    let dpr = 1;
+    let phase = 0;
+    let lastDraw = 0;
 
     const reduced =
       typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // При включённом «меньше движения» перелив останавливается, провал
+    // отключается. Сама сетка нужна, она не анимация.
+    const motion = flow > 0 && !reduced;
+    const dip = !reduced;
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
-      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       width = Math.max(1, Math.round(rect.width));
       height = Math.max(1, Math.round(rect.height));
       canvas.width = Math.round(width * dpr);
@@ -63,7 +70,7 @@ export function DotField({
     const draw = () => {
       ctx.clearRect(0, 0, width, height);
       const pointer = pointerRef.current;
-      const active = pointer.active && !reduced;
+      const usePointer = pointer.active && dip;
 
       for (let y = spacing / 2; y < height; y += spacing) {
         for (let x = spacing / 2; x < width; x += spacing) {
@@ -77,15 +84,18 @@ export function DotField({
 
           // Тёмная диагональ через середину.
           const offDiagonal = Math.abs((nx + ny) / 2 - 0.5) * 2;
-          const dim = 0.32 + 0.68 * offDiagonal;
-          r *= dim;
-          g *= dim;
-          b *= dim;
+          let dim = 0.32 + 0.68 * offDiagonal;
+
+          // Бегущая волна яркости: диагональ ползёт, поле переливается.
+          if (motion) {
+            const wave = Math.sin((nx + ny) * 3.4 - phase);
+            dim *= 0.82 + 0.34 * (wave * 0.5 + 0.5);
+          }
 
           let size = maxSize;
 
           // Провал под курсором: расстояние, спад и уменьшение точки.
-          if (active) {
+          if (usePointer) {
             const dx = x - pointer.x;
             const dy = y - pointer.y;
             const distance = Math.hypot(dx, dy);
@@ -101,6 +111,9 @@ export function DotField({
           }
 
           if (size <= 0.12) continue;
+          r *= dim;
+          g *= dim;
+          b *= dim;
           ctx.fillStyle = `rgba(${r | 0}, ${g | 0}, ${b | 0}, 0.92)`;
           ctx.beginPath();
           ctx.arc(x, y, size, 0, Math.PI * 2);
@@ -109,14 +122,31 @@ export function DotField({
       }
     };
 
-    const schedule = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        draw();
-      });
+    // Отрисовка ограничена 30 кадрами в секунду: перелив медленный и
+    // глаз разницы не видит, а батарея - видит. Между кадрами фаза
+    // домножается на реальное время, поэтому скорость не зависит от
+    // того, успевает ли браузер.
+    const loop = (now: number) => {
+      frame = requestAnimationFrame(loop);
+      if (now - lastDraw < 32) return;
+      lastDraw = now;
+      phase += 0.022 * flow;
+      if (phase > Math.PI * 2) phase -= Math.PI * 2;
+      draw();
     };
 
+    const start = () => {
+      if (motion && !frame && !document.hidden) frame = requestAnimationFrame(loop);
+    };
+
+    const stop = () => {
+      if (frame) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+      }
+    };
+
+    const onVisibility = () => (document.hidden ? stop() : start());
     const onPointerMove = (event: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
       pointerRef.current = {
@@ -124,12 +154,11 @@ export function DotField({
         y: event.clientY - rect.top,
         active: true,
       };
-      schedule();
+      if (!motion) draw();
     };
-
     const onPointerLeave = () => {
       pointerRef.current = { x: -9999, y: -9999, active: false };
-      schedule();
+      if (!motion) draw();
     };
 
     resize();
@@ -137,14 +166,17 @@ export function DotField({
     observer.observe(canvas);
     window.addEventListener('pointermove', onPointerMove, { passive: true });
     canvas.addEventListener('pointerleave', onPointerLeave);
+    document.addEventListener('visibilitychange', onVisibility);
+    start();
 
     return () => {
-      if (frame) cancelAnimationFrame(frame);
+      stop();
       observer.disconnect();
       window.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerleave', onPointerLeave);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [spacing, radius, depth, maxSize]);
+  }, [spacing, radius, depth, maxSize, flow]);
 
   return <canvas ref={canvasRef} className={className} aria-hidden="true" />;
 }

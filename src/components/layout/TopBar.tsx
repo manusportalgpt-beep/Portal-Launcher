@@ -22,11 +22,11 @@ export function TopBar() {
       style={{height:60,background:'var(--color-surface)',borderBottom:'1px solid var(--color-border)'}}>
 
       {/* Search bar */}
-      <div className="flex-1 max-w-sm flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all"
+      <div className="portal-search flex-1 min-w-0 flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all"
         style={{background:'var(--color-surface-2)',border:'1px solid var(--color-border)'}}>
         <Search className="w-4 h-4 shrink-0" style={{color:'var(--color-text-tertiary)'}} />
         <input
-          className="flex-1 bg-transparent text-sm min-w-0"
+          className="flex-1 min-w-0 bg-transparent text-sm"
           style={{color:'var(--color-text)',caretColor:'var(--color-primary)'}}
           placeholder="Search mods, instances..."
           value={query}

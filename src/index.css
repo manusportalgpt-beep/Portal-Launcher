@@ -3053,3 +3053,25 @@ html[data-accent-mode="vertical"] {
   border-color: var(--color-primary) !important;
   outline: none !important;
 }
+
+/* ===== Поиск: текст не должен ломаться =====
+   По скриншоту пользователя подсказка и набранный текст обрезались
+   по краю символа, без многоточия. Причина - фиксированная ширина
+   контейнера и input без text-overflow: он не мог сжиматься, и
+   значение уходило под рамку.
+
+   Правило общее на все поля поиска, потому что обрезка повторялась и
+   в верхней панели, и в боковой. Цвета берутся из токенов темы, так
+   что одинаково работает на светлой и на тёмной. */
+.portal-search,
+.portal-search input {
+  min-width: 0;
+}
+.portal-search input,
+input[type="search"] {
+  text-overflow: ellipsis;
+}
+.portal-search {
+  background: var(--color-surface-2) !important;
+  border: 1px solid var(--color-border) !important;
+}

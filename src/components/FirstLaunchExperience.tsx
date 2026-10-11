@@ -1,388 +1,404 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  ArrowRight, Check, Compass, Globe, Shield, Sparkles, Palette, X, Package,
-  ShieldCheck, Skull, Bug, Rocket,
+  Check, ChevronDown, FolderPlus, Globe, LoaderCircle, Palette, ShieldCheck, User,
 } from 'lucide-react';
+import { invoke } from '@/lib/invoke-shim';
 import { useLanguageStore, type Lang } from '@/stores/languageStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { type ThemeId } from '@/lib/theme-engine';
 import { STYLE_PRESETS, type StylePreset } from '@/lib/style-presets';
-import { MicrosoftAuthChoice } from '@/components/auth/MicrosoftAuthChoice';
+import { fetchMcVersionIds, MC_VERSIONS_FALLBACK } from '@/lib/mc-versions';
+import { DotField } from '@/components/effects/DotField';
 
+// Ключ прежний: сменив его, первый заход показался бы заново всем,
+// кто его уже проходил.
 const SETUP_KEY = 'portal-first-launch-complete-v1';
 
-const THEME_CHOICES: Array<{ id: ThemeId; label: string; preview: string }> = [
-  { id: 'dark', label: 'Тёмная', preview: 'linear-gradient(135deg, #16161A, #26262C)' },
-  { id: 'oled', label: 'OLED', preview: 'linear-gradient(135deg, #000000, #141414)' },
+const LANGS: { id: Lang; label: string }[] = [
+  { id: 'ru', label: 'Русский' },
+  { id: 'en', label: 'English' },
 ];
 
-const STYLE_THEME: Record<StylePreset, ThemeId> = {
-  oreui: 'dark', standard: 'dark', glass: 'dark', quadral: 'dark', falloff: 'oled', abouts: 'dark',
+// Пресеты берём из общего списка, чтобы новый выбор не разошёлся с
+// настройками: свой список здесь разошёлся бы с STYLE_PRESETS.
+const STYLES = STYLE_PRESETS;
+
+// Темы те, что реально есть в движке. У пресета falloff своя тема,
+// остальные идут на тёмную.
+const THEME_IDS: ThemeId[] = ['dark', 'oled'];
+
+const LOADERS = [
+  { id: 'vanilla', label: 'Vanilla', hint: 'Без модов' },
+  { id: 'fabric', label: 'Fabric', hint: 'Лёгкие моды' },
+  { id: 'neoforge', label: 'NeoForge', hint: 'Большие сборки' },
+  { id: 'forge', label: 'Forge', hint: 'Классические моды' },
+  { id: 'quilt', label: 'Quilt', hint: 'Совместим с Fabric' },
+];
+
+const LOADER_COMMAND: Record<string, string> = {
+  fabric: 'get_fabric_versions',
+  neoforge: 'get_neoforge_versions',
+  quilt: 'get_quilt_versions',
+  forge: 'get_forge_versions',
 };
 
-const INSTALL_CONFIRMATIONS: Array<{ question: string; yesLabel: string; noLabel: string }> = [
-  { question: 'Вы хотите установить Portal Launcher?', yesLabel: 'Да', noLabel: 'Нет' },
-  { question: 'Вы уверены?', yesLabel: 'Да', noLabel: 'Нет' },
-  { question: 'Вы точно уверены?', yesLabel: 'Да', noLabel: 'Нет' },
-  { question: 'Вы абсолютно уверены?', yesLabel: 'Да', noLabel: 'Нет' },
-  { question: 'Серьёзно? Вы хотите установить лаунчер?', yesLabel: 'Да', noLabel: 'Нет' },
-  { question: 'А вдруг он вирусы?', yesLabel: 'Нет вирусов', noLabel: 'Страшно' },
-  { question: 'Ну ладно... Вы точно хотите?', yesLabel: 'ДА', noLabel: 'Хз' },
-  { question: 'Вы понимаете что это лаунчер для Minecraft?', yesLabel: 'Да', noLabel: 'А?' },
-  { question: 'В последний раз спрашиваю...', yesLabel: 'Ставь уже', noLabel: 'Нет' },
-  { question: 'Хорошо, устанавливаю! (на самом деле ещё нет)', yesLabel: 'ВПЕРЁД', noLabel: 'Подожди' },
-];
-
-function LanguageStep({ onNext }: { onNext: () => void }) {
+/**
+ * Первый запуск целиком на одном экране (RULES.md 12.6).
+ *
+ * Раньше было пять шагов подряд плюс цепочка подтверждений внутри
+ * установки - около десяти экранов подряд. Теперь это одна страница:
+ * сверху кружки по числу разделов, они же навигация, ниже все выборы
+ * разом. Отдельного подтверждения установки больше нет.
+ *
+ * Раздел безопасности убран: он был отдельным шагом, но что он
+ * переключал, из кода не видно, а выдумывать настройки нельзя.
+ */
+export function FirstLaunchExperience() {
   const { lang, setLang } = useLanguageStore();
-  const [selected, setSelected] = useState<Lang>(lang);
-
-  const apply = () => {
-    setLang(selected);
-    onNext();
-  };
-
-  return (
-    <div className="flex flex-col items-center text-center max-w-md mx-auto">
-      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
-        style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
-        <Globe className="h-8 w-8" />
-      </div>
-      <h1 className="text-2xl font-black tracking-tight">Выберите язык</h1>
-      <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-        Выберите язык интерфейса. Это можно изменить позже в настройках.
-      </p>
-      <div className="mt-6 flex gap-3">
-        {(['ru', 'en'] as Lang[]).map(l => (
-          <button key={l} onClick={() => setSelected(l)}
-            className="px-6 py-3 text-sm font-bold transition-all"
-            style={{
-              borderRadius: 'var(--radius-button)',
-              background: selected === l ? 'var(--color-primary)' : 'var(--color-surface)',
-              color: selected === l ? 'var(--color-primary-text)' : 'var(--color-text)',
-              border: `1px solid ${selected === l ? 'var(--color-primary)' : 'var(--color-border)'}`,
-            }}>
-            {l === 'ru' ? 'Русский' : 'English'}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function StyleStep({ onNext }: { onNext: () => void }) {
   const ui = useUiStore();
   const { themeId, setTheme } = useThemeStore();
-  const [selectedStyle, setSelectedStyle] = useState<StylePreset>(ui.stylePreset);
-  const [selectedTheme, setSelectedTheme] = useState<ThemeId>(themeId);
 
-  const apply = () => {
-    ui.set('stylePreset', selectedStyle);
-    setTheme(selectedTheme);
-    onNext();
-  };
-
-  return (
-    <div className="flex flex-col items-center text-center max-w-2xl mx-auto">
-      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
-        style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
-        <Palette className="h-8 w-8" />
-      </div>
-      <h1 className="text-2xl font-black tracking-tight">Стиль и оформление</h1>
-      <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-        Выберите форму интерфейса и цветовую палитру. Всё можно изменить в настройках.
-      </p>
-
-      <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-2 w-full">
-        {STYLE_PRESETS.map(preset => (
-          <button key={preset.id} onClick={() => {
-            setSelectedStyle(preset.id);
-            setSelectedTheme(STYLE_THEME[preset.id]);
-          }}
-            className="p-3 text-left transition-all"
-            style={{
-              borderRadius: 'var(--radius-card)',
-              background: selectedStyle === preset.id ? 'var(--color-primary-dim)' : 'var(--color-surface)',
-              border: `1px solid ${selectedStyle === preset.id ? 'var(--color-primary)' : 'var(--color-border)'}`,
-            }}>
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold">{preset.title}</span>
-              {selectedStyle === preset.id && <Check className="h-3.5 w-3.5" style={{ color: 'var(--color-primary)' }} />}
-            </div>
-            <p className="mt-1 text-[10px] leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-              {preset.description}
-            </p>
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-4 w-full">
-        <p className="text-xs font-bold mb-2" style={{ color: 'var(--color-text-secondary)' }}>Тема</p>
-        <div className="flex gap-2 flex-wrap justify-center">
-          {THEME_CHOICES.map(t => (
-            <button key={t.id} onClick={() => setSelectedTheme(t.id)}
-              className="w-12 h-12 overflow-hidden transition-all"
-              style={{
-                borderRadius: 'var(--radius-button)',
-                border: `2px solid ${selectedTheme === t.id ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                background: t.preview,
-              }}
-              title={t.label} />
-          ))}
-        </div>
-      </div>
-
-      <button onClick={apply} className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold"
-        style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 'var(--radius-button)' }}>
-        Применить <ArrowRight className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}
-
-function SecurityStep({ onNext }: { onNext: () => void }) {
-  const items = [
-    { icon: ShieldCheck, text: 'Лицензия GPL-3.0 на GitHub — весь код открыт', color: 'var(--color-success)' },
-    { icon: X, text: 'Без установки Яндекс Браузера', color: 'var(--color-text-secondary)' },
-    { icon: Skull, text: 'Без скачивания MAX — не ловит даже на парковке', color: 'var(--color-text-secondary)' },
-    { icon: Bug, text: 'Без 360 Total Security и прочего мусора', color: 'var(--color-text-secondary)' },
-  ];
-
-  return (
-    <div className="flex flex-col items-center text-center max-w-md mx-auto">
-      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
-        style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
-        <Shield className="h-8 w-8" />
-      </div>
-      <h1 className="text-2xl font-black tracking-tight">Безопасность</h1>
-      <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-        Мы не устанавливаем мусор. Код лаунчера полностью открыт.
-      </p>
-      <div className="mt-6 space-y-3 w-full text-left">
-        {items.map((item, i) => (
-          <div key={i} className="flex items-center gap-3 p-3"
-            style={{ borderRadius: 'var(--radius-card)', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
-            <item.icon className="h-5 w-5 shrink-0" style={{ color: item.color }} />
-            <span className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>{item.text}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function AccountStep({ onNext }: { onNext: () => void }) {
-  return (
-    <div className="flex flex-col items-center text-center max-w-md mx-auto">
-      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
-        style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
-        <Sparkles className="h-8 w-8" />
-      </div>
-      <h1 className="text-2xl font-black tracking-tight">Войдите в аккаунт</h1>
-      <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-        Выберите способ входа. Можно пропустить и добавить позже в настройках.
-      </p>
-      <div className="mt-6 w-full" style={{ borderRadius: 'var(--radius-card)', border: '1px solid var(--color-border)', padding: 16 }}>
-        <MicrosoftAuthChoice onSuccess={onNext} />
-      </div>
-    </div>
-  );
-}
-
-function InstallStep({ onComplete }: { onComplete: () => void }) {
-  const [confirmStage, setConfirmStage] = useState(-1);
-  const [installed, setInstalled] = useState(false);
-
-  if (installed) {
-    return (
-      <div className="flex flex-col items-center text-center max-w-md mx-auto">
-        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-          className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6"
-          style={{ background: 'var(--color-success)', color: '#fff' }}>
-          <Check className="h-10 w-10" />
-        </motion.div>
-        <h1 className="text-2xl font-black tracking-tight">Готово!</h1>
-        <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-          Portal Launcher успешно установлен. Наслаждайтесь!
-        </p>
-        <button onClick={onComplete} className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold"
-          style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 'var(--radius-button)' }}>
-          Начать <Rocket className="h-4 w-4" />
-        </button>
-      </div>
-    );
-  }
-
-  if (confirmStage >= 0 && confirmStage < INSTALL_CONFIRMATIONS.length) {
-    const c = INSTALL_CONFIRMATIONS[confirmStage];
-    return (
-      <div className="flex flex-col items-center text-center max-w-md mx-auto">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
-          style={{ background: 'var(--color-warning)', color: '#000' }}>
-          <Package className="h-8 w-8" />
-        </div>
-        <h1 className="text-xl font-black tracking-tight">{c.question}</h1>
-        <p className="mt-2 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-          {confirmStage + 1} из {INSTALL_CONFIRMATIONS.length}
-        </p>
-        <div className="mt-6 flex gap-3">
-          <button onClick={() => {
-            if (confirmStage >= INSTALL_CONFIRMATIONS.length - 1) {
-              onComplete();
-            } else {
-              setConfirmStage(prev => prev + 1);
-            }
-          }}
-            className="px-6 py-3 text-sm font-bold"
-            style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 'var(--radius-button)' }}>
-            {c.yesLabel}
-          </button>
-          <button onClick={() => {
-            if (confirmStage >= INSTALL_CONFIRMATIONS.length - 1) setInstalled(true);
-            else setConfirmStage(prev => prev + 1);
-          }}
-            className="px-6 py-3 text-sm font-bold"
-            style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-button)' }}>
-            {c.noLabel}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col items-center text-center max-w-md mx-auto">
-      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
-        style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
-        <Package className="h-8 w-8" />
-      </div>
-      <h1 className="text-2xl font-black tracking-tight">Установка</h1>
-      <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-        Размер лаунчера: ~16 МБ. Установка займёт несколько секунд.
-      </p>
-      <div className="mt-4 p-4 w-full text-left"
-        style={{ borderRadius: 'var(--radius-card)', background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
-        <div className="flex items-center justify-between text-xs">
-          <span style={{ color: 'var(--color-text-secondary)' }}>Размер</span>
-          <span className="font-bold" style={{ color: 'var(--color-text)' }}>~16 МБ</span>
-        </div>
-        <div className="flex items-center justify-between text-xs mt-2">
-          <span style={{ color: 'var(--color-text-secondary)' }}>Лицензия</span>
-          <span className="font-bold" style={{ color: 'var(--color-text)' }}>GPL-3.0</span>
-        </div>
-      </div>
-      <button onClick={() => setConfirmStage(0)} className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold"
-        style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 'var(--radius-button)' }}>
-        Установить <ArrowRight className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}
-
-export function FirstLaunchExperience() {
-  const [step, setStep] = useState(0);
   const [dismissed, setDismissed] = useState(() => {
-    // Check all possible keys from older versions
+    if (typeof localStorage === 'undefined') return false;
     return localStorage.getItem(SETUP_KEY) === '1'
       || localStorage.getItem('portal-first-launch-complete') === '1'
       || localStorage.getItem('portal-onboarding-done') === '1';
   });
 
-  const finishSetup = () => {
-    localStorage.setItem(SETUP_KEY, '1');
-    setDismissed(true);
+  const [active, setActive] = useState(0);
+  const [style, setStyle] = useState<StylePreset>(ui.stylePreset);
+  const [theme, setThemeLocal] = useState<ThemeId>(themeId);
+
+  const [loader, setLoader] = useState('fabric');
+  const [versions, setVersions] = useState<string[]>([]);
+  const [mcVersion, setMcVersion] = useState('');
+  const [instanceName, setInstanceName] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [created, setCreated] = useState(false);
+  const [error, setError] = useState('');
+
+  const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const sections = useMemo(
+    () => [
+      { id: 'lang', label: 'Язык', Icon: Globe },
+      { id: 'style', label: 'Оформление', Icon: Palette },
+      { id: 'instance', label: 'Сборка', Icon: FolderPlus },
+      { id: 'account', label: 'Аккаунт', Icon: User },
+    ],
+    [],
+  );
+
+  // Версии игры. Пока грузятся, показываем запасной список, чтобы
+  // выбор загрузчика не был заблокирован пустым полем.
+  useEffect(() => {
+    let alive = true;
+    fetchMcVersionIds(false)
+      .then(ids => { if (alive && ids.length) setVersions(ids); })
+      .catch(() => { if (alive) setVersions(MC_VERSIONS_FALLBACK); });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    if (versions.length && !mcVersion) setMcVersion(versions[0]);
+  }, [versions, mcVersion]);
+
+  const suggestedName = useMemo(() => {
+    const v = mcVersion ? mcVersion.replace(/\./g, '.') : '';
+    const l = loader === 'vanilla' ? 'Vanilla' : loader.charAt(0).toUpperCase() + loader.slice(1);
+    return [l, v].filter(Boolean).join(' ');
+  }, [loader, mcVersion]);
+
+  const jumpTo = (index: number) => {
+    setActive(index);
+    const node = sectionRefs.current[index];
+    if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const finish = async () => {
+    setError('');
+    ui.set('stylePreset', style);
+    setTheme(theme);
+    if (lang) setLang(lang);
+
+    if (!loader || !mcVersion) {
+      jumpTo(2);
+      setError('Выбери загрузчик и версию игры.');
+      return;
+    }
+    setCreating(true);
+    try {
+      let loaderVersion = '';
+      if (LOADER_COMMAND[loader]) {
+        const raw = await invoke<any>(LOADER_COMMAND[loader], { mcVersion });
+        const list = Array.isArray(raw) ? raw : [];
+        const first = list[0];
+        loaderVersion = first?.loader?.version ?? first?.version ?? '';
+      }
+      await invoke<any>('create_instance', {
+        name: instanceName.trim() || suggestedName || 'Сборка',
+        description: '',
+        mcVersion,
+        loader,
+        loaderVersion,
+        minRam: 1024,
+        maxRam: 4096,
+        javaPath: '',
+        customJvmArgs: '',
+        icon: null,
+      });
+      setCreated(true);
+      localStorage.setItem(SETUP_KEY, '1');
+      setDismissed(true);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setCreating(false);
+    }
   };
 
   if (dismissed) return null;
 
-  const steps = [
-    <LanguageStep onNext={() => setStep(1)} />,
-    <StyleStep onNext={() => setStep(2)} />,
-    <SecurityStep onNext={() => setStep(3)} />,
-    <AccountStep onNext={() => setStep(4)} />,
-    <InstallStep onComplete={finishSetup} />,
-  ];
-
   return (
     <AnimatePresence>
-      <motion.div className="fixed inset-0 z-[300] flex flex-col"
-        style={{
-          background: '#0b0b0d',
-          ['--color-bg' as string]: '#0b0b0d',
-          ['--color-surface' as string]: '#0e0e12',
-          ['--color-surface-2' as string]: '#121218',
-          ['--color-surface-hover' as string]: '#181820',
-          ['--color-text' as string]: '#e8e8e8',
-          ['--color-text-secondary' as string]: '#9b9ba3',
-          ['--color-text-tertiary' as string]: '#6e6e78',
-          ['--color-border' as string]: '#1e1e26',
-          ['--color-primary' as string]: '#2ecc71',
-          ['--color-primary-text' as string]: '#062b16',
-          ['--color-primary-dim' as string]: 'rgba(46, 204, 113, 0.14)',
-          ['--color-primary-hover' as string]: '#27ae60',
-          ['--radius-card' as string]: '3px',
-          ['--radius-button' as string]: '3px',
-        }}
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-        {/* Title bar */}
-        <div className="flex items-center justify-between px-4 py-2"
-          style={{ borderBottom: '1px solid var(--color-border)', height: 'var(--titlebar-height, 32px)' }}>
-          <div className="flex items-center gap-2">
-            <img src="/launcher-icon.png" alt="" className="w-5 h-5 rounded" draggable={false} />
-            <span className="text-xs font-bold" style={{ color: 'var(--color-text-secondary)' }}>Portal Launcher — Первый запуск</span>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.18 }}
+        className="fixed inset-0 z-[300] flex flex-col"
+        style={{ background: 'var(--color-bg)' }}
+      >
+        <DotField profile="edges" className="pointer-events-none absolute inset-0" />
+
+        <div className="relative mx-auto flex h-full w-full max-w-3xl flex-col px-6 py-8">
+          <header className="shrink-0">
+            <h1 className="text-2xl font-bold" style={{ color: 'var(--color-text)' }}>
+              Настрой запуск один раз
+            </h1>
+            <p className="mt-1.5 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              Всё выбирается здесь. Отдельных подтверждений больше нет.
+            </p>
+
+            {/* Кружки: столько, сколько разделов. Текущий подсвечен,
+                предыдущие галочкой. Клик по кружку прокручивает к
+                разделу - это одновременно и навигация, и счёт шагов. */}
+            <nav className="mt-5 flex items-center gap-2" aria-label="Разделы настройки">
+              {sections.map((section, index) => {
+                const done = index < active;
+                const current = index === active;
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    onClick={() => jumpTo(index)}
+                    title={section.label}
+                    aria-label={section.label}
+                    aria-current={current ? 'step' : undefined}
+                    className="flex h-7 w-7 items-center justify-center rounded-full transition-colors"
+                    style={{
+                      background: current ? 'var(--color-primary)' : done ? 'var(--color-surface-2)' : 'transparent',
+                      border: `1px solid ${current ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                      color: current ? 'var(--color-primary-text)' : 'var(--color-text-tertiary)',
+                    }}
+                  >
+                    {done
+                      ? <Check className="h-3.5 w-3.5" />
+                      : <span className="text-[10px] font-bold">{index + 1}</span>}
+                  </button>
+                );
+              })}
+              <span className="ml-2 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                {sections[active]?.label}
+              </span>
+            </nav>
+          </header>
+
+          <div className="mt-7 min-h-0 flex-1 space-y-9 overflow-y-auto pr-1">
+            {/* Язык */}
+            <section ref={el => { sectionRefs.current[0] = el; }}>
+              <SectionTitle icon={<Globe className="h-4 w-4" />} title="Язык интерфейса" />
+              <div className="mt-3 flex flex-wrap gap-2">
+                {LANGS.map(item => (
+                  <Pill key={item.id} active={lang === item.id} onClick={() => setLang(item.id)}>
+                    {item.label}
+                  </Pill>
+                ))}
+              </div>
+            </section>
+
+            {/* Оформление */}
+            <section ref={el => { sectionRefs.current[1] = el; }}>
+              <SectionTitle icon={<Palette className="h-4 w-4" />} title="Оформление" />
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {STYLES.map(item => (
+                  <ChoiceCard
+                    key={item.id}
+                    active={style === item.id}
+                    title={item.title}
+                    hint={item.description}
+                    onClick={() => setStyle(item.id as StylePreset)}
+                  />
+                ))}
+              </div>
+              <div className="mt-3 flex gap-2">
+                {THEME_IDS.map(item => (
+                  <Pill key={item} active={theme === item} onClick={() => setThemeLocal(item)}>
+                    {item === 'dark' ? 'Тёмная' : 'OLED'}
+                  </Pill>
+                ))}
+              </div>
+            </section>
+
+            {/* Сборка — создаётся по-настоящему */}
+            <section ref={el => { sectionRefs.current[2] = el; }}>
+              <SectionTitle icon={<FolderPlus className="h-4 w-4" />} title="Первая сборка" />
+              <div className="mt-3 flex flex-wrap gap-2">
+                {LOADERS.map(item => (
+                  <Pill key={item.id} active={loader === item.id} onClick={() => setLoader(item.id)} title={item.hint}>
+                    {item.label}
+                  </Pill>
+                ))}
+              </div>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>Версия игры</span>
+                  <div className="relative">
+                    <select
+                      value={mcVersion}
+                      onChange={event => setMcVersion(event.target.value)}
+                      className="w-full appearance-none px-3 py-2 pr-8 text-sm"
+                      style={{
+                        background: 'var(--color-surface-2)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 6,
+                        color: 'var(--color-text)',
+                      }}
+                    >
+                      {(versions.length ? versions : MC_VERSIONS_FALLBACK).map(v => (
+                        <option key={v} value={v}>{v}</option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2"
+                      style={{ color: 'var(--color-text-tertiary)' }}
+                    />
+                  </div>
+                </label>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>Название</span>
+                  <input
+                    value={instanceName}
+                    onChange={event => setInstanceName(event.target.value)}
+                    placeholder={suggestedName}
+                    className="px-3 py-2 text-sm outline-none"
+                    style={{
+                      background: 'var(--color-surface-2)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 6,
+                      color: 'var(--color-text)',
+                    }}
+                  />
+                </label>
+              </div>
+            </section>
+
+            {/* Аккаунт */}
+            <section ref={el => { sectionRefs.current[3] = el; }}>
+              <SectionTitle icon={<User className="h-4 w-4" />} title="Аккаунт" />
+              <p className="mt-2 flex items-start gap-2 text-xs leading-5"
+                style={{ color: 'var(--color-text-secondary)' }}>
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />
+                Войти в Microsoft или Ely.by можно позже: Настройки → Аккаунты. Без аккаунта
+                запускается только одиночная игра, а сборки с модами — нет.
+              </p>
+            </section>
           </div>
-          <button onClick={finishSetup} className="p-1 rounded hover:bg-white/5" title="Пропустить">
-            <X className="h-4 w-4" style={{ color: 'var(--color-text-tertiary)' }} />
-          </button>
-        </div>
 
-        {/* Progress dots */}
-        <div className="flex items-center justify-center gap-2 py-4">
-          {steps.map((_, i) => (
-            <div key={i} className="h-1.5 transition-all"
-              style={{
-                width: i === step ? 24 : 8,
-                borderRadius: 9999,
-                background: i <= step ? 'var(--color-primary)' : 'var(--color-border)',
-              }} />
-          ))}
-        </div>
-
-        {/* Step content */}
-        <div className="flex-1 flex items-center justify-center px-6 overflow-y-auto">
-          <AnimatePresence mode="wait">
-            <motion.div key={step}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.18 }}
-              className="w-full py-8">
-              {steps[step]}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {/* Skip button */}
-        <div className="flex items-center justify-between px-6 py-4"
-          style={{ borderTop: '1px solid var(--color-border)' }}>
-          <button onClick={() => step > 0 && setStep(s => s - 1)}
-            className="ore-flat px-3 py-2 text-xs font-bold disabled:opacity-0"
-            style={{ color: 'var(--color-text-secondary)' }}
-            disabled={step === 0}>
-            Назад
-          </button>
-          {step < steps.length - 1 && (
-            <button onClick={() => setStep(s => s + 1)}
-              className="px-3 py-2 text-xs font-bold"
-              style={{ color: 'var(--color-text-secondary)' }}>
-              Далее
-            </button>
+          {error && (
+            <p className="mt-3 shrink-0 text-xs" style={{ color: 'var(--color-error)' }}>{error}</p>
           )}
+
+          <footer className="mt-5 flex shrink-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void finish()}
+              disabled={creating}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
+              style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)', borderRadius: 6 }}
+            >
+              {creating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              {creating ? 'Создаём сборку…' : 'Создать сборку и начать'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { localStorage.setItem(SETUP_KEY, '1'); setDismissed(true); }}
+              className="px-3 py-2.5 text-sm"
+              style={{ color: 'var(--color-text-secondary)' }}
+            >
+              Пропустить
+            </button>
+            {created && <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>Готово</span>}
+          </footer>
         </div>
       </motion.div>
     </AnimatePresence>
+  );
+}
+
+function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <h2 className="flex items-center gap-2 text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+      <span style={{ color: 'var(--color-text-tertiary)' }}>{icon}</span>
+      {title}
+    </h2>
+  );
+}
+
+function Pill({ active, onClick, children, title }: {
+  active: boolean; onClick: () => void; children: React.ReactNode; title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors"
+      style={{
+        background: active ? 'var(--color-primary-dim)' : 'transparent',
+        border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
+        borderRadius: 6,
+        color: active ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+      }}
+    >
+      {active && <Check className="h-3 w-3" />}
+      {children}
+    </button>
+  );
+}
+
+function ChoiceCard({ active, title, hint, onClick }: {
+  active: boolean; title: string; hint: string; onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col gap-0.5 px-3 py-2.5 text-left transition-colors"
+      style={{
+        background: active ? 'var(--color-primary-dim)' : 'var(--color-surface)',
+        border: `1px solid ${active ? 'var(--color-primary)' : 'var(--color-border)'}`,
+        borderRadius: 6,
+      }}
+    >
+      <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--color-text)' }}>
+        {active && <Check className="h-3 w-3" style={{ color: 'var(--color-primary)' }} />}
+        {title}
+      </span>
+      <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>{hint}</span>
+    </button>
   );
 }

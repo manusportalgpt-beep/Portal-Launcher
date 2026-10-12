@@ -184,8 +184,7 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
             {card.downloads.length}
           </span>
         )}
-        {!closed && (
-          {collapsed && !closed && (
+{collapsed && !closed && (
         /* Свёрнутое состояние. Сессия продолжает работать, поэтому полоса
            остаётся на месте и показывает адрес страницы: человек должен
            видеть, куда он ушёл, даже не открывая окно. */

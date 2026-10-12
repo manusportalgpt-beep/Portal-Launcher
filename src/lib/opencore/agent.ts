@@ -2555,9 +2555,12 @@ async function execApp(tool: string, args: any): Promise<ExecResult> {
       const done = Math.max(0, Math.min(total, Number(args?.done ?? 0) || 0));
       const step = String(args?.step ?? '').trim();
       useOpenCoreStore.getState().setAgentPlan({ total, done, step, items });
-      return done >= total
-        ? `План выполнен: ${done} из ${total}.`
-        : `План обновлён: ${done} из ${total}. Дальше: ${step || items[done] || 'продолжаю'}.`;
+      return {
+        ok: true,
+        output: done >= total
+          ? `План выполнен: ${done} из ${total}.`
+          : `План обновлён: ${done} из ${total}. Дальше: ${step || items[done] || 'продолжаю'}.`,
+      };
     }
     if (tool === 'app_show') {
       const info = await invoke<{

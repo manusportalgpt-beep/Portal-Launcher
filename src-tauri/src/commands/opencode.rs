@@ -1696,6 +1696,19 @@ pub fn op_list_dir(root: String, path: String) -> Result<Vec<FsEntry>, String> {
     Ok(out)
 }
 
+/// Превращает относительный путь агента (root + path) в полный путь на
+/// диске. Нужно интерфейсу, чтобы показать файл в системном проводнике:
+/// проводник понимает только полные пути.
+#[tauri::command]
+pub fn op_resolve_path(root: String, path: String) -> Result<String, String> {
+    let r = root_from_name(&root)?;
+    let p = resolve_agent_path(r, Path::new(&path));
+    // Проверка корня обязательна: иначе через путь вида ../../ можно было бы
+    // указать на любой файл в системе.
+    let file = enforce_root(r, &p, false)?;
+    Ok(file.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 pub fn op_read_text(root: String, path: String) -> Result<String, String> {
     let r = root_from_name(&root)?;

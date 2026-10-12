@@ -5,7 +5,7 @@ import {
   Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Boxes, Check, Copy, Download,
   Gauge, Minimize2, CornerDownRight, Shield, ShieldCheck, ShieldAlert, Globe, ExternalLink,
   Package, Wand2, Image as ImageIcon, Search, X, Brain,
-FileCode2, FolderTree, Globe2, ListChecks, CircleAlert, Loader2, type LucideIcon, Paperclip,
+FileCode2, FolderTree, FolderOpen, Globe2, ListChecks, CircleAlert, Loader2, type LucideIcon, Paperclip,
   } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
@@ -836,7 +836,20 @@ function FileChanges({ changes }: { changes: FileChange[] }) {
     }
   };
 
-  const download = async (change: FileChange, key: string) => {
+  /** Показать файл или папку в системном проводнике. Путь приходит
+    относительным (root+path), поэтому он собирается в полный: иначе
+    проводник искал бы файл относительно рабочей папки процесса и
+    ничего не нашёл. */
+const revealChange = async (change: FileChange) => {
+  try {
+    const full = await invoke<string>('resolve_path', { root: change.root, path: change.path });
+    await invoke('reveal_file_path', { path: full });
+  } catch (e) {
+    setErr(prev => ({ ...prev, [`${change.root}/${change.path}`]: String(e) }));
+  }
+};
+
+const download = async (change: FileChange, key: string) => {
     if (busy) return;
     setBusy(key);
     setErr(prev => ({ ...prev, [key]: '' }));
@@ -886,6 +899,14 @@ function FileChanges({ changes }: { changes: FileChange[] }) {
                 {change.created && <span className="shrink-0 rounded px-1 text-[9px] font-bold" style={{ background: 'var(--color-surface)', color: 'var(--color-success)' }}>новый</span>}
                 <span className="shrink-0 font-mono text-[10px] font-bold" style={{ color: 'var(--color-success)' }}>+{change.added}</span>
                 <span className="shrink-0 font-mono text-[10px] font-bold" style={{ color: 'var(--color-error)' }}>−{change.removed}</span>
+                <button
+                  onClick={() => void revealChange(change)}
+                  title="Показать в проводнике"
+                  className="flex shrink-0 items-center justify-center rounded p-1 transition-colors hover:bg-[var(--color-surface-2)]"
+                  style={{ color: 'var(--color-text-tertiary)' }}
+                >
+                  <FolderOpen size={12} />
+                </button>
                 <button onClick={() => void download(change, key)} disabled={busy === key} title="Скопировать в «Загрузки» и открыть проводник"
                   className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[10px] font-bold disabled:opacity-50"
                   style={{

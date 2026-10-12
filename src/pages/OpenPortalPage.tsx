@@ -667,12 +667,9 @@ function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (te
             <p className="mt-1.5 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
               Версии: {card.gameVersions.slice(0, 12).join(', ')}
             </p>
-)}
-          </div>
-          </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1028,23 +1025,6 @@ function EffortPicker({ value, onChange }: { value: 'default' | 'minimal' | 'low
     Это не переключатели, а функции: иконка, название, и галочка
     справа, когда функция включена. Выключена - просто приглушена.
     Рядом с ASK, как просил пользователь. */
-/** На каком языке человек пишет сам. Считаем долю кириллицы и латиницы
- *  в его сообщениях: модель иначе ориентируется на системный промпт и
- *  начинает отвечать по-английски. */
-function dominantLanguageOf(list: ChatMessage[]): string {
-  let cyr = 0;
-  let lat = 0;
-  for (const m of list) {
-    if (m.role !== 'user' || typeof m.content !== 'string') continue;
-    for (const ch of m.content) {
-      if (ch >= 'а' && ch <= 'я' || ch === 'ё' || ch >= 'А' && ch <= 'Я') cyr += 1;
-      else if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')) lat += 1;
-    }
-  }
-  if (cyr === 0 && lat === 0) return '';
-  return cyr >= lat ? 'русский' : 'английский';
-}
-
 /** Правила чата и план работы. Кнопка «Правила» - это действие, а не
     переключатель: по нажатию открывается панель, где правила пишет
     агент, а человек может поправить текст. Галочки здесь нет намеренно.
@@ -1072,14 +1052,10 @@ function RulesAndPlan() {
         Правила
       </button>
       {open && (
-        <div className="fixed inset-0 z-[900] flex items-center justify-center p-4"
-          onClick={() => setOpen(false)}
-          style={{ background: 'rgba(0,0,0,0.55)' }}>
-          <div
-            onClick={e => e.stopPropagation()}
-            className="w-full max-w-md rounded-lg border p-3"
-            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}
-          >
+        <div
+          className="absolute right-0 top-full z-50 mt-1 w-80 rounded-lg border p-2"
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}
+        >
           <p className="px-1 pb-1 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
             Агент пишет правила под задачу. Ты можешь поправить текст — он больше не сможет его изменить.
           </p>
@@ -2124,10 +2100,6 @@ export function OpenPortalPage() {
       memory: cfg.memoryEnabled === false ? [] : store.memory.map(f => ({ key: f.key, text: f.text })),
       rules: cfg.chatRules,
       plan: cfg.agentPlan ?? null,
-      // Агент отвечал по-английски, хотя человек писал по-русски: модель
-      // ориентировалась на системный промпт. Язык берём из сообщений
-      // человека - там, где он пишет сам.
-      replyLanguage: dominantLanguageOf(store.messages),
     });
 
     const abort = new AbortController();

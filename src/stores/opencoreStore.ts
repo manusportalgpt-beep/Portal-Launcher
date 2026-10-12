@@ -453,11 +453,11 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
 
       async newSession() {
         // Не плодим пустые сессии: если текущий чат ещё пуст — переиспользуем его.
-        if (get().currentSessionId && get().messages.length === 0) {
-          set({ messages: [] });
-          get().resetUsage();
-          return;
-        }
+if (get().currentSessionId && get().messages.length === 0) {
+      set({ messages: [], config: { ...get().config, agentPlan: null } });
+      get().resetUsage();
+      return;
+    }
         const cfg = get().config;
         const prev = get().currentSessionId;
         // Сохраняем сообщения текущей сессии как фоновые (там может идти активная задача).
@@ -477,7 +477,7 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
         };
         await invoke('op_save_session', { sessionId: id, payload: JSON.stringify(session) });
         const meta: SessionMeta = { id, title: session.title, updated: now, message_count: 0 };
-        set({ backgroundMessages: background, modelContexts: {}, sessions: [meta, ...get().sessions], currentSessionId: id, messages: [] });
+        set({ backgroundMessages: background, modelContexts: {}, sessions: [meta, ...get().sessions], currentSessionId: id, messages: [], config: { ...get().config, agentPlan: null } });
         get().resetUsage();
       },
 
@@ -550,8 +550,11 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
               ...get().config,
               activeProviderId: data.providerId || get().config.activeProviderId,
               activeModelId: data.modelId || get().config.activeModelId,
-              mode: data.mode || get().config.mode,
-              cwd: data.cwd ?? get().config.cwd,
+mode: data.mode || get().config.mode,
+        cwd: data.cwd ?? get().config.cwd,
+        // План принадлежит конкретному чату. Без сброса он переезжал в
+        // следующий диалог, и человек видел чужой ход работы.
+        agentPlan: null,
             },
           });
           get().resetUsage();

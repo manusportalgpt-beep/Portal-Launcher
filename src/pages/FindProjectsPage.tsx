@@ -23,7 +23,7 @@ import { useUiStore } from '@/stores/uiStore';
 import { useLaunchStore } from '@/stores/launchStore';
 import { useAuthorAvatar } from '@/lib/author-avatar';
 
-type ProjectType = 'mods' | 'resourcepacks' | 'shaders';
+type ProjectType = 'mods' | 'resourcepacks' | 'shaders' | 'datapacks';
 type SortOrder = 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated';
 type SourcePlatform = 'modrinth' | 'curseforge';
 type Platform = SourcePlatform | 'combined';
@@ -127,6 +127,9 @@ const TYPE_DEFS: Record<ProjectType, { modrinthFacet: string; cfClass: number; l
   mods:          { modrinthFacet: 'mod',          cfClass: 6,    labelKey: 'mods',          icon: Package },
   resourcepacks: { modrinthFacet: 'resourcepack', cfClass: 12,   labelKey: 'resourcePacks', icon: ImageIcon },
   shaders:       { modrinthFacet: 'shader',       cfClass: 6552, labelKey: 'shaders',       icon: Sparkles },
+  // Датапаки были в Discover и раньше, но из этого списка выпали.
+  // classId 5820 - Data Packs в таксономии CurseForge.
+  datapacks:    { modrinthFacet: 'datapack',     cfClass: 5820, labelKey: 'dataPacks',     icon: Database },
 };
 /**
  * Категории CurseForge для Minecraft Bedrock.
@@ -253,6 +256,7 @@ const MODRINTH_CATS: Record<ProjectType, string[]> = {
   mods:          ['Adventure','Cursed','Decoration','Economy','Equipment','Food','Game Mechanics','Library','Magic','Mobs','Optimization','Storage','Technology','Transportation','Utility','World Generation'],
   resourcepacks: ['8x – 16x','32x','64x','128x and above','Alternate','Animated','Realistic','Themed','Vanilla-like'],
   shaders:       ['Atmosphere','Cartoon','Realistic','Semi-Realistic','Vanilla-like'],
+  datapacks:    ['Adventure','Combat','Entities','Environment','Experimental','Functions','Game Mechanic','Generation','Mobs','Recipes','Tags','World Generation'],
 };
 
 // Modrinth facets use stable slugs, not the human-readable labels shown in the sidebar.
@@ -272,6 +276,13 @@ const MODRINTH_CATEGORY_SLUGS: Record<ProjectType, Record<string, string>> = {
   shaders: {
     'Atmosphere': 'atmosphere', 'Cartoon': 'cartoon', 'Realistic': 'realistic',
     'Semi-Realistic': 'semi-realistic', 'Vanilla-like': 'vanilla-like',
+  },
+  datapacks: {
+    'Adventure': 'adventure', 'Combat': 'combat', 'Entities': 'entities',
+    'Environment': 'environment', 'Experimental': 'experimental',
+    'Functions': 'functions', 'Game Mechanics': 'game-mechanics',
+    'Generation': 'generation', 'Mobs': 'mobs', 'Recipes': 'recipes',
+    'Tags': 'tags', 'World Generation': 'world-gen',
   },
 };
 
@@ -424,7 +435,8 @@ function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
         const contentType =
           installProject.projectType === 'resourcepacks' ? 'resourcepack'
             : installProject.projectType === 'shaders' ? 'shaderpack'
-              : 'mod';
+              : installProject.projectType === 'datapacks' ? 'datapack'
+                : 'mod';
         await invoke('install_mod', {
           instanceId,
           downloadUrl: file.url,

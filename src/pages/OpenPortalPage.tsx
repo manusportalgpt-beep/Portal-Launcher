@@ -670,6 +670,7 @@ function ModResultCard({ card, onInstalled }: { card: ModCard; onInstalled?: (te
 )}
           </div>
           </div>
+          </div>
         )}
       </div>
     </div>

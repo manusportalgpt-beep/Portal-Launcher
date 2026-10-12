@@ -5,7 +5,7 @@ import {
   Settings2, Bot, Hammer, DraftingCompass, Braces, ChevronLeft, Boxes, Check, Copy, Download,
   Gauge, Minimize2, CornerDownRight, Shield, ShieldCheck, ShieldAlert, Globe, ExternalLink,
   Package, Wand2, Image as ImageIcon, Search, X, Brain,
-FileCode2, FolderTree, Globe2, ListChecks, CircleAlert, Loader2, type LucideIcon,
+FileCode2, FolderTree, Globe2, ListChecks, CircleAlert, Loader2, type LucideIcon, Paperclip,
   } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { invoke } from '@/lib/invoke-shim';
@@ -1108,6 +1108,135 @@ function PlanBar() {
           className="h-full transition-[width] duration-300"
           style={{ width: `${pct}%`, background: 'var(--color-primary)' }}
         />
+      </div>
+    </div>
+  );
+}
+
+/** Мини-панель, которая раскрывается вверх от «+» в поле ввода.
+    Задача 10.2 из списка пользователя: инструменты слева, режимы и
+    токены - на кнопке рядом. Панель идёт вверх, потому что внизу поля
+    ввода находится кнопка отправки и закрывать её не нужно. */
+function ComposerMenus() {
+  const webSearch = useOpenCoreStore(s => s.config.webSearch ?? false);
+  const deepThinking = useOpenCoreStore(s => s.config.deepThinking ?? false);
+  const chatRules = useOpenCoreStore(s => s.config.chatRules ?? '');
+  const usage = useOpenCoreStore(s => s.usage);
+  const skills = useOpenCoreStore(s => s.skills);
+  const [tools, setTools] = useState(false);
+  const [modes, setModes] = useState(false);
+
+  const toggleTool = (key: 'webSearch' | 'deepThinking') => {
+    const patch = key === 'webSearch'
+      ? { webSearch: !webSearch }
+      : { deepThinking: !deepThinking };
+    useOpenCoreStore.getState().updateConfig(patch as never);
+  };
+
+  const item = 'flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[10.5px] transition-colors hover:bg-[var(--color-surface-2)]';
+
+  return (
+    <div className="flex shrink-0 items-center gap-1">
+      {/* Кнопка «+»: инструменты. Панель вверх. */}
+      <div className="relative">
+        <button
+          type="button"
+          title="Инструменты"
+          onClick={() => { setTools(v => !v); setModes(false); }}
+          className="flex h-6 w-6 items-center justify-center rounded"
+          style={{ color: 'var(--color-text-tertiary)' }}
+        >
+          <Plus size={13} />
+        </button>
+        {tools && (
+          <div
+            className="absolute bottom-full left-0 z-50 mb-1 w-60 rounded-lg border p-1"
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}
+          >
+            <button className={item} style={{ color: 'var(--color-text)' }}>
+              <Paperclip size={12} />
+              Загрузить файл или изображение
+            </button>
+            <button className={item} style={{ color: 'var(--color-text)' }}>
+              <Sparkles size={12} />
+              Скиллы
+              {skills.length > 0 && (
+                <span className="ml-auto text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+                  {skills.length}
+                </span>
+              )}
+            </button>
+            <button
+              className={item}
+              style={{ color: 'var(--color-text-tertiary)' }}
+              disabled
+              title="Коннекторы появятся позже"
+            >
+              <Boxes size={12} />
+              Коннекторы
+              <span className="ml-auto text-[9px]">скоро</span>
+            </button>
+            <div className="my-1" style={{ background: 'var(--color-border)' }} />
+            <button className={item} onClick={() => toggleTool('webSearch')}
+              style={{ color: webSearch ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
+              <Globe2 size={12} />
+              Веб-поиск
+              {webSearch && <Check size={11} className="ml-auto" />}
+            </button>
+            <button className={item} onClick={() => toggleTool('deepThinking')}
+              style={{ color: deepThinking ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
+              <Brain size={12} />
+              Мышление
+              {deepThinking && <Check size={11} className="ml-auto" />}
+            </button>
+            <button className={item} disabled style={{ color: chatRules.trim() ? 'var(--color-text)' : 'var(--color-text-tertiary)' }}>
+              <FileCode2 size={12} />
+              Правила
+              {chatRules.trim() && <Check size={11} className="ml-auto" />}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Рядом с «+»: режимы и токены. */}
+      <div className="relative">
+        <button
+          type="button"
+          title="Режимы и токены"
+          onClick={() => { setModes(v => !v); setTools(false); }}
+          className="flex h-6 w-6 items-center justify-center rounded"
+          style={{ color: 'var(--color-text-tertiary)' }}
+        >
+          <Gauge size={13} />
+        </button>
+        {modes && (
+          <div
+            className="absolute bottom-full left-0 z-50 mb-1 w-56 rounded-lg border p-1"
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}
+          >
+            <p className="px-2 py-1 text-[10px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}>
+              Режим работы
+            </p>
+            {(['dfa', 'fa', 'ask'] as const).map(id => (
+              <button
+                key={id}
+                className={item}
+                onClick={() => useOpenCoreStore.getState().setPermissionPreset(id)}
+                style={{ color: useOpenCoreStore.getState().config.permissionPreset === id ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}
+              >
+                {id.toUpperCase()}
+                {useOpenCoreStore.getState().config.permissionPreset === id && <Check size={11} className="ml-auto" />}
+              </button>
+            ))}
+            <div className="my-1" style={{ background: 'var(--color-border)' }} />
+            <p className="px-2 py-1 text-[10px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}>
+              Токены в контексте
+            </p>
+            <p className="px-2 pb-1 text-[11px] font-semibold" style={{ color: 'var(--color-text)' }}>
+              {Number(usage?.total ?? 0).toLocaleString('ru-RU')}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -2521,20 +2650,15 @@ export function OpenPortalPage() {
               <ContextMeter onCompact={() => void compressChat()} />
               <EffortPicker value={cfg.effort ?? 'medium'} onChange={v => useOpenCoreStore.getState().updateConfig({ effort: v })} />
               <PresetToggle preset={cfg.permissionPreset ?? 'dfa'} onChange={p => useOpenCoreStore.getState().setPermissionPreset(p)} />
-              <AgentModes />
-              <RulesAndPlan />
               <span className="flex-1" />
               <BuildPicker />
             </div>
             <div className="chat-bot flex items-end gap-1 p-1">
               <input type="file" id="op-file" className="hidden" onChange={onFilePicked} />
-              <div className="btns-add flex shrink-0 items-center">
-                <label htmlFor="op-file" title="Прикрепить файл или картинку"
-                  className="flex h-7 w-7 cursor-pointer items-center justify-center rounded transition-colors hover:bg-[var(--color-surface)]"
-                  style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-tertiary)' }}>
-                  <Plus size={14} />
-                </label>
-              </div>
+              {/* Кнопка «+» со свёрнутой мини-панелью вверх и кнопка режимов
+                  рядом. Старая кнопка прикрепления убрана: её роль занял
+                  пункт «Загрузить файл» в панели. */}
+              <ComposerMenus />
               {mentionList.length > 0 && (
                 <div className="absolute bottom-full left-0 right-0 z-40 mb-2 overflow-hidden rounded-lg border p-1"
                   style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>

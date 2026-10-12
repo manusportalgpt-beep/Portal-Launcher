@@ -1233,7 +1233,7 @@ function ComposerMenus() {
               Токены в контексте
             </p>
             <p className="px-2 pb-1 text-[11px] font-semibold" style={{ color: 'var(--color-text)' }}>
-              {Number(usage?.total ?? 0).toLocaleString('ru-RU')}
+              {Number(usage?.context ?? 0).toLocaleString('ru-RU')} из {Number(usage?.limit ?? 0).toLocaleString('ru-RU')}
             </p>
           </div>
         )}

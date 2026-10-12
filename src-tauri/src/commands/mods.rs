@@ -538,6 +538,7 @@ pub async fn install_mod(
                     latest_version: None,
                     latest_version_id: None,
                     latest_download_url: None,
+                     pinned: false,
                 }]);
             }
             // If Lighty failed, fallthrough to manual install
@@ -624,6 +625,7 @@ pub async fn install_mod(
         latest_version: None,
         latest_version_id: None,
         latest_download_url: None,
+         pinned: false,
     };
     update_instance_mod_list(&instance_id, &installed);
 
@@ -734,6 +736,7 @@ pub async fn install_curseforge_mod(
                     latest_version: None,
                     latest_version_id: None,
                     latest_download_url: None,
+                     pinned: false,
                 };
                 update_instance_mod_list(&instance_id, &installed);
                 app.emit("mod-progress", serde_json::json!({"name":installed.name,"percent":100,"message":"Installed from CurseForge via Lighty!"})).ok();
@@ -816,6 +819,7 @@ pub async fn install_curseforge_mod(
         latest_version: None,
         latest_version_id: None,
         latest_download_url: None,
+         pinned: false,
     };
 
     update_instance_mod_list(&instance_id, &installed);
@@ -1016,6 +1020,7 @@ async fn install_mod_dependencies_internal(
                             latest_version: None,
                             latest_version_id: None,
                             latest_download_url: None,
+                             pinned: false,
                         };
                         update_instance_mod_list(instance_id, &dep_mod);
                         installed.push(dep_mod);
@@ -1130,6 +1135,7 @@ async fn resolve_resourcify_modrinth_file(
         latest_version: None,
         latest_version_id: None,
         latest_download_url: None,
+         pinned: false,
     })
 }
 
@@ -1242,6 +1248,7 @@ async fn resolve_local_curseforge_file(
         latest_version: None,
         latest_version_id: None,
         latest_download_url: None,
+         pinned: false,
     })
 }
 
@@ -1369,6 +1376,7 @@ latest_download_url: m["latest_download_url"]
                             latest_version: None,
                             latest_version_id: None,
                             latest_download_url: None,
+                             pinned: false,
                         };
                         update_instance_mod_list(&instance_id, &matched);
                         mods.push(matched);
@@ -1427,6 +1435,7 @@ latest_download_url: m["latest_download_url"]
                         latest_version: None,
                         latest_version_id: None,
                         latest_download_url: None,
+                         pinned: false,
                     });
                 }
             }
@@ -1835,6 +1844,7 @@ pub async fn set_mod_pinned(
 /// Помечает мод закреплённым или откреплённым и сразу пересчитывает,
 /// доступно ли обновление. Возвращает обновлённый список - интерфейсу
 /// не нужно гадать, что изменилось.
+#[tauri::command]
 pub async fn check_mod_updates(instance_id: String) -> Result<Vec<InstalledMod>, String> {
     let client = reqwest::Client::builder()
         .user_agent("PortalLauncher/1.1")

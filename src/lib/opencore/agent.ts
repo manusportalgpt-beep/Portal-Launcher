@@ -5429,6 +5429,8 @@ export function buildSystemPrompt(opts: {
   rules?: string;
   /** Текущий план, чтобы агент продолжал с места, где остановился. */
   plan?: { done: number; total: number; step: string; items: string[] } | null;
+  /** На каком языке человек пишет. Вычисляется по его сообщениям. */
+  replyLanguage?: string;
 }): string {
   const rules = opts.mode === 'build'
     ? `Режим BUILD: ты полноценный агент-исполнитель. Ты достигаешь цели пользователя через инструменты: изучаешь файлы, правишь их, запускаешь команды, шаг за шагом добиваясь результата.`
@@ -5449,6 +5451,14 @@ const memory = opts.memory?.length
     'Эти факты человек уже сообщал раньше. Учитывай их и не переспрашивай заново.',
     ...opts.memory.map(f => `- ${f.key}: ${f.text}`),
     'Если факт устарел или противоречит новому, спроси прямо, а не молча меняй поведение.',
+  ].join('\n')
+  : '';
+const language = opts.replyLanguage
+  ? [
+    '',
+    `ЯЗЫК ОТВЕТА: отвечай на языке "${opts.replyLanguage}".`,
+    'Это касается всех твоих сообщений, планов и вопросов человеку.',
+    'Называй команды, пути и ключи в оригинале, а поясняй по-русски.',
   ].join('\n')
   : '';
 const chatRules = opts.rules?.trim()
@@ -5506,6 +5516,7 @@ const deepThinking = opts.deepThinking
 rules,
 perModel,
 memory,
+language,
 chatRules,
 planState,
 webSearch,

@@ -12,6 +12,7 @@ import type {
   SessionMeta,
   ChatProject,
   MemoryFact,
+  AgentPlan,
   PermissionsMap,
   PermissionRequest,
   PermissionPreset,
@@ -124,6 +125,10 @@ interface OpenCoreState {
   /** Включение и выключение памяти. При выключении список стирается:
       иначе выключенная память продолжала бы влиять на промпт. */
   setMemoryEnabled: (enabled: boolean) => void;
+  /** Правила чата. Пишет их агент, человек может поправить. */
+  setChatRules: (rules: string) => void;
+  /** План агента: сколько пунктов, сколько сделано, что сейчас. */
+  setAgentPlan: (plan: AgentPlan | null) => void;
   /** Создать проект и открыть в нём новый чат. */
   createProject: (name: string) => Promise<void>;
   /** Перейти в проект: его чаты и общая папка. */
@@ -431,6 +436,18 @@ export const useOpenCoreStore = create<OpenCoreState>()((set, get) => ({
           config: { ...get().config, memoryEnabled: enabled },
           memory: enabled ? get().memory : [],
         });
+        void invoke('op_save_config', { payload: JSON.stringify(get().config) });
+      },
+
+      /** Правила и план живут в config: он уже сохраняется, отдельные
+          файлы были бы лишним. */
+      setChatRules(rules) {
+        set({ config: { ...get().config, chatRules: rules } });
+        void invoke('op_save_config', { payload: JSON.stringify(get().config) });
+      },
+
+      setAgentPlan(plan) {
+        set({ config: { ...get().config, agentPlan: plan } });
         void invoke('op_save_config', { payload: JSON.stringify(get().config) });
       },
 

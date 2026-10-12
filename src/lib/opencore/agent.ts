@@ -733,8 +733,27 @@ export const TOOLS: ToolDef[] = [
     root: '*',
     requiresPermission: false,
   },
-  {
-    name: 'app_install',
+{
+name: 'update_plan',
+description:
+'План работы. Вызывай в начале задачи, чтобы составить пункты, и после каждого ' +
+'выполненного пункта, чтобы отметить ход. Человек видит это как "N из M", поэтому ' +
+'план должен быть честным: не отмечай то, что не сделано, и не завышай итог.',
+parameters: {
+type: 'object',
+properties: {
+items: { type: 'array', items: { type: 'string' }, description: 'Все пункты плана по порядку' },
+done: { type: 'number', description: 'Сколько пунктов уже выполнено' },
+step: { type: 'string', description: 'Что делаешь прямо сейчас, одной строкой' },
+total: { type: 'number', description: 'Всего пунктов' },
+},
+required: ['items', 'done', 'step', 'total'],
+},
+root: '*',
+requiresPermission: false,
+},
+{
+name: 'app_install',
     description:
       'Устанавливает программу из официального репозитория winget. Обязательные условия: ' +
       '1) сначала вызови app_show и убедись, что издатель настоящий; ' +
@@ -2524,6 +2543,21 @@ async function execApp(tool: string, args: any): Promise<ExecResult> {
           + `Прежде чем ставить: вызови app_show с этим id, покажи пользователю издателя и официальный `
           + `сайт, спроси согласие. Установка с выдуманным издателем будет отклонена.`,
       };
+    }
+    if (tool === 'update_plan') {
+      // План попадает в конфиг, оттуда его читает промпт следующего хода
+      // и отрисовывает плашка в интерфейсе. Агент не может двигать
+      // счётчик сам: он только присылает новое состояние.
+      const items = Array.isArray(args?.items)
+        ? (args.items as unknown[]).map(v => String(v).trim()).filter(Boolean)
+        : [];
+      const total = Number(args?.total ?? items.length) || items.length;
+      const done = Math.max(0, Math.min(total, Number(args?.done ?? 0) || 0));
+      const step = String(args?.step ?? '').trim();
+      useOpenCoreStore.getState().setAgentPlan({ total, done, step, items });
+      return done >= total
+        ? `План выполнен: ${done} из ${total}.`
+        : `План обновлён: ${done} из ${total}. Дальше: ${step || items[done] || 'продолжаю'}.`;
     }
     if (tool === 'app_show') {
       const info = await invoke<{
@@ -5388,6 +5422,10 @@ export function buildSystemPrompt(opts: {
   deepThinking?: boolean;
   /** Запомненные факты о пользователе. Пусто, если память выключена. */
   memory?: { key: string; text: string }[];
+  /** Правила этого чата, написанные агентом или человеком. */
+  rules?: string;
+  /** Текущий план, чтобы агент продолжал с места, где остановился. */
+  plan?: { done: number; total: number; step: string; items: string[] } | null;
 }): string {
   const rules = opts.mode === 'build'
     ? `Режим BUILD: ты полноценный агент-исполнитель. Ты достигаешь цели пользователя через инструменты: изучаешь файлы, правишь их, запускаешь команды, шаг за шагом добиваясь результата.`
@@ -5408,6 +5446,25 @@ const memory = opts.memory?.length
     'Эти факты человек уже сообщал раньше. Учитывай их и не переспрашивай заново.',
     ...opts.memory.map(f => `- ${f.key}: ${f.text}`),
     'Если факт устарел или противоречит новому, спроси прямо, а не молча меняй поведение.',
+  ].join('\n')
+  : '';
+const chatRules = opts.rules?.trim()
+  ? [
+    '',
+    'ПРАВИЛА ЭТОГО ЧАТА:',
+    opts.rules,
+    'Эти правила можешь дополнять по ходу работы, если понял что-то новое.',
+    'Но не имеешь права их изменять или удалять: последнее слово за человеком.',
+  ].join('\n')
+  : '';
+const planState = opts.plan
+  ? [
+    '',
+    'ТЕКУЩИЙ ПЛАН:',
+    `Выполнено ${opts.plan.done} из ${opts.plan.total}. Сейчас: ${opts.plan.step}`,
+    ...opts.plan.items.map((it, i) => `${i + 1}. [${i < opts.plan!.done ? 'x' : ' '}] ${it}`),
+    'Выполнил пункт - отметь его одним вызовом update_plan и скажи об этом строкой.',
+    'Не перескакивай пункты и не начинай новые, пока не закончил текущий.',
   ].join('\n')
   : '';
 const perModel = model
@@ -5446,6 +5503,8 @@ const deepThinking = opts.deepThinking
 rules,
 perModel,
 memory,
+chatRules,
+planState,
 webSearch,
 deepThinking,
 '',

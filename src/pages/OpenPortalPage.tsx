@@ -1025,6 +1025,94 @@ function EffortPicker({ value, onChange }: { value: 'default' | 'minimal' | 'low
     Это не переключатели, а функции: иконка, название, и галочка
     справа, когда функция включена. Выключена - просто приглушена.
     Рядом с ASK, как просил пользователь. */
+/** Правила чата и план работы. Кнопка «Правила» - это действие, а не
+    переключатель: по нажатию открывается панель, где правила пишет
+    агент, а человек может поправить текст. Галочки здесь нет намеренно.
+    План показывается отдельно, как «N из M» - человек видит ход работы. */
+function RulesAndPlan() {
+  const chatRules = useOpenCoreStore(s => s.config.chatRules ?? '');
+  const plan = useOpenCoreStore(s => s.config.agentPlan ?? null);
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(chatRules);
+  const Icon = FileCode2;
+
+  return (
+    <div className="relative flex shrink-0 items-center">
+      <button
+        type="button"
+        title="Правила этого чата"
+        onClick={() => { setDraft(chatRules); setOpen(v => !v); }}
+        className="flex items-center gap-1 rounded-[7px] px-1.5 py-1 text-[10px] font-bold transition-colors"
+        style={{
+          border: '1px solid var(--color-border)',
+          color: chatRules.trim() ? 'var(--color-text)' : 'var(--color-text-tertiary)',
+        }}
+      >
+        <Icon size={10} />
+        Правила
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 top-full z-50 mt-1 w-80 rounded-lg border p-2"
+          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}
+        >
+          <p className="px-1 pb-1 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+            Агент пишет правила под задачу. Ты можешь поправить текст — он больше не сможет его изменить.
+          </p>
+          <textarea
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            placeholder="Правил пока нет. Опиши, как тебе работать с этим чатом."
+            rows={6}
+            className="w-full resize-none rounded-md bg-transparent p-2 text-[12px] outline-none"
+            style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+          />
+          <div className="flex items-center gap-1.5 pt-1.5">
+            <button
+              onClick={() => useOpenCoreStore.getState().setChatRules(draft.trim())}
+              className="rounded-md px-2 py-1.5 text-[12px] font-bold"
+              style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}
+            >
+              Сохранить
+            </button>
+            {chatRules.trim() && (
+              <button
+                onClick={() => { setDraft(''); useOpenCoreStore.getState().setChatRules(''); }}
+                className="rounded-md px-2 py-1.5 text-[12px]"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                Очистить
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Плашка плана: «2 из 7» и текущий пункт. Показывается, только когда
+    агент действительно прислал план, - иначе это пустая рамка. */
+function PlanBar() {
+  const plan = useOpenCoreStore(s => s.config.agentPlan ?? null);
+  if (!plan || plan.total <= 0) return null;
+  const pct = Math.round((plan.done / plan.total) * 100);
+  return (
+    <div className="mx-auto w-full max-w-3xl px-1 pt-2">
+      <div className="flex items-center gap-2 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+        <span className="font-bold" style={{ color: 'var(--color-primary)' }}>{plan.done} из {plan.total}</span>
+        <span className="min-w-0 flex-1 truncate">{plan.step || plan.items[plan.done] || ''}</span>
+      </div>
+      <div className="mt-1 h-1 overflow-hidden rounded-full" style={{ background: 'var(--color-surface-2)' }}>
+        <div
+          className="h-full transition-[width] duration-300"
+          style={{ width: `${pct}%`, background: 'var(--color-primary)' }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function AgentModes() {
   const webSearch = useOpenCoreStore(s => s.config.webSearch ?? false);
   const deepThinking = useOpenCoreStore(s => s.config.deepThinking ?? false);
@@ -2010,6 +2098,8 @@ export function OpenPortalPage() {
       // Факты, которые человек уже сообщал в прошлых чатах. Без этого
       // память сохранялась бы, но никогда не попадала бы в промпт.
       memory: cfg.memoryEnabled === false ? [] : store.memory.map(f => ({ key: f.key, text: f.text })),
+      rules: cfg.chatRules,
+      plan: cfg.agentPlan ?? null,
     });
 
     const abort = new AbortController();
@@ -2403,6 +2493,9 @@ export function OpenPortalPage() {
               больше не висят тремя отдельными плавающими рядами. */}
           {/* Без overflow-hidden: контейнер обрезал выпадающий список модели и
               панель управления моделями, из-за чего они не открывались. */}
+          <div className="mx-auto w-full max-w-3xl shrink-0">
+            <PlanBar />
+          </div>
           <div className="uiv-chat-composer container_chat_bot mx-auto w-full max-w-3xl"
             style={{ background: 'var(--color-surface-2)',
                      border: `1px solid ${input.trim() ? 'var(--color-primary)' : 'var(--color-border)'}`,
@@ -2429,6 +2522,7 @@ export function OpenPortalPage() {
               <EffortPicker value={cfg.effort ?? 'medium'} onChange={v => useOpenCoreStore.getState().updateConfig({ effort: v })} />
               <PresetToggle preset={cfg.permissionPreset ?? 'dfa'} onChange={p => useOpenCoreStore.getState().setPermissionPreset(p)} />
               <AgentModes />
+              <RulesAndPlan />
               <span className="flex-1" />
               <BuildPicker />
             </div>

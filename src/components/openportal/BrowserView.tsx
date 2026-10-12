@@ -223,10 +223,9 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
               style={{ color: 'var(--color-text-tertiary)' }}>
               <X size={12} />
             </button>
-          </>
-          )}
-        </div>
-      )}
+</>
+        )}
+      </div>
 
       {/* Предупреждение о неподтверждённом домене - то, что должен видеть человек. */}
       {domain && !domain.verified && !closed && (

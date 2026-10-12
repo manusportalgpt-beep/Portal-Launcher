@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type WheelEvent } from 'react';
 import { invoke } from '@/lib/invoke-shim';
 import { listen } from '@tauri-apps/api/event';
-import { Download, Globe, Loader2, MousePointer2, ShieldAlert, ShieldCheck, X } from 'lucide-react';
+import { Download, Globe, Loader2, Minus, MousePointer2, ShieldAlert, ShieldCheck, Square, X } from 'lucide-react';
 import type { BrowserCard as BrowserCardData } from '@/lib/opencore/types';
 
 /** Прозрачный пиксель: заглушка src до первого кадра. */
@@ -57,6 +57,7 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
   const [title, setTitle] = useState(card.title);
   const [domain, setDomain] = useState<HostVerdict | null>(null);
   const [closed, setClosed] = useState(!card.active);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     setClosed(!card.active);
@@ -102,6 +103,12 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
     setClosed(true);
     setControl(false);
   };
+
+  // Свертка - не то же самое, что закрытие. Сессия браузера остаётся
+  // жить, страница продолжает грузиться, и когда панель развернут,
+  // человек возвращается ровно туда же, где остановился. Закрытие же
+  // всё глушит и требует открывать заново.
+  const collapse = () => setCollapsed(true);
 
   const fw = box.w || 900;
   const fh = box.h || 640;
@@ -178,11 +185,39 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
           </span>
         )}
         {!closed && (
-          <>
+          {collapsed && !closed && (
+        /* Свёрнутое состояние. Сессия продолжает работать, поэтому полоса
+           остаётся на месте и показывает адрес страницы: человек должен
+           видеть, куда он ушёл, даже не открывая окно. */
+        <div className="flex items-center gap-2 border-b px-2.5 py-1"
+          style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
+          <button onClick={() => setCollapsed(false)} title="Развернуть браузер"
+            className="rounded p-0.5 transition-colors hover:bg-[var(--color-surface-2)]"
+            style={{ color: 'var(--color-text-tertiary)' }}>
+            <Square size={10} />
+          </button>
+          <Globe size={11} style={{ color: 'var(--color-text-tertiary)' }} />
+          <span className="min-w-0 flex-1 truncate text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+            {title || url || 'Браузер свёрнут'}
+          </span>
+          <button onClick={() => void stop()} title="Остановить браузер"
+            className="rounded p-0.5 transition-colors"
+            style={{ color: 'var(--color-text-tertiary)' }}>
+            <X size={12} />
+          </button>
+        </div>
+      )}
+      {!collapsed && (
+      <>
             <button onClick={() => setControl(value => !value)} title={control ? 'Передать управление ИИ' : 'Взять браузер под управление'}
               className="rounded px-1.5 py-0.5 text-[10px] font-bold transition-colors"
               style={{ color: control ? '#f59e0b' : 'var(--color-primary)', background: 'var(--color-surface)' }}>
               {control ? 'Управляю сам' : 'Взять управление'}
+            </button>
+            <button onClick={() => setCollapsed(true)} title="Свернуть окно браузера"
+              className="rounded p-0.5 transition-colors"
+              style={{ color: 'var(--color-text-tertiary)' }}>
+              <Minus size={12} />
             </button>
             <button onClick={() => void stop()} title="Остановить браузер"
               className="rounded p-0.5 transition-colors"
@@ -190,8 +225,9 @@ export function BrowserView({ card }: { card: BrowserCardData }) {
               <X size={12} />
             </button>
           </>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Предупреждение о неподтверждённом домене - то, что должен видеть человек. */}
       {domain && !domain.verified && !closed && (

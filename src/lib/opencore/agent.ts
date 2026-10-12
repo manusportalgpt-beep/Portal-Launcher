@@ -2360,12 +2360,38 @@ async function execInspectImage(args: { root: PortalRoot; path: string }): Promi
  * отдаём агенту явный текст «задача остановлена», чтобы он не пытался
  * бесконечно повторять клики и в итоге выдал пользователю итог работы.
  */
-async function execBrowser(tool: string, args: any, signal?: AbortSignal): Promise<ExecResult> {
+async function execBrowser(
+  tool: string,
+  args: any,
+  signal?: AbortSignal,
+  requestPermission?: (req: PermissionRequest) => Promise<'allow' | 'deny' | 'always' | 'never'>,
+): Promise<ExecResult> {
   const CLOSED = 'Браузер остановлен. Задача остановлена - подведи итог и закончи работу.';
   try {
     if (signal?.aborted) return { ok: false, output: 'Отменено пользователем.' };
 
     if (tool === 'browser_open') {
+      // Браузер выходит в интернет и видит всё, что человек делает, поэтому
+      // при пресете DFA спрашиваем один раз за сессию, а не на каждый клик:
+      // иначе агент утонет в модалках и работать станет невозможно.
+      // Кнопка "всегда" запоминает решение до конца сессии.
+      if (requestPermission) {
+        const decision = await requestPermission({
+          tool,
+          root: 'portal',
+          label: 'Открыть браузер ИИ',
+          detail: args?.url ? `Браузер ИИ откроет ${String(args.url)}` : 'Браузер ИИ выйдет в интернет',
+          cwdLabel: 'Браузер ИИ',
+          resolve: () => {},
+        });
+        if (decision === 'deny' || decision === 'never') {
+          return {
+            ok: false,
+            output: 'Запуск браузера запрещён человеком. Не пытайся снова и скажи об этом прямо.',
+            browser: { active: false, url: '', title: '', downloads: [] },
+          };
+        }
+      }
       const st = await invoke<any>('op_browser_open', { url: args?.url ? String(args.url) : null });
       if (st?.closed_by_user || !st?.open) {
         return { ok: false, output: CLOSED, browser: { active: false, url: '', title: '', downloads: [] } };
@@ -4250,7 +4276,7 @@ export async function executeTool(
   if (tool === 'set_service_token') return execSetServiceToken(ep, args, requestPermission);
   if (tool === 'spawn_agents') return execSpawnAgents(ep, args, requestPermission, signal);
 
-  if (tool.startsWith('browser_')) return execBrowser(tool, args, signal);
+  if (tool.startsWith('browser_')) return execBrowser(tool, args, signal, requestPermission);
   // Псевдонимы. Модели часто называют инструмент по привычке — bash, terminal,
   // shell — хотя у нас он называется run_command. Раньше такой вызов падал с
   // «Неизвестный инструмент: bash», и агент начинал спорить вместо работы.

@@ -1088,7 +1088,7 @@ const [bedrockNote, setBedrockNote] = useState('');
     const lmap: Record<number,string> = {0:'any',1:'forge',2:'cauldron',3:'liteloader',4:'fabric',5:'quilt',6:'neoforge'};
     return {
       id: String(m.id), slug: m.slug, title: m.name, description: m.summary,
-      author: (m.authors ?? [])[0]?.name ?? 'Неизвестный автор', authorId: (m.authors ?? [])[0]?.id, authorAvatarUrl: (m.authors ?? [])[0]?.avatar_url, downloads: m.download_count ?? 0, follows: m.thumbs_up_count ?? 0,
+      author: (m.authors ?? []).map(a => a.name).filter(Boolean).join(', ') || 'Неизвестно', authorId: (m.authors ?? [])[0]?.id, authorAvatarUrl: (m.authors ?? [])[0]?.avatar_url, downloads: m.download_count ?? 0, follows: m.thumbs_up_count ?? 0,
       iconUrl: m.logo?.thumbnail_url,
       categories: (m.categories ?? []).map(c => c.name),
       categorySlugs: (m.categories ?? []).map(c => c.slug ?? '').filter(Boolean),

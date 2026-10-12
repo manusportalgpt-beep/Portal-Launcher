@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useThemeStore } from '@/stores/themeStore';
-import { Copy, FolderInput, Boxes } from 'lucide-react';
+import { Copy, FolderInput, Boxes, Pin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -32,6 +32,8 @@ type ModEntry = {
   authorId?: number;
   source?: string;
   updateAvailable?: boolean;
+  /** Закреплён: сборка не требует обновлять этот мод. */
+  pinned?: boolean;
   mod_type?: string;
   enabled?: boolean;
 };
@@ -309,7 +311,15 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
         const project = item.source === 'curseforge'
           ? await invoke<any>('get_curseforge_mod', { projectId: Number(item.id), apiKey: curseforgeApiKey })
           : await getModrinthProjectGateway(item.id);
-        const author = item.source === 'curseforge' ? (project?.authors?.[0]?.name || project?.authors?.[0]?.username) : project?.author;
+        // Все авторы, а не только первый: у команды на CurseForge их несколько,
+// и раньше остальные просто терялись. Иконка аватара по-прежнему берётся
+// по первому - аватара у команды обычно один.
+        const author = item.source === 'curseforge'
+          ? (project?.authors ?? [])
+            .map((a: any) => a?.name || a?.username)
+            .filter(Boolean)
+            .join(', ') || item.author
+          : project?.author;
         const icon = item.source === 'curseforge' ? (project?.logo?.thumbnail_url || project?.logo?.thumbnailUrl) : project?.icon_url;
         const authorId = item.source === 'curseforge' ? project?.authors?.[0]?.id : undefined;
         const patch = { id: item.id, author: typeof author === 'string' ? author : undefined, icon: typeof icon === 'string' ? icon : undefined, authorId: typeof authorId === 'number' ? authorId : undefined };
@@ -610,8 +620,25 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
     }
   }
 
-  async function checkInstanceHealth() {
-    setHealthLoading(true); setError(null);
+/** Закрепить или открепить мод и сразу пересчитать обновления: после
+    команды сервер уже знает, что закреплённый мод обновления не ждёт,
+    и список не должен показывать его старым. */
+async function togglePin(m: { id: string; pinned?: boolean }) {
+  const next = !m.pinned;
+  setMods(prev => prev.map(x => x.id === m.id ? { ...x, pinned: next } : x));
+  try {
+    await invoke('set_mod_pinned', { instanceId, modId: m.id, pinned: next });
+    await checkInstanceHealth();
+  } catch (e) {
+    // Возвращаем состояние назад: интерфейс не должен врать о том,
+    // что мод закреплён, если сервер запись не принял.
+    setMods(prev => prev.map(x => x.id === m.id ? { ...x, pinned: !next } : x));
+    setError(String(e));
+  }
+}
+
+async function checkInstanceHealth() {
+  setHealthLoading(true); setError(null);
     try {
       const [foundConflicts, checkedMods] = await Promise.all([
         invoke<Array<{ mod_a: string; mod_b: string; reason: string }>>('detect_mod_conflicts', { instanceId }),
@@ -914,8 +941,19 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-text)' }}>{m.name}</p>
-                    <AuthorLink author={m.author} authorId={m.authorId} source={m.source} />
-                  </div>
+<AuthorLink author={m.author} authorId={m.authorId} source={m.source} />
+              {/* Закрепить: сборка перестанет требовать обновление этого
+                  мода. Кнопка стоит рядом со строкой мода, а не в конце
+                  списка, иначе её не найти. */}
+              <button
+                onClick={() => void togglePin(m)}
+                title={m.pinned ? 'Открепить: снова требовать обновление' : 'Закрепить версию'}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors hover:bg-[var(--color-surface-2)]"
+                style={{ color: m.pinned ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}
+              >
+                <Pin size={13} />
+              </button>
+            </div>
                 </div>
                 <div className="w-24 shrink-0 text-xs truncate" style={{ color: 'var(--color-text-secondary)' }}>
                   {progressMap[m.id] ? `${progressMap[m.id].percent}%` : (m.installedVersion ?? '—')}

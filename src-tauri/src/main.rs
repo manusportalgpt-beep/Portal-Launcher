@@ -411,6 +411,7 @@ fn main() {
             commands::opencode::op_session_archive_count,
             commands::opencode::op_session_archive_page,
             commands::opencode::op_save_session,
+            commands::mods::set_mod_pinned,
             commands::opencode::op_project_ensure,
             commands::opencode::op_project_remove,
             commands::opencode::op_load_session,

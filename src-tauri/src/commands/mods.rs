@@ -101,6 +101,11 @@ pub struct InstalledMod {
     pub latest_version: Option<String>,
     pub latest_version_id: Option<String>,
     pub latest_download_url: Option<String>,
+    /// Мод закреплён: сборка не требует его обновлять, даже если вышла
+    /// новая версия. По умолчанию serde пропускает поле, поэтому старые
+    /// сборки читаются как незакреплённые.
+    #[serde(default)]
+    pub pinned: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1327,9 +1332,10 @@ pub async fn get_instance_mods(instance_id: String) -> Result<Vec<InstalledMod>,
                         update_available: m["update_available"].as_bool().unwrap_or(false),
                         latest_version: m["latest_version"].as_str().map(|s| s.to_string()),
                         latest_version_id: m["latest_version_id"].as_str().map(|s| s.to_string()),
-                        latest_download_url: m["latest_download_url"]
-                            .as_str()
-                            .map(|s| s.to_string()),
+latest_download_url: m["latest_download_url"]
+            .as_str()
+            .map(|s| s.to_string()),
+    pinned: m["pinned"].as_bool().unwrap_or(false),
                     });
                 } else {
                     let normalized_display = normalize_content_identity(&display);
@@ -1796,6 +1802,39 @@ pub async fn set_instance_safe_mode(instance_id: String, enabled: bool) -> Resul
 }
 
 #[tauri::command]
+/// Закрепить или открепить мод: сборка перестаёт требовать его обновлять,
+/// пока флаг стоит. Обновление вручную при этом всё ещё доступно - закрепление
+/// запрещает только автоматическое требование, а не возможность обновиться.
+#[tauri::command]
+pub async fn set_mod_pinned(
+    instance_id: String,
+    mod_id: String,
+    pinned: bool,
+) -> Result<(), String> {
+    let path = instance_json_path(&instance_id);
+    let data = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let mut config = serde_json::from_str::<serde_json::Value>(&data).map_err(|e| e.to_string())?;
+    let Some(items) = config["mods"].as_array_mut() else {
+        return Ok(());
+    };
+    for item in items.iter_mut() {
+        let matches = item["id"].as_str() == Some(mod_id.as_str())
+            || item["file_name"].as_str() == Some(mod_id.as_str());
+        if matches {
+            item["pinned"] = serde_json::Value::Bool(pinned);
+            // Закреплённый мод не должен висеть в списке обновлений.
+            if pinned {
+                item["update_available"] = serde_json::Value::Bool(false);
+            }
+        }
+    }
+    let out = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
+    std::fs::write(&path, out).map_err(|e| e.to_string())
+}
+
+/// Помечает мод закреплённым или откреплённым и сразу пересчитывает,
+/// доступно ли обновление. Возвращает обновлённый список - интерфейсу
+/// не нужно гадать, что изменилось.
 pub async fn check_mod_updates(instance_id: String) -> Result<Vec<InstalledMod>, String> {
     let client = reqwest::Client::builder()
         .user_agent("PortalLauncher/1.1")
@@ -1896,7 +1935,10 @@ pub async fn check_mod_updates(instance_id: String) -> Result<Vec<InstalledMod>,
             )
             .await
             .ok();
-            m.update_available = latest_url.is_some();
+            // Закреплённый мод не требует обновления: иначе он вечно числился бы в
+    // списке обновлений и сборка требовала бы его обновить. Сама новая
+    // версия всё равно находится, просто не помечается как доступная.
+    m.update_available = !m.pinned && latest_url.is_some();
             m.latest_version = latest["displayName"]
                 .as_str()
                 .map(String::from)
@@ -1911,8 +1953,8 @@ pub async fn check_mod_updates(instance_id: String) -> Result<Vec<InstalledMod>,
             if let Ok(versions) = resp.json::<serde_json::Value>().await {
                 if let Some(latest) = versions.as_array().and_then(|a| a.first()) {
                     let latest_id = latest["id"].as_str().unwrap_or("").to_string();
-                    if !latest_id.is_empty() && latest_id != current_vid {
-                        m.update_available = true;
+if !latest_id.is_empty() && latest_id != current_vid {
+                m.update_available = !m.pinned;
                         m.latest_version = latest["version_number"].as_str().map(|s| s.to_string());
                         m.latest_version_id = Some(latest_id);
                         m.latest_download_url = latest["files"]

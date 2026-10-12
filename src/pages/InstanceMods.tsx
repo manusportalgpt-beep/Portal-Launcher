@@ -130,6 +130,10 @@ function GameModeBadge({ mode, hardcore }: { mode?: string; hardcore?: boolean }
 function AuthorLink({ author, authorId, source }: { author?: string; authorId?: number; source?: string }) {
   const navigate = useNavigate();
   const avatar = useAuthorAvatar(author, source);
+  // mc-heads и Modrinth отдают 404 для ников, которых у них нет: у команды
+  // CurseForge ник может отличаться от ника на Minecraft. Показываем букву.
+  const [avatarBroken, setAvatarBroken] = useState(false);
+  useEffect(() => { setAvatarBroken(false); }, [author, source]);
   if (!author) return null;
   const src = source === 'curseforge' ? 'curseforge' : 'modrinth';
   return (
@@ -138,8 +142,19 @@ function AuthorLink({ author, authorId, source }: { author?: string; authorId?: 
       className="inline-flex cursor-pointer items-center gap-1.5 mt-0.5 hover:underline hover:opacity-80 transition-opacity"
       title={`Open ${author} profile`}
     >
-      <span className="flex w-4 h-4 items-center justify-center rounded-full overflow-hidden shrink-0 text-[9px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>
-        {avatar ? <img src={avatar} alt="" className="w-full h-full object-cover" /> : author.slice(0, 1).toUpperCase()}
+      <span className="relative flex w-4 h-4 items-center justify-center rounded-full overflow-hidden shrink-0 text-[9px] font-bold" style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-secondary)' }}>
+        {/* Буква рисуется всегда и остаётся под картинкой. Раньше img без
+            обработчика ошибки при недоступном URL оставлял пустой круг -
+            выглядело, что иконки нет вовсе. */}
+        <span aria-hidden="true">{author.slice(0, 1).toUpperCase()}</span>
+        {avatar && !avatarBroken && (
+          <img
+            src={avatar}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            onError={() => setAvatarBroken(true)}
+          />
+        )}
       </span>
       <span className="text-[11px] font-semibold" style={{ color: 'var(--color-primary)' }}>{author}</span>
     </span>

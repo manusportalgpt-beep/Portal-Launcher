@@ -41,9 +41,11 @@ fn find_binary() -> Option<std::path::PathBuf> {
 }
 
 /// Немного разряженный http-запрос: хватает, чтобы узнать, отвечает ли сервер.
+/// Синхронный клиент - здесь это разовая проверка в отдельном потоке, а сам
+/// запрос модели идёт обычным асинхронным путём.
 fn probe_health(port: u16) -> Result<String, String> {
     let url = format!("http://127.0.0.1:{port}/global/health");
-    let client = reqwest::Client::builder()
+    let client = reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_millis(1200))
         .build()
         .map_err(|e| e.to_string())?;
@@ -51,7 +53,7 @@ fn probe_health(port: u16) -> Result<String, String> {
     if !res.status().is_success() {
         return Err(format!("HTTP {}", res.status()));
     }
-    res.text().await.map_err(|e| e.to_string())
+    res.text().map_err(|e| e.to_string())
 }
 
 #[derive(serde::Serialize)]

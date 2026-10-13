@@ -1072,42 +1072,79 @@ function RulesAndPlan() {
         <Icon size={10} />
         Правила
       </button>
-      {open && (
-        <div
-          className="absolute right-0 top-full z-50 mt-1 w-80 rounded-lg border p-2"
-          style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}
-        >
-          <p className="px-1 pb-1 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
-            Агент пишет правила под задачу. Ты можешь поправить текст — он больше не сможет его изменить.
-          </p>
-          <textarea
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            placeholder="Правил пока нет. Опиши, как тебе работать с этим чатом."
-            rows={6}
-            className="w-full resize-none rounded-md bg-transparent p-2 text-[12px] outline-none"
-            style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
-          />
-          <div className="flex items-center gap-1.5 pt-1.5">
-            <button
-              onClick={() => useOpenCoreStore.getState().setChatRules(draft.trim())}
-              className="rounded-md px-2 py-1.5 text-[12px] font-bold"
-              style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}
-            >
-              Сохранить
-            </button>
-            {chatRules.trim() && (
-              <button
-                onClick={() => { setDraft(''); useOpenCoreStore.getState().setChatRules(''); }}
-                className="rounded-md px-2 py-1.5 text-[12px]"
-                style={{ color: 'var(--color-text-tertiary)' }}
-              >
-                Очистить
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+{open && (
+ <div
+ className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+ onClick={() => setOpen(false)}
+ style={{ background: 'rgba(0,0,0,0.6)' }}
+ >
+ <div
+ className="w-full max-w-md rounded-2xl border p-4"
+ onClick={event => event.stopPropagation()}
+ style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}
+ >
+ <div className="mb-2 flex items-center justify-between">
+ <p className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>Правила и план</p>
+ <button onClick={() => setOpen(false)} className="rounded p-1 transition-colors hover:opacity-80"
+ style={{ color: 'var(--color-text-tertiary)' }}>
+ <X size={14} />
+ </button>
+ </div>
+ {plan && (
+ <div className="mb-3 rounded-lg border p-2"
+ style={{ background: 'var(--color-surface-2)', borderColor: 'var(--color-border)' }}>
+ <p className="mb-1 text-[11px] font-bold" style={{ color: 'var(--color-text)' }}>
+ План: выполнено {plan.done} из {plan.items.length}
+ </p>
+ <p className="mb-1.5 text-[11px] leading-snug" style={{ color: 'var(--color-text-secondary)' }}>
+ {plan.step || plan.items[plan.done] || 'Готово'}
+ </p>
+ <div className="flex flex-wrap gap-1">
+ {plan.items.map((item: string, i: number) => (
+ <span key={i} className="rounded px-1.5 py-0.5 text-[10px] font-bold"
+ style={{
+ background: i < plan.done ? 'var(--color-primary-dim)' : 'var(--color-surface)',
+ color: i < plan.done ? 'var(--color-primary)' : 'var(--color-text-tertiary)',
+ textDecoration: i < plan.done ? 'line-through' : 'none',
+ }}>
+ {item}
+ </span>
+ ))}
+ </div>
+ </div>
+ )}
+ <p className="mb-1 px-1 text-[11px] leading-snug" style={{ color: 'var(--color-text-tertiary)' }}>
+ Правила чата. Агент будет им следовать во всех следующих ответах.
+ </p>
+ <textarea
+ value={draft}
+ onChange={e => setDraft(e.target.value)}
+ placeholder="Например: отвечай кратко, без воды и без списков."
+ rows={6}
+ className="w-full resize-none rounded-lg p-2 text-[12px] outline-none"
+ style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+ />
+ <div className="flex items-center gap-1.5 pt-2">
+ <button
+ onClick={() => useOpenCoreStore.getState().setChatRules(draft.trim())}
+ className="rounded-lg px-3 py-1.5 text-[12px] font-bold"
+ style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}
+ >
+ Сохранить
+ </button>
+ {chatRules.trim() && (
+ <button
+ onClick={() => { setDraft(''); useOpenCoreStore.getState().setChatRules(''); }}
+ className="rounded-lg px-3 py-1.5 text-[12px]"
+ style={{ color: 'var(--color-text-tertiary)' }}
+ >
+ Очистить
+ </button>
+ )}
+ </div>
+ </div>
+ </div>
+ )}
     </div>
   );
 }
@@ -2572,6 +2609,7 @@ export function OpenPortalPage() {
               <EffortPicker value={cfg.effort ?? 'medium'} onChange={v => useOpenCoreStore.getState().updateConfig({ effort: v })} />
               <PresetToggle preset={cfg.permissionPreset ?? 'dfa'} onChange={p => useOpenCoreStore.getState().setPermissionPreset(p)} />
               <AgentModes />
+              <RulesAndPlan />
               <span className="flex-1" />
               <BuildPicker />
             </div>

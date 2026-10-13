@@ -360,6 +360,11 @@ function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
   const [busyLoader] = useState<LoaderId>(() => LOADER_VARIANTS[Math.floor(Math.random() * LOADER_VARIANTS.length)] ?? LOADER_IDS[0]);
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmRunningInstall, setConfirmRunningInstall] = useState(false);
+  // A data pack only works inside a world, so installing one needs a target.
+  const [dpPick, setDpPick] = useState<null | {
+    worlds: { folder: string; name: string; icon?: string }[];
+    file: any; ver: any; selected: string;
+  }>(null);
   const sourceChoiceAvailable = project.sources?.length === 2;
   const [selectedSource, setSelectedSource] = useState<SourcePlatform>((project.sources?.includes('modrinth') ? 'modrinth' : project.platform) as SourcePlatform);
   const installProject = project.sourceProjects?.[selectedSource] ?? project;
@@ -373,6 +378,38 @@ function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
       <Check className="w-3.5 h-3.5" />{t('findProjects.install.downloaded')}
     </div>
   );
+
+  async function confirmDatapackInstall() {
+    if (!dpPick || state !== 'idle') return;
+    setState('busy');
+    const { file, ver, selected } = dpPick;
+    try {
+      await invoke('install_datapack', {
+        instanceId,
+        worldFolder: selected,
+        downloadUrl: file.url,
+        fileName: file.filename,
+        modId: installProject.id,
+        modName: installProject.title,
+        modVersion: ver.version_number || '',
+        versionId: ver.id || '',
+        source: 'modrinth',
+        projectId: installProject.id,
+        author: installProject.author || null,
+        iconUrl: installProject.iconUrl || null,
+      });
+      const worldName = dpPick.worlds.find(w => w.folder === selected)?.name || selected;
+      useInstalledStore.getState().mark(instanceId, [installProject.id, installProject.title, installProject.slug]);
+      triggerInstallEffect({ name: installProject.title, iconUrl: installProject.iconUrl, contentType: 'datapack' });
+      setDpPick(null);
+      setState('ok');
+      setErrorMsg(`Датапак установлен в мир «${worldName}»`);
+    } catch (error: any) {
+      setState('err');
+      setErrorMsg(String(error?.message || error || 'Не удалось установить датапак'));
+      setTimeout(() => setState('idle'), 5000);
+    }
+  }
 
   async function doInstall(e: React.MouseEvent) {
     e.stopPropagation();
@@ -436,8 +473,24 @@ function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
           installProject.projectType === 'resourcepacks' ? 'resourcepack'
             : installProject.projectType === 'shaders' ? 'shaderpack'
               : installProject.projectType === 'datapacks' ? 'datapack'
-                : 'mod';
-        await invoke('install_mod', {
+: 'mod';
+    // Датапак игра читает только из мира, поэтому сначала спрашиваем, в какой
+    // мир его положить, и в installs уводим уже выбранный мир.
+    if (contentType === 'datapack') {
+      let worlds: { folder: string; name: string; icon?: string }[] = [];
+      try {
+        worlds = ((await invoke('instance_list_worlds', { instanceId })) as any[]) || [];
+      } catch { worlds = []; }
+      if (!worlds.length) {
+        setErrorMsg('В сборке нет миров. Создайте мир и запустите его хотя бы раз.');
+        setState('err');
+        setTimeout(() => setState('idle'), 5000);
+        return;
+      }
+      setDpPick({ worlds, file, ver, selected: worlds[0].folder });
+      return;
+    }
+    await invoke('install_mod', {
           instanceId,
           downloadUrl: file.url,
           fileName: file.filename,
@@ -673,9 +726,58 @@ function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
       <button onClick={event => { event.stopPropagation(); setConfirmRunningInstall(false); }} title="Отмена" className="shrink-0"><X className="h-3.5 w-3.5" /></button>
     </div>
   );
-  return (
-    <div className="flex items-center gap-1.5">
-      {sourceChoiceAvailable && <div className="flex overflow-hidden" style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}>
+if (dpPick) return (
+ <div className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+ onClick={event => { event.stopPropagation(); setDpPick(null); }}
+ style={{ background: 'rgba(0,0,0,0.6)' }}>
+ <div className="w-full max-w-sm rounded-2xl border p-4"
+ onClick={event => event.stopPropagation()}
+ style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+ <p className="mb-0.5 text-sm font-bold" style={{ color: 'var(--color-text)' }}>
+ В какой мир поставить датапак?
+ </p>
+ <p className="mb-3 text-[11px] leading-snug" style={{ color: 'var(--color-text-tertiary)' }}>
+ Датапак работает только внутри мира. Он будет установлен в
+ saves/&lt;мир&gt;/datapacks.
+ </p>
+ <div className="mb-3 max-h-56 overflow-y-auto">
+ {dpPick.worlds.map(w => (
+ <button key={w.folder} onClick={() => setDpPick({ ...dpPick, selected: w.folder })}
+ className="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors"
+ style={{
+ background: dpPick.selected === w.folder ? 'rgba(108,92,231,0.18)' : 'var(--color-surface-2)',
+ border: `1px solid ${dpPick.selected === w.folder ? 'var(--color-primary)' : 'var(--color-border)'}`,
+ }}>
+ {w.icon
+ ? <img src={w.icon} alt="" className="h-6 w-6 shrink-0 rounded" style={{ objectFit: 'cover' }} />
+ : <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-bold"
+ style={{ background: 'var(--color-surface)', color: 'var(--color-text-tertiary)' }}>?</span>}
+ <span className="min-w-0 flex-1">
+ <span className="block truncate text-[12px] font-bold" style={{ color: 'var(--color-text)' }}>{w.name}</span>
+ <span className="block truncate text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>{w.folder}</span>
+ </span>
+ {dpPick.selected === w.folder && <Check className="h-4 w-4 shrink-0" style={{ color: 'var(--color-primary)' }} />}
+ </button>
+ ))}
+ </div>
+ <div className="flex justify-end gap-2">
+ <button onClick={() => setDpPick(null)}
+ className="rounded-lg px-3 py-1.5 text-[11px] font-bold"
+ style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)' }}>
+ Отмена
+ </button>
+ <button onClick={() => void confirmDatapackInstall()} disabled={state === 'busy'}
+ className="rounded-lg px-3 py-1.5 text-[11px] font-bold disabled:opacity-60"
+ style={{ background: 'var(--grad)', color: '#FFFFFF' }}>
+ Установить
+ </button>
+ </div>
+ </div>
+ </div>
+ );
+return (
+ <div className="flex items-center gap-1.5">
+ {sourceChoiceAvailable && <div className="flex overflow-hidden" style={{ border:'1px solid var(--color-border)', borderRadius:'var(--radius-button)' }}>
         {(['modrinth','curseforge'] as SourcePlatform[]).map(source => <button key={source} title={source === 'modrinth' ? 'Скачать с Modrinth' : 'Скачать с CurseForge'} aria-label={source === 'modrinth' ? 'Скачать с Modrinth' : 'Скачать с CurseForge'} onClick={event => { event.stopPropagation(); setSelectedSource(source); }} className="flex h-7 w-7 items-center justify-center" style={{ background:selectedSource === source ? 'var(--color-primary-dim)' : 'transparent', opacity:selectedSource === source ? 1 : .55 }}><PlatformMark platform={source} size={16} /></button>)}
       </div>}
     {/* Кнопка установки сохраняет hover-эффект stale-baboon-45, а во время

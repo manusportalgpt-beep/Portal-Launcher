@@ -401,8 +401,8 @@ function InstallBtn({ project, instanceId, mcVersion, loader, bedrockMode }: {
       const worldName = dpPick.worlds.find(w => w.folder === selected)?.name || selected;
       useInstalledStore.getState().mark(instanceId, [installProject.id, installProject.title, installProject.slug]);
       triggerInstallEffect({ name: installProject.title, iconUrl: installProject.iconUrl, contentType: 'datapack' });
-      setDpPick(null);
-      setState('ok');
+setDpPick(null);
+ setState('done');
       setErrorMsg(`Датапак установлен в мир «${worldName}»`);
     } catch (error: any) {
       setState('err');

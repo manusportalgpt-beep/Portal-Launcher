@@ -954,7 +954,7 @@ async function checkInstanceHealth() {
  try {
  await invoke('toggle_datapack', { instanceId, worldFolder: d.world, fileName: d.file_name });
  await loadDatapacks();
- } catch (error: any) { setErr(String(error?.message || error)); }
+ } catch (error: any) { setError(String(error?.message || error)); }
  }} className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-bold"
  style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)' }}>
  {d.enabled ? 'Выключить' : 'Включить'}
@@ -963,7 +963,7 @@ async function checkInstanceHealth() {
  try {
  await invoke('remove_datapack', { instanceId, worldFolder: d.world, fileName: d.file_name });
  await loadDatapacks();
- } catch (error: any) { setErr(String(error?.message || error)); }
+ } catch (error: any) { setError(String(error?.message || error)); }
  }} className="shrink-0 rounded-lg p-1.5 transition-colors hover:opacity-80"
  style={{ background: 'var(--color-surface-2)', color: 'var(--color-error)' }}>
  <Trash2 className="h-3.5 w-3.5" />

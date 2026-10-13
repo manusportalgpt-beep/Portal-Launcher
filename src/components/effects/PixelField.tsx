@@ -24,6 +24,10 @@ interface Props {
   softness?: number;
   /** Скорость перелива. 0 - статичный цвет. */
   flow?: number;
+  /** Своя палитра вместо встроенного перелива: от 2 до 10 цветов. */
+  palette?: string[];
+  /** Сторона, с которой начинается переход между цветами палитры. */
+  gradientSide?: 'left' | 'right' | 'top' | 'bottom';
   /** Насыщенность цвета пикселя, 0..1. */
   saturation?: number;
   /** Общая непрозрачность сетки, 0..1. */
@@ -31,12 +35,26 @@ interface Props {
   className?: string;
 }
 
+/** #rrggbb или #rgb в тройку 0..255. Неверный цвет - нейтральный серый. */
+function hexToRgb(hex: string): [number, number, number] {
+  const raw = hex.trim().replace('#', '',);
+  const full = raw.length === 3 ? raw.split('').map(c => c + c).join('') : raw;
+  if (!/^[0-9a-fA-F]{6}$/.test(full)) return [140, 140, 140];
+  return [
+    parseInt(full.slice(0, 2), 16),
+    parseInt(full.slice(2, 4), 16),
+    parseInt(full.slice(4, 6), 16),
+  ];
+}
+
 export function PixelField({
   cell = 15,
   radius = 132,
   depth = 1,
+  gradientSide = 'left',
+  palette,
   softness = 2.1,
-  flow = 0.6,
+  flow = 0.14,
   saturation = 0.62,
   opacity = 0.72,
   className,
@@ -127,6 +145,18 @@ export function PixelField({
       const pointer = pointerRef.current;
       const usePointer = pointer.active && dip;
       const gap = Math.max(1.4, cell * 0.22);
+    // Своя палитра: цвета разбираем один раз, дальше только выбор по позиции.
+    const pal = palette && palette.length >= 2
+      ? palette.slice(0, 10).map(hexToRgb)
+      : null;
+    const sideT = (nx: number, ny: number) => {
+      switch (gradientSide) {
+        case 'right': return 1 - nx;
+        case 'top': return ny;
+        case 'bottom': return 1 - ny;
+        default: return nx;
+      }
+    };
       const size = cell - gap;
 
       for (let y = cell / 2; y < height + cell; y += cell) {
@@ -136,9 +166,22 @@ export function PixelField({
 
           // Глубина клетки: дальние тусклее и мельче, ближние ярче.
           const depth01 = depthAt(nx, ny, phase);
-          const hue = 150 - nx * 96 + (timeA(phase) + timeB(phase)) * 28;
-          const light = 0.26 + 0.36 * depth01;
-          hsl(hue, saturation, light, rgb);
+          if (pal) {
+            // Палитра: берём два соседних цвета и смешиваем их по позиции,
+            // поэтому переход остаётся плавным даже из 2 цветов.
+            const t = Math.min(1, Math.max(0, sideT(nx, ny) + (timeA(phase) + timeB(phase)) * 0.06));
+            const scaled = t * (pal.length - 1);
+            const i0 = Math.min(pal.length - 1, Math.floor(scaled));
+            const i1 = Math.min(pal.length - 1, i0 + 1);
+            const f = scaled - i0;
+            rgb[0] = pal[i0][0] + (pal[i1][0] - pal[i0][0]) * f;
+            rgb[1] = pal[i0][1] + (pal[i1][1] - pal[i0][1]) * f;
+            rgb[2] = pal[i0][2] + (pal[i1][2] - pal[i0][2]) * f;
+          } else {
+            const hue = 150 - nx * 96 + (timeA(phase) + timeB(phase)) * 28;
+            const light = 0.26 + 0.36 * depth01;
+            hsl(hue, saturation, light, rgb);
+          }
 
           // Углубление под курсором: 0 - ровно, 1 - максимум.
           let press = 0;
@@ -228,7 +271,7 @@ export function PixelField({
       canvas.removeEventListener('pointerleave', onPointerLeave);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [cell, radius, depth, softness, flow, saturation, opacity]);
+  }, [cell, radius, depth, softness, flow, saturation, opacity, palette, gradientSide]);
 
   return <canvas ref={canvasRef} className={className} aria-hidden="true" />;
 }

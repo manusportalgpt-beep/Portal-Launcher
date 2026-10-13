@@ -686,6 +686,63 @@ function AppearanceSection() {
           <Row label="Живые пиксели" desc="Радужное поле за интерфейсом. Можно выключить, если мешает читать текст.">
             <Toggle value={ui.particleFieldEnabled} onChange={v => ui.set('particleFieldEnabled', v)} />
           </Row>
+      <div className="mb-4">
+        <Row label="Палитра пикселей" desc="Свои цвета вместо встроенного перелива. От 2 до 10. Пусто - встроенный.">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(ui.particlePalette ?? []).map((c, i) => (
+              <span key={i} className="relative inline-block">
+                <input type="color" value={c}
+                  onChange={e => {
+                    const next = [...(ui.particlePalette ?? [])];
+                    next[i] = e.target.value;
+                    ui.set('particlePalette', next);
+                  }}
+                  className="h-7 w-7 cursor-pointer rounded border bg-transparent p-0"
+                  style={{ borderColor: 'var(--color-border)' }} />
+                <button
+                  title="Убрать цвет"
+                  onClick={() => ui.set('particlePalette', (ui.particlePalette ?? []).filter((_, j) => j !== i))}
+                  className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[9px] leading-none"
+                  style={{ background: 'var(--color-surface)', color: 'var(--color-text-tertiary)', border: '1px solid var(--color-border)' }}>
+                  ×
+                </button>
+              </span>
+            ))}
+            {(ui.particlePalette ?? []).length < 10 && (
+              <button
+                onClick={() => ui.set('particlePalette', [...(ui.particlePalette ?? []), '#4fd1a5'])}
+                title="Добавить цвет"
+                className="flex h-7 w-7 items-center justify-center rounded border text-[13px] leading-none"
+                style={{ background: 'var(--color-surface-2)', color: 'var(--color-text-tertiary)', border: '1px solid var(--color-border)' }}>
+                +
+              </button>
+            )}
+            {(ui.particlePalette ?? []).length > 0 && (
+              <button onClick={() => ui.set('particlePalette', [])}
+                className="px-2 py-1 text-[10px] font-bold"
+                style={{ color: 'var(--color-text-tertiary)' }}>
+                Сбросить
+              </button>
+            )}
+          </div>
+        </Row>
+      </div>
+      <div className="mb-4">
+        <Row label="Сторона перехода" desc="С какой стороны начинается переход между цветами палитры.">
+          <div className="flex overflow-hidden" style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-button)' }}>
+            {([['left','Слева'],['right','Справа'],['top','Сверху'],['bottom','Снизу']] as const).map(([id, label]) => (
+              <button key={id} onClick={() => ui.set('particleGradientSide', id)}
+                className="px-2.5 py-1 text-[11px] font-bold transition-colors"
+                style={{
+                  background: (ui.particleGradientSide ?? 'left') === id ? 'var(--color-primary)' : 'transparent',
+                  color: (ui.particleGradientSide ?? 'left') === id ? 'var(--color-primary-text)' : 'var(--color-text-secondary)',
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </Row>
+      </div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <input ref={backgroundImageFileRef} type="file" accept="image/*" hidden onChange={event => void importBackgroundImage(event.target.files?.[0])} />
         <button onClick={() => backgroundImageFileRef.current?.click()} className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}><Upload className="h-3.5 w-3.5" />Своё изображение / gif / скриншот</button>

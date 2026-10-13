@@ -78,6 +78,10 @@ export interface UiState {
   /** Живое поле точек и пикселей за интерфейсом. По требованию
       пользователя его можно выключить в Оформлении. */
   particleFieldEnabled: boolean;
+  /** Палитра живых пикселей: от 2 до 10 цветов. Пусто - встроенный перелив. */
+  particlePalette: string[];
+  /** Сторона, с которой начинается переход цветов палитры. */
+  particleGradientSide: 'left' | 'right' | 'top' | 'bottom';
   /** Пользовательский background (url или data:) */
   backgroundImage: string;
   /** Загруженная картинка/gif в IndexedDB (ссылка вида indexeddb:background-image). */
@@ -194,8 +198,10 @@ const defaults = {
   blur: true,
   compact: false,
   backgroundEnabled: true,
-  particleFieldEnabled: true,
+  particleFieldEnabled: false,
   backgroundImage: '',
+  particlePalette: [],
+  particleGradientSide: 'left',
   backgroundImageStored: '',
   backgroundVideo: '',
   backgroundVideoOpacity: 42,

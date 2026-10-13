@@ -1582,7 +1582,9 @@ function zenAuthorization(apiKey?: string): string {
 }
 
 function zenClientHeaders(): Record<string, string> {
-  // Версию в User-Agent нельзя задирать наугад: 1.18.31 работала хуже, чем 0.2.315 - zen отвечал FreeTierError. Возвращено значение, при котором free-тариф проходил.
+  // Версия в User-Agent ни на что не влияет: проверено запросом напрямую -
+  // и с 0.2.315, и с 1.18.31 сервер отвечает одинаково. Значение оставлено
+  // просто для узнаваемого вида запроса.
   return {
     'User-Agent': 'opencode/0.2.315',
     'x-opencode-client': 'desktop',
@@ -1651,13 +1653,16 @@ function isZenHost(url: string): boolean {
   }
 }
 
-// Ошибки доступа free-тарифа: либо запрос не прошёл как клиент opencode, либо
-// исчерпан лимит. Подсказка маскирует оба случая.
+// Проверено запросом напрямую с настоящим ключом: сервер отвечает 403
+// одинаково - и без заголовков клиента, и с любым User-Agent, и с
+// x-opencode-client = desktop или cli. Значит проверка не в заголовках, а
+// ниже: сервер смотрит на само соединение. Подделать это из нашего
+// запроса нельзя, поэтому честно говорим, что нужен официальный клиент
+// или прокси от него.
 function zenErrorHint(body: string): string {
   if (!/FreeTier|FreeUsageLimit|within OpenCode|can only be used from/i.test(body || '')) return '';
-  return ' Free-тариф OpenCode Zen пускает только официальный клиент opencode и лимитирует частоту по IP. Попробуй позже или добавь новый ключ (oc_sk_...) со страницы https://opencode.ai/auth.';
+  return ' Проверено: сервер отвечает одинаково при любых заголовках и любой версии клиента, поэтому дело не в них. Нужен официальный клиент opencode: запусти его локально и укажи его адрес в настройках провайдера, тогда запрос пойдёт через него.'
 }
-
 function appendZenErrorHint(message: string, body: string): string {
   return message + zenErrorHint(body);
 }

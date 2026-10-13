@@ -104,9 +104,10 @@ function SectionHeader({ title, count }: { title: string; count?: number }) {
 
 /** Кто из подключённых провайдеров раскрыт. Хранится на уровне модуля, поэтому
  * переживает закрытие модалки; открыта может быть только одна панель (аккордеон). */
-let lastExpandedProviderId: string | null = null;
+/** Аккордеон: раскрыт один провайдер или сразу все. null - всё свёрнуто. */
+let lastExpandedProviderId: string | null | 'all' = null;
 const accordionListeners = new Set<() => void>();
-function setLastExpanded(id: string | null) {
+function setLastExpanded(id: string | null | 'all') {
   if (lastExpandedProviderId === id) return;
   lastExpandedProviderId = id;
   accordionListeners.forEach(l => l());
@@ -120,7 +121,7 @@ function useAccordion(id: string) {
       accordionListeners.delete(force);
     };
   }, [force]);
-  return lastExpandedProviderId === id;
+  return lastExpandedProviderId === 'all' || lastExpandedProviderId === id;
 }
 
 /** Подключённый провайдер: заголовок + переключатель + раскрывающийся список моделей из API. */
@@ -578,7 +579,16 @@ export function ModelManager() {
             <ImageGenSection />
             {connected.length > 0 && (
               <>
-                <SectionHeader title="Подключено" count={connected.length} />
+                <div className="mb-1 flex items-center justify-between">
+ <SectionHeader title="Подключено" count={connected.length} />
+ {connected.length > 1 && (
+ <button onClick={() => setLastExpanded(lastExpandedProviderId === 'all' ? null : 'all')}
+ className="text-[11px] font-bold transition-opacity hover:opacity-70"
+ style={{ color: 'var(--color-primary)' }}>
+ {lastExpandedProviderId === 'all' ? 'Свернуть всё' : 'Развернуть всё'}
+ </button>
+ )}
+</div>
                 <div className="space-y-2">
                   {connected.map(p => (
                     <ConnectedProviderRow key={p.id} p={p}

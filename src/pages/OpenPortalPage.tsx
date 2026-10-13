@@ -1198,18 +1198,25 @@ function ComposerMenus() {
               <span className="ml-auto text-[9px]">скоро</span>
             </button>
             <div className="my-1" style={{ background: 'var(--color-border)' }} />
-            <button className={item} onClick={() => toggleTool('webSearch')}
-              style={{ color: webSearch ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
-              <Globe2 size={12} />
-              Веб-поиск
-              {webSearch && <Check size={11} className="ml-auto" />}
-            </button>
-            <button className={item} onClick={() => toggleTool('deepThinking')}
-              style={{ color: deepThinking ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
-              <Brain size={12} />
-              Мышление
-              {deepThinking && <Check size={11} className="ml-auto" />}
-            </button>
+<div className="flex items-center gap-1 px-1 py-0.5">
+ {([{ key: 'webSearch', on: webSearch, label: 'Веб-поиск', Icon: Globe2 },
+ { key: 'deepThinking', on: deepThinking, label: 'Мышление', Icon: Brain }] as const).map(m => (
+ <span key={m.key} className="group relative">
+ <button type="button" title={m.label} onClick={() => toggleTool(m.key)}
+ className="flex h-6 w-6 items-center justify-center rounded transition-colors"
+ style={{
+ background: m.on ? 'var(--color-primary-dim)' : 'transparent',
+ color: m.on ? 'var(--color-primary)' : 'var(--color-text-tertiary)',
+ }}>
+ <m.Icon size={13} />
+ </button>
+ <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-1 -translate-x-1/2 translate-y-[-4px] whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold opacity-0 transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100"
+ style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}>
+ {m.label}
+ </span>
+ </span>
+ ))}
+ </div>
             <button className={item} disabled style={{ color: chatRules.trim() ? 'var(--color-text)' : 'var(--color-text-tertiary)' }}>
               <FileCode2 size={12} />
               Правила

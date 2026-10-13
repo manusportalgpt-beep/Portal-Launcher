@@ -58,9 +58,6 @@ function ZenProxyRow() {
       await invoke<string>('zen_proxy_start', { port: null });
       await refresh();
     } catch (e: any) {
-      // Клиента могло не быть - тогда он ставится автоматически. Если и это
-      // не вышло, показываем что именно не так.
-      await refresh();
       setError(String(e?.message || e));
     } finally {
       setBusy(false);
@@ -77,18 +74,18 @@ function ZenProxyRow() {
           Официальный opencode: {ready ? 'подключён' : state?.installed ? 'не запущен' : 'не установлен'}
         </span>
         {!ready && (
-<button onClick={() => void start()} disabled={busy}
- className="shrink-0 rounded-md px-2 py-1 text-[11px] font-bold disabled:opacity-50"
- style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
- {busy ? 'Установка…' : 'Подключить'}
-</button>
+          <button onClick={() => void start()} disabled={busy || !state?.installed}
+            className="shrink-0 rounded-md px-2 py-1 text-[11px] font-bold disabled:opacity-50"
+            style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+            {busy ? 'Запуск…' : 'Подключить'}
+          </button>
         )}
       </div>
-{!state?.installed && (
- <p className="mt-1.5 text-[11px] leading-snug" style={{ color: 'var(--color-text-tertiary)' }}>
- Клиент ещё не установлен — «Подключить» поставит его сам. Если нет Node.js, его можно взять на nodejs.org.
- </p>
-)}
+      {!state?.installed && (
+        <p className="mt-1.5 text-[11px] leading-snug" style={{ color: 'var(--color-text-tertiary)' }}>
+          Нужен официальный клиент: <code>npm install -g opencode-ai</code>. После этого нажмите «Подключить» — и всё поднимется само.
+        </p>
+      )}
       {error && <p className="mt-1.5 text-[11px]" style={{ color: 'var(--color-error)' }}>{error}</p>}
     </div>
   );

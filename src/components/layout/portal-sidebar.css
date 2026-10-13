@@ -405,3 +405,125 @@
   width: 100%;
 }
 .portal-skin.ps-collapsed .ps-logo { margin-inline: auto; }
+
+/* ============================================================================
+   Боковая навигация - узкая «таблетка».
+   Пункты идут по центру, без подписей; название появляется при наведении.
+   Активный пункт подсвечен цветом темы, при наведении иконка приближается,
+   при нажатии сжимается. Работает и в светлой, и в тёмной теме.
+   ============================================================================ */
+#root .portal-skin.portal-sidebar.ps-pill {
+  width: 62px !important;
+  min-width: 62px !important;
+  margin-block: auto !important;
+  padding: 10px 0 !important;
+  gap: 2px !important;
+  border-radius: 31px !important;
+  border: 1px solid var(--color-border) !important;
+  border-right: 1px solid var(--color-border) !important;
+  background: var(--color-surface) !important;
+  box-shadow: 0 8px 28px color-mix(in srgb, #000 22%, transparent) !important;
+}
+
+/* Логотип и название в узкой панели только мешают - прячем. */
+#root .portal-skin.portal-sidebar.ps-pill .ps-brand { display: none !important; }
+
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-item {
+  width: 44px !important;
+  height: 40px !important;
+  margin-inline: auto !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 14px !important;
+  background: transparent !important;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+/* Приближение при наведении и сжатие при нажатии. */
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-item:hover { transform: scale(1.14); }
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-item:active { transform: scale(0.92); }
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-icon {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  transition: color 160ms ease;
+}
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-icon svg {
+  display: block;
+  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* Иконка едет отдельно от кнопки - так «приближение» читается лучше. */
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-item:hover .ps-nav-icon svg { transform: scale(1.18); }
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-item:active .ps-nav-icon svg { transform: scale(0.94); }
+
+/* Активный пункт - цветом темы и мягкая подложка. */
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-item.active {
+  background: var(--color-primary-dim) !important;
+}
+
+/* Подпись обычная не нужна - вместо неё всплывающая подсказка. */
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-label { display: none !important; }
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-chev { display: none !important; }
+
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-item::after {
+  content: attr(aria-label);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-6px);
+  padding: 5px 9px;
+  border-radius: 9px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: 0 6px 18px color-mix(in srgb, #000 25%, transparent);
+  z-index: 60;
+}
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-item:hover::after {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-item { position: relative; }
+
+/* Кнопка профиля: голова игрока, а не условный значок человека. */
+#root .portal-skin.portal-sidebar.ps-pill .ps-avatar {
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 11px !important;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  display: block;
+}
+#root .portal-skin.portal-sidebar.ps-pill .ps-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+#root .portal-skin.portal-sidebar.ps-pill .ps-account {
+  width: 44px !important;
+  margin-inline: auto !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 14px !important;
+  background: transparent !important;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+#root .portal-skin.portal-sidebar.ps-pill .ps-account:hover { transform: scale(1.12); background: var(--color-surface-hover) !important; }
+#root .portal-skin.portal-sidebar.ps-pill .ps-account:active { transform: scale(0.93); }

@@ -79,8 +79,26 @@ function DockButton({ item, vertical, scale = 100, appearance }: { item: NavItem
 }
 
 /** Пункт боковой панели в портальном стиле (стандартный режим). */
+/** Иконки пунктов нарисованы вручную: в этой сборке lucide не рисуется. */
+function NavGlyph({ name }: { name: NavItem['labelKey'] }) {
+  const paths: Record<string, React.ReactNode> = {
+    home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" /></>,
+    discover: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
+    skins: <><path d="M8 3 4 5l1 4-2 2 3 3 3-1 2 2 2-2 2 2 2-2" /><path d="M8 3v8" /></>,
+    library: <><rect x="3" y="4" width="7" height="7" rx="1.5" /><rect x="14" y="4" width="7" height="7" rx="1.5" /><rect x="3" y="15" width="7" height="6" rx="1.5" /><rect x="14" y="15" width="7" height="6" rx="1.5" /></>,
+    openportal: <><rect x="4" y="6" width="16" height="13" rx="3" /><path d="M12 3v3" /><circle cx="9" cy="12" r="1" /><circle cx="15" cy="12" r="1" /></>,
+    settings: <><circle cx="12" cy="12" r="3.2" /><path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6" /></>,
+  };
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+      style={{ width: 19, height: 19, display: 'block', flex: '0 0 auto' }}>
+      {paths[name] ?? paths.home}
+    </svg>
+  );
+}
+
 function PortalSidebarItem({ item, scale = 100 }: { item: NavItem; scale?: number }) {
-  const Icon = item.icon;
   const { t } = useTranslation();
   const label = t(`nav.${item.labelKey}`);
   const height = Math.max(36, Math.round(42 * scale / 100));
@@ -88,16 +106,17 @@ function PortalSidebarItem({ item, scale = 100 }: { item: NavItem; scale?: numbe
     <NavLink
       to={item.to}
       end={item.end}
-      title={label}
+title={label}
+      aria-label={label}
       data-testid={`nav-${item.labelKey}`}
       className={({ isActive }) => `ps-nav-item group${isActive ? ' active' : ''}`}
       style={{ height }}
     >
       {({ isActive }) => (
-        <>
-          <span className="ps-nav-icon" style={{ color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
-            <Icon size={15} strokeWidth={2} />
-          </span>
+      <>
+      <span className="ps-nav-icon" style={{ color: isActive ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
+      <NavGlyph name={item.labelKey} />
+      </span>
           <span className="ps-nav-label">{label}</span>
           <ChevronRight size={13} className="ps-nav-chev" style={{ color: 'var(--color-primary)' }} />
         </>
@@ -224,14 +243,21 @@ function AccountButton({ vertical = false }: { vertical?: boolean }) {
     <div className="relative">
       <button title={isAuthenticated && user ? user.username : t('auth.signIn')}
         onClick={() => isAuthenticated ? setOpen(v => !v) : navigate('/settings/account')}
-        className="flex items-center justify-center rounded-sm overflow-hidden shrink-0"
-        style={{ width: vertical ? 40 : 32, height: vertical ? 40 : 32, background: 'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
-        {isAuthenticated && user
-          ? <CachedPlayerFace user={user} className="w-full h-full" alt="" />
-          : isAuthenticated && user
-          ? <span className="text-[10px] font-bold" style={{ color: 'var(--color-primary)' }}>{user.username[0]}</span>
-          : <LogIn size={13} style={{ color: 'var(--color-text-tertiary)' }} />}
-      </button>
+            className="ps-avatar flex items-center justify-center rounded-sm overflow-hidden shrink-0"
+            style={{ width: vertical ? 40 : 32, height: vertical ? 40 : 32, background: 'var(--color-surface-2)' }}
+            aria-label={isAuthenticated && user ? user.username : t('auth.signIn')}
+          >
+            {isAuthenticated && user
+            ? <CachedPlayerFace user={user} className="w-full h-full" alt="" />
+            : (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+              style={{ width: 15, height: 15, display: 'block', color: 'var(--color-text-tertiary)' }}>
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+              <path d="M10 17l5-5-5-5" /><path d="M15 12H3" />
+            </svg>
+            )}
+          </button>
       {open && isAuthenticated && user && (
         <div className="absolute top-full right-0 mt-2 px-3 py-2 rounded-lg whitespace-nowrap text-xs font-semibold z-50"
           style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-md)', color: 'var(--color-text)' }}
@@ -273,7 +299,7 @@ function SidebarNav() {
     : user.provider === 'offline' || user.isDemo ? 'Offline'
     : 'Microsoft';
   return (
-    <aside className={`portal-sidebar clean-nav portal-skin shrink-0 flex flex-col z-40${appearance.blur > 0 ? ' ps-blurred' : ''}${railCollapsed ? ' ps-collapsed' : ''}`}
+    <aside className={`portal-sidebar clean-nav ps-pill portal-skin shrink-0 flex flex-col z-40${appearance.blur > 0 ? ' ps-blurred' : ''}${railCollapsed ? ' ps-collapsed' : ''}`}
       style={{
         width: railCollapsed ? 66 : Math.max(84, sidebarWidth),
         padding: '10px 10px',

@@ -129,7 +129,7 @@ const TYPE_DEFS: Record<ProjectType, { modrinthFacet: string; cfClass: number; l
   shaders:       { modrinthFacet: 'shader',       cfClass: 6552, labelKey: 'shaders',       icon: Sparkles },
   // Датапаки были в Discover и раньше, но из этого списка выпали.
   // classId 5820 - Data Packs в таксономии CurseForge.
-  datapacks:    { modrinthFacet: 'datapack',     cfClass: 5820, labelKey: 'dataPacks',     icon: Database },
+  datapacks:    { modrinthFacet: 'datapack',     cfClass: 5820, labelKey: 'datapacks',     icon: Database },
 };
 /**
  * Категории CurseForge для Minecraft Bedrock.

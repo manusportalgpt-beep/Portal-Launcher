@@ -84,7 +84,7 @@ function NavGlyph({ name }: { name: NavItem['labelKey'] }) {
   const paths: Record<string, React.ReactNode> = {
     home: <><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5" /></>,
     discover: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
-    skins: <><path d="M8 3 4 5l1 4-2 2 3 3 3-1 2 2 2-2 2 2 2-2" /><path d="M8 3v8" /></>,
+    skins: <><path d="M8.5 3 5 4.6l.9 3.3-2.2 2 2.6 2.6 2.2-1.1V19a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1v-7.6l2.2 1.1 2.6-2.6-2.2-2 .9-3.3L15.5 3a2 2 0 0 1-1.7 1H10.2A2 2 0 0 1 8.5 3z" /></>,
     library: <><rect x="3" y="4" width="7" height="7" rx="1.5" /><rect x="14" y="4" width="7" height="7" rx="1.5" /><rect x="3" y="15" width="7" height="6" rx="1.5" /><rect x="14" y="15" width="7" height="6" rx="1.5" /></>,
     openportal: <><rect x="4" y="6" width="16" height="13" rx="3" /><path d="M12 3v3" /><circle cx="9" cy="12" r="1" /><circle cx="15" cy="12" r="1" /></>,
     settings: <><circle cx="12" cy="12" r="3.2" /><path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6" /></>,
@@ -325,7 +325,6 @@ function SidebarNav() {
         <span className="ps-brandname">Portal<small>Launcher</small></span>
       </div>
 
-      <span className="ps-label">Навигация</span>
       <nav className="ps-nav">
         {items.map(item => <PortalSidebarItem key={item.to} item={item} scale={scale} />)}
       </nav>
@@ -338,11 +337,6 @@ function SidebarNav() {
       <div className="ps-footer">
         <div className="ps-account" title={isAuthenticated && user ? user.username : 'Войти в аккаунт'}>
           <AccountButton vertical />
-          <div className="min-w-0 flex-1">
-            <div className="ps-account-name">{isAuthenticated && user ? user.username : 'Войти в аккаунт'}</div>
-            <div className="ps-account-provider">{isAuthenticated && user ? providerLabel : 'Нажмите, чтобы войти'}</div>
-          </div>
-        </div>
         <PortalSidebarItem item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} scale={scale} />
       </div>
     </aside>

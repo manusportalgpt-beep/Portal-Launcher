@@ -1142,9 +1142,10 @@ function ComposerMenus() {
   const webSearch = useOpenCoreStore(s => s.config.webSearch ?? false);
   const deepThinking = useOpenCoreStore(s => s.config.deepThinking ?? false);
   const chatRules = useOpenCoreStore(s => s.config.chatRules ?? '');
+  const usage = useOpenCoreStore(s => s.usage);
   const skills = useOpenCoreStore(s => s.skills);
   const [tools, setTools] = useState(false);
-  const [, setModes] = useState(false);
+  const [modes, setModes] = useState(false);
 
   const toggleTool = (key: 'webSearch' | 'deepThinking') => {
     const patch = key === 'webSearch'
@@ -1218,6 +1219,46 @@ function ComposerMenus() {
         )}
       </div>
 
+      {/* Рядом с «+»: режимы и токены. */}
+      <div className="relative">
+        <button
+          type="button"
+          title="Режимы и токены"
+          onClick={() => { setModes(v => !v); setTools(false); }}
+          className="flex h-6 w-6 items-center justify-center rounded"
+          style={{ color: 'var(--color-text-tertiary)' }}
+        >
+          <Gauge size={13} />
+        </button>
+        {modes && (
+          <div
+            className="absolute bottom-full left-0 z-50 mb-1 w-56 rounded-lg border p-1"
+            style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}
+          >
+            <p className="px-2 py-1 text-[10px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}>
+              Режим работы
+            </p>
+            {(['dfa', 'fa', 'ask'] as const).map(id => (
+              <button
+                key={id}
+                className={item}
+                onClick={() => useOpenCoreStore.getState().setPermissionPreset(id)}
+                style={{ color: useOpenCoreStore.getState().config.permissionPreset === id ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}
+              >
+                {id.toUpperCase()}
+                {useOpenCoreStore.getState().config.permissionPreset === id && <Check size={11} className="ml-auto" />}
+              </button>
+            ))}
+            <div className="my-1" style={{ background: 'var(--color-border)' }} />
+            <p className="px-2 py-1 text-[10px] font-bold" style={{ color: 'var(--color-text-tertiary)' }}>
+              Токены в контексте
+            </p>
+            <p className="px-2 pb-1 text-[11px] font-semibold" style={{ color: 'var(--color-text)' }}>
+              {Number(usage?.context ?? 0).toLocaleString('ru-RU')} из {Number(usage?.limit ?? 0).toLocaleString('ru-RU')}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -2630,7 +2671,6 @@ export function OpenPortalPage() {
               <ContextMeter onCompact={() => void compressChat()} />
               <EffortPicker value={cfg.effort ?? 'medium'} onChange={v => useOpenCoreStore.getState().updateConfig({ effort: v })} />
               <PresetToggle preset={cfg.permissionPreset ?? 'dfa'} onChange={p => useOpenCoreStore.getState().setPermissionPreset(p)} />
-              <AgentModes />
               <span className="flex-1" />
               <BuildPicker />
             </div>
@@ -2640,6 +2680,7 @@ export function OpenPortalPage() {
                   рядом. Старая кнопка прикрепления убрана: её роль занял
                   пункт «Загрузить файл» в панели. */}
               <ComposerMenus />
+              <AgentModes />
               {mentionList.length > 0 && (
                 <div className="absolute bottom-full left-0 right-0 z-40 mb-2 overflow-hidden rounded-lg border p-1"
                   style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>

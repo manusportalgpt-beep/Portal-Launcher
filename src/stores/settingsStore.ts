@@ -30,6 +30,8 @@ interface Settings {
   modrinthProxyEnabled: boolean;
   modrinthProxyUrl: string;
   modrinthProxyAllowOfficialFallback: boolean;
+  /** Прокси для запросов к ИИ-провайдерам (пусто - напрямую). Нужен, если провайдер отвечает 403 из-за блокировки по сети. */
+  proxyUrl: string;
   closeLauncherOnStart: boolean;
   runInBackground: boolean;
   showSnapshots: boolean;
@@ -70,6 +72,7 @@ const defaults: Settings = {
   modrinthProxyEnabled: false,
   modrinthProxyUrl: 'https://modrinth.black',
   modrinthProxyAllowOfficialFallback: true,
+  proxyUrl: '',
   closeLauncherOnStart: false,
   runInBackground: true,
   showSnapshots: false,

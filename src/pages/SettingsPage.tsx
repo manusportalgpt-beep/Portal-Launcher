@@ -1040,6 +1040,7 @@ function LanguageSection() {
 
 function AdvancedSection() {
   const s = useSettingsStore();
+  const [aiProxy, setAiProxy] = useState(s.proxyUrl);
   const [cfKey, setCfKey] = useState(s.curseforgeApiKey);
   const [proxyUrl, setProxyUrl] = useState(s.modrinthProxyUrl);
   const [proxyStatus, setProxyStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>('idle');
@@ -1075,6 +1076,34 @@ function AdvancedSection() {
         <button onClick={() => s.update({ modrinthProxyUrl: proxyUrl.trim().replace(/\/$/, '') })} className="mt-2 rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background:'var(--color-surface)', color:'var(--color-text-secondary)', border:'1px solid var(--color-border)' }}>Сохранить адрес</button>
         <Row label="Официальный запасной источник" desc="Использовать официальный Modrinth API, если дополнительный адрес недоступен"><Toggle value={s.modrinthProxyAllowOfficialFallback} onChange={v => s.setSetting('modrinthProxyAllowOfficialFallback', v)} /></Row>
         {proxyMessage && <p className="mt-2 text-xs" style={{ color: proxyStatus === 'error' ? 'var(--color-error)' : proxyStatus === 'ok' ? 'var(--color-success)' : 'var(--color-text-secondary)' }}>{proxyMessage}</p>}
+      </div>
+
+      {/* Прокси для ИИ: нужен там, где провайдер закрыт для сети и отвечает
+          403 независимо от ключа. */}
+      <div className="mb-5 rounded-2xl p-4" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
+        <p className="text-sm font-bold mb-1" style={{ color:'var(--color-text)' }}>Прокси для ИИ</p>
+        <p className="text-xs mb-3" style={{ color:'var(--color-text-secondary)' }}>
+          Если провайдер отвечает 403 и с ключом, и без него, его, скорее всего,
+          закрыли для вашей сети. Укажите адрес прокси - все запросы к моделям
+          пойдут через него. Пусто - напрямую.
+        </p>
+        <div className="flex gap-2">
+          <input value={aiProxy} onChange={e => setAiProxy(e.target.value)}
+            placeholder="http://127.0.0.1:7890 или socks5://127.0.0.1:1080"
+            className="flex-1 rounded-lg border px-3 py-2 text-xs font-mono"
+            style={{ background:'var(--color-surface)', borderColor:'var(--color-border)', color:'var(--color-text)' }} />
+          <button onClick={() => s.update({ proxyUrl: aiProxy.trim() })}
+            className="rounded-lg px-3 py-2 text-xs font-bold whitespace-nowrap"
+            style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>
+            Сохранить
+          </button>
+        </div>
+        {s.proxyUrl && (
+          <button onClick={() => { setAiProxy(''); s.update({ proxyUrl: '' }); }}
+            className="mt-2 text-xs font-semibold" style={{ color:'var(--color-text-tertiary)' }}>
+            Отключить прокси
+          </button>
+        )}
       </div>
 
       {/* CurseForge API Key — editable */}

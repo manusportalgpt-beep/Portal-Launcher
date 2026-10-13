@@ -54,6 +54,19 @@ pub fn get_bool_setting(key: &str, default: bool) -> bool {
 }
 
 /// Quickly read the CurseForge API key from settings (used by curseforge module)
+/// Адрес прокси для запросов к провайдерам (пусто - напрямую).
+/// Нужен там, где провайдер недоступен из текущей сети: OpenRouter и
+/// часть остальных сидят за Cloudflare и отвечают 403.
+pub fn read_proxy_url() -> String {
+    load_raw()
+        .get("proxy_url")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string()
+}
+
+/// Быстро прочитать ключ CurseForge из настроек (используется модулем curseforge)
 pub fn read_curseforge_api_key() -> String {
     load_raw()
         .get("curseforge_api_key")

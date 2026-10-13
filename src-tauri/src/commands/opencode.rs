@@ -3068,14 +3068,21 @@ pub async fn op_http_request(
     let method = method.unwrap_or_else(|| "GET".to_string());
     let method = reqwest::Method::from_bytes(method.as_bytes()).unwrap_or(reqwest::Method::GET);
     let timeout = std::time::Duration::from_millis(timeout_ms.unwrap_or(90_000).min(600_000));
-    let client = reqwest::Client::builder()
+let mut builder = reqwest::Client::builder()
         .timeout(timeout)
-    .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
-        // HTTP/1.1: часть шлюзов (Cloudflare и др.) возвращает 403 на POST по
-        // HTTP/2 от не-браузерных клиентов (TLS/фреймовый фингерпринт).
-        .http1_only()
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new());
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+        // HTTP/1.1: были проблемы (Cloudflare и т.п.), отдавало 403 на POST
+        // по HTTP/2 (TLS/отпечаток соединения отличается).
+        .http1_only();
+// Прокси из настроек: без него провайдеры за Cloudflare отвечают 403
+    // в некоторых странах, и это не зависит от ключа.
+    let proxy_url = crate::commands::settings::read_proxy_url();
+    if !proxy_url.is_empty() {
+        if let Ok(p) = reqwest::Proxy::all(&proxy_url) {
+            builder = builder.proxy(p);
+        }
+    }
+    let client = builder.build().unwrap_or_else(|_| reqwest::Client::new());
     let mut req = client.request(method, &url);
     if let Some(hs) = headers {
         for (k, v) in hs {
@@ -3164,16 +3171,26 @@ pub struct ListedModel {
 /// Запрашивает `URL` (готовый endpoint `/models` у провайдера) и возвращает
 /// список моделей в OpenAI-совместимом виде: `{ data: [ { id, name? } ] }`.
 /// Используется как для OpenAI-совместимых, так и для Anthropic (`/v1/models`).
+/// Клиент с прокси, если он задан в настройках. Прокси нужен там, где
+/// провайдер отвечает 403 из-за блокировки по сети, а не из-за ключа.
+fn client_with_proxy(timeout: std::time::Duration) -> reqwest::Client {
+    let mut builder = reqwest::Client::builder().timeout(timeout);
+    let proxy = crate::commands::settings::read_proxy_url();
+    if !proxy.is_empty() {
+        if let Ok(p) = reqwest::Proxy::all(&proxy) {
+            builder = builder.proxy(p);
+        }
+    }
+    builder.build().unwrap_or_else(|_| reqwest::Client::new())
+}
+
+/// Получить список моделей (проверка endpoint `/models` и ключ авторизации).
 #[tauri::command]
 pub async fn op_list_models(
     url: String,
     api_key: Option<String>,
 ) -> Result<Vec<ListedModel>, String> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .user_agent("Mozilla/5.0 (Portal-Launcher OpenPortal; like Gecko)")
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new());
+    let client = client_with_proxy(std::time::Duration::from_secs(30));
     let mut req = client.get(&url);
     if let Some(key) = api_key.filter(|k| !k.trim().is_empty()) {
         req = req.header("Authorization", format!("Bearer {}", key.trim()));

@@ -42,7 +42,7 @@ type FsEntry = { name: string; path: string; is_dir: boolean; size: number; modi
 type WorldInfo = { folder: string; name: string; icon?: string; last_played?: number; size_mb: number; game_mode?: string; hardcore?: boolean };
 type ScreenshotItem = { path: string; name: string; url: string };
 type MainTab = 'content' | 'files' | 'worlds' | 'screenshots';
-type ContentFilter = 'all' | 'mods' | 'resourcepacks' | 'shaders' | 'updates' | 'disabled' | 'deleted';
+type ContentFilter = 'all' | 'mods' | 'resourcepacks' | 'shaders' | 'updates' | 'disabled' | 'datapacks' | 'deleted';
 
 const MAIN_TABS: { id: MainTab; labelKey: string; icon: any }[] = [
   { id: 'content', labelKey: 'instanceContent.tabs.mods', icon: Package },
@@ -56,6 +56,7 @@ const CONTENT_FILTERS: { id: ContentFilter; label: string }[] = [
   { id: 'mods', label: 'Моды' },
   { id: 'resourcepacks', label: 'Наборы ресурсов' },
   { id: 'shaders', label: 'Шейдеры' },
+  { id: 'datapacks', label: 'Датапаки' },
   { id: 'updates', label: 'Обновления' },
 ];
 
@@ -243,6 +244,13 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   const [updatingModId, setUpdatingModId] = useState<string | null>(null);
   const [mainTab, setMainTab] = useState<MainTab>('content');
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
+  // Датапаки живут внутри миров, а не в сборке, поэтому у них свой список и
+  // свои действия - обычный список модов про них ничего не знает.
+  const [datapacks, setDatapacks] = useState<Array<{ world: string; world_name: string; file_name: string; enabled: boolean; size: number }>>([]);
+  const loadDatapacks = useCallback(async () => {
+    try { setDatapacks((await invoke('list_datapacks', { instanceId })) as any[] || []); }
+    catch { setDatapacks([]); }
+  }, [instanceId]);
   const [selectedModIds, setSelectedModIds] = useState<Set<string>>(() => new Set());
   // Перенос выбранных модов в другую сборку. При move исходные файлы уходят
   // в «Удалённые» тем же путём, что и при обычном удалении, поэтому их можно
@@ -432,6 +440,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
 
   useEffect(() => {
     void loadMods(); void loadDeletedMods(); void loadWorlds(); void loadScreenshots(); void loadFiles('');
+    void loadDatapacks();
     const unsubs: UnlistenFn[] = [];
     (async () => {
       const handler = (e: any) => {
@@ -449,7 +458,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
       unsubs.push(await listen('download-complete', (e: any) => { const eventInstanceId = e.payload?.instance_id || e.payload?.instanceId; if (eventInstanceId && eventInstanceId !== instanceId) return; handler(e); void loadMods(true); }));
     })();
     return () => { unsubs.forEach(u => u()); };
-  }, [instanceId, loadMods, loadDeletedMods, loadWorlds, loadScreenshots, loadFiles]);
+  }, [instanceId, loadMods, loadDeletedMods, loadWorlds, loadScreenshots, loadFiles, loadDatapacks]);
 
   const visibleMods = useMemo(() => {
     let list = mods;
@@ -750,7 +759,8 @@ async function checkInstanceHealth() {
   const searchCount = mainTab === 'content' ? mods.length : mainTab === 'worlds' ? worlds.length : mainTab === 'screenshots' ? screenshots.length : files.length;
   const searchLabelKey = mainTab === 'content' ? 'instanceContent.searchTypes.projects' : mainTab === 'worlds' ? 'instanceContent.searchTypes.worlds' : mainTab === 'screenshots' ? 'instanceContent.searchTypes.screenshots' : 'instanceContent.searchTypes.files';
 
-  const isEmpty = mainTab === 'content' ? contentFilter === 'deleted' ? deletedMods.length === 0 : visibleMods.length === 0
+  const isEmpty = mainTab === 'content' ? contentFilter === 'deleted' ? deletedMods.length === 0
+ : contentFilter === 'datapacks' ? datapacks.length === 0 : visibleMods.length === 0
     : mainTab === 'worlds' ? filteredWorlds.length === 0
     : mainTab === 'screenshots' ? filteredScreenshots.length === 0
     : filteredFiles.length === 0;
@@ -907,7 +917,65 @@ async function checkInstanceHealth() {
 
       <div className="flex-1 min-h-0 overflow-y-auto scroll-area px-4" style={{ paddingBottom: selectedModIds.size ? 104 : 32 }}>
         {/* ---------- Content ---------- */}
-        {mainTab === 'content' && contentFilter !== 'deleted' && (
+        {mainTab === 'content' && contentFilter === 'datapacks' && (
+ <div>
+ <p className="mb-2 px-1 text-[11px] leading-snug" style={{ color: 'var(--color-text-tertiary)' }}>
+ Датапак лежит внутри мира, а не в сборке. Здесь список по мирам: включение
+ и удаление работают с файлом в saves/&lt;мир&gt;/datapacks.
+ </p>
+ {datapacks.length === 0 && (
+ <p className="px-1 py-6 text-center text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+ Датапаков нет. Поставь их из поиска проектов, выбрав мир.
+ </p>
+ )}
+ {[...new Set(datapacks.map(d => d.world))].map(world => {
+ const items = datapacks.filter(d => d.world === world).filter(d =>
+ search ? (d.file_name + ' ' + d.world_name).toLowerCase().includes(search.toLowerCase()) : true);
+ if (!items.length) return null;
+ const worldName = items[0].world_name;
+ return (
+ <div key={world} className="mb-3">
+ <div className="mb-1.5 flex items-center gap-1.5 px-1">
+ <Globe className="h-3.5 w-3.5" style={{ color: 'var(--color-text-tertiary)' }} />
+ <span className="text-[11px] font-bold" style={{ color: 'var(--color-text)' }}>{worldName}</span>
+ <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>{world} · {items.length}</span>
+ </div>
+ {items.map(d => (
+ <div key={d.world + '/' + d.file_name} className="mb-1.5 flex items-center gap-2 rounded-xl px-2.5 py-2"
+ style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', opacity: d.enabled ? 1 : 0.55 }}>
+ <Package className="h-4 w-4 shrink-0" style={{ color: 'var(--color-primary)' }} />
+ <div className="min-w-0 flex-1">
+ <div className="truncate text-[12px] font-bold" style={{ color: 'var(--color-text)' }}>{d.file_name}</div>
+ <div className="truncate text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
+ {fmtSize(d.size)}{d.enabled ? '' : ' · выключен'}
+ </div>
+ </div>
+ <button title={d.enabled ? 'Выключить' : 'Включить'} onClick={async () => {
+ try {
+ await invoke('toggle_datapack', { instanceId, worldFolder: d.world, fileName: d.file_name });
+ await loadDatapacks();
+ } catch (error: any) { setErr(String(error?.message || error)); }
+ }} className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-bold"
+ style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)' }}>
+ {d.enabled ? 'Выключить' : 'Включить'}
+ </button>
+ <button title="Удалить" onClick={async () => {
+ try {
+ await invoke('remove_datapack', { instanceId, worldFolder: d.world, fileName: d.file_name });
+ await loadDatapacks();
+ } catch (error: any) { setErr(String(error?.message || error)); }
+ }} className="shrink-0 rounded-lg p-1.5 transition-colors hover:opacity-80"
+ style={{ background: 'var(--color-surface-2)', color: 'var(--color-error)' }}>
+ <Trash2 className="h-3.5 w-3.5" />
+ </button>
+ </div>
+ ))}
+ </div>
+ );
+ })}
+ </div>
+ )}
+ {mainTab === 'content' && contentFilter !== 'deleted' && contentFilter !== 'datapacks' && (
           <div className="rounded-2xl overflow-hidden" style={cardStyle}>
             <div className="flex items-center gap-3 px-3 py-2 text-[11px] font-bold uppercase tracking-wide"
               style={{ color: 'var(--color-text-tertiary)', borderBottom: '1px solid var(--color-border)' }}>

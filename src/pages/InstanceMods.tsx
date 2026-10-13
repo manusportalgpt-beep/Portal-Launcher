@@ -1012,17 +1012,6 @@ async function checkInstanceHealth() {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate" style={{ color: 'var(--color-text)' }}>{m.name}</p>
 <AuthorLink author={m.author} authorId={m.authorId} source={m.source} />
-              {/* Закрепить: сборка перестанет требовать обновление этого
-                  мода. Кнопка стоит рядом со строкой мода, а не в конце
-                  списка, иначе её не найти. */}
-              <button
-                onClick={() => void togglePin(m)}
-                title={m.pinned ? 'Открепить: снова требовать обновление' : 'Закрепить версию'}
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors hover:bg-[var(--color-surface-2)]"
-                style={{ color: m.pinned ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}
-              >
-                <Pin size={13} />
-              </button>
             </div>
                 </div>
                 <div className="w-24 shrink-0 text-xs truncate" style={{ color: 'var(--color-text-secondary)' }}>
@@ -1031,8 +1020,21 @@ async function checkInstanceHealth() {
                     <div className="text-[10px]" style={{ color: 'var(--color-primary)' }}>→ {m.latestVersion}</div>
                   )}
                 </div>
-                <div className="w-24 shrink-0 flex items-center justify-end gap-2">
-                  {m.updateAvailable && (
+<div className="w-24 shrink-0 flex items-center justify-end gap-2">
+        {/* Закрепить: мод не обновляется автоматически при обновлении
+        сборки и не участвует в «обновить всё». */}
+        <button
+        onClick={() => void togglePin(m)}
+        title={m.pinned ? 'Откреплено: мод обновится автоматически' : 'Закрепить версию'}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors hover:opacity-80"
+        style={{
+        background: 'var(--color-surface-2)',
+        color: m.pinned ? 'var(--color-primary)' : 'var(--color-text-tertiary)',
+        }}
+        >
+        <Pin size={13} />
+        </button>
+        {m.updateAvailable && (
                     <button disabled={updatingModId !== null} onClick={async () => {
                         setUpdatingModId(m.id);
                         try {

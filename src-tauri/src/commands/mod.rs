@@ -20,6 +20,7 @@ pub mod modrinth;
 pub mod mods;
 pub mod opencode;
 pub mod opencode_browser;
+pub mod opencode_proxy;
 pub mod opencode_skills;
 pub mod platform;
 pub mod settings;

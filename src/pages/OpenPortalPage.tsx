@@ -1263,39 +1263,6 @@ function ComposerMenus() {
   );
 }
 
-function AgentModes() {
-  const webSearch = useOpenCoreStore(s => s.config.webSearch ?? false);
-  const deepThinking = useOpenCoreStore(s => s.config.deepThinking ?? false);
-  const items: { key: 'webSearch' | 'deepThinking'; label: string; title: string; Icon: LucideIcon }[] = [
-    { key: 'webSearch', label: 'Веб-поиск', title: 'Проверять факты в интернете самому, не дожидаясь просьбы', Icon: Globe2 },
-    { key: 'deepThinking', label: 'Мышление', title: 'Строить план, проверять каждый пункт, отвечать после этого', Icon: Brain },
-  ];
-  return (
-    <div className="flex shrink-0 items-center gap-1">
-      {items.map(it => {
-        const on = it.key === 'webSearch' ? webSearch : deepThinking;
-        return (
-          <button
-            key={it.key}
-            type="button"
-            title={it.title}
-            onClick={() => useOpenCoreStore.getState().updateConfig({ [it.key]: !on } as never)}
-            className="flex items-center gap-1 rounded-[7px] px-1.5 py-1 text-[10px] font-bold transition-colors"
-            style={{
-              border: `1px solid ${on ? 'var(--color-primary)' : 'var(--color-border)'}`,
-              color: on ? 'var(--color-primary)' : 'var(--color-text-tertiary)',
-            }}
-          >
-            <it.Icon size={10} />
-            {it.label}
-            {on && <Check size={10} />}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 function PresetToggle({ preset, onChange }: { preset: PermissionPreset; onChange: (p: PermissionPreset) => void }) {
   const presets: { id: PermissionPreset; label: string; icon: React.ReactNode; title: string }[] = [
     { id: 'dfa', label: 'DFA', icon: <ShieldAlert size={10} />, title: 'DFA — спрашивает разрешения (как раньше)' },

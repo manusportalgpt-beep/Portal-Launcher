@@ -1055,7 +1055,17 @@ function RulesAndPlan() {
   const plan = useOpenCoreStore(s => s.config.agentPlan ?? null);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(chatRules);
-  const Icon = FileCode2;
+  const Icon = ({ size = 10 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+    strokeLinejoin="round" aria-hidden="true"
+    style={{ width: size, height: size, display: 'block', flex: '0 0 auto' }}>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="9" y1="13" x2="15" y2="19" />
+    <line x1="15" y1="13" x2="9" y2="19" />
+    </svg>
+  );
 
   return (
     <div className="relative flex shrink-0 items-center">
@@ -1189,8 +1199,14 @@ function ComposerMenus() {
  className="flex h-6 w-6 shrink-0 items-center justify-center rounded"
  style={{ color: 'var(--color-text-tertiary)' }}
  >
- <Plus size={13} />
- </button>
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2.25" strokeLinecap="round"
+    strokeLinejoin="round" aria-hidden="true"
+    style={{ width: 13, height: 13, display: 'block', flex: '0 0 auto' }}>
+    <line x1="12" y1="5" x2="12" y2="19" />
+    <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  </button>
  );
 }
 

@@ -1250,9 +1250,6 @@ function AgentModes() {
             onClick={() => useOpenCoreStore.getState().updateConfig({ [m.key]: !m.on } as never)}
             className="flex h-6 w-6 items-center justify-center rounded transition-colors"
             style={{
-              // Без заливки: раньше кнопка красилась фоном того же цвета,
-              что и иконка, и значок пропадал. Активный режим отмечен
-              // цветом иконки и контуром.
               background: 'transparent',
               boxShadow: m.on ? 'inset 0 0 0 1px currentColor' : 'none',
               color: m.on ? 'var(--color-primary)' : 'var(--color-text-tertiary)',

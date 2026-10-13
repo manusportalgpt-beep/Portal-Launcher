@@ -3070,7 +3070,7 @@ pub async fn op_http_request(
     let timeout = std::time::Duration::from_millis(timeout_ms.unwrap_or(90_000).min(600_000));
     let client = reqwest::Client::builder()
         .timeout(timeout)
-        .user_agent("Mozilla/5.0 (Portal-Launcher OpenPortal; like Gecko)")
+    .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
         // HTTP/1.1: часть шлюзов (Cloudflare и др.) возвращает 403 на POST по
         // HTTP/2 от не-браузерных клиентов (TLS/фреймовый фингерпринт).
         .http1_only()

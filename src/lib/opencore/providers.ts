@@ -350,11 +350,9 @@ export const OP_PROVIDERS: ProviderDef[] = [
     name: 'DeepSeek',
     kind: 'openai',
     baseUrl: 'https://api.deepseek.com/v1',
-    defaultApiKey: 'sk-3071c287d3b8462fb32bc25fc582639e',
     apiKeyHint: 'Встроен публичный ключ (скрыт: в конфиг не сохраняется). Он может поймать 402 — тогда введи свой ключ с platform.deepseek.com.',
     keyUrl: 'https://platform.deepseek.com',
     docs: 'https://api-docs.deepseek.com',
-    supportsFree: true,
     models: [
       { id: 'deepseek-flash', name: 'DeepSeek Flash', free: true },
       { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', reasoning: true },

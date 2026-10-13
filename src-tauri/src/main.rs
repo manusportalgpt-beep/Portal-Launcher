@@ -300,6 +300,8 @@ fn main() {
             // Mods
             commands::mods::search_mods,
             commands::mods::install_mod,
+            commands::mods::install_datapack,
+            commands::mods::list_datapacks,
             commands::mods::install_curseforge_mod,
             commands::mods::get_instance_mods,
             commands::mods::toggle_mod,

@@ -230,6 +230,180 @@ fn mod_type_folder(mod_type: &str) -> &'static str {
     }
 }
 
+/// A data pack only works when it lives inside a world: `saves/<world>/datapacks`.
+/// The instance root has a `datapacks` folder too, but the game never reads it,
+/// so anything installed there does nothing. Only a bare directory name is
+/// accepted, and it must already exist as a world of this instance.
+fn datapacks_dir_for(instance_id: &str, world_folder: &str) -> Result<PathBuf, String> {
+    let trimmed = world_folder.trim();
+    if trimmed.is_empty() {
+        return Err("Выберите мир для датапака".to_string());
+    }
+    if trimmed.contains('/') || trimmed.contains('\\') || trimmed == "." || trimmed == ".." {
+        return Err("Некорректное имя мира".to_string());
+    }
+    let world = crate::mc::launch::instance_game_dir(instance_id)
+        .join("saves")
+        .join(trimmed);
+    if !world.is_dir() {
+        return Err("Мир не найден в этой сборке".to_string());
+    }
+    if !world.join("level.dat").is_file() {
+        return Err("Выбранная папка не является миром".to_string());
+    }
+    let dir = world.join("datapacks");
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| format!("Не удалось создать папку датапаков: {e}"))?;
+    Ok(dir)
+}
+
+/// Installs a data pack into a chosen world instead of the instance root.
+#[tauri::command]
+pub async fn install_datapack(
+    app: tauri::AppHandle,
+    instance_id: String,
+    world_folder: String,
+    download_url: String,
+    file_name: String,
+    mod_id: String,
+    mod_name: String,
+    mod_version: String,
+    version_id: String,
+    source: String,
+    project_id: Option<String>,
+    author: Option<String>,
+    icon_url: Option<String>,
+) -> Result<Vec<InstalledMod>, String> {
+    let dir = datapacks_dir_for(&instance_id, &world_folder)?;
+
+    // Drop the previous file of the same project in this world so the world
+    // does not end up with two versions of one data pack.
+    if let Ok(data) = std::fs::read_to_string(instance_json_path(&instance_id)) {
+        if let Ok(config) = serde_json::from_str::<serde_json::Value>(&data) {
+            if let Some(arr) = config["mods"].as_array() {
+                for entry in arr {
+                    if entry["world"] != serde_json::json!(world_folder.as_str()) {
+                        continue;
+                    }
+                    let same_project = entry["id"].as_str() == Some(mod_id.as_str())
+                        || entry["id"].as_str() == project_id.as_deref();
+                    if same_project {
+                        if let Some(old) = entry["file_name"].as_str() {
+                            if old != file_name {
+                                std::fs::remove_file(dir.join(old)).ok();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    app.emit(
+        "mod-progress",
+        serde_json::json!({"name":mod_name,"percent":20,"message":"Downloading data pack..."}),
+    )
+    .ok();
+
+    let client = reqwest::Client::builder()
+        .user_agent("PortalLauncher/1.1")
+        .build()
+        .map_err(|e| e.to_string())?;
+    let bytes = if source.eq_ignore_ascii_case("curseforge") {
+        let api_key = crate::commands::settings::read_curseforge_api_key();
+        download_curseforge_bytes_with_fallback(&client, &download_url, &api_key).await?
+    } else {
+        client
+            .get(&download_url)
+            .send()
+            .await
+            .map_err(|error| format!("Ошибка загрузки: {error}"))?
+            .bytes()
+            .await
+            .map_err(|error| format!("Ошибка загрузки: {error}"))?
+    };
+
+    app.emit(
+        "mod-progress",
+        serde_json::json!({"name":mod_name,"percent":70,"message":"Saving data pack..."}),
+    )
+    .ok();
+
+    let target = dir.join(&file_name);
+    std::fs::write(&target, &bytes).map_err(|e| format!("Не удалось сохранить датапак: {e}"))?;
+
+    let installed = InstalledMod {
+        id: project_id.clone().unwrap_or_else(|| mod_id.clone()),
+        name: mod_name,
+        version: mod_version,
+        version_id,
+        source,
+        enabled: true,
+        file_name,
+        file_size: bytes.len() as u64,
+        mod_type: "datapack".to_string(),
+        author,
+        icon_url,
+        update_available: false,
+        latest_version: None,
+        latest_version_id: None,
+        latest_download_url: None,
+        pinned: false,
+    };
+    update_instance_mod_list(&instance_id, &installed);
+    Ok(vec![installed])
+}
+
+/// Lists the data packs of every world of an instance, so the build page can
+/// show them as their own section instead of pretending they are mods.
+#[tauri::command]
+pub async fn list_datapacks(
+    instance_id: String,
+) -> Result<Vec<serde_json::Value>, String> {
+    let saves = crate::mc::launch::instance_game_dir(&instance_id).join("saves");
+    let mut out = Vec::new();
+    let Ok(entries) = std::fs::read_dir(&saves) else {
+        return Ok(out);
+    };
+    for entry in entries.flatten() {
+        let world = entry.path();
+        if !world.is_dir() || !world.join("level.dat").is_file() {
+            continue;
+        }
+        let world_folder = entry.file_name().to_string_lossy().to_string();
+        let mut world_name = world_folder.clone();
+        if let Some(data) = crate::mc::nbt::read_maybe_gzip(&world.join("level.dat")) {
+            if let Some(n) = crate::mc::nbt::find_string(&data, "LevelName") {
+                world_name = n;
+            }
+        }
+        let Ok(files) = std::fs::read_dir(world.join("datapacks")) else {
+            continue;
+        };
+        for file in files.flatten() {
+            let path = file.path();
+            if !path.is_file() {
+                continue;
+            }
+            let file_name = file.file_name().to_string_lossy().to_string();
+            if file_name.starts_with('.') {
+                continue;
+            }
+            let size = path.metadata().map(|m| m.len()).unwrap_or(0);
+            let enabled = !file_name.ends_with(".disabled");
+            let real_name = file_name.trim_end_matches(".disabled");
+            out.push(serde_json::json!({
+                "world": world_folder,
+                "world_name": world_name,
+                "file_name": real_name,
+                "enabled": enabled,
+                "size": size,
+            }));
+        }
+    }
+    Ok(out)
+}
+
 fn detect_mod_type(categories: &[String], project_type: Option<&str>) -> &'static str {
     if let Some(pt) = project_type {
         match pt {

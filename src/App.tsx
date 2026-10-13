@@ -51,7 +51,7 @@ import { useLaunchStore } from '@/stores/launchStore';
 import { invoke, isTauri } from '@/lib/invoke-shim';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { initDiscord, setLauncherStatus } from '@/lib/discord';
+import { initDiscord, setLauncherStatus, clearDiscordStatus } from '@/lib/discord';
 
 const WELCOME_KEY = 'portal-welcome-shown';
 
@@ -184,7 +184,7 @@ function App() {
   useEffect(() => {
     void initDiscord();
     setLauncherStatus('Главная', 'Просмотр лаунчера');
-    
+
     if (loading) return;
     const shown = localStorage.getItem(WELCOME_KEY);
     if (!shown && instances.length === 0) {
@@ -196,6 +196,18 @@ function App() {
       });
     }
   }, [loading]);
+
+  // При закрытии лаунчера статус в Discord надо снять, иначе он остаётся
+  // висеть до перезапуска Discord.
+  useEffect(() => {
+    const clear = () => { void clearDiscordStatus(); };
+    window.addEventListener('beforeunload', clear);
+    window.addEventListener('pagehide', clear);
+    return () => {
+      window.removeEventListener('beforeunload', clear);
+      window.removeEventListener('pagehide', clear);
+    };
+  }, []);
 
   return (
     <>

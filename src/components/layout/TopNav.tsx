@@ -14,6 +14,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { invoke } from '@/lib/invoke-shim';
 import { getAvatarUrl, getAvatarFallbackUrl } from '@/lib/avatar';
 import { toIconSrc } from '@/lib/icon-src';
+import { setGameStatus, clearDiscordStatus } from '@/lib/discord';
 import { CachedPlayerFace } from '@/components/CachedPlayerFace';
 import './portal-sidebar.css';
 
@@ -140,21 +141,22 @@ function InstanceQuickAccess({ vertical, shape = 'round', grid = false }: { vert
       });
       update(inst.id, { lastPlayed: new Date().toISOString() });
       if (!user.uuid || !user.username) throw new Error('Нужно войти в аккаунт');
-      await invoke('launch_instance', {
+await invoke('launch_instance', {
         instance_id: inst.id, access_token: user.accessToken || '',
         uuid: user.uuid, username: user.username, provider: user.provider,
       });
+      void setGameStatus(inst.minecraftVersion, 'solo', undefined, undefined, undefined, inst.name);
     } catch (e) {
       console.error(e);
       setStatus(inst.id, 'idle');
     }
-  }, [user, globalSettings, getStatus, setStatus, navigate, update]);
+    }, [user, globalSettings, getStatus, setStatus, navigate, update]);
 
-  // Принудительная остановка запущенной сборки прямо из Notch: kill_instance
-  // сбрасывает процесс, статус возвращается в idle.
+  // Убиваем игру: заодно снимаем статус в Discord, иначе он остаётся висеть.
   const stop = useCallback(async (inst: Instance) => {
     try { await invoke('kill_instance', { instance_id: inst.id }); } catch (e) { console.error(e); }
     setStatus(inst.id, 'idle');
+    void clearDiscordStatus();
   }, [setStatus]);
 
   const shown = instances.slice(0, count);

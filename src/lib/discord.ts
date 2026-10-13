@@ -42,7 +42,8 @@ export async function setGameStatus(
   mode: string,
   serverName?: string,
   playersOnline?: number,
-  maxPlayers?: number
+  maxPlayers?: number,
+  instanceName?: string
 ): Promise<void> {
   try {
     await invoke('set_game_status', {
@@ -51,6 +52,7 @@ export async function setGameStatus(
       serverName,
       playersOnline,
       maxPlayers,
+      instanceName,
     });
   } catch (error) {
     console.warn('[Discord] Failed to set game status:', error);

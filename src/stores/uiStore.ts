@@ -175,7 +175,7 @@ export interface UiState {
   reset: () => void;
 }
 
-const defaults = {
+const defaults: Omit<UiState, 'set' | 'reset'> = {
   stylePreset: 'standard' as StylePreset,
   accentColor: null as string | null,
   loaderStyle: 'standard' as 'standard' | 'random',
@@ -201,8 +201,8 @@ const defaults = {
   particleFieldEnabled: false,
   backgroundImage: '',
   particlePalette: [],
+  particlePalette: [],
   particleGradientSide: 'left',
-  backgroundImageStored: '',
   backgroundVideo: '',
   backgroundVideoOpacity: 42,
   backgroundVideoMuted: true,

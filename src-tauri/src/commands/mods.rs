@@ -354,6 +354,57 @@ pub async fn install_datapack(
     Ok(vec![installed])
 }
 
+/// Enables or disables a data pack of a world by renaming it with a
+/// `.disabled` suffix, which is how Minecraft treats an inactive data pack.
+#[tauri::command]
+pub fn toggle_datapack(
+    instance_id: String,
+    world_folder: String,
+    file_name: String,
+) -> Result<bool, String> {
+    let dir = datapacks_dir_for(&instance_id, &world_folder)?;
+    let trimmed = file_name.trim_end_matches(".disabled");
+    if trimmed.is_empty() || trimmed.contains('/') || trimmed.contains('\\') {
+        return Err("Некорректное имя файла".to_string());
+    }
+    let active = dir.join(trimmed);
+    let disabled = dir.join(format!("{trimmed}.disabled"));
+    let was_disabled = disabled.is_file();
+    if was_disabled {
+        std::fs::rename(&disabled, &active)
+            .map_err(|e| format!("Не удалось включить датапак: {e}"))?;
+        Ok(true)
+    } else if active.is_file() {
+        std::fs::rename(&active, &disabled)
+            .map_err(|e| format!("Не удалось выключить датапак: {e}"))?;
+        Ok(false)
+    } else {
+        Err("Файл датапака не найден".to_string())
+    }
+}
+
+/// Removes a data pack from a world.
+#[tauri::command]
+pub fn remove_datapack(
+    instance_id: String,
+    world_folder: String,
+    file_name: String,
+) -> Result<(), String> {
+    let dir = datapacks_dir_for(&instance_id, &world_folder)?;
+    let trimmed = file_name.trim_end_matches(".disabled");
+    if trimmed.is_empty() || trimmed.contains('/') || trimmed.contains('\\') {
+        return Err("Некорректное имя файла".to_string());
+    }
+    for candidate in [dir.join(trimmed), dir.join(format!("{trimmed}.disabled"))] {
+        if candidate.is_file() {
+            std::fs::remove_file(&candidate)
+                .map_err(|e| format!("Не удалось удалить датапак: {e}"))?;
+            return Ok(());
+        }
+    }
+    Err("Файл датапака не найден".to_string())
+}
+
 /// Lists the data packs of every world of an instance, so the build page can
 /// show them as their own section instead of pretending they are mods.
 #[tauri::command]

@@ -302,6 +302,8 @@ fn main() {
             commands::mods::install_mod,
             commands::mods::install_datapack,
             commands::mods::list_datapacks,
+            commands::mods::toggle_datapack,
+            commands::mods::remove_datapack,
             commands::mods::install_curseforge_mod,
             commands::mods::get_instance_mods,
             commands::mods::toggle_mod,

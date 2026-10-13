@@ -1218,10 +1218,27 @@ function AgentModes() {
   const webSearch = useOpenCoreStore(s => s.config.webSearch ?? false);
   const deepThinking = useOpenCoreStore(s => s.config.deepThinking ?? false);
   const items = [
-    { key: 'webSearch' as const, on: webSearch, label: 'Веб-поиск', Icon: Globe2,
-      title: 'Искать в интернете при ответе. Медленнее, зато с фактами.' },
-    { key: 'deepThinking' as const, on: deepThinking, label: 'Мышление', Icon: Brain,
-      title: 'Разбираться дольше: больше рассуждений, но выше расход.' },
+    { key: 'webSearch' as const, on: webSearch, label: 'Веб-поиск',
+      title: 'Искать в интернете при ответе. Медленнее, зато с фактами.',
+      Glyph: () => (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+          style={{ width: 12, height: 12, display: 'block', flex: '0 0 auto' }}>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="2" y1="12" x2="22" y2="12" />
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+        </svg>
+      ) },
+    { key: 'deepThinking' as const, on: deepThinking, label: 'Мышление',
+      title: 'Разбираться дольше: больше рассуждений, но выше расход.',
+      Glyph: () => (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+          style={{ width: 12, height: 12, display: 'block', flex: '0 0 auto' }}>
+          <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1 0-4.44A2.5 2.5 0 0 1 9.5 2z" />
+          <path d="M14.5 2A2.5 2.5 0 0 1 16 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 0-4.44A2.5 2.5 0 0 0 16 4.5" />
+        </svg>
+      ) },
   ];
   return (
     <div className="flex shrink-0 items-center gap-1">
@@ -1237,7 +1254,7 @@ function AgentModes() {
               color: m.on ? 'var(--color-primary)' : 'var(--color-text-tertiary)',
             }}
           >
-            <m.Icon size={12} />
+            <m.Glyph />
           </button>
           <span className="pointer-events-none absolute left-1/2 top-full z-50 mt-1 -translate-x-1/2 translate-y-[-4px] whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-bold opacity-0 transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100"
             style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}>

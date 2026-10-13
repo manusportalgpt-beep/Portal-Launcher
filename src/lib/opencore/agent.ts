@@ -1582,23 +1582,13 @@ function zenAuthorization(apiKey?: string): string {
 }
 
 function zenClientHeaders(): Record<string, string> {
-  // Zen отсекает всё, что не похоже на их клиент. Одних x-opencode-* мало:
-  // в веб-вью браузер вообще выбрасывает User-Agent как запрещённый
-  // заголовок, поэтому запрос выглядит неотличимым от чужого. Поэтому
-  // дублируем и остальные признаки настоящего клиента - источник,
-  // язык и версия браузера, - по ним видно, что пришли из их приложения.
+  // Версию в User-Agent нельзя задирать наугад: 1.18.31 работала хуже, чем 0.2.315 - zen отвечал FreeTierError. Возвращено значение, при котором free-тариф проходил.
   return {
-    'User-Agent': 'opencode/1.18.31',
+    'User-Agent': 'opencode/0.2.315',
     'x-opencode-client': 'desktop',
     'x-opencode-session': zenSession(),
     'x-opencode-request': zenId('msg_'),
     'x-opencode-project': 'global',
-    'Origin': 'https://opencode.ai',
-    'Referer': 'https://opencode.ai/',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Site': 'same-origin',
   };
 }
 

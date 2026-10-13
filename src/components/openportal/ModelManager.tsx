@@ -481,13 +481,13 @@ export function ModelManager() {
   function addCustom() {
     if (!cName.trim()) return;
     const id = customProviderId(cName);
-    useOpenCoreStore.setState({
-      config: {
-        ...useOpenCoreStore.getState().config,
-        providers: {
-          ...useOpenCoreStore.getState().config.providers,
-          [id]: { enabled: true, apiKey: cKey.trim() || undefined, baseUrl: cUrl.trim() || undefined, customName: cName.trim(), modelStates: {} },
-        },
+    const cfgNow = useOpenCoreStore.getState().config;
+    // Через updateConfig, а не setState напрямую: setState меняет только
+    // состояние в памяти, а на диск конфиг попадает только здесь.
+    useOpenCoreStore.getState().updateConfig({
+      providers: {
+        ...cfgNow.providers,
+        [id]: { enabled: true, apiKey: cKey.trim() || undefined, baseUrl: cUrl.trim() || undefined, customName: cName.trim(), modelStates: {} },
       },
     });
     useOpenCoreStore.getState().setActiveModel(id, '');

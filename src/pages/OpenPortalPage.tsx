@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, MessageSquare, Trash2, Sparkles, Send, StopCircle, ChevronDown, ChevronRight,
@@ -1082,7 +1083,7 @@ function RulesAndPlan() {
         <Icon size={10} />
         Правила
       </button>
-{open && (
+      {open && createPortal((          
  <div
  className="fixed inset-0 z-[200] flex items-center justify-center p-4"
  onClick={() => setOpen(false)}
@@ -1154,7 +1155,7 @@ function RulesAndPlan() {
  </div>
  </div>
  </div>
- )}
+      ), document.body)}
     </div>
   );
 }

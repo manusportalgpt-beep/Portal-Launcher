@@ -4,6 +4,7 @@ import { Copy, FolderInput, Boxes, Pin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import { ModpackManifestPreview, type ModpackPreview } from '@/components/ModpackManifestPreview';
 import { invoke } from '@/lib/invoke-shim';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useAuthorAvatar } from '@/lib/author-avatar';
@@ -236,6 +237,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   const [selectedScreenshot, setSelectedScreenshot] = useState<ScreenshotItem | null>(null);
   const [editorScreenshot, setEditorScreenshot] = useState<ScreenshotItem | null>(null);
   const [files, setFiles] = useState<FsEntry[]>([]);
+  const [packPreview, setPackPreview] = useState<{ preview: ModpackPreview; path: string } | null>(null);
   const [cwd, setCwd] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -518,8 +520,23 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
     [files, search],
   );
   const visibleFilesSize = useMemo(() => filteredFiles.reduce((sum, file) => sum + (file.is_dir ? 0 : file.size || 0), 0), [filteredFiles]);
-  const fileIconFor = (entry: FsEntry) => {
-    if (entry.is_dir) {
+/** Открыть .mrpack из проводника: сначала показать манифест. */
+async function openPack(path: string) {
+  try {
+    const fileName = path.split(/[\\/]/).pop() || 'pack.mrpack';
+    const preview = await invoke<ModpackPreview>('preview_remote_modpack', {
+      downloadUrl: path, fileName, source: 'modrinth',
+      apiKey: null, projectName: null, projectAuthor: null,
+      projectAuthorUrl: null, projectAuthorAvatarUrl: null, projectIconUrl: null,
+    });
+    setPackPreview({ preview, path });
+  } catch (e: any) {
+    setError(`Не удалось прочитать .mrpack: ${String(e?.message || e)}`);
+  }
+}
+
+const fileIconFor = (entry: FsEntry) => {
+  if (entry.is_dir) {
       const n = entry.name.toLowerCase();
       if (n === 'resourcepacks') return <ImageIcon className="w-4 h-4 shrink-0" style={{ color:'var(--color-primary)' }} />;
       if (n === 'shaderpacks') return <Sparkles className="w-4 h-4 shrink-0" style={{ color:'var(--color-primary)' }} />;
@@ -1169,8 +1186,11 @@ async function checkInstanceHealth() {
                 onDrop={e => { if (f.is_dir) void moveEntryIntoFolder(e, f.path); }}
                 className="flex items-center gap-3 px-3 py-2"
                 style={{ borderBottom: i < filteredFiles.length - 1 ? '1px solid var(--color-border)' : 'none', outline: f.is_dir ? '1px solid transparent' : undefined }}>
-                <button className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
-                  onClick={() => { if (f.is_dir) { setCwd(f.path); loadFiles(f.path); } }}>
+<button className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+onClick={() => {
+  if (f.is_dir) { setCwd(f.path); loadFiles(f.path); }
+  else if (/\.mrpack$/i.test(f.name)) void openPack(f.path);
+}}>
                   {fileIconFor(f)}
                   <span className="text-sm truncate" style={{ color: 'var(--color-text)' }}>{f.name}</span>
                 </button>
@@ -1327,8 +1347,26 @@ async function checkInstanceHealth() {
         />
       )}
 
-    </div>
-  );
+{packPreview && (
+ <ModpackManifestPreview
+ preview={packPreview.preview}
+ onClose={() => setPackPreview(null)}
+ onInstall={async excluded => {
+ const path = packPreview.path;
+ setPackPreview(null);
+ try {
+ await invoke('import_modrinth_pack', { mrpackPath: path, excludedPaths: excluded });
+ await loadMods(); await loadFiles(cwd);
+ setError('Сборка из .mrpack импортирована.');
+ } catch (e: any) {
+ setError(`Не удалось импортировать сборку: ${String(e?.message || e)}`);
+ }
+ }}
+ />
+)}
+
+</div>
+);
 }
 
 export default InstanceMods;

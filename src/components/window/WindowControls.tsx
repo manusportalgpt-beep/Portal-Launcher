@@ -81,7 +81,7 @@ export function TitleBar({ title = 'Portal Launcher' }: { title?: string }) {
       style={{ height: titlebarHeight, backgroundColor: adaptiveTitlebarColor ? pageColor : 'var(--color-surface)', backgroundImage:'none', isolation:'isolate', borderBottom: `1px solid ${adaptiveTitlebarColor ? `color-mix(in srgb, var(--color-primary) ${routeTone * 4}%, var(--color-border))` : 'var(--color-border)'}`, transition:'background-color 180ms var(--ease-out, ease), border-color 180ms var(--ease-out, ease)' }}
     >
       <div
-        className="flex h-full w-[188px] shrink-0 cursor-grab items-center gap-1.5 rounded-sm px-1.5 text-[11px] font-semibold leading-none tracking-[0.01em] active:cursor-grabbing"
+        className="flex h-full w-[188px] shrink-0 cursor-grab items-center gap-1.5 px-1.5 text-[11px] font-semibold leading-none tracking-[0.01em] active:cursor-grabbing"
         style={{ color: 'var(--color-text-secondary)' }}
         onPointerDown={event => {
           if (event.button !== 0) return;

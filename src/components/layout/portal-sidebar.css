@@ -37,7 +37,9 @@
   --color-text: #EEF3FB;
   --color-text-secondary: #A6B4CC;
   --color-text-tertiary: #64748F;
-  --color-primary: var(--ps-accent);
+  /* --color-primary здесь не переопределяется: было var(--ps-accent),
+     а --ps-accent читает --color-primary - такая ссылка циклическая,
+     и цвет из настроек до панели не доходил, подставлялся синий запасной. */
   --color-primary-hover: color-mix(in srgb, var(--ps-accent) 88%, #ffffff);
   --color-primary-dim: color-mix(in srgb, var(--ps-accent) 15%, transparent);
   --color-primary-text: #eae7dc;
@@ -433,7 +435,7 @@
   margin-block: 0 !important;
   padding: 10px 0 !important;
   gap: 2px !important;
-  border-radius: 31px !important;
+  border-radius: 0 !important;
   border: 1px solid var(--color-border) !important;
   border-right: 1px solid var(--color-border) !important;
   background: color-mix(in srgb, var(--color-surface) 82%, transparent) !important;
@@ -451,7 +453,7 @@
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  border-radius: 14px !important;
+  border-radius: 10px !important;
   background: transparent !important;
   transition: background-color 160ms ease, transform 160ms ease;
 }
@@ -542,3 +544,19 @@
 }
 #root .portal-skin.portal-sidebar.ps-pill .ps-account:hover { transform: scale(1.12); background: var(--color-surface-hover) !important; }
 #root .portal-skin.portal-sidebar.ps-pill .ps-account:active { transform: scale(0.93); }
+
+/* Таблетка не задаёт свою палитру: берёт цвета темы приложения.
+   Раньше здесь были зашиты тёмно-синие значения, из-за чего панель
+   выглядела синей независимо от выбранной темы. */
+#root .portal-skin.portal-sidebar.ps-pill {
+  --color-bg: initial;
+  --color-surface: initial;
+  --color-surface-2: initial;
+  --color-surface-hover: initial;
+  --color-surface-active: initial;
+  --color-border: initial;
+  --color-border-strong: initial;
+  --color-text: initial;
+  --color-text-secondary: initial;
+  --color-text-tertiary: initial;
+}

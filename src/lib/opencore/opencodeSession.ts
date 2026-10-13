@@ -131,7 +131,7 @@ export async function callViaOpencode(
                 }
                 seen.set(part.id ?? String(thinking.length), part.text);
               } else if (part.type === 'tool') {
-                onDelta?.({ toolName: part.tool ?? 'tool' });
+                if (part.type === 'tool' && part.state?.status === 'running') { onDelta?.({ thinking: '' }); }
               }
             } else if (type === 'session.error' || type === 'message.error') {
               failure = payload?.properties?.error?.name ?? 'opencode вернул ошибку';
@@ -155,20 +155,20 @@ export async function callViaOpencode(
       }),
       signal,
     });
-    if (!res.ok) {
+if (!res.ok) {
       events.abort();
       const body = await res.text().catch(() => '');
-return { text: '', raw: null, error: `opencode отклонил запрос (HTTP ${res.status}). ${body.slice(0, 200)}` };
+      throw new Error(`opencode отклонил запрос (HTTP ${res.status}). ${body.slice(0, 200)}`);
     }
   } catch (error: any) {
     events.abort();
     if (signal?.aborted) return { text: output, thinking: thinking || undefined, raw: null };
-return { text: '', raw: null, error: `Не удалось отправить сообщение: ${String(error?.message || error)}` };
+    throw new Error(`Не удалось отправить сообщение: ${String(error?.message || error)}`);
   }
 
   await streamDone;
   signal?.removeEventListener('abort', onAbort);
 
-  if (failure && !output) return { text: '', raw: null, error: failure };
+  if (failure && !output) throw new Error(failure);
   return { text: output || thinking, thinking: thinking || undefined, raw: null };
 }

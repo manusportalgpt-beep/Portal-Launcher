@@ -4727,15 +4727,19 @@ async function callOpenAI(
 ): Promise<ApiOutcome> {
   // Zen не пускает сторонние клиенты, поэтому по возможности идём через
   // локальный сервер официального opencode: он сам обращается к Zen.
+  // Если клиента нет или сервер не поднялся - идём обычным путём.
   if (ep.useZen) {
-    const viaClient = await callViaOpencode(
-      { providerId: 'opencode', modelId: ep.model.id },
-      systemPrompt,
-      turns,
-      onDelta,
-      signal,
-    ).catch(error => ({ text: '', raw: null as unknown, error: String(error?.message || error) }));
-    if (!viaClient.error || viaClient.text) return viaClient;
+    try {
+      return await callViaOpencode(
+        { providerId: 'opencode', modelId: ep.model.id },
+        systemPrompt,
+        turns,
+        onDelta,
+        signal,
+      );
+    } catch (proxyError) {
+      if (signal?.aborted) throw proxyError;
+    }
   }
   const url = ep.useZen
     ? `${ep.baseUrl.replace(/\/+$/, '')}/v1/chat/completions`

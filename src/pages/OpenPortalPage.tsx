@@ -2680,6 +2680,7 @@ export function OpenPortalPage() {
                   рядом. Старая кнопка прикрепления убрана: её роль занял
                   пункт «Загрузить файл» в панели. */}
               <ComposerMenus />
+              <AgentModes />
               {mentionList.length > 0 && (
                 <div className="absolute bottom-full left-0 right-0 z-40 mb-2 overflow-hidden rounded-lg border p-1"
                   style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-lg)' }}>

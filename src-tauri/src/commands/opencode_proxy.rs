@@ -5,8 +5,11 @@
 //! поднять настоящий клиент (`opencode serve`) и ходить через него. Здесь
 //! он ищется, запускается и проверяется на живость.
 
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
+
+use crate::utils::create_hidden_command;
 
 /// Процесс поднятого сервера, чтобы не плодить копии при повторных кликах.
 static SERVER: Mutex<Option<Child>> = Mutex::new(None);
@@ -38,6 +41,63 @@ fn candidate_binaries() -> Vec<std::path::PathBuf> {
 
 fn find_binary() -> Option<std::path::PathBuf> {
     candidate_binaries().into_iter().find(|p| p.is_file())
+}
+
+/// Ищем npm: он нужен, чтобы поставить официального клиента самому.
+fn find_npm() -> Option<std::path::PathBuf> {
+    let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(path) = std::env::var("PATH") {
+        for dir in std::env::split_paths(&path) {
+            candidates.push(dir.join("npm.cmd"));
+            candidates.push(dir.join("npm"));
+        }
+    }
+    if let Ok(program_files) = std::env::var("ProgramFiles") {
+        let base = PathBuf::from(program_files).join("nodejs");
+        candidates.push(base.join("npm.cmd"));
+    }
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        candidates.push(PathBuf::from(appdata).join("npm").join("npm.cmd"));
+    }
+    candidates.into_iter().find(|p| p.is_file())
+}
+
+/// Ставит официальный клиент сам, чтобы пользователю не пришлось ничего
+/// делать руками. Возвращает путь к установленному клиенту.
+fn install_client() -> Result<std::path::PathBuf, String> {
+    // Уже появился, пока смотрели.
+    if let Some(bin) = find_binary() {
+        return Ok(bin);
+    }
+    let npm = find_npm().ok_or_else(|| {
+        "Не найден npm, а без него не поставить клиент автоматически. Установите Node.js — https://nodejs.org — и повторите.".to_string()
+    })?;
+
+    let mut cmd = create_hidden_command(&npm);
+    cmd.arg("install")
+        .arg("-g")
+        .arg("opencode-ai")
+        .stdin(Stdio::null());
+    #[cfg(target_os = "windows")]
+    {
+        // npm.cmd - это пакетный файл, без оболочки он не запустится.
+        cmd = crate::utils::create_hidden_command("cmd");
+        cmd.arg("/C")
+            .arg(&npm)
+            .arg("install")
+            .arg("-g")
+            .arg("opencode-ai");
+    }
+
+    let status = cmd
+        .status()
+        .map_err(|e| format!("Не удалось запустить установку: {e}"))?;
+    if !status.success() {
+        return Err("Установка не завершилась. Проверьте, что Node.js установлен и есть доступ в интернет.".to_string());
+    }
+    find_binary().ok_or_else(|| {
+        "Установка прошла, но клиент не найден. Перезапустите лаунчер.".to_string()
+    })
 }
 
 /// Немного разряженный http-запрос: хватает, чтобы узнать, отвечает ли сервер.
@@ -94,9 +154,12 @@ pub fn zen_proxy_start(port: Option<u16>) -> Result<String, String> {
             }
         }
     }
-    let bin = find_binary().ok_or_else(|| {
-        "Официальный клиент opencode не найден. Установите его - и прокси поднимется сам.".to_string()
-    })?;
+    // Клиента может не быть - тогда ставим сами, чтобы пользователю не
+    // пришлось ничего ставить руками.
+    let bin = match find_binary() {
+        Some(bin) => bin,
+        None => install_client()?,
+    };
 
     let port = port.unwrap_or(41616);
     let mut cmd = crate::utils::create_hidden_command(&bin);

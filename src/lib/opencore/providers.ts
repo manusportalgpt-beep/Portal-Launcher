@@ -189,6 +189,7 @@ export const OP_PROVIDERS: ProviderDef[] = [
     kind: 'openai',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
     apiKeyHint: 'AIza... из Google AI Studio (aistudio.google.com/apikey)',
+    supportsFree: true,
     models: [
       { id: 'gemini-3.5-pro', reasoning: true, vision: true, contextLength: 1_000_000 },
       { id: 'gemini-3.5-flash', reasoning: true, vision: true, contextLength: 1_000_000 },
@@ -203,6 +204,7 @@ export const OP_PROVIDERS: ProviderDef[] = [
     baseUrl: 'https://api.groq.com/openai/v1',
     apiKeyHint: 'gsk_... из console.groq.com',
     docs: 'https://opencode.ai/docs/providers/#groq',
+    supportsFree: true,
     models: [
       { id: 'qwen3-coder-480b', name: 'Qwen3 Coder 480B', reasoning: true },
       { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B' },
@@ -250,6 +252,7 @@ export const OP_PROVIDERS: ProviderDef[] = [
     kind: 'openai',
     baseUrl: 'https://api.cerebras.ai/v1',
     apiKeyHint: 'См. inference.cerebras.ai',
+    supportsFree: true,
     models: [{ id: 'qwen3-coder-480b', name: 'Qwen3 Coder 480B', reasoning: true }],
   },
   {
@@ -261,6 +264,65 @@ export const OP_PROVIDERS: ProviderDef[] = [
     models: [
       { id: 'accounts/fireworks/models/kimi-k2-instruct', name: 'Kimi K2', reasoning: true },
       { id: 'accounts/fireworks/models/qwen3-coder-480b', name: 'Qwen3 Coder 480B', reasoning: true },
+    ],
+  },
+  {
+    id: 'github-models',
+    name: 'GitHub Models',
+    kind: 'openai',
+    baseUrl: 'https://models.github.ai/inference',
+    apiKeyHint: 'Токен GitHub с доступом к Models — бесплатно',
+    keyUrl: 'https://github.com/settings/tokens',
+    docs: 'https://docs.github.com/github-models',
+    supportsFree: true,
+    models: [
+      { id: 'openai/gpt-4.1', name: 'GPT-4.1' },
+      { id: 'openai/gpt-4o-mini', name: 'GPT-4o mini' },
+      { id: 'meta/Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B' },
+      { id: 'mistral-ai/Mistral-Large-2411', name: 'Mistral Large' },
+      { id: 'deepseek/DeepSeek-R1', name: 'DeepSeek R1', reasoning: true },
+    ],
+  },
+  {
+    id: 'chutes',
+    name: 'Chutes',
+    kind: 'openai',
+    baseUrl: 'https://llm.chutes.ai/v1',
+    apiKeyHint: 'Ключ с chutes.ai — есть бесплатные модели',
+    keyUrl: 'https://chutes.ai/settings/api',
+    supportsFree: true,
+    models: [
+      { id: 'chutesai/Qwen2.5-72B-Instruct', name: 'Qwen2.5 72B' },
+      { id: 'chutesai/DeepSeek-V3-0324', name: 'DeepSeek V3' },
+      { id: 'chutesai/Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B' },
+    ],
+  },
+  {
+    id: 'hyperbolic',
+    name: 'Hyperbolic',
+    kind: 'openai',
+    baseUrl: 'https://api.hyperbolic.xyz/v1',
+    apiKeyHint: 'Ключ с hyperbolic.xyz — есть бесплатные модели',
+    keyUrl: 'https://app.hyperbolic.xyz',
+    supportsFree: true,
+    models: [
+      { id: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3' },
+      { id: 'deepseek-ai/DeepSeek-R1', name: 'DeepSeek R1', reasoning: true },
+      { id: 'Qwen/Qwen2.5-72B-Instruct', name: 'Qwen2.5 72B' },
+    ],
+  },
+  {
+    id: 'siliconflow',
+    name: 'SiliconFlow',
+    kind: 'openai',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    apiKeyHint: 'Ключ с siliconflow.cn — много бесплатных моделей',
+    keyUrl: 'https://cloud.siliconflow.cn/account/ak',
+    supportsFree: true,
+    models: [
+      { id: 'Qwen/Qwen2.5-7B-Instruct', name: 'Qwen2.5 7B' },
+      { id: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3' },
+      { id: 'THUDM/glm-4-9b-chat', name: 'GLM-4 9B' },
     ],
   },
   {
@@ -356,6 +418,7 @@ export const OP_PROVIDERS: ProviderDef[] = [
     apiKeyHint: 'GitHub-токен (github.com/settings/tokens → Generate new token, класс. PAT с scope copilot, или OAuth-токен). Приложение само обменяет его на временный Copilot JWT.',
     keyUrl: 'https://github.com/settings/tokens',
     docs: 'https://docs.github.com/en/copilot',
+    supportsFree: true,
     models: [
       { id: 'gpt-4o', name: 'GPT-4o', vision: true, contextLength: 128_000 },
       { id: 'gpt-4.1', name: 'GPT-4.1', vision: true, contextLength: 1_000_000 },
@@ -381,6 +444,7 @@ export const OP_PROVIDERS: ProviderDef[] = [
     apiKeyHint: 'Ключ из console.mistral.ai (API Keys)',
     keyUrl: 'https://console.mistral.ai/api-keys/',
     docs: 'https://docs.mistral.ai',
+    supportsFree: true,
     models: [
       { id: 'codestral-latest', name: 'Codestral', reasoning: true, contextLength: 256_000 },
       { id: 'mistral-large-latest', name: 'Mistral Large', reasoning: true, contextLength: 128_000 },

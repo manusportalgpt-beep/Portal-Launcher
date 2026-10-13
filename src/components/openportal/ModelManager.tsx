@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from 'react';
+import { useCallback, useEffect, useReducer, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, ChevronLeft, ChevronRight, ChevronDown, KeyRound, Link2, Server, Check, ExternalLink, RefreshCw, PlugZap, WifiOff, Trash2, Globe } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
@@ -34,6 +34,60 @@ function KeyInput({ label, value, onChange, placeholder }: { label: string; valu
       <input type="password" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
         className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
     </label>
+  );
+}
+
+/** Статус и запуск локального opencode: от него идёт доступ к Zen. */
+function ZenProxyRow() {
+  const [state, setState] = useState<{ installed: boolean; running: boolean; base_url: string | null } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const refresh = useCallback(async () => {
+    try {
+      setState(await invoke('zen_proxy_status'));
+    } catch { setState(null); }
+  }, []);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const start = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await invoke<string>('zen_proxy_start', { port: null });
+      await refresh();
+    } catch (e: any) {
+      setError(String(e?.message || e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const ready = state?.running;
+  return (
+    <div className="rounded-lg border px-2.5 py-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1.5 text-[11px] font-semibold" style={{ color: 'var(--color-text)' }}>
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ background: ready ? 'var(--color-success)' : 'var(--color-text-tertiary)' }} />
+          Официальный opencode: {ready ? 'подключён' : state?.installed ? 'не запущен' : 'не установлен'}
+        </span>
+        {!ready && (
+          <button onClick={() => void start()} disabled={busy || !state?.installed}
+            className="shrink-0 rounded-md px-2 py-1 text-[11px] font-bold disabled:opacity-50"
+            style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
+            {busy ? 'Запуск…' : 'Подключить'}
+          </button>
+        )}
+      </div>
+      {!state?.installed && (
+        <p className="mt-1.5 text-[11px] leading-snug" style={{ color: 'var(--color-text-tertiary)' }}>
+          Нужен официальный клиент: <code>npm install -g opencode-ai</code>. После этого нажмите «Подключить» — и всё поднимется само.
+        </p>
+      )}
+      {error && <p className="mt-1.5 text-[11px]" style={{ color: 'var(--color-error)' }}>{error}</p>}
+    </div>
   );
 }
 
@@ -191,19 +245,22 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
                 (oc_sk_...) на сайте opencode.ai/auth и впиши его ниже.
               </p>
             )}
-            {p.keyUrl && (
-              <button
-                onClick={() => void invoke('open_url', { url: p.keyUrl }).catch(() => window.open(p.keyUrl, '_blank'))}
-                className="flex items-center gap-1.5 text-[11px] font-semibold transition-opacity hover:opacity-70"
-                style={{ color: 'var(--color-primary)' }}>
-                <ExternalLink size={11} /> Получить ключ{p.id === 'opencode-zen' ? ' (новый oc_sk_)' : ''}
-              </button>
-            )}
-            <label className="block">
-              <span className="mb-1 flex items-center gap-1 text-[11px] font-semibold" style={{ color: 'var(--color-text-tertiary)' }}>
-                <Link2 size={11} /> Base URL (опционально)
-              </span>
-              <input type="text" value={cfg.providers[p.id]?.baseUrl ?? p.baseUrl} placeholder={p.baseUrl}
+{p.id === 'opencode-zen' && (
+ <ZenProxyRow />
+)}
+{p.keyUrl && (
+ <button
+ onClick={() => void invoke('open_url', { url: p.keyUrl }).catch(() => window.open(p.keyUrl, '_blank'))}
+ className="flex items-center gap-1.5 text-[11px] font-semibold transition-opacity hover:opacity-80"
+ style={{ color: 'var(--color-primary)' }}>
+ <ExternalLink size={11} /> Получить ключ{p.id === 'opencode-zen' ? ' (нужен oc_sk_)' : ''}
+ </button>
+)}
+<label className="block">
+<span className="mb-1 flex items-center gap-1 text-[11px] font-semibold" style={{ color: 'var(--color-text)' }}>
+<Link2 size={11} /> Base URL (необязательно)
+</span>
+<input type="text" value={cfg.providers[p.id]?.baseUrl ?? p.baseUrl} placeholder={p.baseUrl}
                 onChange={e => { setProviderBaseUrl(p.id, e.target.value); }}
                 onBlur={() => void loadModels()}
                 className="w-full rounded-lg px-3 py-2 text-xs font-mono" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />

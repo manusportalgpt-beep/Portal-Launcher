@@ -1,3 +1,4 @@
+import { callViaOpencode } from './opencodeSession';
 import { invoke } from '@/lib/invoke-shim';
 import { useOpenCoreStore } from '@/stores/opencoreStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -4724,6 +4725,18 @@ async function callOpenAI(
   onDelta?: (d: StreamDelta) => void,
   opts?: { effort?: EffortLevel },
 ): Promise<ApiOutcome> {
+  // Zen не пускает сторонние клиенты, поэтому по возможности идём через
+  // локальный сервер официального opencode: он сам обращается к Zen.
+  if (ep.useZen) {
+    const viaClient = await callViaOpencode(
+      { providerId: 'opencode', modelId: ep.model.id },
+      systemPrompt,
+      turns,
+      onDelta,
+      signal,
+    ).catch(error => ({ text: '', raw: null as unknown, error: String(error?.message || error) }));
+    if (!viaClient.error || viaClient.text) return viaClient;
+  }
   const url = ep.useZen
     ? `${ep.baseUrl.replace(/\/+$/, '')}/v1/chat/completions`
     : `${ep.baseUrl.replace(/\/+$/, '')}/chat/completions`;

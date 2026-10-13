@@ -1530,6 +1530,10 @@ function raceSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
  */
 function canFetchFromWebview(url: string): boolean {
   try {
+    // Если задан прокси, запрос обязан идти через него. Веб-вью - это
+    // браузер, он прокси не использует, поэтому при включённом прокси
+    // путь через него отключаем целиком.
+    if (useSettingsStore.getState().proxyUrl?.trim()) return false;
     const host = new URL(url).hostname;
     return !host.endsWith('opencode.ai');
   } catch {

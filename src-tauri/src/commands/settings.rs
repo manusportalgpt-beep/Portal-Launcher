@@ -99,3 +99,30 @@ pub async fn get_relay_server_url() -> Result<String, String> {
 pub async fn should_show_snapshots() -> Result<bool, String> {
     Ok(get_bool_setting("show_snapshots", false))
 }
+
+/// Ищет прокси на типовых портах: если прокси запущен у пользователя,
+/// подхватываем его без ручного ввода. Возвращает адрес или пустую строку.
+#[tauri::command]
+pub async fn detect_proxy() -> Result<String, String> {
+    use std::net::{SocketAddr, TcpStream};
+    use std::time::Duration;
+    let candidates = [
+        (7890, "http"),
+        (7897, "http"),
+        (10809, "http"),
+        (1080, "socks5"),
+        (1081, "socks5"),
+        (20171, "http"),
+    ];
+    for (port, scheme) in candidates {
+        let addr = format!("127.0.0.1:{port}");
+        let ok = SocketAddr::from_str(&addr)
+            .ok()
+            .and_then(|a| TcpStream::connect_timeout(&a, Duration::from_millis(300)).ok())
+            .is_some();
+        if ok {
+            return Ok(format!("{scheme}://{addr}"));
+        }
+    }
+    Ok(String::new())
+}

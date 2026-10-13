@@ -394,6 +394,7 @@ fn main() {
             commands::settings::save_all_settings,
             commands::settings::get_setting,
             commands::settings::should_show_snapshots,
+            commands::settings::detect_proxy,
             commands::settings::get_curseforge_api_key,
             commands::settings::get_relay_server_url,
             // Desktop shortcuts and direct instance launch

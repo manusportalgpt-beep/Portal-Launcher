@@ -1092,6 +1092,16 @@ function AdvancedSection() {
             placeholder="http://127.0.0.1:7890 или socks5://127.0.0.1:1080"
             className="flex-1 rounded-lg border px-3 py-2 text-xs font-mono"
             style={{ background:'var(--color-surface)', borderColor:'var(--color-border)', color:'var(--color-text)' }} />
+          <button onClick={async () => {
+            try {
+              const found = await invoke<string>('detect_proxy');
+              if (found) { setAiProxy(found); s.update({ proxyUrl: found }); }
+              else setProxyMessage('Прокси не найден на типовых портах - укажите адрес вручную.');
+            } catch { setProxyMessage('Не удалось проверить порты.'); }
+          }} className="rounded-lg px-3 py-2 text-xs font-bold whitespace-nowrap"
+            style={{ background: 'var(--color-surface)', color: 'var(--color-text)' }}>
+            Найти
+          </button>
           <button onClick={() => s.update({ proxyUrl: aiProxy.trim() })}
             className="rounded-lg px-3 py-2 text-xs font-bold whitespace-nowrap"
             style={{ background:'var(--color-primary)', color:'var(--color-primary-text)' }}>

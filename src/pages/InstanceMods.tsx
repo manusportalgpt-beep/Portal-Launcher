@@ -246,7 +246,7 @@ export function InstanceMods({ instanceId }: { instanceId: string }) {
   const [contentFilter, setContentFilter] = useState<ContentFilter>('all');
   // Датапаки живут внутри миров, а не в сборке, поэтому у них свой список и
   // свои действия - обычный список модов про них ничего не знает.
-  const [datapacks, setDatapacks] = useState<Array<{ world: string; world_name: string; file_name: string; enabled: boolean; size: number }>>([]);
+  const [datapacks, setDatapacks] = useState<Array<{ world: string; world_name: string; file_name: string; enabled: boolean; size: number; name?: string; version?: string; icon_url?: string }>>([]);
   const loadDatapacks = useCallback(async () => {
     try { setDatapacks((await invoke('list_datapacks', { instanceId })) as any[] || []); }
     catch { setDatapacks([]); }
@@ -943,11 +943,13 @@ async function checkInstanceHealth() {
  {items.map(d => (
  <div key={d.world + '/' + d.file_name} className="mb-1.5 flex items-center gap-2 rounded-xl px-2.5 py-2"
  style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', opacity: d.enabled ? 1 : 0.55 }}>
- <Package className="h-4 w-4 shrink-0" style={{ color: 'var(--color-primary)' }} />
+ {d.icon_url
+ ? <img src={d.icon_url} alt="" className="h-5 w-5 shrink-0 rounded" style={{ objectFit: 'cover' }} />
+ : <Package className="h-4 w-4 shrink-0" style={{ color: 'var(--color-primary)' }} />}
  <div className="min-w-0 flex-1">
- <div className="truncate text-[12px] font-bold" style={{ color: 'var(--color-text)' }}>{d.file_name}</div>
+ <div className="truncate text-[12px] font-bold" style={{ color: 'var(--color-text)' }}>{d.name || d.file_name}</div>
  <div className="truncate text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
- {fmtSize(d.size)}{d.enabled ? '' : ' · выключен'}
+ {d.version ? `${d.version} · ` : ''}{d.file_name}{d.enabled ? '' : ' · выключен'}
  </div>
  </div>
  <button title={d.enabled ? 'Выключить' : 'Включить'} onClick={async () => {

@@ -280,9 +280,9 @@ pub async fn install_datapack(
     // does not end up with two versions of one data pack.
     if let Ok(data) = std::fs::read_to_string(instance_json_path(&instance_id)) {
         if let Ok(config) = serde_json::from_str::<serde_json::Value>(&data) {
-            if let Some(arr) = config["mods"].as_array() {
+            if let Some(arr) = config["datapacks"].as_array() {
                 for entry in arr {
-                    if entry["world"] != serde_json::json!(world_folder.as_str()) {
+                    if entry["world"].as_str() != Some(world_folder.as_str()) {
                         continue;
                     }
                     let same_project = entry["id"].as_str() == Some(mod_id.as_str())
@@ -350,7 +350,8 @@ pub async fn install_datapack(
         latest_download_url: None,
         pinned: false,
     };
-    update_instance_mod_list(&instance_id, &installed);
+    migrate_datapacks_out_of_mods(&instance_id);
+    update_instance_datapack_list(&instance_id, &installed, &world_folder);
     Ok(vec![installed])
 }
 
@@ -443,12 +444,28 @@ pub async fn list_datapacks(
             let size = path.metadata().map(|m| m.len()).unwrap_or(0);
             let enabled = !file_name.ends_with(".disabled");
             let real_name = file_name.trim_end_matches(".disabled");
+            // Метаданные берём из списка датапаков сборки, чтобы в интерфейсе
+            // было видно название проекта, а не только имя файла.
+            let known = std::fs::read_to_string(instance_json_path(&instance_id))
+                .ok()
+                .and_then(|d| serde_json::from_str::<serde_json::Value>(&d).ok())
+                .and_then(|c| c["datapacks"].as_array().cloned())
+                .and_then(|arr| {
+                    arr.into_iter()
+                        .find(|e| {
+                            e["world"].as_str() == Some(world_folder.as_str())
+                                && e["file_name"].as_str() == Some(real_name)
+                        })
+                });
             out.push(serde_json::json!({
                 "world": world_folder,
                 "world_name": world_name,
                 "file_name": real_name,
                 "enabled": enabled,
                 "size": size,
+                "name": known.as_ref().and_then(|e| e["name"].as_str()),
+                "version": known.as_ref().and_then(|e| e["version"].as_str()),
+                "icon_url": known.as_ref().and_then(|e| e["icon_url"].as_str()),
             }));
         }
     }
@@ -600,6 +617,67 @@ fn content_dir_for_action(instance_id: &str, mod_type: &str, file_name: &str) ->
         return global;
     }
     local
+}
+
+/// Data packs are not mods of the instance - they live inside a world. They
+/// get their own list so the build page shows them in one honest place and
+/// they cannot be deleted from the wrong folder.
+fn update_instance_datapack_list(instance_id: &str, m: &InstalledMod, world_folder: &str) {
+    let path = instance_json_path(instance_id);
+    let Ok(data) = std::fs::read_to_string(&path) else { return };
+    let Ok(mut config) = serde_json::from_str::<serde_json::Value>(&data) else {
+        return;
+    };
+    let Ok(mut entry) = serde_json::to_value(m) else { return };
+    entry["world"] = serde_json::json!(world_folder);
+    match config["datapacks"].as_array_mut() {
+        Some(arr) => {
+            if let Some(existing) = arr.iter_mut().find(|e| {
+                e["world"].as_str() == Some(world_folder)
+                    && e["file_name"].as_str() == Some(m.file_name.as_str())
+            }) {
+                *existing = entry;
+            } else {
+                arr.push(entry);
+            }
+        }
+        None => config["datapacks"] = serde_json::json!([entry]),
+    }
+    if let Ok(json) = serde_json::to_string_pretty(&config) {
+        std::fs::write(&path, json).ok();
+    }
+}
+
+/// Moves data packs that earlier builds wrongly stored in the mods list into
+/// the dedicated list, so old entries stop showing up as mods.
+fn migrate_datapacks_out_of_mods(instance_id: &str) {
+    let path = instance_json_path(instance_id);
+    let Ok(data) = std::fs::read_to_string(&path) else { return };
+    let Ok(mut config) = serde_json::from_str::<serde_json::Value>(&data) else {
+        return;
+    };
+    let Some(mods) = config["mods"].as_array().cloned() else { return };
+    let (stale, moved): (Vec<_>, Vec<_>) = mods
+        .into_iter()
+        .partition(|e| normalize_content_kind(e.get("mod_type")) == "datapack");
+    if stale.is_empty() {
+        return;
+    }
+    let Some(target) = config["datapacks"].as_array_mut() else {
+        return;
+    };
+    target.extend(moved);
+    config["mods"] = serde_json::json!(stale);
+    if let Ok(json) = serde_json::to_string_pretty(&config) {
+        std::fs::write(&path, json).ok();
+    }
+}
+
+fn normalize_content_kind(value: Option<&serde_json::Value>) -> String {
+    value
+        .and_then(|v| v.as_str())
+        .unwrap_or("mod")
+        .to_ascii_lowercase()
 }
 
 fn update_instance_mod_list(instance_id: &str, m: &InstalledMod) {
@@ -1479,6 +1557,9 @@ async fn resolve_local_curseforge_file(
 
 #[tauri::command]
 pub async fn get_instance_mods(instance_id: String) -> Result<Vec<InstalledMod>, String> {
+// Раньше датапаки попадали в список модов. Убираем их оттуда, чтобы они
+// не показывались как моды и не удалялись не из той папки.
+    migrate_datapacks_out_of_mods(&instance_id);
     let base = instance_base(&instance_id);
     let stored: Vec<serde_json::Value> = std::fs::read_to_string(base.join("instance.json"))
         .ok()

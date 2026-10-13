@@ -438,7 +438,7 @@
   border-radius: 0 !important;
   border: 1px solid var(--color-border) !important;
   border-right: 1px solid var(--color-border) !important;
-  background: color-mix(in srgb, var(--color-surface) 82%, transparent) !important;
+  background: transparent !important;
   box-shadow: 0 8px 28px color-mix(in srgb, #000 22%, transparent) !important;
 }
 
@@ -559,4 +559,31 @@
   --color-text: initial;
   --color-text-secondary: initial;
   --color-text-tertiary: initial;
+}
+/* Полностью прозрачная панель: фон страницы видно сквозь неё и сквозь
+   кнопки. У иконки своя рамка была лишней - активная подсвечивается
+   обводкой самой кнопки, а не квадратом вокруг значка. */
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-icon {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: auto !important;
+  height: auto !important;
+}
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-item {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+}
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-item:hover {
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent) !important;
+}
+#root .portal-skin.portal-sidebar.ps-pill .ps-nav-item.active {
+  background: transparent !important;
+  border-color: color-mix(in srgb, var(--color-primary) 60%, transparent) !important;
+  box-shadow: none !important;
+}
+#root .portal-skin.portal-sidebar.ps-pill .ps-account,
+#root .portal-skin.portal-sidebar.ps-pill .ps-footer {
+  background: transparent !important;
+  border: none !important;
 }

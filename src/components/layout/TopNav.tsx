@@ -337,6 +337,7 @@ function SidebarNav() {
       <div className="ps-footer">
         <div className="ps-account" title={isAuthenticated && user ? user.username : 'Войти в аккаунт'}>
           <AccountButton vertical />
+              </div>
         <PortalSidebarItem item={{ to: '/settings', icon: SlidersHorizontal, labelKey: 'settings' }} scale={scale} />
       </div>
     </aside>

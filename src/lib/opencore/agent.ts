@@ -4714,8 +4714,6 @@ export async function callProvider(
     }
   }
 
-/**
-
   let lastError: unknown;
   for (let attempt = 0; attempt < PROVIDER_MAX_ATTEMPTS; attempt++) {
     if (signal?.aborted) throw new Error('Запрос отменён.');

@@ -96,9 +96,9 @@ export const OP_PROVIDERS: ProviderDef[] = [
     apiKeyHint: 'Ключ Console (oc_sk_...) с https://opencode.ai/zen',
     keyUrl: 'https://opencode.ai/zen',
     docs: 'https://opencode.ai/v2/docs/console/models/',
-    // Платные модели требуют пополнения, бесплатные идут без него -
-    // поэтому провайдер отмечен как бесплатный.
     supportsFree: true,
+    models: [
+      { id: 'big-pickle', name: 'big-pickle' },
       { id: 'cat-jam-free', name: 'cat-jam-free' },
       { id: 'mimo-v2.6-flash-free', name: 'mimo-v2.6-flash-free' },
       { id: 'muse-spark-1.2-contributor-free', name: 'muse-spark-1.2-contributor-free' },

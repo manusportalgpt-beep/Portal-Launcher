@@ -100,12 +100,33 @@ pub fn zen_proxy_start(port: Option<u16>) -> Result<String, String> {
 
     let port = port.unwrap_or(41616);
     let mut cmd = crate::utils::create_hidden_command(&bin);
+    #[cfg(target_os = "windows")]
+    {
+        let extension = bin.extension().map(|value| value.to_string_lossy().to_ascii_lowercase());
+        if matches!(extension.as_deref(), Some("cmd") | Some("bat")) {
+            let command = format!(
+                "\"\"{}\" serve --port {} --hostname 127.0.0.1\"",
+                bin.display(),
+                port
+            );
+            cmd = crate::utils::create_hidden_command("cmd.exe");
+            cmd.arg("/D").arg("/S").arg("/C").arg(command);
+        } else {
+            cmd.arg("serve")
+                .arg("--port")
+                .arg(port.to_string())
+                .arg("--hostname")
+                .arg("127.0.0.1");
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
     cmd.arg("serve")
         .arg("--port")
         .arg(port.to_string())
         .arg("--hostname")
-        .arg("127.0.0.1")
-        .stdin(Stdio::null())
+        .arg("127.0.0.1");
+
+    cmd.stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());
 
@@ -135,6 +156,17 @@ pub fn zen_proxy_start(port: Option<u16>) -> Result<String, String> {
 pub fn zen_proxy_stop() {
     if let Ok(mut slot) = SERVER.lock() {
         if let Some(mut child) = slot.take() {
+            #[cfg(target_os = "windows")]
+            {
+                let pid = child.id().to_string();
+                let _ = crate::utils::create_hidden_command("taskkill")
+                    .arg("/PID")
+                    .arg(pid)
+                    .arg("/T")
+                    .arg("/F")
+                    .status();
+            }
+            #[cfg(not(target_os = "windows"))]
             let _ = child.kill();
             let _ = child.wait();
         }

@@ -1574,68 +1574,6 @@ function describeRouting(url: string): string {
 return 'Запрос ушёл через бэкенд: веб-вью для этого адреса недоступен.';
 }
 
-// opencode.ai/zen отклоняет запросы «извне OpenCode» («OpenCode's free tier can
-// only be used from within OpenCode» / 403 FreeTierError). Проверку проходят
-// только запросы, притворяющиеся официальным клиентом opencode:
-//   Authorization       = "Bearer public" (анонимный free-тариф) либо oc_sk_-ключ
-//   x-opencode-client   = "desktop" | "cli"
-//   x-opencode-session  = "ses_" + 12 hex + 14 base62
-//   x-opencode-request  = "msg_" + 12 hex + 14 base62
-//   x-opencode-project  = "global"
-//   User-Agent          = "opencode/<версия>", версия >= 1.17
-// Плюс два условия самого free-тарифа: запрос обязан быть стриминговым
-// (stream: true) и в tools должны присутствовать имена "bash" и "read",
-// иначе приходит 403 FreeTierError или 429 FreeUsageLimitError.
-const ZEN_ALPHABET =
-  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-const ZEN_HEX = '0123456789abcdef';
-
-function zenRandom(chars: string, length: number): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(length));
-  let out = '';
-  for (let i = 0; i < length; i++) out += chars[bytes[i] % chars.length];
-  return out;
-}
-
-/** id клиента opencode: «ses_»/«msg_» + 12 hex + 14 base62. */
-function zenId(prefix: 'ses_' | 'msg_'): string {
-  return prefix + zenRandom(ZEN_HEX, 12) + zenRandom(ZEN_ALPHABET, 14);
-}
-
-let zenSessionId: string | null = null;
-
-/** Стабильный id сессии на всё время работы (как у официального CLI). */
-function zenSession(): string {
-  if (!zenSessionId) zenSessionId = zenId('ses_');
-  return zenSessionId;
-}
-
-/**
- * Free-тариф пускает анонимный доступ по ключу "public". Legacy-ключи `sk-`
- * уходят по старому пути миграции и free-модели не получают, поэтому их
- * игнорируем; настоящий новый ключ Console (`oc_sk_...`) используем как есть.
- */
-function zenAuthorization(apiKey?: string): string {
-  // Анонимный тариф убрали: `Bearer public` сервер больше не принимает
-  // (401). Без настоящего ключа идти некуда - честно говорим об этом,
-  // вместо того чтобы слать фальшивый заголовок.
-  return apiKey && apiKey.trim() ? `Bearer ${apiKey.trim()}` : '';
-}
-
-function zenClientHeaders(): Record<string, string> {
-  // Версия в User-Agent ни на что не влияет: проверено запросом напрямую -
-  // и с 0.2.315, и с 1.18.31 сервер отвечает одинаково. Значение оставлено
-  // просто для узнаваемого вида запроса.
-  return {
-    'User-Agent': 'opencode/0.2.315',
-    'x-opencode-client': 'desktop',
-    'x-opencode-session': zenSession(),
-    'x-opencode-request': zenId('msg_'),
-    'x-opencode-project': 'global',
-  };
-}
-
-/** Free-тариф требует в payload инструменты с именами "bash" и "read". */
 /**
  * Приводит схемы инструментов к виду, который принимают строгие
  * OpenAI-совместимые шлюзы (в том числе OpenCode Zen).
@@ -1668,38 +1606,7 @@ function sanitizeToolSchemas(tools: any[]): any[] {
   });
 }
 
-function zenTools(tools: any[]): any[] {
-  const names = new Set(tools.map(t => t?.function?.name));
-  const out = [...tools];
-  for (const name of ['bash', 'read']) {
-    if (!names.has(name)) {
-      out.push({
-        type: 'function',
-        function: {
-          name,
-          description: 'Reserved by the upstream client.',
-          parameters: { type: 'object', properties: {} },
-        },
-      });
-    }
-  }
-  return out;
-}
-
-function isZenHost(url: string): boolean {
-  try {
-    return new URL(url).hostname.endsWith('opencode.ai');
-  } catch {
-    return false;
-  }
-}
-
-// Проверено запросом напрямую с настоящим ключом: сервер отвечает 403
-// одинаково - и без заголовков клиента, и с любым User-Agent, и с
-// x-opencode-client = desktop или cli. Значит проверка не в заголовках, а
-// ниже: сервер смотрит на само соединение. Подделать это из нашего
-// запроса нельзя, поэтому честно говорим, что нужен официальный клиент
-// или прокси от него.
+// Объясняет отказ бесплатного тарифа, если он приходит от поддерживаемого API.
 function zenErrorHint(body: string): string {
   if (!/FreeTier|FreeUsageLimit|within OpenCode|can only be used from/i.test(body || '')) return '';
   return ' Возможные причины: провайдер закрыт для вашей сети - проверьте прокси в настройках, кнопка «Найти» подберёт адрес сама; либо нужен официальный клиент opencode. Ключ при этом рабочий: об этом говорит ответ вида «Insufficient account funds» - он приходит вместо этого отказа.';
@@ -3870,7 +3777,7 @@ async function generateViaNovita(prompt: string, size: string | undefined, token
 /** Генерация через images API активного провайдера (OpenAI-совместимо). */
 async function generateViaProvider(ep: ResolvedEndpoint, prompt: string, size?: string): Promise<ExecResult> {
   if (!ep.baseUrl) return { ok: false, output: 'Не настроен baseUrl провайдера для генерации.' };
-  if (!ep.apiKey && !isZenHost(ep.baseUrl)) return { ok: false, output: `Нет API-ключа для ${ep.provider.name}. Добавь ключ в меню моделей.` };
+  if (!ep.apiKey) return { ok: false, output: `Нет API-ключа для ${ep.provider.name}. Добавь ключ в меню моделей.` };
   const url = `${ep.baseUrl.replace(/\/+$/, '')}/images/generations`;
   const body = {
     model: ep.model.id,
@@ -3880,11 +3787,9 @@ async function generateViaProvider(ep: ResolvedEndpoint, prompt: string, size?: 
     response_format: 'b64_json',
   };
   let data: any;
-  const zenImage = isZenHost(url);
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(zenImage ? zenClientHeaders() : {}),
-    Authorization: zenImage ? zenAuthorization(ep.apiKey) : `Bearer ${ep.apiKey}`,
+    Authorization: `Bearer ${ep.apiKey}`,
   };
   if (canFetchFromWebview(url)) {
     try {
@@ -3973,7 +3878,7 @@ async function runImageGen(ep: ResolvedEndpoint, args: { prompt: string; size?: 
   const force = String(args?.provider ?? 'auto').toLowerCase();
   const magnificToken = ep.serviceTokens?.['api.magnific.ai'] ?? bearerForUrl('https://api.magnific.ai', ep.serviceTokens);
   const novitaToken = ep.serviceTokens?.['api.novita.ai'] ?? bearerForUrl('https://api.novita.ai', ep.serviceTokens);
-  const providerUsable = !!ep.baseUrl && (!!ep.apiKey || isZenHost(ep.baseUrl));
+  const providerUsable = !!ep.baseUrl && !!ep.apiKey;
 
   if (force === 'pollinations' || force === 'free') return generateViaPollinations(prompt, size);
   if (force === 'stable_horde' || force === 'horde' || force === 'stablehorde') return generateViaStableHorde(prompt, size);
@@ -4725,11 +4630,21 @@ export async function callProvider(
     }
   }
 
-  if (!ep.apiKey && ep.provider.kind !== 'zen' && !ep.provider.id.includes('custom:')) {
+  if (!ep.apiKey && ep.provider.id !== 'opencode-zen' && !ep.provider.id.includes('custom:')) {
     // Локальные провайдеры (ollama/lmstudio) ключа не требуют
     if (!['ollama', 'lmstudio'].includes(ep.provider.id)) {
       throw new Error(`Нет API-ключа для ${ep.provider.name}. Добавь ключ в меню моделей.`);
     }
+  }
+
+  if (ep.provider.id === 'opencode-zen') {
+    return callViaOpencode(
+      { providerId: 'opencode', modelId: ep.model.id, apiKey: ep.apiKey },
+      systemPrompt,
+      turns,
+      onDelta,
+      signal,
+    );
   }
 
   let lastError: unknown;
@@ -4764,22 +4679,6 @@ async function callOpenAI(
   onDelta?: (d: StreamDelta) => void,
   opts?: { effort?: EffortLevel },
 ): Promise<ApiOutcome> {
-  // Zen не пускает сторонние клиенты, поэтому по возможности идём через
-  // локальный сервер официального opencode: он сам обращается к Zen.
-  // Если клиента нет или сервер не поднялся - идём обычным путём.
-  if (ep.useZen) {
-    try {
-      return await callViaOpencode(
-        { providerId: 'opencode', modelId: ep.model.id },
-        systemPrompt,
-        turns,
-        onDelta,
-        signal,
-      );
-    } catch (proxyError) {
-      if (signal?.aborted) throw proxyError;
-    }
-  }
   const url = ep.useZen
     ? `${ep.baseUrl.replace(/\/+$/, '')}/v1/chat/completions`
     : `${ep.baseUrl.replace(/\/+$/, '')}/chat/completions`;
@@ -4832,8 +4731,7 @@ async function callOpenAI(
     },
   }));
 
-  const zen = isZenHost(url);
-  const requestTools = sanitizeToolSchemas(zen ? zenTools(tools) : tools);
+  const requestTools = sanitizeToolSchemas(tools);
   // Модели с рассуждением часто отклоняют temperature, поэтому для них
   // параметр не отправляем — это частая причина HTTP 400.
   const isReasoning = ep.model.reasoning === true
@@ -4850,18 +4748,11 @@ async function callOpenAI(
   if (onDelta) {
     body.stream = true;
     body.stream_options = { include_usage: true };
-  } else if (zen) {
-    // Free-тариф zen отклоняет не-стриминговые запросы с 403 FreeTierError.
-    body.stream = true;
   }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(zen
-      ? { ...zenClientHeaders(), Authorization: zenAuthorization(ep.apiKey) }
-      : ep.apiKey
-        ? { Authorization: `Bearer ${ep.apiKey}` }
-        : {}),
+    ...(ep.apiKey ? { Authorization: `Bearer ${ep.apiKey}` } : {}),
     ...(ep.provider.id === 'openrouter' ? { 'HTTP-Referer': 'https://portal-launcher.app', 'X-Title': 'OpenPortal' } : {}),
   };
 
@@ -4875,8 +4766,7 @@ async function callOpenAI(
   }
   if (res === null) {
     // Фолбэк: веб-вью не может дотянуться (CORS/сеть) — идём через бэкенд.
-    // Бэкенд буферизует ответ целиком, поэтому SSE от zen разбираем после
-    // получения; для обычных провайдеров просим сразу JSON.
+    // Бэкенд буферизует ответ целиком, поэтому потоковый ответ разбираем после получения.
     const fbBase: Record<string, unknown> = {
       model: body.model,
       messages: body.messages,
@@ -4886,7 +4776,7 @@ async function callOpenAI(
     if (body.reasoning_effort !== undefined) fbBase.reasoning_effort = body.reasoning_effort;
     if (body.reasoning !== undefined) fbBase.reasoning = body.reasoning;
     if (body.thinking !== undefined) fbBase.thinking = body.thinking;
-    if (zen) fbBase.stream = true;
+    if (body.stream === true) fbBase.stream = true;
 
     // Та же лестница отката, что и для веб-вью: полный набор → урезанный →
     // вообще без tools. Раньше через бэкенд последней ступени не было, поэтому
@@ -4902,7 +4792,7 @@ async function callOpenAI(
       const payload: Record<string, unknown> = { ...fbBase };
       if (tools.length > 0) payload.tools = tools;
       fr = await raceSignal(
-        httpViaRust('POST', url, { ...headers, Accept: zen ? 'text/event-stream' : 'application/json' }, JSON.stringify(payload), 180000),
+        httpViaRust('POST', url, { ...headers, Accept: body.stream === true ? 'text/event-stream' : 'application/json' }, JSON.stringify(payload), 180000),
         signal,
       );
       if (fr.ok) { acceptedStep = step; break; }
@@ -4925,7 +4815,7 @@ async function callOpenAI(
         fr.text,
       ));
     }
-    if (zen && /(^|\n)\s*data:/.test(fr.text)) {
+    if (body.stream === true && /(^|\n)\s*data:/.test(fr.text)) {
       // Бэкенд буферизует весь SSE-поток — разбираем его целиком.
       try {
         return parseSSEText(fr.text, onDelta);
@@ -5174,13 +5064,12 @@ async function callAnthropic(
     };
   });
 
-  const zen = isZenHost(url);
   const tools = TOOLS.map(t => ({
     name: t.name,
     description: t.description,
     input_schema: t.parameters,
   }));
-  const requestTools = sanitizeToolSchemas(zen ? zenTools(tools) : tools);
+  const requestTools = sanitizeToolSchemas(tools);
   const isReasoning = ep.model.reasoning === true
     || /^(gpt-5|o[134]|deepseek-r|gpt-oss|qwq|space-bunny|big-pickle)/i.test(ep.model.id);
 
@@ -5192,16 +5081,11 @@ async function callAnthropic(
     tools: requestTools,
   };
   applyEffort(body, ep, opts?.effort);
-  // Free-тариф zen принимает только стриминговые запросы.
-  if (zen) body.stream = true;
-
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'anthropic-version': '2023-06-01',
-    ...(zen ? zenClientHeaders() : {}),
   };
-  if (zen) headers['Authorization'] = zenAuthorization(ep.apiKey);
-  else if (ep.apiKey) headers['x-api-key'] = ep.apiKey;
+  if (ep.apiKey) headers['x-api-key'] = ep.apiKey;
 
   let res: Response | null = null;
   const modeKey = toolModeKey(ep.provider.id, ep.model.id);
@@ -5218,7 +5102,7 @@ async function callAnthropic(
         fr.text,
       ));
     }
-    if (zen && /(^|\n)\s*(event:)?\s*data:/.test(fr.text)) {
+    if ((body.stream === true) && /(^|\n)\s*(event:)?\s*data:/.test(fr.text)) {
       try {
         return parseAnthropicSSEText(fr.text);
       } catch {
@@ -5236,7 +5120,7 @@ async function callAnthropic(
     const text = await res.text().catch(() => '');
     throw new Error(appendZenErrorHint(`${ep.provider.name} вернул HTTP ${res.status}: ${text.slice(0, 500)}`, text));
   }
-  if (zen && (res.headers.get('content-type') || '').includes('text/event-stream')) {
+  if ((body.stream === true) && (res.headers.get('content-type') || '').includes('text/event-stream')) {
     return parseAnthropicSSEText(await res.text());
   }
   const data = await res.json();

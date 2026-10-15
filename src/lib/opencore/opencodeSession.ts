@@ -62,13 +62,24 @@ export function resetZenSession() {
  * Возвращает накопленный текст ответа.
  */
 export async function callViaOpencode(
-  ep: { providerId: string; modelId: string },
+  ep: { providerId: string; modelId: string; apiKey?: string },
   systemPrompt: string,
   turns: ChatTurn[],
   onDelta?: (d: StreamDelta) => void,
   signal?: AbortSignal,
 ): Promise<ApiOutcome> {
   const base = await ensureZenProxy();
+  const apiKey = ep.apiKey?.trim();
+  if (apiKey) {
+    const auth = await fetch(`${base}/auth/${encodeURIComponent(ep.providerId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'api', key: apiKey }),
+    });
+    if (!auth.ok) {
+      throw new Error(`opencode не принял ключ провайдера (HTTP ${auth.status}). Проверь API-ключ в «Управление моделями».`);
+    }
+  }
   const session = await getSession(base, `${ep.providerId}/${ep.modelId}`);
 
   const parts = turns.map(turn => ({

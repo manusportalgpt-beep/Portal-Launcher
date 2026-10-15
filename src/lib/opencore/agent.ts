@@ -4703,21 +4703,33 @@ export async function callProvider(
     }
   }
 
+/**
+ * Отказ, который не изменится от повтора: политика сервера, нет ключа или
+ * нет денег. Повторять такой запрос бессмысленно - он вернёт то же самое
+ * ещё раз, и пользователь увидит «после 5 попыток» вместо ответа.
+ */
+function isDeterministicRejection(error: unknown): boolean {
+  const text = error instanceof Error ? error.message : String(error ?? '');
+  return /\b(401|402|403)\b/.test(text)
+    || /FreeTierError|FreeUsageLimitError|Insufficient account funds|Insufficient Balance|invalid[_ ]api[_ ]key/i.test(text);
+}
+
   let lastError: unknown;
   for (let attempt = 0; attempt < PROVIDER_MAX_ATTEMPTS; attempt++) {
-    if (signal?.aborted) throw new Error('Отменено пользователем.');
+    if (signal?.aborted) throw new Error('Запрос отменён.');
     try {
-      if (ep.format === 'anthropic') return await callAnthropic(ep, systemPrompt, turns, signal, opts);
+      if (ep.format === 'anthropic') return await callAnthropic(ep, systemPrompt, turns, signal, onDelta, opts);
       return await callOpenAI(ep, systemPrompt, turns, signal, onDelta, opts);
     } catch (e: unknown) {
       if (signal?.aborted) throw e;
       lastError = e;
-      // Пять одинаковых попыток только тянут время и повторяют одну и ту же
-      // ошибку — сразу показываем её.
-      if (e instanceof ProviderRequestRejected) throw e;
+      // Сервер сказал «нет» один раз - повтор не поможет.
+      if (e instanceof ProviderRequestRejected || isDeterministicRejection(e)) throw e;
       if (attempt < PROVIDER_MAX_ATTEMPTS - 1) {
         await sleep(400 + attempt * 500 + Math.random() * 300);
       }
+    }
+  }
     }
   }
   if (lastError instanceof Error && ep.provider.id === 'deepseek' && /insufficient balance|402/i.test(lastError.message)) {
@@ -6095,7 +6107,9 @@ export async function runAgentTurn(opts: RunTurnOptions): Promise<ChatMessage[]>
         continue;
       }
       const errMsg = e instanceof Error ? e.message : String(e);
-      const permanent = e instanceof ProviderRequestRejected;
+      // Отказ по политике (403, нет ключа, нет денег) повтором не лечится, поэтому
+    // такой запрос не помечается как «после 5 попыток» - он был всего один.
+    const permanent = e instanceof ProviderRequestRejected || isDeterministicRejection(e);
       const withoutStub = messages.filter(m => m.id !== assistantId);
       if (withoutStub.length !== messages.length) {
         messages = withoutStub;

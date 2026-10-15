@@ -105,6 +105,7 @@ pub async fn should_show_snapshots() -> Result<bool, String> {
 #[tauri::command]
 pub async fn detect_proxy() -> Result<String, String> {
     use std::net::{SocketAddr, TcpStream};
+    use std::str::FromStr;
     use std::time::Duration;
     let candidates = [
         (7890, "http"),

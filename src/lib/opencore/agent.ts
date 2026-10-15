@@ -1673,7 +1673,7 @@ function isZenHost(url: string): boolean {
 // или прокси от него.
 function zenErrorHint(body: string): string {
   if (!/FreeTier|FreeUsageLimit|within OpenCode|can only be used from/i.test(body || '')) return '';
-  return ' Проверено: сервер отвечает одинаково при любых заголовках и любой версии клиента, поэтому дело не в них. Нужен официальный клиент opencode: запусти его локально и укажи его адрес в настройках провайдера, тогда запрос пойдёт через него.'
+  return ' Возможные причины: провайдер закрыт для вашей сети - проверьте прокси в настройках (кнопка «Найти» сама подберёт адрес); либо требуется официальный клиент opencode. Ключ при этом рабочий - об этом говорит ответ вида «Insufficient account funds», а он приходит вместо этого отказа.';
 }
 function appendZenErrorHint(message: string, body: string): string {
   return message + zenErrorHint(body);

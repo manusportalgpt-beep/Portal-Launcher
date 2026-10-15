@@ -278,7 +278,7 @@ function AccountButton({ vertical = false }: { vertical?: boolean }) {
 }
 
 /** Боковая навигация (режим "Sidebar") — портальная тема. */
-function SidebarNav() {
+function SidebarNav({ extraClass }: { extraClass?: string }) {
   const order = useUiStore(s => s.navItemOrder);
   const sidebarWidth = useUiStore(s => s.sidebarWidth);
   // Коллапс по наведению на логотип. Состояние локальное и намеренно
@@ -472,7 +472,7 @@ export interface TopNavExtendedProps {
 }
 export function TopNav({ extendedAccent, extendedCompact, extendedIcons, extendedOrder, extraClass }: TopNavExtendedProps = {}) {
   const navMode = useUiStore(s => s.navMode);
-  return navMode === 'sidebar' ? <SidebarNav /> : <NotchNav extendedOrder={extendedOrder} extendedCompact={extendedCompact} />;
+  return navMode === 'sidebar' ? <SidebarNav extraClass={extraClass} /> : <NotchNav extendedOrder={extendedOrder} extendedCompact={extendedCompact} />;
 }
 
 export default TopNav;

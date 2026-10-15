@@ -1545,15 +1545,34 @@ function raceSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
  */
 function canFetchFromWebview(url: string): boolean {
   try {
-    // Если задан прокси, запрос обязан идти через него. Веб-вью - это
-    // браузер, он прокси не использует, поэтому при включённом прокси
-    // путь через него отключаем целиком.
+    // Если в настройках прописан прокси, идём через него напрямую, минуя
+    // веб-вью, иначе прокси будет игнорироваться и запрос уйдёт мимо
+    // него в интернет напрямую.
     if (useSettingsStore.getState().proxyUrl?.trim()) return false;
     const host = new URL(url).hostname;
     return !host.endsWith('opencode.ai');
   } catch {
     return false;
   }
+}
+
+/**
+ * Объясняет, почему запрос ушёл через бэкенд. Раньше здесь писалось
+ * «нет сети через веб-вью», хотя для opencode.ai веб-вью отключается
+ * намеренно, и это выглядело как поломка.
+ */
+function describeRouting(url: string): string {
+  const proxy = useSettingsStore.getState().proxyUrl?.trim();
+  if (proxy) {
+    return `Запрос ушёл через бэкенд с прокси ${proxy}: с прокси веб-вью не используется.`;
+  }
+  try {
+    if (new URL(url).hostname.endsWith('opencode.ai')) {
+      return 'Запрос ушёл через бэкенд: их CORS не пускает запросы из окна приложения, поэтому веб-вью для opencode.ai отключён намеренно.';
+    }
+  } catch { /* адрес не разобрали - общее объяснение */ }
+  return 'Запрос ушёл через бэкенд: веб-вью для этого адреса недоступен.';
+}
 }
 
 // opencode.ai/zen отклоняет запросы «извне OpenCode» («OpenCode's free tier can
@@ -3884,7 +3903,7 @@ async function generateViaProvider(ep: ResolvedEndpoint, prompt: string, size?: 
     const fr = await httpViaRust('POST', url, headers, JSON.stringify(body), 180000);
     if (!fr.ok) {
       const snippet = fr.text.trim().slice(0, 240);
-      return { ok: false, output: appendZenErrorHint(`Генерация недоступна: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim(), fr.text) };
+      return { ok: false, output: appendZenErrorHint(`Генерация недоступна. ${describeRouting(url)} Ответ HTTP ${fr.status}. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim(), fr.text) };
     }
     try {
       data = JSON.parse(fr.text);
@@ -4903,7 +4922,7 @@ async function callOpenAI(
     if (!fr.ok) {
       const snippet = fr.text.trim().slice(0, 240);
       throw new Error(appendZenErrorHint(
-        `${ep.provider.name} недоступен: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim(),
+        `${ep.provider.name} недоступен: ${describeRouting(url)} Ответ HTTP ${fr.status}. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim(),
         fr.text,
       ));
     }
@@ -5196,7 +5215,7 @@ async function callAnthropic(
     if (!fr.ok) {
       const snippet = fr.text.trim().slice(0, 240);
       throw new Error(appendZenErrorHint(
-        `${ep.provider.name} недоступен: нет сети через веб-вью и HTTP ${fr.status} через бэкенд. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim(),
+        `${ep.provider.name} недоступен: ${describeRouting(url)} Ответ HTTP ${fr.status}. ${fr.error ?? ''}${snippet ? ` Ответ сервера: ${snippet}` : ''}`.trim(),
         fr.text,
       ));
     }

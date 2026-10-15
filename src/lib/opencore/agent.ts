@@ -25,6 +25,17 @@ import { uiCssGuide } from '@/lib/ui-css-vars';
 /** Сколько раз повторять запрос к модели при ошибке. */
 export const PROVIDER_MAX_ATTEMPTS = 5;
 
+/**
+ * Отказ, который не изменится от повтора: политика сервера, нет ключа или
+ * нет денег. Повторять такой запрос бессмысленно - он вернёт то же самое
+ * ещё раз, и пользователь увидит «после 5 попыток» вместо ответа.
+ */
+export function isDeterministicRejection(error: unknown): boolean {
+  const text = error instanceof Error ? error.message : String(error ?? '');
+  return /\b(401|402|403)\b/.test(text)
+    || /FreeTierError|FreeUsageLimitError|Insufficient account funds|Insufficient Balance|invalid[_ ]api[_ ]key/i.test(text);
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -4704,21 +4715,12 @@ export async function callProvider(
   }
 
 /**
- * Отказ, который не изменится от повтора: политика сервера, нет ключа или
- * нет денег. Повторять такой запрос бессмысленно - он вернёт то же самое
- * ещё раз, и пользователь увидит «после 5 попыток» вместо ответа.
- */
-function isDeterministicRejection(error: unknown): boolean {
-  const text = error instanceof Error ? error.message : String(error ?? '');
-  return /\b(401|402|403)\b/.test(text)
-    || /FreeTierError|FreeUsageLimitError|Insufficient account funds|Insufficient Balance|invalid[_ ]api[_ ]key/i.test(text);
-}
 
   let lastError: unknown;
   for (let attempt = 0; attempt < PROVIDER_MAX_ATTEMPTS; attempt++) {
     if (signal?.aborted) throw new Error('Запрос отменён.');
     try {
-      if (ep.format === 'anthropic') return await callAnthropic(ep, systemPrompt, turns, signal, onDelta, opts);
+      if (ep.format === 'anthropic') return await callAnthropic(ep, systemPrompt, turns, signal, opts);
       return await callOpenAI(ep, systemPrompt, turns, signal, onDelta, opts);
     } catch (e: unknown) {
       if (signal?.aborted) throw e;

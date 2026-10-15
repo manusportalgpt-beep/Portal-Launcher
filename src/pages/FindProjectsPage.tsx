@@ -1499,7 +1499,11 @@ const [bedrockNote, setBedrockNote] = useState('');
         <div className="flex gap-1 flex-wrap">
           {(bedrockMode
             ? BEDROCK_CATEGORIES.map(c => [c.slug, c.label, c.icon] as const)
-            : (Object.entries(TYPE_DEFS) as [ProjectType, typeof TYPE_DEFS[ProjectType]][]).map(([tid, def]) => [tid, t(`findProjects.types.${def.labelKey}`), def.icon] as const)
+            : (Object.entries(TYPE_DEFS) as [ProjectType, typeof TYPE_DEFS[ProjectType]][])
+              // Датапаки из вкладки убраны: их установка идёт через выбор
+              // мира, а вкладка только мешала и вводила в заблуждение.
+              .filter(([tid]) => tid !== 'datapacks')
+              .map(([tid, def]) => [tid, t(`findProjects.types.${def.labelKey}`), def.icon] as const)
           ).map(([id, label, Icon]) => {
             const active = bedrockMode ? bedrockCat === id : projectType === id;
             return (

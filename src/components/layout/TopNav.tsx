@@ -299,7 +299,7 @@ function SidebarNav() {
     : user.provider === 'offline' || user.isDemo ? 'Offline'
     : 'Microsoft';
   return (
-    <aside className={`portal-sidebar clean-nav ps-pill portal-skin shrink-0 flex flex-col z-40${appearance.blur > 0 ? ' ps-blurred' : ''}${railCollapsed ? ' ps-collapsed' : ''}`}
+    <aside className={`portal-sidebar clean-nav ps-pill portal-skin shrink-0 flex flex-col z-40 ${extraClass ?? ''}${appearance.blur > 0 ? ' ps-blurred' : ''}${railCollapsed ? ' ps-collapsed' : ''}`}
       style={{
         width: railCollapsed ? 66 : Math.max(84, sidebarWidth),
         padding: '10px 10px',
@@ -467,9 +467,10 @@ export interface TopNavExtendedProps {
   extendedCompact?: boolean;
   extendedIcons?: Record<string, string>;
   extendedOrder?: string[];
+  /** Дополнительный класс панели - задаётся снаружи для отдельных страниц. */
+  extraClass?: string;
 }
-
-export function TopNav({ extendedAccent, extendedCompact, extendedIcons, extendedOrder }: TopNavExtendedProps = {}) {
+export function TopNav({ extendedAccent, extendedCompact, extendedIcons, extendedOrder, extraClass }: TopNavExtendedProps = {}) {
   const navMode = useUiStore(s => s.navMode);
   return navMode === 'sidebar' ? <SidebarNav /> : <NotchNav extendedOrder={extendedOrder} extendedCompact={extendedCompact} />;
 }

@@ -24,6 +24,11 @@ export function MainLayout({ children, extendedAccent, extendedCompact, extended
   // наложения, поэтому сетка всегда оказывалась поверх сайдбара. Здесь она
   // обычный слой под навигацией и содержимым.
   const showPixelField = particleFieldEnabled && location.pathname === '/openportal';
+// На страницах поиска и подборок фон у них свой, тёмно-синий, и панель
+// навигации в этот фон вписывается, а не спорит с ним.
+const sidebarTone = ['/find-projects', '/discover', '/library'].includes(location.pathname)
+  ? 'ps-tone-navy'
+  : '';
 
   useEffect(() => {
     let active = true;
@@ -50,7 +55,7 @@ export function MainLayout({ children, extendedAccent, extendedCompact, extended
       }} />
       <div aria-hidden className="portal-background-scrim pointer-events-none absolute inset-0" style={{ background:'rgba(4, 6, 12, var(--custom-bg-readability, 0.48))' }} />
       {showPixelField && <PixelField className="pointer-events-none absolute inset-0 z-0 h-full w-full" palette={particlePalette} gradientSide={particleGradientSide} />}
-      {navMode === 'sidebar' && <TopNav extendedAccent={extendedAccent} extendedCompact={extendedCompact} extendedIcons={extendedIcons} extendedOrder={extendedOrder} />}
+      {navMode === 'sidebar' && <TopNav extendedAccent={extendedAccent} extendedCompact={extendedCompact} extendedIcons={extendedIcons} extendedOrder={extendedOrder} extraClass={sidebarTone} />}
       <main className="flex-1 min-w-0 min-h-0 overflow-hidden relative z-10">
         <div className="h-full min-h-0 w-full">
           {children}

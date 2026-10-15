@@ -587,3 +587,17 @@
   background: transparent !important;
   border: none !important;
 }
+/* Тон страниц поиска и подборок: там фон тёмно-синий, и панель берёт
+   его же, чтобы не спорить с фоном страницы. */
+#root .portal-sidebar.ps-tone-navy {
+  --color-bg: #262b38;
+  --color-surface: #2b3140;
+  --color-surface-2: #333a4b;
+  --color-surface-hover: #3b4356;
+  --color-border: #3a4152;
+  --color-border-strong: #4a5266;
+  --color-text: #e6e9f0;
+  --color-text-secondary: #b3bac9;
+  --color-text-tertiary: #8b93a6;
+  background: #2b3140 !important;
+}

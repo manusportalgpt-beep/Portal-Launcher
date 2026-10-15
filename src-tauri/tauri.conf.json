@@ -23,10 +23,10 @@
       "nsis": {
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
-        "headerImage": "icons/installer-header.bmp",
-        "sidebarImage": "icons/installer-sidebar.bmp",
+        "headerImage": "../Installer/installer-header.bmp",
+        "sidebarImage": "../Installer/installer-sidebar.bmp",
         "languages": ["Russian", "English"],
-        "installerHooks": "installer/hooks.nsh"
+        "installerHooks": "../Installer/hooks.nsh"
       }
     }
   },

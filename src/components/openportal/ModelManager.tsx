@@ -132,7 +132,6 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
   const setProviderModels = useOpenCoreStore(s => s.setProviderModels);
   const hasApi = Boolean(cfg.providers[p.id]?.apiKey);
   const storedKey = cfg.providers[p.id]?.apiKey ?? '';
-  const legacyZenKey = p.id === 'opencode-zen' && storedKey.startsWith('sk-');
   const open = useAccordion(p.id);
   const setOpen = (v: boolean | ((o: boolean) => boolean)) => {
     const next = typeof v === 'function' ? !open : v;
@@ -240,12 +239,6 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
                 </button>
               </div>
             ) : null}
-            {legacyZenKey && (
-              <p className="text-[11px] leading-snug" style={{ color: '#f0b429' }}>
-                Ключ sk-... устарел (старый мир OpenCode): free-модели с ним не работают. Получи новый ключ
-                (oc_sk_...) на сайте opencode.ai/auth и впиши его ниже.
-              </p>
-            )}
 {p.id === 'opencode-zen' && (
  <ZenProxyRow />
 )}
@@ -254,7 +247,7 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
  onClick={() => void invoke('open_url', { url: p.keyUrl }).catch(() => window.open(p.keyUrl, '_blank'))}
  className="flex items-center gap-1.5 text-[11px] font-semibold transition-opacity hover:opacity-80"
  style={{ color: 'var(--color-primary)' }}>
- <ExternalLink size={11} /> Получить ключ{p.id === 'opencode-zen' ? ' (нужен oc_sk_)' : ''}
+ <ExternalLink size={11} /> Получить ключ
  </button>
 )}
 <label className="block">

@@ -86,6 +86,24 @@ export function contextWindow(model: ModelDef, providerId?: string): number {
 
 export const OP_PROVIDERS: ProviderDef[] = [
   {
+    // Документированный путь для внешних клиентов: отдельный адрес
+    // /inference вместо /zen. Он не отсекает сторонние запросы, потому
+    // что рассчитан именно на них.
+    id: 'opencode-console',
+    name: 'OpenCode Console',
+    kind: 'zen',
+    baseUrl: 'https://opencode.ai/inference',
+    apiKeyHint: 'Ключ Console (oc_sk_...) с https://opencode.ai/zen',
+    keyUrl: 'https://opencode.ai/zen',
+    docs: 'https://opencode.ai/v2/docs/console/models/',
+    supportsFree: true,
+    models: [
+      { id: 'claude-fable-5', name: 'Claude Fable 5', family: 'openai' },
+      { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', family: 'openai' },
+      { id: 'gpt-5', name: 'GPT-5', family: 'openai' },
+    ],
+  },
+  {
     id: 'opencode-zen',
     name: 'OpenCode Zen',
     kind: 'zen',

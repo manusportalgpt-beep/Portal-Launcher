@@ -474,10 +474,14 @@ async function fetchWithToolFallback(
       return null;
     }
 
-    if (res.status !== 400) {
-      rememberToolMode(modeKey, step, ladder.length);
-      return res;
-    }
+// Режим инструментов запоминаем только при успехе. Раньше здесь стояло
+  // «любой ответ кроме 400», и 403 (например FreeTierError) записывал
+  // провайдеру 'none' - после этого инструменты вырезались из каждого
+  // следующего запроса, и нормальная работа уже не восстанавливалась.
+  if (res.ok) {
+    rememberToolMode(modeKey, step, ladder.length);
+  }
+  return res;
     seen.push(await res.text().catch(() => ''));
   }
 
@@ -1583,7 +1587,10 @@ function zenSession(): string {
  * игнорируем; настоящий новый ключ Console (`oc_sk_...`) используем как есть.
  */
 function zenAuthorization(apiKey?: string): string {
-  return apiKey && apiKey.startsWith('oc_sk_') ? `Bearer ${apiKey}` : 'Bearer public';
+  // Анонимный тариф убрали: `Bearer public` сервер больше не принимает
+  // (401). Без настоящего ключа идти некуда - честно говорим об этом,
+  // вместо того чтобы слать фальшивый заголовок.
+  return apiKey && apiKey.trim() ? `Bearer ${apiKey.trim()}` : '';
 }
 
 function zenClientHeaders(): Record<string, string> {

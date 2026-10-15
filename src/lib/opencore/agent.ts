@@ -1,4 +1,3 @@
-import { callViaOpencode } from './opencodeSession';
 import { invoke } from '@/lib/invoke-shim';
 import { useOpenCoreStore } from '@/stores/opencoreStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -1609,7 +1608,7 @@ function sanitizeToolSchemas(tools: any[]): any[] {
 // Объясняет отказ бесплатного тарифа, если он приходит от поддерживаемого API.
 function zenErrorHint(body: string): string {
   if (!/FreeTier|FreeUsageLimit|within OpenCode|can only be used from/i.test(body || '')) return '';
-  return ' Возможные причины: провайдер закрыт для вашей сети - проверьте прокси в настройках, кнопка «Найти» подберёт адрес сама; либо нужен официальный клиент opencode. Ключ при этом рабочий: об этом говорит ответ вида «Insufficient account funds» - он приходит вместо этого отказа.';
+  return ' Бесплатные модели OpenCode доступны только в официальном клиенте. Для работы в Portal без него выбери платную модель OpenCode Console и используй ключ с балансом.';
 }
 function appendZenErrorHint(message: string, body: string): string {
   return message + zenErrorHint(body);
@@ -4429,7 +4428,7 @@ export async function executeTool(
 // Сборка тела запроса для разных форматов
 // ---------------------------------------------------------------------------
 
-import { OP_PROVIDERS, browserLinksHint, type ProviderDef, type ModelDef, type ProviderKind } from '@/lib/opencore/providers';
+import { OP_PROVIDERS, browserLinksHint, providerBaseUrl, type ProviderDef, type ModelDef, type ProviderKind } from '@/lib/opencore/providers';
 
 export interface ResolvedEndpoint {
   provider: ProviderDef;
@@ -4463,7 +4462,7 @@ export function resolveEndpoint(
   let model: ModelDef;
 
   if (preset) {
-    baseUrl = st.baseUrl || preset.baseUrl || '';
+    baseUrl = providerBaseUrl(preset, st.baseUrl);
     // Сначала ищем в реестре, потом в моделях, загруженных с API.
     const fromPreset = preset.models.find(m => m.id === modelId);
     const fromRemote = (st.remoteModels ?? []).find(m => m.id === modelId);
@@ -4630,21 +4629,15 @@ export async function callProvider(
     }
   }
 
-  if (!ep.apiKey && ep.provider.id !== 'opencode-zen' && !ep.provider.id.includes('custom:')) {
+  if (!ep.apiKey && !ep.provider.id.includes('custom:')) {
     // Локальные провайдеры (ollama/lmstudio) ключа не требуют
     if (!['ollama', 'lmstudio'].includes(ep.provider.id)) {
       throw new Error(`Нет API-ключа для ${ep.provider.name}. Добавь ключ в меню моделей.`);
     }
   }
 
-  if (ep.provider.id === 'opencode-zen') {
-    return callViaOpencode(
-      { providerId: 'opencode', modelId: ep.model.id, apiKey: ep.apiKey },
-      systemPrompt,
-      turns,
-      onDelta,
-      signal,
-    );
+  if (['opencode-zen', 'opencode-console'].includes(ep.provider.id) && ep.model.free) {
+    throw new Error('Бесплатные модели OpenCode работают только в официальном клиенте. В Portal выбери платную модель и используй API-ключ с балансом.');
   }
 
   let lastError: unknown;
@@ -4665,7 +4658,7 @@ export async function callProvider(
   }
   if (lastError instanceof Error && ep.provider.id === 'deepseek' && /insufficient balance|402/i.test(lastError.message)) {
     lastError.message =
-      'DeepSeek: публичный ключ исчерпан (402 Insufficient Balance). Введи свой ключ в «Управление моделями» или переключись на OpenCode Zen (бесплатно) в выборе модели. ' +
+      'DeepSeek: публичный ключ исчерпан (402 Insufficient Balance). Введи свой ключ в «Управление моделями» или выбери другую доступную модель. ' +
       lastError.message;
   }
   throw lastError;

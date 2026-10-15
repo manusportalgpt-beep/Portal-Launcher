@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, ChevronLeft, ChevronRight, ChevronDown, KeyRound, Link2, Server, Check, ExternalLink, RefreshCw, PlugZap, WifiOff, Trash2, Globe } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
-import { OP_PROVIDERS, customProviderId, modelsListUrl, BROWSER_LINKS, contextWindow, type ProviderDef, type BrowserLink } from '@/lib/opencore/providers';
+import { OP_PROVIDERS, customProviderId, modelsListUrl, providerBaseUrl, BROWSER_LINKS, contextWindow, type ProviderDef, type BrowserLink } from '@/lib/opencore/providers';
 import { copilotJwt } from '@/lib/opencore/agent';
 import { useOpenCoreStore, activeProviders, isProviderEnabled, isModelEnabled } from '@/stores/opencoreStore';
 import { SkillsSection } from '@/components/openportal/SkillsSection';
@@ -34,60 +34,6 @@ function KeyInput({ label, value, onChange, placeholder }: { label: string; valu
       <input type="password" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
         className="w-full rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
     </label>
-  );
-}
-
-/** Статус и запуск локального opencode: от него идёт доступ к Zen. */
-function ZenProxyRow() {
-  const [state, setState] = useState<{ installed: boolean; running: boolean; base_url: string | null } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  const refresh = useCallback(async () => {
-    try {
-      setState(await invoke('zen_proxy_status'));
-    } catch { setState(null); }
-  }, []);
-
-  useEffect(() => { void refresh(); }, [refresh]);
-
-  const start = async () => {
-    setBusy(true);
-    setError('');
-    try {
-      await invoke<string>('zen_proxy_start', { port: null });
-      await refresh();
-    } catch (e: any) {
-      setError(String(e?.message || e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const ready = state?.running;
-  return (
-    <div className="rounded-lg border px-2.5 py-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-1.5 text-[11px] font-semibold" style={{ color: 'var(--color-text)' }}>
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full"
-            style={{ background: ready ? 'var(--color-success)' : 'var(--color-text-tertiary)' }} />
-          Официальный opencode: {ready ? 'подключён' : state?.installed ? 'не запущен' : 'не установлен'}
-        </span>
-        {!ready && (
-          <button onClick={() => void start()} disabled={busy || !state?.installed}
-            className="shrink-0 rounded-md px-2 py-1 text-[11px] font-bold disabled:opacity-50"
-            style={{ background: 'var(--color-primary)', color: 'var(--color-primary-text)' }}>
-            {busy ? 'Запуск…' : 'Подключить'}
-          </button>
-        )}
-      </div>
-      {!state?.installed && (
-        <p className="mt-1.5 text-[11px] leading-snug" style={{ color: 'var(--color-text-tertiary)' }}>
-          Нужен официальный клиент: <code>npm install -g opencode-ai</code>. После этого нажмите «Подключить» — и всё поднимется само.
-        </p>
-      )}
-      {error && <p className="mt-1.5 text-[11px]" style={{ color: 'var(--color-error)' }}>{error}</p>}
-    </div>
   );
 }
 
@@ -141,7 +87,7 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
   const [error, setError] = useState<string | null>(null);
   const [useOwnKey, setUseOwnKey] = useState(false);
 
-  const baseUrl = (cfg.providers[p.id]?.baseUrl || p.baseUrl).replace(/\/+$/, '');
+  const baseUrl = providerBaseUrl(p, cfg.providers[p.id]?.baseUrl);
 
   async function loadModels() {
     if (!baseUrl) return;
@@ -239,9 +185,6 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
                 </button>
               </div>
             ) : null}
-{p.id === 'opencode-zen' && (
- <ZenProxyRow />
-)}
 {p.keyUrl && (
  <button
  onClick={() => void invoke('open_url', { url: p.keyUrl }).catch(() => window.open(p.keyUrl, '_blank'))}
@@ -254,7 +197,7 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
 <span className="mb-1 flex items-center gap-1 text-[11px] font-semibold" style={{ color: 'var(--color-text)' }}>
 <Link2 size={11} /> Base URL (необязательно)
 </span>
-<input type="text" value={cfg.providers[p.id]?.baseUrl ?? p.baseUrl} placeholder={p.baseUrl}
+<input type="text" value={baseUrl} placeholder={p.baseUrl}
                 onChange={e => { setProviderBaseUrl(p.id, e.target.value); }}
                 onBlur={() => void loadModels()}
                 className="w-full rounded-lg px-3 py-2 text-xs font-mono" style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
@@ -274,16 +217,17 @@ function ConnectedProviderRow({ p, onToggle }: { p: ProviderDef; onToggle: () =>
               <div className="max-h-56 overflow-y-auto rounded-xl border p-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
                 {models.map(m => {
                   const on = isModelEnabled(p, m.id, cfg);
+                  const freeTierOnly = ['opencode-zen', 'opencode-console'].includes(p.id) && m.free;
                   // Размер контекста: берём эффективное значение с учётом
                   // таблицы известных и ручного переопределения.
                   const override = (cfg.modelContexts ?? {})[`${p.id}/${m.id}`];
                   const effective = override ?? contextWindow(m, p.id);
                   return (
-                    <div key={m.id} className="flex items-center gap-2 py-1.5 px-1">
-                      <Toggle value={on} onChange={v => useOpenCoreStore.getState().toggleModel(p.id, m.id, v)} />
+                    <div key={m.id} title={freeTierOnly ? 'Бесплатные модели доступны только через официальный клиент OpenCode.' : undefined} className="flex items-center gap-2 py-1.5 px-1">
+                      <Toggle value={on} disabled={freeTierOnly} onChange={v => useOpenCoreStore.getState().toggleModel(p.id, m.id, v)} />
                       <span className="min-w-0 flex-1 truncate text-xs" style={{ color: 'var(--color-text)' }}>
                         {m.name ?? m.id}
-                        {m.free ? <span className="ml-1 text-[10px] font-bold" style={{ color: 'var(--color-success)' }}>Бесплатно</span> : null}
+                        {m.free ? <span className="ml-1 text-[10px] font-bold" style={{ color: freeTierOnly ? 'var(--color-text-tertiary)' : 'var(--color-success)' }}>{freeTierOnly ? 'Только в OpenCode' : 'Бесплатно'}</span> : null}
                         {m.reasoning ? <span className="ml-1 text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>think</span> : null}
                       </span>
                       <ContextSizePicker

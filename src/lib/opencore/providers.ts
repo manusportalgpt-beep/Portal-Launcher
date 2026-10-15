@@ -49,6 +49,15 @@ export function modelsListUrl(p: ProviderDef, baseUrl: string): string {
   return p.kind === 'anthropic' ? `${base}/v1/models` : `${base}/models`;
 }
 
+/** Migrates the old Zen-only endpoint to the supported external inference API. */
+export function providerBaseUrl(p: ProviderDef, configured?: string): string {
+  const base = configured?.trim().replace(/\/+$/, '');
+  if (p.id === 'opencode-zen' && base === 'https://opencode.ai/zen') {
+    return 'https://opencode.ai/inference';
+  }
+  return base || p.baseUrl;
+}
+
 /**
  * Известные размеры контекста для моделей, чей провайдер их не сообщает.
  *
@@ -93,10 +102,9 @@ export const OP_PROVIDERS: ProviderDef[] = [
     name: 'OpenCode Console',
     kind: 'zen',
     baseUrl: 'https://opencode.ai/inference',
-    apiKeyHint: 'Ключ Console (oc_sk_...) с https://opencode.ai/zen',
+    apiKeyHint: 'Ключ Console (oc_sk_...). Платные модели требуют баланс.',
     keyUrl: 'https://opencode.ai/zen',
     docs: 'https://opencode.ai/v2/docs/console/models/',
-    supportsFree: true,
     models: [
       { id: 'big-pickle', name: 'big-pickle' },
       { id: 'cat-jam-free', name: 'cat-jam-free' },
@@ -148,11 +156,10 @@ export const OP_PROVIDERS: ProviderDef[] = [
     id: 'opencode-zen',
     name: 'OpenCode Zen',
     kind: 'zen',
-    baseUrl: 'https://opencode.ai/zen',
-    apiKeyHint: 'API-ключ аккаунта со страницы https://opencode.ai/auth. Даже бесплатные модели требуют авторизацию.',
-    keyUrl: 'https://opencode.ai/auth',
-    docs: 'https://opencode.ai/docs/providers/#opencode-zen',
-    supportsFree: true,
+    baseUrl: 'https://opencode.ai/inference',
+    apiKeyHint: 'Ключ Console (oc_sk_...). Платные модели требуют баланс.',
+    keyUrl: 'https://opencode.ai/zen',
+    docs: 'https://opencode.ai/v2/docs/console/models/',
     models: [
       { id: 'big-pickle', name: 'Big Pickle', family: 'openai', free: true, contextLength: 200_000 },
       { id: 'cat-jam-free', name: 'Cat Jam Free', family: 'openai', free: true },

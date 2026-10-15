@@ -4731,7 +4731,6 @@ function isDeterministicRejection(error: unknown): boolean {
     }
   }
     }
-  }
   if (lastError instanceof Error && ep.provider.id === 'deepseek' && /insufficient balance|402/i.test(lastError.message)) {
     lastError.message =
       'DeepSeek: публичный ключ исчерпан (402 Insufficient Balance). Введи свой ключ в «Управление моделями» или переключись на OpenCode Zen (бесплатно) в выборе модели. ' +

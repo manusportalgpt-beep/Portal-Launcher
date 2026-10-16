@@ -218,9 +218,10 @@ export function MicrosoftAuth({ onSuccess, onCancel }: {
                 Введите никнейм для игры (только латиница, 3–16 символов)
               </p>
             </div>
-            <input
-              type="text"
-              value={offlineNick}
+<input
+                type="text"
+                aria-label="Никнейм"
+                value={offlineNick}
               onChange={e => { setOfflineNick(e.target.value); setOfflineError(''); }}
               onKeyDown={e => e.key === 'Enter' && loginOffline()}
               placeholder="Steve"

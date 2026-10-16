@@ -509,8 +509,9 @@ const [liveModels, setLiveModels] = useState<ModelInfo[]>([]);
                             style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
                             <div className="flex items-center gap-1.5 px-2" style={{ borderBottom: '1px solid var(--color-border)' }}>
                               <Search className="h-3 w-3 shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />
-                              <input
-                                value={modelQuery}
+<input
+                    aria-label="Поиск модели"
+                    value={modelQuery}
                                 onChange={event => setModelQuery(event.target.value)}
                                 placeholder="Поиск модели"
                                 className="w-full bg-transparent py-1.5 text-[11px] outline-none"
@@ -728,7 +729,7 @@ const [liveModels, setLiveModels] = useState<ModelInfo[]>([]);
                 style={{ color: typing ? 'var(--color-primary)' : 'var(--color-text-tertiary)' }}>
                 <Plus className="w-4 h-4" />
               </button>
-              <input ref={fileInputRef} type="file" multiple className="hidden"
+              <input ref={fileInputRef} type="file" multiple className="hidden" aria-label="Прикрепить файлы"
                 onChange={e => { Array.from(e.target.files ?? []).forEach(addAttachment); e.target.value = ''; }} />
               {attachments.length > 0 && (
                 <span className="px-1.5 py-0.5 text-[10px] font-semibold" style={{ color: 'var(--color-text-secondary)' }}>

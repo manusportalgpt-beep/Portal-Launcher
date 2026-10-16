@@ -677,9 +677,10 @@ export function DiscoverPage() {
         {/* Search input */}
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color:'var(--color-text-tertiary)' }} />
-          <input
-            type="text"
-            value={query}
+<input
+                type="text"
+                aria-label={t('discover.search', { platform: platform === 'modrinth' ? 'Modrinth' : 'CurseForge' })}
+                value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder={t('discover.search', { platform: platform === 'modrinth' ? 'Modrinth' : 'CurseForge' })}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm transition-colors"

@@ -339,7 +339,7 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel, preview = false }: {
                 Только для одиночной игры и серверов с online-mode=false — без реального Minecraft-аккаунта.
               </p>
             </div>
-            <input autoFocus value={offlineName} onChange={e => setOfflineName(e.target.value.replace(/[^a-zA-Z0-9_]/g,''))}
+            <input autoFocus aria-label="Имя для офлайн-входа" value={offlineName} onChange={e => setOfflineName(e.target.value.replace(/[^a-zA-Z0-9_]/g,''))}
               placeholder="Ник (до 16 символов)" maxLength={16}
               onKeyDown={e => e.key === 'Enter' && doOfflineLogin()}
               className="w-full px-3 py-2.5 rounded-xl text-sm text-center font-semibold"
@@ -362,7 +362,7 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel, preview = false }: {
               <p className="font-bold text-base text-center" style={{ color:'var(--color-text)' }}>Вход по нику</p>
               <p className="text-sm mt-1 text-center" style={{ color:'var(--color-text-secondary)' }}>Подгружает существующий публичный скин. Редактирование скина и Bedrock Edition требуют Microsoft-лицензию.</p>
             </div>
-            <input autoFocus value={nickname} onChange={event => setNickname(event.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+            <input autoFocus aria-label="Никнейм Minecraft" value={nickname} onChange={event => setNickname(event.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
               placeholder="Ник Minecraft (до 16 символов)" maxLength={16} onKeyDown={event => event.key === 'Enter' && doNicknameLogin()}
               className="w-full px-3 py-2.5 rounded-sm text-sm text-center font-semibold"
               style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }} />
@@ -382,10 +382,10 @@ export function MicrosoftAuthOAuth({ onSuccess, onCancel, preview = false }: {
                 Работает на серверах, настроенных под Ely.by.
               </p>
             </div>
-            <input autoFocus value={elybyUser} onChange={e => setElybyUser(e.target.value)} placeholder="Логин или email"
+            <input autoFocus aria-label="Логин Ely.by" value={elybyUser} onChange={e => setElybyUser(e.target.value)} placeholder="Логин или email"
               className="w-full px-3 py-2.5 rounded-xl text-sm"
               style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
-            <input value={elybyPass} onChange={e => setElybyPass(e.target.value)} type="password" placeholder="Пароль"
+            <input value={elybyPass} aria-label="Пароль Ely.by" onChange={e => setElybyPass(e.target.value)} type="password" placeholder="Пароль"
               onKeyDown={e => e.key === 'Enter' && doElybyLogin()}
               className="w-full px-3 py-2.5 rounded-xl text-sm"
               style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />

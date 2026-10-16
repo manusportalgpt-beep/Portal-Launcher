@@ -42,9 +42,10 @@ export function DialogHost() {
               </div>
             </div>
             {req.kind === 'prompt' && (
-              <input
-                autoFocus
-                value={value}
+<input
+        autoFocus
+        aria-label="Ответ"
+        value={value}
                 onChange={event => setValue(event.target.value)}
                 onKeyDown={event => { if (event.key === 'Enter' && value.trim()) resolveTop(value.trim()); }}
                 placeholder={req.placeholder}

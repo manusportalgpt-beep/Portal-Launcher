@@ -2390,6 +2390,7 @@ export function OpenPortalPage() {
               </button>
               <div className="flex items-center gap-1.5 px-1 pt-1">
                 <input
+                  aria-label="Имя проекта"
                   value={projectName}
                   onChange={e => setProjectName(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') startProject(); }}
@@ -2440,8 +2441,9 @@ export function OpenPortalPage() {
           <div className="flex items-center gap-1.5 rounded px-2 py-1.5"
             style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
             <Search size={12} className="shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />
-            <input
-              value={sessionFilter}
+<input
+                  aria-label="Поиск по чатам"
+                  value={sessionFilter}
               onChange={e => setSessionFilter(e.target.value)}
               placeholder="Поиск по чатам"
               className="min-w-0 flex-1 bg-transparent text-[11px] outline-none"

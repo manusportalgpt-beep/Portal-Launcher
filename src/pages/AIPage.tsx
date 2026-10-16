@@ -131,6 +131,7 @@ export function AIPage() {
               <Key className="w-4 h-4 shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />
               <input
                 type="password"
+                aria-label="Ключ API"
                 placeholder="sk-xxxxxxxxxxxxxxxx"
                 value={keyInput}
                 onChange={e => setKeyInput(e.target.value)}

@@ -127,13 +127,14 @@ export function BookmarksPage() {
             {deleted.length > 0 && (
               <button
                 onClick={() => setShowDeleted(s => !s)}
+                aria-pressed={showDeleted}
                 className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold"
                 style={{
                   background: showDeleted ? 'var(--color-surface-active)' : 'var(--color-surface-2)',
                   color: showDeleted ? 'var(--color-text)' : 'var(--color-text-secondary)',
                   border: '1px solid var(--color-border)',
                 }}>
-                <Trash2 className="h-3.5 w-3.5" />Удалённые · {deleted.length}
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />Удалённые · {deleted.length}
               </button>
             )}
             <button

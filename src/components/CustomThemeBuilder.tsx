@@ -132,7 +132,7 @@ export function CustomThemeBuilder() {
                   <p className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>Палитра, поверхности, статусы, радиусы, тени и шрифт сохраняются после перезапуска.</p>
                 </div>
               </div>
-              <input value={name} onChange={e => setName(e.target.value)} maxLength={32} placeholder="Название темы"
+              <input aria-label="Название темы" value={name} onChange={e => setName(e.target.value)} maxLength={32} placeholder="Название темы"
                 className="mb-3 w-full rounded-xl px-3 py-2 text-xs outline-none"
                 style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
               <div className="mb-3 p-0" style={{ background:'transparent', border:'0' }}>

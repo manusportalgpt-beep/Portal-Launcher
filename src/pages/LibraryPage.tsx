@@ -385,8 +385,9 @@ function LogsToolbar({ logs, filter, setFilter, autoScroll, setAutoScroll, copie
       <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
         style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}>
         <Search className="w-3 h-3 shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />
-        <input
-          placeholder={t('libraryRuntime.filterLogs')}
+<input
+              aria-label={t('libraryRuntime.filterLogs')}
+              placeholder={t('libraryRuntime.filterLogs')}
           value={filter}
           onChange={e => setFilter(e.target.value)}
           className="bg-transparent text-xs w-36 outline-none"
@@ -871,8 +872,8 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                                 Не удалось получить список версий: {loaderVersionsError}
                               </p>
                             )}
-                            <input
-                              value={form.customLoaderVersion}
+<input aria-label="Версия загрузчика"
+                value={form.customLoaderVersion}
                               onChange={e => setForm(f => ({ ...f, customLoaderVersion: e.target.value }))}
                               placeholder="Версия загрузчика вручную, например 0.24.0"
                               className="w-full rounded-xl px-3 py-2.5 text-sm"
@@ -887,7 +888,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                           </div>
                         )}
                         {form.loaderVersionType==='custom' && (
-                          <input value={form.customLoaderVersion} onChange={e => setForm(f => ({...f,customLoaderVersion:e.target.value}))}
+                          <input aria-label="Версия загрузчика" value={form.customLoaderVersion} onChange={e => setForm(f => ({...f,customLoaderVersion:e.target.value}))}
                             placeholder="e.g. 0.15.11" className="w-full mt-2 px-3 py-2.5 rounded-xl text-sm"
                             style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text)' }} />
                         )}
@@ -1092,7 +1093,7 @@ function NewGroupModal({ onClose, onCreate }: { onClose: () => void; onCreate: (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background:'rgba(0,0,0,0.5)' }} onClick={onClose}>
       <div className="w-80 rounded-2xl p-4" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)' }} onClick={e => e.stopPropagation()}>
         <p className="text-sm font-bold mb-3" style={{ color:'var(--color-text)' }}>Новая группа</p>
-        <input autoFocus value={name} onChange={e => setName(e.target.value)}
+        <input aria-label="Имя новой сборки" autoFocus value={name} onChange={e => setName(e.target.value)}
           placeholder="Название группы" onKeyDown={e => e.key==='Enter' && name.trim() && onCreate(name.trim())}
           className="w-full mb-3 px-3 py-2 rounded-xl text-sm outline-none"
           style={{ background:'var(--color-surface-2)', color:'var(--color-text)', border:'1px solid var(--color-border)' }} />
@@ -1195,7 +1196,7 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
         <div className="flex min-w-[220px] flex-1 items-center gap-2 px-3 py-2 rounded-lg"
           style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
           <Search className="w-4 h-4 shrink-0" style={{ color:'var(--color-text-tertiary)' }} />
-          <input data-library-search="true" className="min-w-0 flex-1 bg-transparent text-sm" placeholder={t('libraryRuntime.smartSearch')}
+          <input data-library-search="true" aria-label="Поиск сборки" className="min-w-0 flex-1 bg-transparent text-sm" placeholder={t('libraryRuntime.smartSearch')}
             value={filter} onChange={e => setFilter(e.target.value)} style={{ color:'var(--color-text)' }} />
         </div>
         <button onClick={onNew}

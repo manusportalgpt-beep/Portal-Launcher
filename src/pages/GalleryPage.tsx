@@ -169,10 +169,11 @@ export function GalleryPage() {
               <img src={selected.url} alt="" className="w-full rounded-2xl object-contain max-h-[80vh]" />
               <div className="flex items-center justify-between mt-3">
                 <div className="flex items-center gap-2"><p className="text-sm text-white/70">{selected.instanceName}</p><button onClick={() => openScreenshotsFolder(selected.instanceId)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20">Folder</button><button onClick={() => deleteScreenshot(selected)} className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-500/20 hover:bg-red-500/35" title="Delete screenshot"><Trash2 className="w-3.5 h-3.5 text-red-200" /></button></div>
-                <button onClick={() => setSelectedIdx(null)}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors">
-                  <X className="w-4 h-4 text-white" />
-                </button>
+<button onClick={() => setSelectedIdx(null)}
+        aria-label="Снять выделение"
+        className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20">
+        <X className="w-4 h-4 text-white" aria-hidden="true" />
+      </button>
               </div>
             </motion.div>
             {selectedIdx > 0 && (

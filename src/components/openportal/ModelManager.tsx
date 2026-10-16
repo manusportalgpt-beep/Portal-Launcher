@@ -605,9 +605,9 @@ export function ModelManager() {
               </p>
               {showBookmarkForm && (
                 <div className="mb-3 space-y-2 rounded-2xl border p-3" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}>
-                  <input value={bName} onChange={e => setBName(e.target.value)} placeholder="Название (например «Мой ИИ»)"
+                  <input aria-label="Название закладки" value={bName} onChange={e => setBName(e.target.value)} placeholder="Название (например «Мой ИИ»)"
                     className="w-full rounded-lg px-3 py-2 text-xs" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
-                  <input value={bUrl} onChange={e => setBUrl(e.target.value)} placeholder="https://..."
+                  <input aria-label="Адрес закладки" value={bUrl} onChange={e => setBUrl(e.target.value)} placeholder="https://..."
                     className="w-full rounded-lg px-3 py-2 text-xs font-mono" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
                   <div className="flex gap-2">
                     <button onClick={addBookmarkClick} disabled={!bName.trim() || !bUrl.trim()}

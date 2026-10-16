@@ -101,6 +101,7 @@ function RangeRow({ label, desc, value, min, max, unit, onChange }: { label:stri
         <span className="text-sm font-bold" style={{ color:'var(--color-primary)' }}>{value}{unit}</span>
       </div>
       <input type="range" min={min} max={max} value={value} onChange={e => onChange(+e.target.value)}
+        aria-label={label} aria-valuetext={`${value}${unit}`}
         className="w-full" />
     </div>
   );
@@ -111,7 +112,7 @@ function InputRow({ label, desc, value, onChange, placeholder, type='text', read
     <div className="py-3.5" style={{ borderBottom:'1px solid var(--color-border)' }}>
       <p className="text-sm font-semibold mb-1.5" style={{ color:'var(--color-text)' }}>{label}</p>
       {desc && <p className="text-xs mb-2" style={{ color:'var(--color-text-secondary)' }}>{desc}</p>}
-      <input type={type} value={value} onChange={e => !readOnly && onChange?.(e.target.value)} placeholder={placeholder}
+      <input type={type} value={value} onChange={e => !readOnly && onChange?.(e.target.value)} placeholder={placeholder} aria-label={label}
         readOnly={readOnly}
         className="w-full px-3 py-2.5 rounded-md text-sm font-medium"
         style={{
@@ -691,7 +692,7 @@ function AppearanceSection() {
           <div className="flex flex-wrap items-center gap-1.5">
             {(ui.particlePalette ?? []).map((c, i) => (
               <span key={i} className="relative inline-block">
-                <input type="color" value={c}
+                <input type="color" value={c} aria-label={`Цвет ${i + 1} палитры пикселей`}
                   onChange={e => {
                     const next = [...(ui.particlePalette ?? [])];
                     next[i] = e.target.value;
@@ -807,7 +808,7 @@ function AppearanceSection() {
       </p>
 
       <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <input ref={fileRef} type="file" accept=".prtheme,.css,text/css" hidden
+        <input ref={fileRef} type="file" accept=".prtheme,.css,text/css" hidden aria-label="Импорт темы из файла"
           onChange={e => importTheme(e.target.files?.[0])} />
         <button onClick={() => fileRef.current?.click()}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold"
@@ -1088,7 +1089,7 @@ function AdvancedSection() {
           пойдут через него. Пусто - напрямую.
         </p>
         <div className="flex gap-2">
-          <input value={aiProxy} onChange={e => setAiProxy(e.target.value)}
+          <input aria-label="Прокси для запросов ИИ" value={aiProxy} onChange={e => setAiProxy(e.target.value)}
             placeholder="http://127.0.0.1:7890 или socks5://127.0.0.1:1080"
             className="flex-1 rounded-lg border px-3 py-2 text-xs font-mono"
             style={{ background:'var(--color-surface)', borderColor:'var(--color-border)', color:'var(--color-text)' }} />
@@ -1124,9 +1125,10 @@ function AdvancedSection() {
           <a href="https://console.curseforge.com/" target="_blank" rel="noreferrer" className="font-semibold underline underline-offset-2 transition-opacity hover:opacity-80 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]" style={{ color:'var(--color-primary)' }}>console.curseforge.com</a>
         </p>
         <div className="flex gap-2">
-          <input
-            type="password"
-            value={cfKey}
+<input
+              type="password"
+              aria-label="Ключ CurseForge"
+              value={cfKey}
             onChange={e => { setCfKey(e.target.value); setSaved(false); }}
             placeholder="$2a$10$..."
             className="flex-1 px-3 py-2.5 rounded-xl text-sm font-medium"

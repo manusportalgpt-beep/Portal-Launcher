@@ -246,7 +246,7 @@ export function InnovativeLibrary() {
           <div className="flex-1 flex items-center gap-2 rounded-2xl px-4 py-2.5"
             style={{ background: 'color-mix(in srgb, var(--color-surface) 72%, transparent)', border: '1px solid var(--color-border)' }}>
             <Search size={15} style={{ color: 'var(--color-text-tertiary)' }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Найти сборку…"
+            <input aria-label="Найти сборку" value={search} onChange={e => setSearch(e.target.value)} placeholder="Найти сборку…"
               className="flex-1 bg-transparent text-[13px] font-semibold outline-none" style={{ color: 'var(--color-text)' }} />
           </div>
           <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}

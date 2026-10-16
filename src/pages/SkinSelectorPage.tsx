@@ -143,7 +143,7 @@ function SkinPreviewModal({
           <div className="flex flex-col gap-4 min-w-0">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-tertiary)' }}>Название пресета</p>
-              <input value={name} maxLength={36} onChange={event => onName(event.target.value)} placeholder="Например, Survival"
+              <input aria-label="Название набора" value={name} maxLength={36} onChange={event => onName(event.target.value)} placeholder="Например, Survival"
                 className="w-full px-3 py-2.5 text-sm outline-none" style={{ borderRadius: 'var(--radius-button)', background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
             </div>
             <div>
@@ -480,7 +480,7 @@ export function SkinSelectorPage() {
         </div>
       </header>
 
-      <input ref={fileRef} type="file" accept=".png,image/png" className="hidden"
+      <input ref={fileRef} type="file" accept=".png,image/png" className="hidden" aria-label="Загрузить PNG"
         onChange={e => e.target.files?.[0] && openPreview(e.target.files[0])} />
 
       <div className="flex-1 min-h-0 scroll-area px-6 pb-6">

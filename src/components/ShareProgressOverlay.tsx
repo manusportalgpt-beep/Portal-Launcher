@@ -106,7 +106,7 @@ export function ShareProgressOverlay({ state, onClose }: { state: ShareState; on
           >
             <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--color-border)' }}>
               <Globe size={15} style={{ color: 'var(--color-primary)' }} />
-              <span className="flex-1 text-sm font-black" style={{ color: 'var(--color-text)' }}>Instances Share</span>
+              <span className="flex-1 text-sm font-black" style={{ color: 'var(--color-text)' }}>Общий доступ к сборкам</span>
               {state.phase !== 'done' && state.phase !== 'error' && (
                 <Loader2 size={15} className="animate-spin" style={{ color: 'var(--color-primary)' }} />
               )}

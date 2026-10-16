@@ -127,7 +127,7 @@ function InstancePickerModal({
         transition={{ type: 'spring', stiffness: 480, damping: 34 }}>
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
           <div>
-            <h2 className="font-bold text-sm" style={{ color: 'var(--color-text)' }}>Install to Instance</h2>
+            <h2 className="font-bold text-sm" style={{ color: 'var(--color-text)' }}>Установить в сборку</h2>
             <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
               Pick where to install <span className="font-semibold">{modName}</span>
             </p>

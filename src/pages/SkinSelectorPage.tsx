@@ -162,7 +162,7 @@ function SkinPreviewModal({
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-tertiary)' }}>Текстура</p>
               <div className="flex items-center gap-3 p-2.5" style={{ ...card, background: 'var(--color-surface-2)' }}>
-                <img src={dataUrl} alt="skin sheet" className="w-14 h-14 object-contain"
+                <img src={dataUrl} alt="Развёртка скина" className="w-14 h-14 object-contain"
                   style={{ imageRendering: 'pixelated', background: 'var(--color-surface)', borderRadius: 8 }} />
                 <button onClick={onPickAnother} className="text-xs font-semibold" style={{ color: 'var(--color-primary)' }}>
                   Сменить текстуру

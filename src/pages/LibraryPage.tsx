@@ -794,7 +794,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                     <div className="flex items-center justify-between p-3 rounded-xl"
                       style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                       <div>
-                        <p className="text-xs font-bold" style={{ color:'var(--color-text)' }}>Windows Developer Mode</p>
+                        <p className="text-xs font-bold" style={{ color:'var(--color-text)' }}>Режим разработчика Windows</p>
                         <p className="text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>
                           {devMode?.enabled ? 'Включён' : 'Нужен, чтобы видеть список установленных изданий Bedrock'}
                         </p>
@@ -807,7 +807,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
                       </button>
                     </div>
                     <div>
-                      <label className="block text-xs font-bold mb-2" style={{ color:'var(--color-text)' }}>Installed Edition</label>
+                      <label className="block text-xs font-bold mb-2" style={{ color:'var(--color-text)' }}>Установленная версия</label>
                       {bedrockPkgs.length===0 ? (
                         <p className="text-xs px-3 py-2.5 rounded-xl" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-tertiary)' }}>
                           {devMode?.enabled
@@ -936,7 +936,7 @@ function CreateModal({ onClose, onCreated, initialStep = 'type' }: { onClose: ()
 
         <div className="shrink-0 px-6 pb-6 pt-1 flex items-center justify-between gap-2.5">
           <div className="flex items-center gap-1.5 text-[10px]" style={{ color:'var(--color-text-tertiary)' }}>
-            {step==='custom' && <><span className="dkbd">Enter</span><span>создать</span><span className="dkbd ml-1">Esc</span><span>закрыть</span></>}
+            {step==='custom' && <><span className="dkbd">Войти</span><span>создать</span><span className="dkbd ml-1">Esc</span><span>закрыть</span></>}
           </div>
           {step==='custom' && (
             <button onClick={doCreate} disabled={creating || (form.loader !== 'bedrock' && !form.mcVersion)}
@@ -1264,7 +1264,7 @@ function LibraryGrid({ instances, onSelect, onNew, onOpenInstall, onOpenDeleted,
           {ungrouped.length > 0 && (
             <div data-group-container="">
               <div className="dsection mb-3">
-                <p className="font-black font-display" style={{ color:'var(--color-text-tertiary)' }}>Ungrouped</p>
+                <p className="font-black font-display" style={{ color:'var(--color-text-tertiary)' }}>Без группы</p>
                 <span className="text-xs" style={{ color:'var(--color-text-tertiary)' }}>{ungrouped.length}</span>
               </div>
               <div className="grid gap-3 min-h-[80px] rounded-2xl" style={{ gridTemplateColumns:'repeat(auto-fill, minmax(150px,1fr))' }}>

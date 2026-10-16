@@ -128,7 +128,7 @@ export function CustomThemeBuilder() {
               <div className="mb-3 flex items-center gap-2">
                 <Palette className="h-4 w-4" style={{ color: 'var(--color-primary)' }} />
                 <div>
-                  <p className="text-sm font-black" style={{ color: 'var(--color-text)' }}>Theme builder</p>
+                  <p className="text-sm font-black" style={{ color: 'var(--color-text)' }}>Конструктор темы</p>
                   <p className="text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>Палитра, поверхности, статусы, радиусы, тени и шрифт сохраняются после перезапуска.</p>
                 </div>
               </div>
@@ -197,7 +197,7 @@ export function CustomThemeBuilder() {
               <button onClick={() => setTheme(theme.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                 <span className="truncate text-[10px] font-bold" style={{ color: 'var(--color-text)' }}>{theme.name}</span>
               </button>
-              <button onClick={() => deleteCustomTheme(theme.id)} className="rounded-lg p-1 hover:bg-white/10" style={{ color: 'var(--color-text-secondary)' }} aria-label="Delete theme"><Trash2 className="h-3 w-3" /></button>
+              <button onClick={() => deleteCustomTheme(theme.id)} className="rounded-lg p-1 hover:bg-white/10" style={{ color: 'var(--color-text-secondary)' }} aria-label="Удалить тему"><Trash2 className="h-3 w-3" /></button>
             </div>
           ))}
         </div>

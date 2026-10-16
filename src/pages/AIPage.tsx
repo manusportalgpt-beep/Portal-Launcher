@@ -171,12 +171,12 @@ export function AIPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={clearHistory} title="Clear history"
+          <button onClick={clearHistory} title="Очистить историю"
             className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/5 transition-colors"
             style={{ color: 'var(--color-text-tertiary)' }}>
             <Trash2 className="w-4 h-4" />
           </button>
-          <button onClick={() => { setShowKeySetup(true); setKeyInput(apiKey); }} title="Change API key"
+          <button onClick={() => { setShowKeySetup(true); setKeyInput(apiKey); }} title="Сменить ключ API"
             className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/5 transition-colors"
             style={{ color: 'var(--color-text-tertiary)' }}>
             <Key className="w-4 h-4" />
@@ -255,7 +255,7 @@ export function AIPage() {
             style={{ background: 'rgba(231,76,60,0.1)', border: '1px solid var(--color-error)', color: 'var(--color-error)' }}>
             <RefreshCw className="w-3.5 h-3.5 shrink-0" />
             <span>{error}</span>
-            <button onClick={send} className="ml-auto text-xs underline">Retry</button>
+            <button onClick={send} className="ml-auto text-xs underline">Повторить</button>
           </motion.div>
         )}
         <div ref={bottomRef} />

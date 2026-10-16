@@ -1260,7 +1260,7 @@ function AboutSection() {
       </div>
       {notifications.length > 0 && (
         <div className="mb-4">
-          <p className="text-xs font-semibold mb-2" style={{ color:'var(--color-text-secondary)' }}>Recent updates</p>
+          <p className="text-xs font-semibold mb-2" style={{ color:'var(--color-text-secondary)' }}>Недавние обновления</p>
           <div className="space-y-2">
             {notifications.map(n => (
               <div key={n.version} className="p-3" style={{ background:'var(--color-surface)', border:'1px solid var(--color-border)', borderRadius: 6 }}>

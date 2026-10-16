@@ -93,7 +93,7 @@ function NotifDropdown({ onClose }: { onClose: () => void }) {
       transition={{ type:'spring', stiffness:500, damping:38 }}>
       <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor:'var(--color-border)' }}>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold" style={{ color:'var(--color-text)' }}>Notifications</span>
+          <span className="text-sm font-bold" style={{ color:'var(--color-text)' }}>Уведомления</span>
           {unread > 0 && (
             <span className="w-5 h-5 rounded-full text-[9px] font-bold flex items-center justify-center"
               style={{ background:'var(--color-error)', color:'#fff' }}>{unread}</span>
@@ -102,7 +102,7 @@ function NotifDropdown({ onClose }: { onClose: () => void }) {
         <div className="flex gap-2">
           {unread > 0 && (
             <button onClick={markAllRead} className="text-[11px] font-semibold"
-              style={{ color:'var(--color-primary)' }}>Mark all read</button>
+              style={{ color:'var(--color-primary)' }}>Прочитать все</button>
           )}
           <button onClick={onClose} className="w-5 h-5 flex items-center justify-center rounded hover:opacity-70">
             <X className="w-3.5 h-3.5" style={{ color:'var(--color-text-secondary)' }} />
@@ -113,7 +113,7 @@ function NotifDropdown({ onClose }: { onClose: () => void }) {
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center py-10 gap-2">
             <Bell className="w-8 h-8" style={{ color:'var(--color-text-tertiary)' }} />
-            <p className="text-sm" style={{ color:'var(--color-text-secondary)' }}>No notifications</p>
+            <p className="text-sm" style={{ color:'var(--color-text-secondary)' }}>Уведомлений нет</p>
           </div>
         ) : (
           <div className="p-2 space-y-1">
@@ -179,8 +179,8 @@ function AccountDropdown({ onClose }: { onClose: () => void }) {
             <LogIn className="w-6 h-6 text-white" />
           </div>
           <div className="text-center">
-            <p className="font-bold text-sm" style={{ color:'var(--color-text)' }}>Not signed in</p>
-            <p className="text-xs mt-0.5" style={{ color:'var(--color-text-secondary)' }}>Sign in to play Minecraft</p>
+            <p className="font-bold text-sm" style={{ color:'var(--color-text)' }}>Не выполнен вход</p>
+            <p className="text-xs mt-0.5" style={{ color:'var(--color-text-secondary)' }}>Войдите, чтобы играть в Minecraft</p>
           </div>
           <button onClick={() => { (() => { useUiStore.getState().set('settingsSection' as any, 'account'); useUiStore.getState().set('settingsOverlayOpen' as any, true); })(); onClose(); }}
             className="w-full py-2 rounded-xl text-sm font-semibold"
@@ -232,7 +232,7 @@ function AccountDropdown({ onClose }: { onClose: () => void }) {
                 <div className="flex gap-2">
                   <button onClick={signOutActiveAccount}
                     className="flex-1 py-1.5 rounded-lg text-xs font-bold"
-                    style={{ background:'var(--color-error)', color:'#fff' }}>Sign Out</button>
+                    style={{ background:'var(--color-error)', color:'#fff' }}>Выйти</button>
                   <button onClick={() => setConfirm(false)}
                     className="flex-1 py-1.5 rounded-lg text-xs"
                     style={{ background:'var(--color-surface-2)', color:'var(--color-text-secondary)' }}>Cancel</button>
@@ -253,7 +253,7 @@ function InstancesRail() {
     return (
       <button
         onClick={() => navigate('/library?create=1')}
-        title="Create instance"
+        title="Создать сборку"
         className="flex items-center justify-center w-12 h-12 rounded-2xl hover:bg-white/5 transition-colors"
         style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-tertiary)' }}>
         <Plus size={18} />
@@ -282,7 +282,7 @@ function InstancesRail() {
       ))}
       <button
         onClick={() => navigate('/library?create=1')}
-        title="Create instance"
+        title="Создать сборку"
         className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/5 transition-all duration-150 shrink-0"
         style={{ border: '1px dashed var(--color-border)', color: 'var(--color-text-tertiary)' }}>
         <Plus size={16} />
@@ -345,7 +345,7 @@ export function LeftSidebar() {
         <button
           onClick={() => { setShowNotifs(v => !v); setShowAccount(false); }}
           className="group relative flex items-center justify-center w-11 h-11 rounded-xl hover:bg-white/5 transition-all duration-150"
-          title="Notifications">
+          title="Уведомления">
           <Bell size={20} strokeWidth={2} style={{ color: showNotifs ? 'var(--color-primary)' : '#94A3B8' }} />
           {unreadCount > 0 && (
             <span className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full text-[8px] font-bold flex items-center justify-center pointer-events-none"
@@ -384,7 +384,7 @@ export function LeftSidebar() {
       {/* Settings — overlay */}
       <button
         onClick={() => { useUiStore.getState().set('settingsOverlayOpen' as any, true); }}
-        title="Settings"
+        title="Настройки"
         data-testid="nav-settings"
         className="group relative flex items-center justify-center w-11 h-11 rounded-xl hover:bg-white/5 transition-all duration-150">
         <Settings size={18} strokeWidth={2} style={{ color: '#94A3B8' }} />

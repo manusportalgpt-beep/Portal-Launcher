@@ -29,7 +29,7 @@ export function TopBar() {
           aria-label="Поиск модов и сборок"
           className="flex-1 min-w-0 bg-transparent text-sm"
           style={{color:'var(--color-text)',caretColor:'var(--color-primary)'}}
-          placeholder="Search mods, instances..."
+          placeholder="Поиск модов и сборок…"
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={handleSearch}

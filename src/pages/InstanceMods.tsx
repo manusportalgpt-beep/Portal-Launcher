@@ -1203,7 +1203,7 @@ onClick={() => {
                 </span>
                 <div className="w-24 shrink-0 flex justify-end gap-1">
                   {!f.is_dir && (f.kind === 'text' || /\.(json|toml|cfg|properties|txt|log|css|js|ts|mcmeta|yaml|yml)$/i.test(f.name)) && (
-                    <button onClick={() => openEditor(f.path)} title="Edit file"
+                    <button onClick={() => openEditor(f.path)} title="Изменить файл"
                       className="p-1.5 rounded-lg" style={{ background: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>

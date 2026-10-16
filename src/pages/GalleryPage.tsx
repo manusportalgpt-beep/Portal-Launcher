@@ -86,15 +86,15 @@ export function GalleryPage() {
           </p>
         </div>
           <div className="flex items-center gap-2">
-          <button onClick={loadScreenshots} title="Refresh gallery" className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}><RefreshCw className="w-3.5 h-3.5" /></button>
-          {filterInstance !== 'all' && <button onClick={() => openScreenshotsFolder(filterInstance)} title="Open screenshots folder" className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}><Folder className="w-3.5 h-3.5" /></button>}
+          <button onClick={loadScreenshots} title="Обновить галерею" className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}><RefreshCw className="w-3.5 h-3.5" /></button>
+          {filterInstance !== 'all' && <button onClick={() => openScreenshotsFolder(filterInstance)} title="Открыть папку со скриншотами" className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)', color:'var(--color-text-secondary)' }}><Folder className="w-3.5 h-3.5" /></button>}
           {/* Instance filter */}
           <select
             value={filterInstance}
             onChange={e => setFilterInstance(e.target.value)}
             className="px-3 py-1.5 rounded-xl text-xs font-semibold appearance-none cursor-pointer"
             style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}>
-            <option value="all">All instances</option>
+            <option value="all">Все сборки</option>
             {instances.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
           </select>
         </div>
@@ -116,7 +116,7 @@ export function GalleryPage() {
               <Image className="w-10 h-10" style={{ color: 'var(--color-text-tertiary)' }} />
             </div>
             <div className="text-center">
-              <p className="font-bold text-lg" style={{ color: 'var(--color-text)' }}>No screenshots yet</p>
+              <p className="font-bold text-lg" style={{ color: 'var(--color-text)' }}>Скриншотов пока нет</p>
               <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>
                 Screenshots from your Minecraft sessions will appear here.
               </p>
@@ -168,7 +168,7 @@ export function GalleryPage() {
               onClick={e => e.stopPropagation()}>
               <img src={selected.url} alt="" className="w-full rounded-2xl object-contain max-h-[80vh]" />
               <div className="flex items-center justify-between mt-3">
-                <div className="flex items-center gap-2"><p className="text-sm text-white/70">{selected.instanceName}</p><button onClick={() => openScreenshotsFolder(selected.instanceId)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20">Folder</button><button onClick={() => deleteScreenshot(selected)} className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-500/20 hover:bg-red-500/35" title="Delete screenshot"><Trash2 className="w-3.5 h-3.5 text-red-200" /></button></div>
+                <div className="flex items-center gap-2"><p className="text-sm text-white/70">{selected.instanceName}</p><button onClick={() => openScreenshotsFolder(selected.instanceId)} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20">Папка</button><button onClick={() => deleteScreenshot(selected)} className="w-8 h-8 rounded-lg flex items-center justify-center bg-red-500/20 hover:bg-red-500/35" title="Удалить скриншот"><Trash2 className="w-3.5 h-3.5 text-red-200" /></button></div>
 <button onClick={() => setSelectedIdx(null)}
         aria-label="Снять выделение"
         className="w-8 h-8 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20">

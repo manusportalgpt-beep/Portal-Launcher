@@ -468,15 +468,17 @@ export function BottomProgressBar() {
           >
             {/* top progress line */}
             <div className="h-[3px] w-full" style={{ background:'var(--color-surface-2)' }}>
-              <div className="h-full" style={{
-                width:`${pct}%`,
-                background: isError
-                  ? 'var(--color-error)'
-                  : pct >= 100
-                    ? 'var(--color-success)'
-                    : 'var(--color-primary)',
-                transition:'width 0.4s cubic-bezier(0.22,1,0.36,1), background 0.4s ease',
-              }} />
+<div className="h-full" style={{
+        width:'100%',
+        transform:`scaleX(${Math.max(0, Math.min(100, pct)) / 100})`,
+        transformOrigin:'left center',
+        background: isError
+          ? 'var(--color-error)'
+          : pct >= 100
+          ? 'var(--color-success)'
+          : 'var(--color-primary)',
+        transition:'transform 0.4s cubic-bezier(0.22,1,0.36,1), background 0.4s ease',
+      }} />
             </div>
 
             <div className="px-4 py-3">

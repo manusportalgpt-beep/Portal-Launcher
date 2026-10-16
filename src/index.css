@@ -186,7 +186,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 button:active:not(:disabled), [role="button"]:active:not([aria-disabled="true"]) { filter:brightness(0.98); }
 
-.portal-instance-card { isolation:isolate; transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
+.portal-instance-card { isolation:isolate; transition: background-color 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
 .portal-instance-card::before { display:none; }
 .portal-instance-card:hover { border-color:var(--color-border-strong); background:var(--color-surface-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
 .portal-instance-card:active { transform: translateY(0) scale(0.98); }
@@ -379,7 +379,7 @@ select option { background: var(--color-surface-2); color: var(--color-text); }
 @keyframes slideRight { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes badge-pop { 0% { transform: scale(0); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
+@keyframes badge-pop { 0% { opacity: 0; transform: scale(0.95); } 70% { opacity: 1; transform: scale(1.25); } 100% { opacity: 1; transform: scale(1); } }
 @keyframes send-flash { 0% { opacity: 0.5; } 100% { opacity: 0; } }
 @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
 @keyframes install-icon-drop {
@@ -1276,7 +1276,7 @@ html[data-ui-mode="modern"] .flex.rounded-xl[style*="border: 1px solid"] {
 }
 html[data-ui-mode="modern"] .flex.rounded-xl[style*="border: 1px solid"] > button {
   border-radius: calc(var(--modern-radius) - 2px) !important;
-  transition: all 140ms var(--modern-ease) !important;
+  transition: background-color 140ms var(--modern-ease) !important, color 140ms var(--modern-ease) !important, border-color 140ms var(--modern-ease) !important, box-shadow 140ms var(--modern-ease) !important, transform 140ms var(--modern-ease) !important, opacity 140ms var(--modern-ease) !important;
 }
 html[data-ui-mode="modern"] .flex.rounded-xl[style*="border: 1px solid"] > button[style*="background: var(--color-primary)"] {
   box-shadow: 0 1px 4px rgba(218, 42, 63, 0.2);
@@ -1351,7 +1351,7 @@ html[data-ui-mode="modern"] [style*="position: fixed"][style*="z-index: 100"] {
 /* --- Discover filter pills --- */
 html[data-ui-mode="modern"] [style*="1px solid var(--color-border)"][style*="rounded"] {
   border-radius: var(--modern-radius) !important;
-  transition: all 140ms var(--modern-ease) !important;
+  transition: background-color 140ms var(--modern-ease) !important, color 140ms var(--modern-ease) !important, border-color 140ms var(--modern-ease) !important, box-shadow 140ms var(--modern-ease) !important, transform 140ms var(--modern-ease) !important, opacity 140ms var(--modern-ease) !important;
 }
 html[data-ui-mode="modern"] [style*="1px solid var(--color-border)"][style*="rounded"]:hover {
   border-color: var(--modern-border-hover) !important;
@@ -2269,13 +2269,14 @@ html[data-portal-style="oreui"] button[role="switch"] > span {
   height: 16px !important;
   border-radius: 0 !important;
   top: 0 !important;
-  transform: none !important;
+  left: 1px !important;
+  transform: translateX(0) !important;
   background: #d8d8d8 !important;
   box-shadow: none !important;
-  transition: left 90ms linear !important;
+  transition: transform 90ms linear !important;
 }
-html[data-portal-style="oreui"] button[role="switch"][aria-checked="false"] > span { left: 1px !important; }
-html[data-portal-style="oreui"] button[role="switch"][aria-checked="true"] > span { left: 17px !important; }
+html[data-portal-style="oreui"] button[role="switch"][aria-checked="false"] > span { transform: translateX(0) !important; }
+html[data-portal-style="oreui"] button[role="switch"][aria-checked="true"] > span { transform: translateX(16px) !important; }
 html[data-portal-style="oreui"] button[role="switch"]:hover > span {
   background: #e6e6e6 !important;
 }

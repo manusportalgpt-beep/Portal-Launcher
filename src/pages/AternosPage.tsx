@@ -689,6 +689,7 @@ export function AternosPage() {
                 <form onSubmit={e => { e.preventDefault(); void sendCommand(); }}
                   className="flex gap-2 p-2.5 shrink-0" style={{ borderTop: '1px solid var(--color-border)' }}>
                   <input
+                    aria-label="Команда серверу"
                     value={consoleInput}
                     onChange={e => setConsoleInput(e.target.value)}
                     placeholder="/op ник · /gamemode creative · /give …"
@@ -709,6 +710,7 @@ export function AternosPage() {
                 <form onSubmit={e => { e.preventDefault(); void searchCatalog(); }}
                   className="flex gap-2 p-3 shrink-0">
                   <input
+                    aria-label="Поиск по каталогу Modrinth"
                     value={catQuery}
                     onChange={e => setCatQuery(e.target.value)}
                     placeholder="Поиск модов на Modrinth… («fabric api», «create», «sodium»)"
@@ -760,7 +762,7 @@ export function AternosPage() {
                     <span className="flex items-center gap-1.5 text-xs font-bold mb-1.5" style={{ color: 'var(--color-text)' }}>
                       <FileText size={13} /> MOTD
                     </span>
-                    <input value={motd}
+                    <input aria-label="MOTD сервера" value={motd}
                       onChange={e => setMotd(e.target.value)}
                       className="w-full px-3 py-2 rounded-lg text-xs outline-none mb-2"
                       style={{ background: 'var(--color-bg)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
@@ -773,7 +775,7 @@ export function AternosPage() {
                       <Globe size={13} /> Поддомен
                     </span>
                     <div className="flex items-center gap-1.5 mb-2">
-                      <input value={subdomain}
+                      <input aria-label="Поддомен" value={subdomain}
                         onChange={e => setSubdomain(e.target.value)}
                         className="flex-1 px-3 py-2 rounded-lg text-xs outline-none"
                         style={{ background: 'var(--color-bg)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />
@@ -801,7 +803,7 @@ export function AternosPage() {
                       style={{ background: afkOn ? 'var(--color-primary)' : 'var(--color-surface-hover)', color: afkOn ? '#fff' : 'var(--color-text)' }}>
                       <Trophy size={12} /> AFK-бот: {afkOn ? 'ВКЛ' : 'выкл'}
                     </button>
-                    <input value={afkNick}
+                    <input aria-label="Ник для AFK" value={afkNick}
                       onChange={e => setAfkNick(e.target.value)}
                       placeholder="Ник бота"
                       className="w-32 px-2.5 py-1.5 rounded-lg text-[11px] outline-none"
@@ -835,7 +837,7 @@ export function AternosPage() {
             {tab === 'files' && (
               <div className="flex flex-col h-full">
                 <div className="flex gap-2 p-3 shrink-0 items-center">
-                  <input value={filesPath}
+                  <input aria-label="Путь к файлам" value={filesPath}
                     onChange={e => setFilesPath(e.target.value)}
                     placeholder="mods/ или оставьте пустым для корня"
                     className="flex-1 px-3 py-2 rounded-lg text-xs font-mono outline-none"

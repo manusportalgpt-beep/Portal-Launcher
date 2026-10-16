@@ -1638,10 +1638,11 @@ if (bedrockMode) {
                 style={{ background:'var(--color-surface-2)', border:'1px solid var(--color-border)' }}>
                 <Search className="w-4 h-4 shrink-0" style={{ color:'var(--color-text-tertiary)' }} />
                 <input className="flex-1 bg-transparent text-sm"
+                  aria-label={t('findProjects.search', { count: total || undefined, type: t(`findProjects.types.${TYPE_DEFS[projectType].labelKey}`).toLowerCase() })}
                   placeholder={t('findProjects.search', { count: total || undefined, type: t(`findProjects.types.${TYPE_DEFS[projectType].labelKey}`).toLowerCase() })}
                   value={query} onChange={e => setQuery(e.target.value)}
                   style={{ color:'var(--color-text)' }} />
-                {query && <button onClick={() => setQuery('')}><X className="w-3.5 h-3.5" style={{ color:'var(--color-text-tertiary)' }} /></button>}
+                {query && <button onClick={() => setQuery('')} aria-label="Очистить поиск"><X className="w-3.5 h-3.5" style={{ color:'var(--color-text-tertiary)' }} /></button>}
               </div>
               <button onClick={() => { setPage(0); doSearch(query, projectType, platform, sort, 0, selectedCats, selectedLoaders, selectedVersions); }}
                 className="w-10 h-10 flex items-center justify-center rounded-2xl shrink-0"

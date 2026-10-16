@@ -112,8 +112,9 @@ export function BookmarkProjectPicker({ bookmark, onClose, onAdded }: {
             <div className="relative ml-auto min-w-[200px] flex-1">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2"
                 style={{ color: 'var(--color-text-tertiary)' }} />
-              <input
-                value={query}
+<input
+          aria-label="Поиск модов на Modrinth"
+          value={query}
                 onChange={e => { setQuery(e.target.value); setPage(0); }}
                 placeholder="Поиск по Modrinth"
                 className="w-full rounded-lg py-1.5 pl-8 pr-3 text-xs outline-none"

@@ -81,7 +81,7 @@ export function ExtendedSettings() {
             ))}
           </div>
           <div className="mt-3 flex gap-2">
-            <input value={customAccent} onChange={e => setCustomAccent(e.target.value)} placeholder="#DA2A3F"
+            <input aria-label="Свой цвет акцента" value={customAccent} onChange={e => setCustomAccent(e.target.value)} placeholder="#DA2A3F"
               className="w-28 rounded-lg px-3 py-2 text-[11px] font-mono outline-none"
               style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }} />
             <button onClick={() => /^#[0-9a-fA-F]{6}$/.test(customAccent) && applyAccent(customAccent)}

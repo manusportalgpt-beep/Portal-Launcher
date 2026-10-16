@@ -26,6 +26,7 @@ export function TopBar() {
         style={{background:'var(--color-surface-2)',border:'1px solid var(--color-border)'}}>
         <Search className="w-4 h-4 shrink-0" style={{color:'var(--color-text-tertiary)'}} />
         <input
+          aria-label="Поиск модов и сборок"
           className="flex-1 min-w-0 bg-transparent text-sm"
           style={{color:'var(--color-text)',caretColor:'var(--color-primary)'}}
           placeholder="Search mods, instances..."

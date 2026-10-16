@@ -230,8 +230,9 @@ export function BookmarksPage() {
 
           <div className="mt-5 flex items-center gap-3">
             <h3 className="text-sm font-bold" style={{ color: 'var(--color-text)' }}>Модификации</h3>
-            <input
-              value={query}
+<input
+                aria-label="Поиск по закладкам"
+                value={query}
               onChange={e => { setQuery(e.target.value); setPage(0); }}
               placeholder="Поиск по названию или автору"
               className="flex-1 rounded-lg px-3 py-1.5 text-xs outline-none"
@@ -544,6 +545,7 @@ function CreateDialog({ onClose, onCreate }: {
         <h3 className="text-base font-black" style={{ color: 'var(--color-text)' }}>Новая закладка</h3>
         <Field label="Название">
           <input
+            aria-label="Название"
             value={name} onChange={e => setName(e.target.value)} placeholder="Оптимизация для RTX" autoFocus
             className="w-full rounded-lg px-3 py-2 text-sm outline-none"
             style={{ background: 'var(--color-surface-2)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }} />

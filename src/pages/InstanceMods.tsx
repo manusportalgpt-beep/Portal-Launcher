@@ -817,8 +817,9 @@ async function checkInstanceHealth() {
         )}
         <div className="flex-1 relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--color-text-tertiary)' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder={t('instanceContent.search', { count: searchCount, type: t(searchLabelKey) })}
+<input aria-label={t('instanceContent.search', { count: searchCount, type: t(searchLabelKey) })}
+                  value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder={t('instanceContent.search', { count: searchCount, type: t(searchLabelKey) })}
             className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
             style={{ ...cardStyle, color: 'var(--color-text)' }} />
         </div>

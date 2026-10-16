@@ -75,7 +75,7 @@ export function InnovativeDiscover() {
               <div className="flex-1 flex items-center gap-3 rounded-2xl px-5 py-3"
                 style={{ background: 'color-mix(in srgb, var(--color-surface) 72%, transparent)', border: '1px solid var(--color-border)' }}>
                 <Search size={17} style={{ color: 'var(--color-text-tertiary)' }} />
-                <input value={query} onChange={e => setQuery(e.target.value)}
+<input aria-label="Поиск модов и сборок" value={query} onChange={e => setQuery(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && doSearch()}
                   placeholder="Найти моды, паки, шейдеры…"
                   className="flex-1 bg-transparent text-[14px] font-semibold outline-none" style={{ color: 'var(--color-text)' }} />

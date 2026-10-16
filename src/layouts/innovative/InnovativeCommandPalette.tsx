@@ -149,7 +149,7 @@ export function InnovativeCommandPalette({ open, onClose }: { open: boolean; onC
             {/* search */}
             <div className="flex items-center gap-3 border-b px-5 py-4" style={{ borderColor: 'var(--color-border)' }}>
               <Search size={17} style={{ color: 'var(--color-primary)' }} />
-              <input ref={inputRef} value={query} onChange={e => setQuery(e.target.value)}
+              <input ref={inputRef} aria-label="Поиск команды" value={query} onChange={e => setQuery(e.target.value)}
                 placeholder="Что вы хотите сделать?"
                 className="flex-1 bg-transparent text-[15px] font-semibold outline-none"
                 style={{ color: 'var(--color-text)' }} />

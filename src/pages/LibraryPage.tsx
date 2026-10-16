@@ -2255,6 +2255,9 @@ function InstanceDetail({ inst, onDelete, onBack }: { inst: Instance; onDelete: 
         <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background:'var(--color-surface-2)',border:'1px solid var(--color-border)' }}>
           <Search className="w-3.5 h-3.5 shrink-0" style={{ color:'var(--color-text-tertiary)' }} />
           <input className="flex-1 bg-transparent text-xs"
+            aria-label={tab === 'content'
+                ? (items.length > 0 ? t('instancePage.searchProjects', { count: items.length }) : t('instancePage.searchProjectsEmpty'))
+                : tab === 'files' ? t('instancePage.searchFiles') : t('instancePage.searchWorlds')}
             placeholder={
               tab==='content'
                 ? (items.length > 0 ? t('instancePage.searchProjects', { count: items.length }) : t('instancePage.searchProjectsEmpty'))

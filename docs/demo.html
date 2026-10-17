@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Portal Launcher — Web demo</title>
+  <link rel="stylesheet" href="/docs/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/Portal-Launcher/">
+        <img class="logo" src="/docs/logo.svg" alt="Portal Launcher">
+        <span class="brand-title">Portal Launcher — Web demo</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section style="padding:28px 0">
+      <h1>Веб-версия лаунчера — демонстрация интерфейса</h1>
+      <p class="muted">Это UI-демо: Tauri-приложение нельзя напрямую запустить в браузере, но интерфейс можно просмотреть и попробовать основные взаимодействия.</p>
+
+      <div class="demo-grid" style="display:grid;grid-template-columns:1fr 320px;gap:18px;margin-top:18px">
+        <div class="panel" style="background:var(--panel);padding:16px;border-radius:12px">
+          <h3>Библиотека сборок</h3>
+          <ul>
+            <li><strong>My Modpack</strong> — 1.20.1 (Fabric)</li>
+            <li><strong>Vanilla+Shaders</strong> — 1.19.4 (Forge)</li>
+            <li><strong>Old-school</strong> — 1.12.2 (Forge)</li>
+          </ul>
+
+          <h4>Инстанс: My Modpack</h4>
+          <p>RAM: 6 GB · Java: 17 · Mods: 87</p>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn">Запустить</button>
+            <button class="btn ghost">Открыть папку</button>
+          </div>
+        </div>
+
+        <aside class="hero-card">
+          <h4>OpenPortal — агент</h4>
+          <p class="muted">Пример сценария: проверка конфигурации OptiFine + шейдеров, автоматическое исправление JSON и подсказки.</p>
+          <button class="btn" onclick="alert('Agent demo placeholder')">Открыть чат агента</button>
+        </aside>
+      </div>
+
+      <h3 style="margin-top:18px">Поиск модов</h3>
+      <div style="display:flex;gap:8px;margin-bottom:18px">
+        <input placeholder="Поиск по имени мода" style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--text)">
+        <button class="btn">Найти</button>
+      </div>
+
+      <p class="muted">Примечание: функциональность, требующая нативных вызовов (установка Java, запуск игры), не выполняется в браузере — это только визуальная демонстрация.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p class="muted">Demo — визуализация интерфейса. Код лаунчера находится в репозитории.</p>
+    </div>
+  </footer>
+</body>
+</html>

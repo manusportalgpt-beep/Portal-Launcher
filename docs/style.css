@@ -1,32 +1,49 @@
-/* Simple, clean styles for Portal Launcher docs site */
+/* Upgraded styles for Portal Launcher pages — modern, accessible, responsive */
 :root{
-  --bg:#0f1724;
-  --card:#0b1220;
-  --accent:#ff5a5f;
-  --muted:#94a3b8;
+  --bg:#071026;
+  --panel:#0b1220;
+  --muted:#9fb3c9;
+  --muted-2:#7b8794;
+  --accent:#ff6b61;
+  --accent-2:#ff4a9a;
   --text:#e6eef8;
+  --glass: rgba(255,255,255,0.02);
 }
 *{box-sizing:border-box}
-body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:linear-gradient(180deg,#071026 0%, #071426 60%), var(--bg); color:var(--text);}
-.container{max-width:980px;margin:0 auto;padding:28px}
-.site-header{backdrop-filter:blur(6px);border-bottom:1px solid rgba(255,255,255,0.03);}
-.site-header .container{display:flex;align-items:center;gap:20px}
-.logo{height:48px}
-.nav{margin-left:auto;display:flex;gap:18px}
-.nav a{color:var(--muted);text-decoration:none;font-weight:600}
-.hero{padding:64px 0;text-align:center}
-.hero h1{font-size:40px;margin:0 0 8px}
-.lead{color:var(--muted);max-width:720px;margin:0 auto 20px}
-.btn{display:inline-block;background:linear-gradient(90deg,var(--accent),#ff8a76);color:white;padding:12px 18px;border-radius:10px;text-decoration:none;font-weight:700;box-shadow:0 6px 18px rgba(255,90,95,0.12)}
+html,body{height:100%}
+body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:linear-gradient(180deg,#021126 0%, #071026 60%); color:var(--text);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.container{max-width:1100px;margin:0 auto;padding:28px}
+.header-inner{display:flex;align-items:center;gap:18px}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--text)}
+.logo{height:56px;width:56px}
+.brand-title{font-weight:800;font-size:18px}
+.nav{margin-left:20px;display:flex;gap:16px}
+.nav a{color:var(--muted);text-decoration:none;padding:8px;border-radius:8px}
+.nav a:hover{color:var(--text);background:var(--glass)}
+.header-actions{margin-left:auto;display:flex;gap:10px;align-items:center}
+.header-actions select{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,0.04);padding:6px 8px;border-radius:8px}
+.site-header{position:sticky;top:0;backdrop-filter:blur(6px);border-bottom:1px solid rgba(255,255,255,0.03);z-index:40;padding:8px 0}
+.hero{padding:48px 0}
+.hero-grid{display:grid;grid-template-columns:1fr 320px;gap:28px;align-items:start}
+.hero h1{font-size:44px;margin:0 0 12px}
+.lead{color:var(--muted);font-size:18px;margin:0 0 18px}
+.cta-row{display:flex;gap:12px;margin:16px 0}
+.btn{display:inline-block;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white;padding:12px 18px;border-radius:12px;text-decoration:none;font-weight:700;box-shadow:0 8px 30px rgba(255,90,95,0.12)}
 .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--text)}
-.small{color:var(--muted);font-size:13px;margin-top:8px}
-.features{padding:36px 0}
-.features h2{margin-top:0}
-.grid{list-style:none;padding:0;margin:12px 0 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
-.grid li{background:linear-gradient(180deg, rgba(255,255,255,0.012), rgba(255,255,255,0.006));padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.02)}
-.install{padding:30px 0;background:linear-gradient(180deg, rgba(255,255,255,0.00), rgba(255,255,255,0.01));border-top:1px solid rgba(255,255,255,0.02)}
-.install ol{padding-left:18px}
-.build{padding:30px 0}
-pre{background:var(--card);padding:12px;border-radius:8px;color:var(--muted);overflow:auto}
+.btn.large{padding:14px 20px;font-size:16px}
+.hero-card{background:linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.008));padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.02)}
+.why{margin:8px 0;padding-left:18px;color:var(--muted)}
+.muted{color:var(--muted-2);font-size:13px}
+.features{padding:30px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.card{background:linear-gradient(180deg, rgba(255,255,255,0.008), rgba(255,255,255,0.004));padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,0.02)}
+.install{padding:20px 0}
+pre{background:rgba(15,20,30,0.9);padding:12px;border-radius:8px;color:var(--muted)}
+.gallery{padding:24px 0}
+.shots{display:flex;gap:12px}
+.shots figure{flex:1;margin:0;background:var(--panel);padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);text-align:center}
+.shots img{max-width:100%;height:160px;object-fit:contain}
+.faq{padding:18px 0}
 .site-footer{border-top:1px solid rgba(255,255,255,0.03);padding:18px 0;color:var(--muted);text-align:center}
-@media(max-width:640px){.nav{display:none}.hero h1{font-size:28px}}
+@media(max-width:900px){.hero-grid{grid-template-columns:1fr}.nav{display:none}.header-actions{margin-left:0}}
+@media(max-width:560px){.shots img{height:120px}}

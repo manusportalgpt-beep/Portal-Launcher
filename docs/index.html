@@ -5,95 +5,141 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="Portal Launcher — лаунчер Minecraft с проверяющим агентом и удобной установкой. Скачайте инсталлятор или соберите из исходников.">
   <title>Portal Launcher — скачать & установить</title>
+
+  <!-- Open Graph / Twitter -->
+  <meta property="og:title" content="Portal Launcher — скачать & установить">
+  <meta property="og:description" content="Лаунчер Minecraft: управление сборками, модами, шейдерами и встроенный агент, который проверяет сборки перед запуском.">
+  <meta property="og:image" content="/docs/logo.svg">
+  <meta name="twitter:card" content="summary_large_image">
+
   <link rel="stylesheet" href="/docs/style.css">
 </head>
 <body>
   <header class="site-header">
-    <div class="container">
-      <img class="logo" src="/docs/logo.svg" alt="Portal Launcher">
-      <nav class="nav">
-        <a href="#download">Скачать</a>
-        <a href="#features">Возможности</a>
-        <a href="#install">Установка</a>
-        <a href="#build">Сборка</a>
+    <div class="container header-inner">
+      <a class="brand" href="/Portal-Launcher/">
+        <img class="logo" src="/docs/logo.svg" alt="Portal Launcher logo">
+        <span class="brand-title">Portal Launcher</span>
+      </a>
+
+      <nav class="nav" aria-label="Main">
+        <a href="#download" data-i18n="nav.download">Скачать</a>
+        <a href="#features" data-i18n="nav.features">Возможности</a>
+        <a href="#install" data-i18n="nav.install">Установка</a>
+        <a href="/Portal-Launcher/docs/demo.html" data-i18n="nav.demo">Открыть в веб</a>
       </nav>
+
+      <div class="header-actions">
+        <select id="lang" aria-label="language" title="language">
+          <option value="ru">RU</option>
+          <option value="en">EN</option>
+        </select>
+        <button id="download-latest" class="btn">Скачать последний релиз</button>
+      </div>
     </div>
   </header>
 
   <main>
-    <section class="hero">
-      <div class="container">
-        <h1>Portal Launcher</h1>
-        <p class="lead">Лаунчер Minecraft — управление сборками, модами, шейдерами и безопасный агент, который проверяет сборки перед запуском.</p>
-        <p class="cta">
-          <a id="download" class="btn" href="https://github.com/manusportalgpt-beep/Portal-Launcher/releases/latest">Скачать последний релиз</a>
-          <a class="btn ghost" href="https://github.com/manusportalgpt-beep/Portal-Launcher/releases">Все релизы</a>
-        </p>
-        <p class="small">Платформа: Windows (инсталлятор .exe). Если вы используете Linux или macOS — смотрите раздел «Сборка из исходников».</p>
+    <section class="hero container">
+      <div class="hero-grid">
+        <div>
+          <h1 data-i18n="hero.title">Portal Launcher</h1>
+          <p class="lead" data-i18n="hero.lead">Лаунчер Minecraft — управление сборками, модами, шейдерами и безопасный агент, который проверяет сборки перед запуском.</p>
+
+          <div class="cta-row">
+            <a id="download-link" class="btn large" href="#">Скачать последний релиз</a>
+            <a class="btn ghost" href="https://github.com/manusportalgpt-beep/Portal-Launcher/releases" data-i18n="hero.releases">Все релизы</a>
+          </div>
+
+          <p class="small" data-i18n="hero.small">Платформа: Windows (инсталлятор .exe). Для Linux/macOS смотрите «Сборка из исходников».</p>
+
+        </div>
+        <div class="hero-card">
+          <h4 data-i18n="hero.card.title">Почему Portal?</h4>
+          <ul class="why">
+            <li>Агент проверяет сборку — нет «догадок»</li>
+            <li>Импорт/экспорт модпаков: Modrinth, Prism</li>
+            <li>Изоляция инстансов, Java Manager, автообновления</li>
+          </ul>
+          <p class="muted">Последняя версия в репозитории: <span id="latest-tag">—</span></p>
+        </div>
       </div>
     </section>
 
-    <section class="features" id="features">
-      <div class="container">
-        <h2>Ключевые возможности</h2>
-        <ul class="grid">
-          <li>
-            <h3>Поддержка сборок</h3>
-            <p>Fabric, Forge, Quilt, NeoForge; импорт из Modrinth и Prism; экспорт в .mrpack и ZIP.</p>
-          </li>
-          <li>
-            <h3>AI — OpenPortal</h3>
-            <p>Агент анализирует содержимое сборки, не делает догадок и помогает исправлять конфигурации и краши.</p>
-          </li>
-          <li>
-            <h3>Обновления через Releases</h3>
-            <p>Проверка обновлений и автоматическая загрузка установщика из GitHub Releases.</p>
-          </li>
-          <li>
-            <h3>Изоляция инстансов</h3>
-            <p>Каждая сборка — свой профиль с RAM, Java и аргументами.</p>
-          </li>
-        </ul>
+    <section class="container features" id="features">
+      <h2 data-i18n="features.title">Ключевые возможности</h2>
+      <div class="cards">
+        <article class="card">
+          <h3>Поддержка сборок</h3>
+          <p>Fabric, Forge, Quilt, NeoForge; импорт из Modrinth и Prism; экспорт в .mrpack и ZIP.</p>
+        </article>
+        <article class="card">
+          <h3>OpenPortal — агент</h3>
+          <p>Агент анализирует содержимое сборки, не делает догадок и помогает исправлять конфиги и краши.</p>
+        </article>
+        <article class="card">
+          <h3>Обновления через Releases</h3>
+          <p>Автоматическая проверка релизов, загрузка инсталлятора из GitHub Releases.</p>
+        </article>
+        <article class="card">
+          <h3>Инстансы и Java</h3>
+          <p>Изоляция, RAM и Java per-instance, встроенный Java Manager.</p>
+        </article>
       </div>
     </section>
 
-    <section class="install" id="install">
-      <div class="container">
-        <h2>Как скачать и установить</h2>
-        <ol>
-          <li>Откройте страницу релизов: <a href="https://github.com/manusportalgpt-beep/Portal-Launcher/releases/latest">Releases › Последний релиз</a>.</li>
-          <li>Найдите файл с расширением <code>.exe</code> — это инсталлятор для Windows. Если .exe нет, в релизе должен быть ZIP с портативной сборкой.</li>
-          <li>Скачайте файл и запустите инсталлятор. Инсталлятор поставит Portal Launcher в систему и добавит ярлык на рабочий стол.</li>
-          <li>После установки откройте программу, она сама предложит проверить обновления и предложит загрузить дополнительные компоненты (Java, лоадеры и т. п.).</li>
-        </ol>
+    <section class="container install" id="install">
+      <h2 data-i18n="install.title">Как скачать и установить</h2>
+      <ol>
+        <li data-i18n="install.step1">Откройте страницу релизов: <a href="https://github.com/manusportalgpt-beep/Portal-Launcher/releases/latest">Releases › Последний релиз</a>.</li>
+        <li data-i18n="install.step2">Найдите файл с расширением <code>.exe</code> — это инсталлятор для Windows. Если .exe нет — используйте ZIP.</li>
+        <li data-i18n="install.step3">Скачайте и запустите инсталлятор. Следуйте инструкциям установщика.</li>
+        <li data-i18n="install.step4">После установки откройте программу — она предложит загрузить Java и необходимые лоадеры.</li>
+      </ol>
 
-        <h3>Если вы хотите скачать напрямую</h3>
-        <p>Мы рекомендуем пользоваться страницей релизов. Если нужен прямой доступ к артефакту, откройте релиз и скачайте нужный файл. Политика релизов и формат — описаны в <a href="https://github.com/manusportalgpt-beep/Portal-Launcher/blob/main/README.md#как-работают-обновления">README » Как работают обновления</a>.</p>
-      </div>
-    </section>
+      <h3 data-i18n="install.direct">Скачать напрямую</h3>
+      <p data-i18n="install.direct.desc">Нажмите кнопку «Скачать последний релиз» — сайт попытается автоматически найти файл .exe (или ZIP) в latest release и предложит прямую ссылку.</p>
 
-    <section class="build" id="build">
-      <div class="container">
-        <h2>Сборка из исходников</h2>
-        <p>Подходит для Linux / macOS и продвинутых пользователей. Быстрая инструкция из README:</p>
-        <pre><code>pnpm install
+      <h3 data-i18n="build.title">Сборка из исходников</h3>
+      <pre><code>pnpm install
 pnpm tauri dev      # запуск в режиме разработки
 pnpm tauri build    # сборка релизной версии
 
 # фронтенд отдельно
 pnpm build</code></pre>
-        <p>Требования: Node.js 20+, pnpm, Rust, Tauri prerequisites (Visual Studio Build Tools на Windows, webkit2gtk на Linux, Xcode CLT на macOS). Подробно: <a href="https://github.com/manusportalgpt-beep/Portal-Launcher/blob/main/README.md#сборка-из-исходников">README » Сборка из исходников</a>.</p>
+      <p class="muted" data-i18n="build.note">Требования: Node.js 20+, pnpm, Rust и Tauri prerequisites. Подробно — в README репозитория.</p>
+    </section>
+
+    <section class="container gallery" id="gallery">
+      <h2 data-i18n="gallery.title">Галерея</h2>
+      <div class="shots">
+        <figure><img src="/docs/logo.svg" alt="Placeholder screenshot"><figcaption>Интерфейс — демо</figcaption></figure>
+        <figure><img src="/docs/logo.svg" alt="Placeholder screenshot"><figcaption>Сборки и лоадеры</figcaption></figure>
+        <figure><img src="/docs/logo.svg" alt="Placeholder screenshot"><figcaption>OpenPortal — агент</figcaption></figure>
       </div>
+    </section>
+
+    <section class="container faq" id="faq">
+      <h2>FAQ</h2>
+      <details>
+        <summary>Можно ли запустить лаунчер на Linux или macOS?</summary>
+        <p>Да — соберите из исходников (см. раздел Сборка). На Linux нужен webkit2gtk, на macOS — Xcode CLT.</p>
+      </details>
+      <details>
+        <summary>Как добавлять моды?</summary>
+        <p>Через интерфейс сборки или импорт из Modrinth/CurseForge/Prism.</p>
+      </details>
     </section>
 
   </main>
 
   <footer class="site-footer">
     <div class="container">
-      <p>Portal Launcher — <a href="https://github.com/manusportalgpt-beep/Portal-Launcher">репозиторий на GitHub</a> · <a href="https://github.com/manusportalgpt-beep/Portal-Launcher/blob/main/LICENSE">Лицензия</a></p>
-      <p><a href="https://github.com/manusportalgpt-beep/Portal-Launcher/blob/main/CHANGELOG.md">CHANGELOG</a> · <a href="https://github.com/manusportalgpt-beep/Portal-Launcher/blob/main/PRIVACY_POLICY.md">PRIVACY POLICY</a> · <a href="https://github.com/manusportalgpt-beep/Portal-Launcher/blob/main/TERMS_OF_SERVICE.md">TOS</a></p>
+      <p>© Portal Launcher — <a href="https://github.com/manusportalgpt-beep/Portal-Launcher">репозиторий</a> · <a href="/Portal-Launcher/blob/main/LICENSE">Лицензия</a></p>
+      <p class="muted">Analytics: <label><input type="checkbox" id="analytics-optin"> Включить (опционально)</label></p>
     </div>
   </footer>
 
+  <script src="/docs/app.js"></script>
 </body>
 </html>

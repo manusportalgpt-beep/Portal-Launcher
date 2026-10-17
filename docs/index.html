@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Portal Launcher — лаунчер Minecraft с проверяющим агентом и удобной установкой. Скачайте инсталлятор или соберите из исходников.">
+  <title>Portal Launcher — скачать & установить</title>
+  <link rel="stylesheet" href="/docs/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <img class="logo" src="/docs/logo.svg" alt="Portal Launcher">
+      <nav class="nav">
+        <a href="#download">Скачать</a>
+        <a href="#features">Возможности</a>
+        <a href="#install">Установка</a>
+        <a href="#build">Сборка</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <h1>Portal Launcher</h1>
+        <p class="lead">Лаунчер Minecraft — управление сборками, модами, шейдерами и безопасный агент, который проверяет сборки перед запуском.</p>
+        <p class="cta">
+          <a id="download" class="btn" href="https://github.com/manusportalgpt-beep/Portal-Launcher/releases/latest">Скачать последний релиз</a>
+          <a class="btn ghost" href="https://github.com/manusportalgpt-beep/Portal-Launcher/releases">Все релизы</a>
+        </p>
+        <p class="small">Платформа: Windows (инсталлятор .exe). Если вы используете Linux или macOS — смотрите раздел «Сборка из исходников».</p>
+      </div>
+    </section>
+
+    <section class="features" id="features">
+      <div class="container">
+        <h2>Ключевые возможности</h2>
+        <ul class="grid">
+          <li>
+            <h3>Поддержка сборок</h3>
+            <p>Fabric, Forge, Quilt, NeoForge; импорт из Modrinth и Prism; экспорт в .mrpack и ZIP.</p>
+          </li>
+          <li>
+            <h3>AI — OpenPortal</h3>
+            <p>Агент анализирует содержимое сборки, не делает догадок и помогает исправлять конфигурации и краши.</p>
+          </li>
+          <li>
+            <h3>Обновления через Releases</h3>
+            <p>Проверка обновлений и автоматическая загрузка установщика из GitHub Releases.</p>
+          </li>
+          <li>
+            <h3>Изоляция инстансов</h3>
+            <p>Каждая сборка — свой профиль с RAM, Java и аргументами.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="install" id="install">
+      <div class="container">
+        <h2>Как скачать и установить</h2>
+        <ol>
+          <li>Откройте страницу релизов: <a href="https://github.com/manusportalgpt-beep/Portal-Launcher/releases/latest">Releases › Последний релиз</a>.</li>
+          <li>Найдите файл с расширением <code>.exe</code> — это инсталлятор для Windows. Если .exe нет, в релизе должен быть ZIP с портативной сборкой.</li>
+          <li>Скачайте файл и запустите инсталлятор. Инсталлятор поставит Portal Launcher в систему и добавит ярлык на рабочий стол.</li>
+          <li>После установки откройте программу, она сама предложит проверить обновления и предложит загрузить дополнительные компоненты (Java, лоадеры и т. п.).</li>
+        </ol>
+
+        <h3>Если вы хотите скачать напрямую</h3>
+        <p>Мы рекомендуем пользоваться страницей релизов. Если нужен прямой доступ к артефакту, откройте релиз и скачайте нужный файл. Политика релизов и формат — описаны в <a href="https://github.com/manusportalgpt-beep/Portal-Launcher/blob/main/README.md#как-работают-обновления">README » Как работают обновления</a>.</p>
+      </div>
+    </section>
+
+    <section class="build" id="build">
+      <div class="container">
+        <h2>Сборка из исходников</h2>
+        <p>Подходит для Linux / macOS и продвинутых пользователей. Быстрая инструкция из README:</p>
+        <pre><code>pnpm install
+pnpm tauri dev      # запуск в режиме разработки
+pnpm tauri build    # сборка релизной версии
+
+# фронтенд отдельно
+pnpm build</code></pre>
+        <p>Требования: Node.js 20+, pnpm, Rust, Tauri prerequisites (Visual Studio Build Tools на Windows, webkit2gtk на Linux, Xcode CLT на macOS). Подробно: <a href="https://github.com/manusportalgpt-beep/Portal-Launcher/blob/main/README.md#сборка-из-исходников">README » Сборка из исходников</a>.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Portal Launcher — <a href="https://github.com/manusportalgpt-beep/Portal-Launcher">репозиторий на GitHub</a> · <a href="https://github.com/manusportalgpt-beep/Portal-Launcher/blob/main/LICENSE">Лицензия</a></p>
+      <p><a href="https://github.com/manusportalgpt-beep/Portal-Launcher/blob/main/CHANGELOG.md">CHANGELOG</a> · <a href="https://github.com/manusportalgpt-beep/Portal-Launcher/blob/main/PRIVACY_POLICY.md">PRIVACY POLICY</a> · <a href="https://github.com/manusportalgpt-beep/Portal-Launcher/blob/main/TERMS_OF_SERVICE.md">TOS</a></p>
+    </div>
+  </footer>
+
+</body>
+</html>
